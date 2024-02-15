@@ -32,6 +32,15 @@ DEB_CMAKE_EXTRA_FLAGS = \
     -DWITH_PCSC=ON \
     -DWITH_JPEG=ON \
     -DWITH_KERBEROS=ON \
+    -DWITH_CLANG_FORMAT=OFF \
+    -DWITH_OPUS=ON \
+    -DWITH_SAMPLE=OFF \
+    -DWITH_OPENSC_PKCS11_LINKED=OFF \
+    -DWITH_VAAPI=OFF \
+    -WITH_SMARTCARD_EMULATE=ON \
+    -DRDTK_FORCE_STATIC_BUILD=ON \
+    -DUWAC_FORCE_STATIC_BUILD=ON \
+    -DWITH_BINARY_VERSIONING=ON \
     $(empty)
 
 ifneq (,$(filter armel,$(DEB_HOST_ARCH)))
@@ -44,6 +53,7 @@ ifneq (,$(filter linux,$(DEB_HOST_ARCH_OS)))
     DEB_CMAKE_EXTRA_FLAGS += \
         -DCHANNEL_URBDRC=ON \
         -DCHANNEL_URBDRC_CLIENT=ON \
+        -DWITH_WAYLAND=ON \
         $(empty)
 else
     DEB_CMAKE_EXTRA_FLAGS += \
@@ -59,11 +69,17 @@ else
 endif
 
 # Ubuntu can't have ffmpeg in main
+# Ubuntu doesn't yet have cjson or pkcs11-helper
+# or uriparser in main
 ifeq ($(shell dpkg-vendor --is Ubuntu && echo yes),yes)
     DEB_CMAKE_EXTRA_FLAGS += \
+        -DWITH_AAD=OFF \
         -DWITH_FFMPEG=OFF \
         -DWITH_GSM=OFF \
         -DWITH_CAIRO=ON \
+        -DWITH_PKCS11=OFF \
+        -DWITH_SWSCALE=OFF \
+        -DWITH_URIPARSER=OFF \
         $(empty)
 else
     DEB_CMAKE_EXTRA_FLAGS += \
@@ -91,7 +107,11 @@ override_dh_auto_configure:
 	sed -E -i \
 	    -e "s$(xSEDx)$${o}=[^=]+=\. $(xSEDx)$(xSEDx)g;" \
 	    -e "s$(xSEDx) $${o}=[^=]+=\.$(xSEDx)$(xSEDx)g;" \
-	obj-$(DEB_HOST_GNU_TYPE)/buildflags.h
+	obj-$(DEB_HOST_GNU_TYPE)/include/freerdp/buildflags.h
+	sed -E -i \
+	    -e "s$(xSEDx)$${o}=[^=]+=\. $(xSEDx)$(xSEDx)g;" \
+	    -e "s$(xSEDx) $${o}=[^=]+=\.$(xSEDx)$(xSEDx)g;" \
+	obj-$(DEB_HOST_GNU_TYPE)/winpr/include/winpr/buildflags.h
 	# remove unused config define (not packaging freerdp-proxy so far).
 	# fixes build path leakage.
 	# NB: mangle that define to something like
