@@ -1,4 +1,4 @@
-Source: freerdp2
+Source: freerdp3
 Section: x11
 Priority: optional
 Maintainer: Debian Remote Maintainers <debian-remote@lists.debian.org>
