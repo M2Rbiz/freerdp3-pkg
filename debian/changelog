@@ -1,10 +1,15 @@
-freerdp3 (3.3.0+dfsg1-1) UNRELEASED; urgency=medium
+freerdp3 (3.3.0+dfsg1-1) experimental; urgency=medium
 
   * Team upload
   * New upstream release (Closes: #1056992)
-  * Rename source package
+  * Rename source package & update binary package names
+  * Update symbols files
+  * Add Build-Depends: libcjson-dev, libfuse3-dev, libopus-dev,
+    libpkcs11-helper1-dev, libswresample-dev, liburiparser-dev
+  * Add Build-Depends dpkg-dev >= 1.22.5
+  * Compile libuwac as static to avoid conflict with freerdp2
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Sun, 10 Mar 2024 16:59:19 -0500
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Sun, 10 Mar 2024 18:22:28 -0400
 
 freerdp2 (2.11.2+dfsg1-1) unstable; urgency=medium
 
