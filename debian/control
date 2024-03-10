@@ -87,8 +87,6 @@ Description: RDP client for Windows Terminal Services (X11 client)
 Package: libfreerdp3-3
 Architecture: any
 Section: libs
-Pre-Depends:
- ${misc:Pre-Depends},
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
@@ -105,8 +103,6 @@ Description: Free Remote Desktop Protocol library (core library)
 Package: libfreerdp-client3-3
 Architecture: any
 Section: libs
-Pre-Depends:
- ${misc:Pre-Depends},
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
@@ -121,8 +117,6 @@ Description: Free Remote Desktop Protocol library (client library)
 Package: libfreerdp-server3-3
 Architecture: any
 Section: libs
-Pre-Depends:
- ${misc:Pre-Depends},
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
@@ -137,8 +131,6 @@ Description: Free Remote Desktop Protocol library (server library)
 Package: libwinpr3-3
 Architecture: any
 Section: libs
-Pre-Depends:
- ${misc:Pre-Depends},
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
@@ -160,8 +152,6 @@ Description: Windows Portable Runtime library
 Package: libwinpr-tools3-3
 Architecture: any
 Section: libs
-Pre-Depends:
- ${misc:Pre-Depends},
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
@@ -236,8 +226,6 @@ Description: Windows Portable Runtime library command line utilities
 Package: libfreerdp-shadow3-3
 Architecture: any
 Section: libs
-Pre-Depends:
- ${misc:Pre-Depends},
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
@@ -253,8 +241,6 @@ Description: FreeRDP Remote Desktop Protocol shadow libraries
 Package: libfreerdp-shadow-subsystem3-3
 Architecture: any
 Section: libs
-Pre-Depends:
- ${misc:Pre-Depends},
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
