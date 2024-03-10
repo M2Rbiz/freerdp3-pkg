@@ -20,12 +20,18 @@
 #ifndef WINPR_SSPI_NTLM_AV_PAIRS_H
 #define WINPR_SSPI_NTLM_AV_PAIRS_H
 
+#include <winpr/config.h>
+
 #include "ntlm.h"
 
 #include <winpr/stream.h>
 
 ULONG ntlm_av_pair_list_length(NTLM_AV_PAIR* pAvPairList, size_t cbAvPairList);
+
+#ifdef WITH_DEBUG_NTLM
 void ntlm_print_av_pair_list(NTLM_AV_PAIR* pAvPairList, size_t cbAvPairList);
+#endif
+
 PBYTE ntlm_av_pair_get_value_pointer(NTLM_AV_PAIR* pAvPair);
 NTLM_AV_PAIR* ntlm_av_pair_get(NTLM_AV_PAIR* pAvPairList, size_t cbAvPairList, NTLM_AV_ID AvId,
                                size_t* pcbAvPairListRemaining);

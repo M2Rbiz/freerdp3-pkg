@@ -16,9 +16,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include "shadow.h"
 
@@ -36,14 +34,14 @@ UINT shadow_client_channels_post_connect(rdpShadowClient* client)
 		shadow_client_remdesk_init(client);
 	}
 
-	if (WTSVirtualChannelManagerIsChannelJoined(client->vcm, "rdpsnd"))
+	if (WTSVirtualChannelManagerIsChannelJoined(client->vcm, RDPSND_CHANNEL_NAME))
 	{
 		shadow_client_rdpsnd_init(client);
 	}
 
 	shadow_client_audin_init(client);
 
-	if (client->context.settings->SupportGraphicsPipeline)
+	if (freerdp_settings_get_bool(client->context.settings, FreeRDP_SupportGraphicsPipeline))
 	{
 		shadow_client_rdpgfx_init(client);
 	}
@@ -53,7 +51,7 @@ UINT shadow_client_channels_post_connect(rdpShadowClient* client)
 
 void shadow_client_channels_free(rdpShadowClient* client)
 {
-	if (client->context.settings->SupportGraphicsPipeline)
+	if (freerdp_settings_get_bool(client->context.settings, FreeRDP_SupportGraphicsPipeline))
 	{
 		shadow_client_rdpgfx_uninit(client);
 	}

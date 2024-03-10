@@ -50,40 +50,43 @@ static BOOL check(const wLogMessage* msg)
 	return rc;
 }
 
-BOOL CallbackAppenderMessage(const wLogMessage* msg)
+static BOOL CallbackAppenderMessage(const wLogMessage* msg)
 {
 	check(msg);
 	return TRUE;
 }
 
-BOOL CallbackAppenderData(const wLogMessage* msg)
+static BOOL CallbackAppenderData(const wLogMessage* msg)
 {
-	fprintf(stdout, "%s\n", __FUNCTION__);
+	fprintf(stdout, "%s\n", __func__);
 	return TRUE;
 }
 
-BOOL CallbackAppenderImage(const wLogMessage* msg)
+static BOOL CallbackAppenderImage(const wLogMessage* msg)
 {
-	fprintf(stdout, "%s\n", __FUNCTION__);
+	fprintf(stdout, "%s\n", __func__);
 	return TRUE;
 }
 
-BOOL CallbackAppenderPackage(const wLogMessage* msg)
+static BOOL CallbackAppenderPackage(const wLogMessage* msg)
 {
-	fprintf(stdout, "%s\n", __FUNCTION__);
+	fprintf(stdout, "%s\n", __func__);
 	return TRUE;
 }
 
 int TestWLogCallback(int argc, char* argv[])
 {
-	wLog* root;
-	wLog* logA;
-	wLog* logB;
-	wLogLayout* layout;
-	wLogAppender* appender;
+	wLog* root = NULL;
+	wLog* logA = NULL;
+	wLog* logB = NULL;
+	wLogLayout* layout = NULL;
+	wLogAppender* appender = NULL;
 	wLogCallbacks callbacks;
 
-	function = __FUNCTION__;
+	WINPR_UNUSED(argc);
+	WINPR_UNUSED(argv);
+
+	function = __func__;
 
 	root = WLog_GetRoot();
 

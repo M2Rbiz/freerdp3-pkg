@@ -96,10 +96,7 @@
 #define BoolValueTrue ((LPSTR)1)
 #define BoolValueFalse ((LPSTR)0)
 
-typedef struct _COMMAND_LINE_ARGUMENT_A COMMAND_LINE_ARGUMENT_A;
-typedef struct _COMMAND_LINE_ARGUMENT_W COMMAND_LINE_ARGUMENT_W;
-
-struct _COMMAND_LINE_ARGUMENT_A
+typedef struct
 {
 	LPCSTR Name;
 	DWORD Flags;
@@ -109,9 +106,9 @@ struct _COMMAND_LINE_ARGUMENT_A
 	LONG Index;
 	LPCSTR Alias;
 	LPCSTR Text;
-};
+} COMMAND_LINE_ARGUMENT_A;
 
-struct _COMMAND_LINE_ARGUMENT_W
+typedef struct
 {
 	LPCWSTR Name;
 	DWORD Flags;
@@ -121,7 +118,7 @@ struct _COMMAND_LINE_ARGUMENT_W
 	LONG Index;
 	LPCWSTR Alias;
 	LPCWSTR Text;
-};
+} COMMAND_LINE_ARGUMENT_W;
 
 #ifdef UNICODE
 #define COMMAND_LINE_ARGUMENT COMMAND_LINE_ARGUMENT_W
@@ -152,18 +149,22 @@ extern "C"
 	                                         void* context, COMMAND_LINE_PRE_FILTER_FN_W preFilter,
 	                                         COMMAND_LINE_POST_FILTER_FN_W postFilter);
 
-	WINPR_API COMMAND_LINE_ARGUMENT_A* CommandLineFindArgumentA(COMMAND_LINE_ARGUMENT_A* options,
-	                                                            LPCSTR Name);
-	WINPR_API COMMAND_LINE_ARGUMENT_W* CommandLineFindArgumentW(COMMAND_LINE_ARGUMENT_W* options,
-	                                                            LPCWSTR Name);
+	WINPR_API const COMMAND_LINE_ARGUMENT_A*
+	CommandLineFindArgumentA(const COMMAND_LINE_ARGUMENT_A* options, LPCSTR Name);
+	WINPR_API const COMMAND_LINE_ARGUMENT_W*
+	CommandLineFindArgumentW(const COMMAND_LINE_ARGUMENT_W* options, LPCWSTR Name);
 
-	WINPR_API COMMAND_LINE_ARGUMENT_A*
-	CommandLineFindNextArgumentA(COMMAND_LINE_ARGUMENT_A* argument);
+	WINPR_API const COMMAND_LINE_ARGUMENT_A*
+	CommandLineFindNextArgumentA(const COMMAND_LINE_ARGUMENT_A* argument);
 
 	WINPR_API char** CommandLineParseCommaSeparatedValues(const char* list, size_t* count);
 
 	WINPR_API char** CommandLineParseCommaSeparatedValuesEx(const char* name, const char* list,
 	                                                        size_t* count);
+
+	WINPR_API char* CommandLineToCommaSeparatedValues(int argc, char* argv[]);
+	WINPR_API char* CommandLineToCommaSeparatedValuesEx(int argc, char* argv[],
+	                                                    const char* filters[], size_t number);
 
 #ifdef __cplusplus
 }

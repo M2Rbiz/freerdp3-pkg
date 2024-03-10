@@ -22,7 +22,7 @@
 
 #if defined __linux__ && !defined ANDROID
 
-#include <assert.h>
+#include <winpr/assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -48,7 +48,7 @@
 #define TTY_THRESHOLD_UNTHROTTLE 128
 #define N_TTY_BUF_SIZE 4096
 
-#define _BAUD_TABLE_END 0010020 /* __MAX_BAUD + 1 */
+#define BAUD_TABLE_END 0010020 /* __MAX_BAUD + 1 */
 
 /* 0: B* (Linux termios)
  * 1: CBR_* or actual baud rate
@@ -153,13 +153,11 @@ static const speed_t _BAUD_TABLE[][3] = {
 #ifdef B4000000
 	{ B4000000, 4000000, BAUD_USER }, /* __MAX_BAUD */
 #endif
-	{ _BAUD_TABLE_END, 0, 0 }
+	{ BAUD_TABLE_END, 0, 0 }
 };
 
 static BOOL _get_properties(WINPR_COMM* pComm, COMMPROP* pProperties)
 {
-	int i;
-
 	/* http://msdn.microsoft.com/en-us/library/windows/hardware/jj680684%28v=vs.85%29.aspx
 	 * http://msdn.microsoft.com/en-us/library/windows/desktop/aa363189%28v=vs.85%29.aspx
 	 */
@@ -167,7 +165,7 @@ static BOOL _get_properties(WINPR_COMM* pComm, COMMPROP* pProperties)
 	/* FIXME: properties should be better probed. The current
 	 * implementation just relies on the Linux' implementation.
 	 */
-
+	WINPR_ASSERT(pProperties);
 	if (pProperties->dwProvSpec1 != COMMPROP_INITIALIZED)
 	{
 		ZeroMemory(pProperties, sizeof(COMMPROP));
@@ -200,7 +198,7 @@ static BOOL _get_properties(WINPR_COMM* pComm, COMMPROP* pProperties)
 	                                SP_PARITY_CHECK | /*SP_RLSD |*/ SP_STOPBITS;
 
 	pProperties->dwSettableBaud = 0;
-	for (i = 0; _BAUD_TABLE[i][0] < _BAUD_TABLE_END; i++)
+	for (int i = 0; _BAUD_TABLE[i][0] < BAUD_TABLE_END; i++)
 	{
 		pProperties->dwSettableBaud |= _BAUD_TABLE[i][2];
 	}
@@ -224,8 +222,7 @@ static BOOL _get_properties(WINPR_COMM* pComm, COMMPROP* pProperties)
 
 static BOOL _set_baud_rate(WINPR_COMM* pComm, const SERIAL_BAUD_RATE* pBaudRate)
 {
-	int i;
-	speed_t newSpeed;
+	speed_t newSpeed = 0;
 	struct termios futureState;
 
 	ZeroMemory(&futureState, sizeof(struct termios));
@@ -236,7 +233,7 @@ static BOOL _set_baud_rate(WINPR_COMM* pComm, const SERIAL_BAUD_RATE* pBaudRate)
 		return FALSE;
 	}
 
-	for (i = 0; _BAUD_TABLE[i][0] < _BAUD_TABLE_END; i++)
+	for (int i = 0; _BAUD_TABLE[i][0] < BAUD_TABLE_END; i++)
 	{
 		if (_BAUD_TABLE[i][1] == pBaudRate->BaudRate)
 		{
@@ -248,7 +245,7 @@ static BOOL _set_baud_rate(WINPR_COMM* pComm, const SERIAL_BAUD_RATE* pBaudRate)
 				return FALSE;
 			}
 
-			assert(cfgetispeed(&futureState) == newSpeed);
+			WINPR_ASSERT(cfgetispeed(&futureState) == newSpeed);
 
 			if (_comm_ioctl_tcsetattr(pComm->fd, TCSANOW, &futureState) < 0)
 			{
@@ -269,8 +266,7 @@ static BOOL _set_baud_rate(WINPR_COMM* pComm, const SERIAL_BAUD_RATE* pBaudRate)
 
 static BOOL _get_baud_rate(WINPR_COMM* pComm, SERIAL_BAUD_RATE* pBaudRate)
 {
-	int i;
-	speed_t currentSpeed;
+	speed_t currentSpeed = 0;
 	struct termios currentState;
 
 	ZeroMemory(&currentState, sizeof(struct termios));
@@ -282,7 +278,7 @@ static BOOL _get_baud_rate(WINPR_COMM* pComm, SERIAL_BAUD_RATE* pBaudRate)
 
 	currentSpeed = cfgetispeed(&currentState);
 
-	for (i = 0; _BAUD_TABLE[i][0] < _BAUD_TABLE_END; i++)
+	for (int i = 0; _BAUD_TABLE[i][0] < BAUD_TABLE_END; i++)
 	{
 		if (_BAUD_TABLE[i][0] == currentSpeed)
 		{
@@ -893,8 +889,9 @@ static BOOL _set_lines(WINPR_COMM* pComm, UINT32 lines)
 {
 	if (ioctl(pComm->fd, TIOCMBIS, &lines) < 0)
 	{
+		char ebuffer[256] = { 0 };
 		CommLog_Print(WLOG_WARN, "TIOCMBIS ioctl failed, lines=0x%" PRIX32 ", errno=[%d] %s", lines,
-		              errno, strerror(errno));
+		              errno, winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		SetLastError(ERROR_IO_DEVICE);
 		return FALSE;
 	}
@@ -906,8 +903,9 @@ static BOOL _clear_lines(WINPR_COMM* pComm, UINT32 lines)
 {
 	if (ioctl(pComm->fd, TIOCMBIC, &lines) < 0)
 	{
+		char ebuffer[256] = { 0 };
 		CommLog_Print(WLOG_WARN, "TIOCMBIC ioctl failed, lines=0x%" PRIX32 ", errno=[%d] %s", lines,
-		              errno, strerror(errno));
+		              errno, winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		SetLastError(ERROR_IO_DEVICE);
 		return FALSE;
 	}
@@ -922,7 +920,7 @@ static BOOL _set_dtr(WINPR_COMM* pComm)
 		return FALSE;
 
 	/* SERIAL_DTR_HANDSHAKE not supported as of today */
-	assert((handflow.ControlHandShake & SERIAL_DTR_HANDSHAKE) == 0);
+	WINPR_ASSERT((handflow.ControlHandShake & SERIAL_DTR_HANDSHAKE) == 0);
 
 	if (handflow.ControlHandShake & SERIAL_DTR_HANDSHAKE)
 	{
@@ -940,7 +938,7 @@ static BOOL _clear_dtr(WINPR_COMM* pComm)
 		return FALSE;
 
 	/* SERIAL_DTR_HANDSHAKE not supported as of today */
-	assert((handflow.ControlHandShake & SERIAL_DTR_HANDSHAKE) == 0);
+	WINPR_ASSERT((handflow.ControlHandShake & SERIAL_DTR_HANDSHAKE) == 0);
 
 	if (handflow.ControlHandShake & SERIAL_DTR_HANDSHAKE)
 	{
@@ -986,7 +984,9 @@ static BOOL _get_modemstatus(WINPR_COMM* pComm, ULONG* pRegister)
 	UINT32 lines = 0;
 	if (ioctl(pComm->fd, TIOCMGET, &lines) < 0)
 	{
-		CommLog_Print(WLOG_WARN, "TIOCMGET ioctl failed, errno=[%d] %s", errno, strerror(errno));
+		char ebuffer[256] = { 0 };
+		CommLog_Print(WLOG_WARN, "TIOCMGET ioctl failed, errno=[%d] %s", errno,
+		              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		SetLastError(ERROR_IO_DEVICE);
 		return FALSE;
 	}
@@ -1029,22 +1029,22 @@ static const ULONG _SERIAL_SYS_SUPPORTED_EV_MASK =
 
 static BOOL _set_wait_mask(WINPR_COMM* pComm, const ULONG* pWaitMask)
 {
-	ULONG possibleMask;
+	ULONG possibleMask = 0;
 
 	/* Stops pending IOCTL_SERIAL_WAIT_ON_MASK
 	 * http://msdn.microsoft.com/en-us/library/ff546805%28v=vs.85%29.aspx
 	 */
 
-	if (pComm->PendingEvents & SERIAL_EV_FREERDP_WAITING)
+	if (pComm->PendingEvents & SERIAL_EV_WINPR_WAITING)
 	{
 		/* FIXME: any doubt on reading PendingEvents out of a critical section? */
 
 		EnterCriticalSection(&pComm->EventsLock);
-		pComm->PendingEvents |= SERIAL_EV_FREERDP_STOP;
+		pComm->PendingEvents |= SERIAL_EV_WINPR_STOP;
 		LeaveCriticalSection(&pComm->EventsLock);
 
 		/* waiting the end of the pending _wait_on_mask() */
-		while (pComm->PendingEvents & SERIAL_EV_FREERDP_WAITING)
+		while (pComm->PendingEvents & SERIAL_EV_WINPR_WAITING)
 			Sleep(10); /* 10ms */
 	}
 
@@ -1057,8 +1057,9 @@ static BOOL _set_wait_mask(WINPR_COMM* pComm, const ULONG* pWaitMask)
 
 		if (ioctl(pComm->fd, TIOCGICOUNT, &(pComm->counters)) < 0)
 		{
+			char ebuffer[256] = { 0 };
 			CommLog_Print(WLOG_WARN, "TIOCGICOUNT ioctl failed, errno=[%d] %s.", errno,
-			              strerror(errno));
+			              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 
 			if (pComm->permissive)
 			{
@@ -1146,15 +1147,16 @@ static BOOL _purge(WINPR_COMM* pComm, const ULONG* pPurgeMask)
 	{
 		/* Purges all write (IRP_MJ_WRITE) requests. */
 
-		if (eventfd_write(pComm->fd_write_event, FREERDP_PURGE_TXABORT) < 0)
+		if (eventfd_write(pComm->fd_write_event, WINPR_PURGE_TXABORT) < 0)
 		{
 			if (errno != EAGAIN)
 			{
+				char ebuffer[256] = { 0 };
 				CommLog_Print(WLOG_WARN, "eventfd_write failed, errno=[%d] %s", errno,
-				              strerror(errno));
+				              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 			}
 
-			assert(errno == EAGAIN); /* no reader <=> no pending IRP_MJ_WRITE */
+			WINPR_ASSERT(errno == EAGAIN); /* no reader <=> no pending IRP_MJ_WRITE */
 		}
 	}
 
@@ -1162,15 +1164,16 @@ static BOOL _purge(WINPR_COMM* pComm, const ULONG* pPurgeMask)
 	{
 		/* Purges all read (IRP_MJ_READ) requests. */
 
-		if (eventfd_write(pComm->fd_read_event, FREERDP_PURGE_RXABORT) < 0)
+		if (eventfd_write(pComm->fd_read_event, WINPR_PURGE_RXABORT) < 0)
 		{
 			if (errno != EAGAIN)
 			{
+				char ebuffer[256] = { 0 };
 				CommLog_Print(WLOG_WARN, "eventfd_write failed, errno=[%d] %s", errno,
-				              strerror(errno));
+				              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 			}
 
-			assert(errno == EAGAIN); /* no reader <=> no pending IRP_MJ_READ */
+			WINPR_ASSERT(errno == EAGAIN); /* no reader <=> no pending IRP_MJ_READ */
 		}
 	}
 
@@ -1180,8 +1183,9 @@ static BOOL _purge(WINPR_COMM* pComm, const ULONG* pPurgeMask)
 
 		if (tcflush(pComm->fd, TCOFLUSH) < 0)
 		{
+			char ebuffer[256] = { 0 };
 			CommLog_Print(WLOG_WARN, "tcflush(TCOFLUSH) failure, errno=[%d] %s", errno,
-			              strerror(errno));
+			              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 			SetLastError(ERROR_CANCELLED);
 			return FALSE;
 		}
@@ -1193,8 +1197,9 @@ static BOOL _purge(WINPR_COMM* pComm, const ULONG* pPurgeMask)
 
 		if (tcflush(pComm->fd, TCIFLUSH) < 0)
 		{
+			char ebuffer[256] = { 0 };
 			CommLog_Print(WLOG_WARN, "tcflush(TCIFLUSH) failure, errno=[%d] %s", errno,
-			              strerror(errno));
+			              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 			SetLastError(ERROR_CANCELLED);
 			return FALSE;
 		}
@@ -1221,8 +1226,9 @@ static BOOL _get_commstatus(WINPR_COMM* pComm, SERIAL_STATUS* pCommstatus)
 	ZeroMemory(&currentCounters, sizeof(struct serial_icounter_struct));
 	if (ioctl(pComm->fd, TIOCGICOUNT, &currentCounters) < 0)
 	{
+		char ebuffer[256] = { 0 };
 		CommLog_Print(WLOG_WARN, "TIOCGICOUNT ioctl failed, errno=[%d] %s.", errno,
-		              strerror(errno));
+		              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		CommLog_Print(WLOG_WARN, "  could not read counters.");
 
 		if (pComm->permissive)
@@ -1292,7 +1298,9 @@ static BOOL _get_commstatus(WINPR_COMM* pComm, SERIAL_STATUS* pCommstatus)
 
 	if (ioctl(pComm->fd, TIOCINQ, &(pCommstatus->AmountInInQueue)) < 0)
 	{
-		CommLog_Print(WLOG_WARN, "TIOCINQ ioctl failed, errno=[%d] %s", errno, strerror(errno));
+		char ebuffer[256] = { 0 };
+		CommLog_Print(WLOG_WARN, "TIOCINQ ioctl failed, errno=[%d] %s", errno,
+		              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		SetLastError(ERROR_IO_DEVICE);
 
 		LeaveCriticalSection(&pComm->EventsLock);
@@ -1303,7 +1311,9 @@ static BOOL _get_commstatus(WINPR_COMM* pComm, SERIAL_STATUS* pCommstatus)
 
 	if (ioctl(pComm->fd, TIOCOUTQ, &(pCommstatus->AmountInOutQueue)) < 0)
 	{
-		CommLog_Print(WLOG_WARN, "TIOCOUTQ ioctl failed, errno=[%d] %s", errno, strerror(errno));
+		char ebuffer[256] = { 0 };
+		CommLog_Print(WLOG_WARN, "TIOCOUTQ ioctl failed, errno=[%d] %s", errno,
+		              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		SetLastError(ERROR_IO_DEVICE);
 
 		LeaveCriticalSection(&pComm->EventsLock);
@@ -1398,10 +1408,10 @@ static void _consume_event(WINPR_COMM* pComm, ULONG* pOutputMask, ULONG event)
  */
 static BOOL _wait_on_mask(WINPR_COMM* pComm, ULONG* pOutputMask)
 {
-	assert(*pOutputMask == 0);
+	WINPR_ASSERT(*pOutputMask == 0);
 
 	EnterCriticalSection(&pComm->EventsLock);
-	pComm->PendingEvents |= SERIAL_EV_FREERDP_WAITING;
+	pComm->PendingEvents |= SERIAL_EV_WINPR_WAITING;
 	LeaveCriticalSection(&pComm->EventsLock);
 
 	while (TRUE)
@@ -1410,7 +1420,7 @@ static BOOL _wait_on_mask(WINPR_COMM* pComm, ULONG* pOutputMask)
 		if (!_refresh_PendingEvents(pComm))
 		{
 			EnterCriticalSection(&pComm->EventsLock);
-			pComm->PendingEvents &= ~SERIAL_EV_FREERDP_WAITING;
+			pComm->PendingEvents &= ~SERIAL_EV_WINPR_WAITING;
 			LeaveCriticalSection(&pComm->EventsLock);
 			return FALSE;
 		}
@@ -1418,18 +1428,18 @@ static BOOL _wait_on_mask(WINPR_COMM* pComm, ULONG* pOutputMask)
 		/* NB: ensure to leave the critical section before to return */
 		EnterCriticalSection(&pComm->EventsLock);
 
-		if (pComm->PendingEvents & SERIAL_EV_FREERDP_STOP)
+		if (pComm->PendingEvents & SERIAL_EV_WINPR_STOP)
 		{
-			pComm->PendingEvents &= ~SERIAL_EV_FREERDP_STOP;
+			pComm->PendingEvents &= ~SERIAL_EV_WINPR_STOP;
 
 			/* pOutputMask must remain empty but should
 			 * not have been modified.
 			 *
 			 * http://msdn.microsoft.com/en-us/library/ff546805%28v=vs.85%29.aspx
 			 */
-			assert(*pOutputMask == 0);
+			WINPR_ASSERT(*pOutputMask == 0);
 
-			pComm->PendingEvents &= ~SERIAL_EV_FREERDP_WAITING;
+			pComm->PendingEvents &= ~SERIAL_EV_WINPR_WAITING;
 			LeaveCriticalSection(&pComm->EventsLock);
 			return TRUE;
 		}
@@ -1455,7 +1465,7 @@ static BOOL _wait_on_mask(WINPR_COMM* pComm, ULONG* pOutputMask)
 			/* at least an event occurred */
 
 			EnterCriticalSection(&pComm->EventsLock);
-			pComm->PendingEvents &= ~SERIAL_EV_FREERDP_WAITING;
+			pComm->PendingEvents &= ~SERIAL_EV_WINPR_WAITING;
 			LeaveCriticalSection(&pComm->EventsLock);
 			return TRUE;
 		}
@@ -1476,7 +1486,9 @@ static BOOL _set_break_on(WINPR_COMM* pComm)
 {
 	if (ioctl(pComm->fd, TIOCSBRK, NULL) < 0)
 	{
-		CommLog_Print(WLOG_WARN, "TIOCSBRK ioctl failed, errno=[%d] %s", errno, strerror(errno));
+		char ebuffer[256] = { 0 };
+		CommLog_Print(WLOG_WARN, "TIOCSBRK ioctl failed, errno=[%d] %s", errno,
+		              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		SetLastError(ERROR_IO_DEVICE);
 		return FALSE;
 	}
@@ -1488,7 +1500,9 @@ static BOOL _set_break_off(WINPR_COMM* pComm)
 {
 	if (ioctl(pComm->fd, TIOCCBRK, NULL) < 0)
 	{
-		CommLog_Print(WLOG_WARN, "TIOCSBRK ioctl failed, errno=[%d] %s", errno, strerror(errno));
+		char ebuffer[256] = { 0 };
+		CommLog_Print(WLOG_WARN, "TIOCSBRK ioctl failed, errno=[%d] %s", errno,
+		              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		SetLastError(ERROR_IO_DEVICE);
 		return FALSE;
 	}
@@ -1500,7 +1514,9 @@ static BOOL _set_xoff(WINPR_COMM* pComm)
 {
 	if (tcflow(pComm->fd, TCIOFF) < 0)
 	{
-		CommLog_Print(WLOG_WARN, "TCIOFF failure, errno=[%d] %s", errno, strerror(errno));
+		char ebuffer[256] = { 0 };
+		CommLog_Print(WLOG_WARN, "TCIOFF failure, errno=[%d] %s", errno,
+		              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		SetLastError(ERROR_IO_DEVICE);
 		return FALSE;
 	}
@@ -1512,7 +1528,9 @@ static BOOL _set_xon(WINPR_COMM* pComm)
 {
 	if (tcflow(pComm->fd, TCION) < 0)
 	{
-		CommLog_Print(WLOG_WARN, "TCION failure, errno=[%d] %s", errno, strerror(errno));
+		char ebuffer[256] = { 0 };
+		CommLog_Print(WLOG_WARN, "TCION failure, errno=[%d] %s", errno,
+		              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		SetLastError(ERROR_IO_DEVICE);
 		return FALSE;
 	}
@@ -1525,7 +1543,9 @@ static BOOL _get_dtrrts(WINPR_COMM* pComm, ULONG* pMask)
 	UINT32 lines = 0;
 	if (ioctl(pComm->fd, TIOCMGET, &lines) < 0)
 	{
-		CommLog_Print(WLOG_WARN, "TIOCMGET ioctl failed, errno=[%d] %s", errno, strerror(errno));
+		char ebuffer[256] = { 0 };
+		CommLog_Print(WLOG_WARN, "TIOCMGET ioctl failed, errno=[%d] %s", errno,
+		              winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
 		SetLastError(ERROR_IO_DEVICE);
 		return FALSE;
 	}
@@ -1552,7 +1572,7 @@ static BOOL _config_size(WINPR_COMM* pComm, ULONG* pSize)
 
 static BOOL _immediate_char(WINPR_COMM* pComm, const UCHAR* pChar)
 {
-	BOOL result;
+	BOOL result = 0;
 	DWORD nbBytesWritten = -1;
 
 	/* FIXME: CommWriteFile uses a critical section, shall it be
@@ -1563,7 +1583,7 @@ static BOOL _immediate_char(WINPR_COMM* pComm, const UCHAR* pChar)
 
 	result = CommWriteFile(pComm, pChar, 1, &nbBytesWritten, NULL);
 
-	assert(nbBytesWritten == 1);
+	WINPR_ASSERT(nbBytesWritten == 1);
 
 	return result;
 }
@@ -1609,7 +1629,7 @@ static SERIAL_DRIVER _SerialSys = {
 	.reset_device = _reset_device,
 };
 
-SERIAL_DRIVER* SerialSys_s()
+SERIAL_DRIVER* SerialSys_s(void)
 {
 	return &_SerialSys;
 }

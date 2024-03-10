@@ -19,9 +19,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -63,19 +61,22 @@ static char* gdi_regn_str(char* buffer, size_t size, const HGDI_RGN rgn)
 }
 
 /**
- * Create a region from rectangular coordinates.\n
- * @msdn{dd183514}
+ * Create a region from rectangular coordinates.
+ * msdn{dd183514}
+ *
  * @param nLeftRect x1
  * @param nTopRect y1
  * @param nRightRect x2
  * @param nBottomRect y2
+ *
  * @return new region
  */
 
 HGDI_RGN gdi_CreateRectRgn(INT32 nLeftRect, INT32 nTopRect, INT32 nRightRect, INT32 nBottomRect)
 {
-	INT64 w, h;
-	HGDI_RGN hRgn;
+	INT64 w = 0;
+	INT64 h = 0;
+	HGDI_RGN hRgn = NULL;
 
 	w = nRightRect - nLeftRect + 1ll;
 	h = nBottomRect - nTopRect + 1ll;
@@ -112,7 +113,7 @@ HGDI_RGN gdi_CreateRectRgn(INT32 nLeftRect, INT32 nTopRect, INT32 nRightRect, IN
 
 HGDI_RECT gdi_CreateRect(INT32 xLeft, INT32 yTop, INT32 xRight, INT32 yBottom)
 {
-	HGDI_RECT hRect;
+	HGDI_RECT hRect = NULL;
 
 	if (xLeft > xRight)
 		return NULL;
@@ -141,7 +142,8 @@ HGDI_RECT gdi_CreateRect(INT32 xLeft, INT32 yTop, INT32 xRight, INT32 yBottom)
 BOOL gdi_RectToRgn(const HGDI_RECT rect, HGDI_RGN rgn)
 {
 	BOOL rc = TRUE;
-	INT64 w, h;
+	INT64 w = 0;
+	INT64 h = 0;
 	w = rect->right - rect->left + 1ll;
 	h = rect->bottom - rect->top + 1ll;
 
@@ -176,7 +178,8 @@ BOOL gdi_RectToRgn(const HGDI_RECT rect, HGDI_RGN rgn)
 BOOL gdi_CRectToRgn(INT32 left, INT32 top, INT32 right, INT32 bottom, HGDI_RGN rgn)
 {
 	BOOL rc = TRUE;
-	INT64 w, h;
+	INT64 w = 0;
+	INT64 h = 0;
 	w = right - left + 1ll;
 	h = bottom - top + 1ll;
 
@@ -213,15 +216,13 @@ BOOL gdi_CRectToRgn(INT32 left, INT32 top, INT32 right, INT32 bottom, HGDI_RGN r
 BOOL gdi_RectToCRgn(const HGDI_RECT rect, INT32* x, INT32* y, INT32* w, INT32* h)
 {
 	BOOL rc = TRUE;
-	INT64 tmp;
 	*x = rect->left;
 	*y = rect->top;
-	tmp = rect->right - rect->left + 1;
+	INT64 tmp = rect->right - rect->left + 1;
 	if ((tmp < 0) || (tmp > INT32_MAX))
 	{
 		char buffer[256];
-		WLog_ERR(TAG, "[%s] rectangle invalid %s", __FUNCTION__,
-		         gdi_rect_str(buffer, sizeof(buffer), rect));
+		WLog_ERR(TAG, "rectangle invalid %s", gdi_rect_str(buffer, sizeof(buffer), rect));
 		*w = 0;
 		rc = FALSE;
 	}
@@ -231,8 +232,7 @@ BOOL gdi_RectToCRgn(const HGDI_RECT rect, INT32* x, INT32* y, INT32* w, INT32* h
 	if ((tmp < 0) || (tmp > INT32_MAX))
 	{
 		char buffer[256];
-		WLog_ERR(TAG, "[%s] rectangle invalid %s", __FUNCTION__,
-		         gdi_rect_str(buffer, sizeof(buffer), rect));
+		WLog_ERR(TAG, "rectangle invalid %s", gdi_rect_str(buffer, sizeof(buffer), rect));
 		*h = 0;
 		rc = FALSE;
 	}
@@ -256,7 +256,8 @@ BOOL gdi_RectToCRgn(const HGDI_RECT rect, INT32* x, INT32* y, INT32* w, INT32* h
 BOOL gdi_CRectToCRgn(INT32 left, INT32 top, INT32 right, INT32 bottom, INT32* x, INT32* y, INT32* w,
                      INT32* h)
 {
-	INT64 wl, hl;
+	INT64 wl = 0;
+	INT64 hl = 0;
 	BOOL rc = TRUE;
 	wl = right - left + 1ll;
 	hl = bottom - top + 1ll;
@@ -288,7 +289,8 @@ BOOL gdi_CRectToCRgn(INT32 left, INT32 top, INT32 right, INT32 bottom, INT32* x,
 
 BOOL gdi_RgnToRect(const HGDI_RGN rgn, HGDI_RECT rect)
 {
-	INT64 r, b;
+	INT64 r = 0;
+	INT64 b = 0;
 	BOOL rc = TRUE;
 	r = rgn->x + rgn->w - 1ll;
 	b = rgn->y + rgn->h - 1ll;
@@ -360,7 +362,7 @@ INLINE BOOL gdi_CRgnToRect(INT64 x, INT64 y, INT32 w, INT32 h, HGDI_RECT rect)
  * @param bottom y2
  */
 
-INLINE BOOL gdi_RgnToCRect(const HGDI_RGN rgn, INT32* left, INT32* top, INT32* right, INT32* bottom)
+BOOL gdi_RgnToCRect(const HGDI_RGN rgn, INT32* left, INT32* top, INT32* right, INT32* bottom)
 {
 	BOOL rc = TRUE;
 	if ((rgn->w < 0) || (rgn->h < 0))
@@ -449,13 +451,15 @@ INLINE BOOL gdi_CopyOverlap(INT32 x, INT32 y, INT32 width, INT32 height, INT32 s
 }
 
 /**
- * Set the coordinates of a given rectangle.\n
- * @msdn{dd145085}
+ * Set the coordinates of a given rectangle.
+ * msdn{dd145085}
+ *
  * @param rc rectangle
  * @param xLeft x1
  * @param yTop y1
  * @param xRight x2
  * @param yBottom y2
+ *
  * @return nonzero if successful, 0 otherwise
  */
 
@@ -521,8 +525,9 @@ INLINE BOOL gdi_SetRectRgn(HGDI_RGN hRgn, INT32 nLeftRect, INT32 nTopRect, INT32
 }
 
 /**
- * Compare two regions for equality.\n
- * @msdn{dd162700}
+ * @brief Compare two regions for equality.
+ * msdn{dd162700}
+ *
  * @param hSrcRgn1 first region
  * @param hSrcRgn2 second region
  * @return nonzero if both regions are equal, 0 otherwise
@@ -540,8 +545,9 @@ INLINE BOOL gdi_EqualRgn(const HGDI_RGN hSrcRgn1, const HGDI_RGN hSrcRgn2)
 }
 
 /**
- * Copy coordinates from a rectangle to another rectangle
- * @msdn{dd183481}
+ * @brief Copy coordinates from a rectangle to another rectangle
+ * msdn{dd183481}
+ *
  * @param dst destination rectangle
  * @param src source rectangle
  * @return nonzero if successful, 0 otherwise
@@ -560,8 +566,8 @@ INLINE BOOL gdi_CopyRect(HGDI_RECT dst, const HGDI_RECT src)
 }
 
 /**
- * Check if a point is inside a rectangle.\n
- * @msdn{dd162882}
+ * Check if a point is inside a rectangle.
+ * msdn{dd162882}
  * @param rc rectangle
  * @param x point x position
  * @param y point y position
@@ -586,8 +592,8 @@ INLINE BOOL gdi_PtInRect(const HGDI_RECT rc, INT32 x, INT32 y)
 }
 
 /**
- * Invalidate a given region, such that it is redrawn on the next region update.\n
- * @msdn{dd145003}
+ * Invalidate a given region, such that it is redrawn on the next region update.
+ * msdn{dd145003}
  * @param hdc device context
  * @param x x1
  * @param y y1
@@ -600,8 +606,8 @@ INLINE BOOL gdi_InvalidateRegion(HGDI_DC hdc, INT32 x, INT32 y, INT32 w, INT32 h
 {
 	GDI_RECT inv;
 	GDI_RECT rgn;
-	HGDI_RGN invalid;
-	HGDI_RGN cinvalid;
+	HGDI_RGN invalid = NULL;
+	HGDI_RGN cinvalid = NULL;
 
 	if (!hdc->hwnd)
 		return TRUE;
@@ -616,8 +622,8 @@ INLINE BOOL gdi_InvalidateRegion(HGDI_DC hdc, INT32 x, INT32 y, INT32 w, INT32 h
 
 	if ((hdc->hwnd->ninvalid + 1) > (INT64)hdc->hwnd->count)
 	{
-		size_t new_cnt;
-		HGDI_RGN new_rgn;
+		size_t new_cnt = 0;
+		HGDI_RGN new_rgn = NULL;
 		new_cnt = hdc->hwnd->count * 2;
 		if (new_cnt > UINT32_MAX)
 			return FALSE;

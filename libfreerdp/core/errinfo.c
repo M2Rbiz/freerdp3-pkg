@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdio.h>
 
@@ -33,10 +31,6 @@
 	{                                                                          \
 		ERRINFO_##_code, "ERRINFO_" #_code, ERRINFO_##_code##_STRING, category \
 	}
-
-#if !defined(DEFINE_NO_DEPRECATED)
-int connectErrorCode;
-#endif
 
 /* Protocol-independent codes */
 
@@ -632,7 +626,7 @@ static const ERRINFO ERRINFO_CODES[] = {
 
 const char* freerdp_get_error_info_string(UINT32 code)
 {
-	const ERRINFO* errInfo;
+	const ERRINFO* errInfo = NULL;
 	errInfo = &ERRINFO_CODES[0];
 
 	while (errInfo->code != ERRINFO_NONE)
@@ -650,7 +644,7 @@ const char* freerdp_get_error_info_string(UINT32 code)
 
 const char* freerdp_get_error_info_category(UINT32 code)
 {
-	const ERRINFO* errInfo;
+	const ERRINFO* errInfo = NULL;
 	errInfo = &ERRINFO_CODES[0];
 
 	while (errInfo->code != ERRINFO_NONE)
@@ -668,7 +662,7 @@ const char* freerdp_get_error_info_category(UINT32 code)
 
 const char* freerdp_get_error_info_name(UINT32 code)
 {
-	const ERRINFO* errInfo;
+	const ERRINFO* errInfo = NULL;
 	errInfo = &ERRINFO_CODES[0];
 
 	while (errInfo->code != ERRINFO_NONE)
@@ -686,7 +680,7 @@ const char* freerdp_get_error_info_name(UINT32 code)
 
 void rdp_print_errinfo(UINT32 code)
 {
-	const ERRINFO* errInfo;
+	const ERRINFO* errInfo = NULL;
 	errInfo = &ERRINFO_CODES[0];
 
 	while (errInfo->code != ERRINFO_NONE)

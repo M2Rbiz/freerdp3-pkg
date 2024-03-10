@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #include <winpr/crypto.h>
 
@@ -160,7 +158,7 @@
 HCERTSTORE CertOpenStore(LPCSTR lpszStoreProvider, DWORD dwMsgAndCertEncodingType,
                          HCRYPTPROV_LEGACY hCryptProv, DWORD dwFlags, const void* pvPara)
 {
-	WINPR_CERTSTORE* certstore;
+	WINPR_CERTSTORE* certstore = NULL;
 
 	certstore = (WINPR_CERTSTORE*)calloc(1, sizeof(WINPR_CERTSTORE));
 
@@ -175,7 +173,7 @@ HCERTSTORE CertOpenStore(LPCSTR lpszStoreProvider, DWORD dwMsgAndCertEncodingTyp
 
 HCERTSTORE CertOpenSystemStoreW(HCRYPTPROV_LEGACY hProv, LPCWSTR szSubsystemProtocol)
 {
-	HCERTSTORE hCertStore;
+	HCERTSTORE hCertStore = NULL;
 
 	hCertStore = CertOpenStore(CERT_STORE_PROV_FILE, X509_ASN_ENCODING, hProv, 0, NULL);
 
@@ -189,7 +187,7 @@ HCERTSTORE CertOpenSystemStoreA(HCRYPTPROV_LEGACY hProv, LPCSTR szSubsystemProto
 
 BOOL CertCloseStore(HCERTSTORE hCertStore, DWORD dwFlags)
 {
-	WINPR_CERTSTORE* certstore;
+	WINPR_CERTSTORE* certstore = NULL;
 
 	certstore = (WINPR_CERTSTORE*)hCertStore;
 

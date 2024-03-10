@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdio.h>
 
@@ -30,15 +28,15 @@
 #include <freerdp/freerdp.h>
 #include <winpr/stream.h>
 
-#include <freerdp/cache/nine_grid.h>
+#include "nine_grid.h"
+#include "cache.h"
 
 #define TAG FREERDP_TAG("cache.nine_grid")
 
-struct _NINE_GRID_ENTRY
+typedef struct
 {
 	void* entry;
-};
-typedef struct _NINE_GRID_ENTRY NINE_GRID_ENTRY;
+} NINE_GRID_ENTRY;
 
 struct rdp_nine_grid_cache
 {
@@ -51,9 +49,7 @@ struct rdp_nine_grid_cache
 	NINE_GRID_ENTRY* entries; /* 18 */
 	UINT32 paddingB[32 - 19]; /* 19 */
 
-	/* internal */
-
-	rdpSettings* settings;
+	rdpContext* context;
 };
 
 static void* nine_grid_cache_get(rdpNineGridCache* nine_grid, UINT32 index);
@@ -86,7 +82,7 @@ void nine_grid_cache_register_callbacks(rdpUpdate* update)
 
 void* nine_grid_cache_get(rdpNineGridCache* nine_grid, UINT32 index)
 {
-	void* entry;
+	void* entry = NULL;
 
 	if (index >= nine_grid->maxEntries)
 	{
@@ -117,41 +113,52 @@ void nine_grid_cache_put(rdpNineGridCache* nine_grid, UINT32 index, void* entry)
 	nine_grid->entries[index].entry = entry;
 }
 
-rdpNineGridCache* nine_grid_cache_new(rdpSettings* settings)
+rdpNineGridCache* nine_grid_cache_new(rdpContext* context)
 {
-	rdpNineGridCache* nine_grid;
+	rdpNineGridCache* nine_grid = NULL;
+	rdpSettings* settings = NULL;
+
+	WINPR_ASSERT(context);
+
+	settings = context->settings;
+	WINPR_ASSERT(settings);
 
 	nine_grid = (rdpNineGridCache*)calloc(1, sizeof(rdpNineGridCache));
 	if (!nine_grid)
 		return NULL;
 
-	nine_grid->settings = settings;
+	nine_grid->context = context;
 
 	nine_grid->maxSize = 2560;
 	nine_grid->maxEntries = 256;
 
-	nine_grid->settings->DrawNineGridCacheSize = nine_grid->maxSize;
-	nine_grid->settings->DrawNineGridCacheEntries = nine_grid->maxEntries;
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_DrawNineGridCacheSize, nine_grid->maxSize))
+		goto fail;
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_DrawNineGridCacheEntries,
+	                                 nine_grid->maxEntries))
+		goto fail;
 
 	nine_grid->entries = (NINE_GRID_ENTRY*)calloc(nine_grid->maxEntries, sizeof(NINE_GRID_ENTRY));
 	if (!nine_grid->entries)
-	{
-		free(nine_grid);
-		return NULL;
-	}
+		goto fail;
 
 	return nine_grid;
+
+fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
+	nine_grid_cache_free(nine_grid);
+	WINPR_PRAGMA_DIAG_POP
+	return NULL;
 }
 
 void nine_grid_cache_free(rdpNineGridCache* nine_grid)
 {
-	int i;
-
 	if (nine_grid != NULL)
 	{
 		if (nine_grid->entries != NULL)
 		{
-			for (i = 0; i < (int)nine_grid->maxEntries; i++)
+			for (size_t i = 0; i < nine_grid->maxEntries; i++)
 				free(nine_grid->entries[i].entry);
 
 			free(nine_grid->entries);

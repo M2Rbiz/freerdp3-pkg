@@ -18,9 +18,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -65,7 +63,7 @@ typedef UInt32 AudioFormatID;
 typedef UInt32 AudioFormatFlags;
 #endif
 
-typedef struct _AudinMacDevice
+typedef struct
 {
 	IAudinDevice iface;
 
@@ -118,6 +116,9 @@ static BOOL audin_mac_format_supported(IAudinDevice *device, const AUDIO_FORMAT 
 		return FALSE;
 
 	if (device == NULL || format == NULL)
+		return FALSE;
+
+	if (format->nChannels != 2)
 		return FALSE;
 
 	req_fmt = audin_mac_get_format(format);
@@ -246,7 +247,6 @@ static UINT audin_mac_open(IAudinDevice *device, AudinReceive receive, void *use
 	DWORD errCode;
 	char errString[1024];
 	OSStatus devStat;
-	size_t index;
 
 	if (!mac->isAuthorized)
 		return ERROR_INTERNAL_ERROR;
@@ -264,7 +264,7 @@ static UINT audin_mac_open(IAudinDevice *device, AudinReceive receive, void *use
 		goto err_out;
 	}
 
-	for (index = 0; index < MAC_AUDIO_QUEUE_NUM_BUFFERS; index++)
+	for (size_t index = 0; index < MAC_AUDIO_QUEUE_NUM_BUFFERS; index++)
 	{
 		devStat = AudioQueueAllocateBuffer(mac->audioQueue,
 		                                   mac->FramesPerPacket * 2 * mac->format.nChannels,
@@ -323,14 +323,14 @@ static UINT audin_mac_free(IAudinDevice *device)
 	return CHANNEL_RC_OK;
 }
 
-static UINT audin_mac_parse_addin_args(AudinMacDevice *device, ADDIN_ARGV *args)
+static UINT audin_mac_parse_addin_args(AudinMacDevice *device, const ADDIN_ARGV *args)
 {
 	DWORD errCode;
 	char errString[1024];
 	int status;
 	char *str_num, *eptr;
 	DWORD flags;
-	COMMAND_LINE_ARGUMENT_A *arg;
+	const COMMAND_LINE_ARGUMENT_A *arg;
 	COMMAND_LINE_ARGUMENT_A audin_mac_args[] = { { "dev", COMMAND_LINE_VALUE_REQUIRED, "<device>",
 		                                           NULL, NULL, -1, NULL, "audio device name" },
 		                                         { NULL, 0, NULL, NULL, NULL, -1, NULL, NULL } };
@@ -380,17 +380,12 @@ static UINT audin_mac_parse_addin_args(AudinMacDevice *device, ADDIN_ARGV *args)
 	return CHANNEL_RC_OK;
 }
 
-#ifdef BUILTIN_CHANNELS
-#define freerdp_audin_client_subsystem_entry mac_freerdp_audin_client_subsystem_entry
-#else
-#define freerdp_audin_client_subsystem_entry FREERDP_API freerdp_audin_client_subsystem_entry
-#endif
-
-UINT freerdp_audin_client_subsystem_entry(PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints)
+FREERDP_ENTRY_POINT(
+    UINT mac_freerdp_audin_client_subsystem_entry(PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints))
 {
 	DWORD errCode;
 	char errString[1024];
-	ADDIN_ARGV *args;
+	const ADDIN_ARGV *args;
 	AudinMacDevice *mac;
 	UINT error;
 	mac = (AudinMacDevice *)calloc(1, sizeof(AudinMacDevice));
@@ -427,24 +422,26 @@ UINT freerdp_audin_client_subsystem_entry(PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEn
 #if defined(MAC_OS_X_VERSION_10_14)
 	if (@available(macOS 10.14, *))
 	{
-		@autoreleasepool {
+		@autoreleasepool
+		{
 			AVAuthorizationStatus status =
-				[AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];
+			    [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];
 			switch (status)
 			{
 				case AVAuthorizationStatusAuthorized:
 					mac->isAuthorized = TRUE;
 					break;
 				case AVAuthorizationStatusNotDetermined:
-					[AVCaptureDevice requestAccessForMediaType:AVMediaTypeAudio
-											 completionHandler:^(BOOL granted) {
-												 if (granted == YES)
-												 {
-													 mac->isAuthorized = TRUE;
-												 }
-												 else
-													 WLog_WARN(TAG, "Microphone access denied by user");
-											 }];
+					[AVCaptureDevice
+					    requestAccessForMediaType:AVMediaTypeAudio
+					            completionHandler:^(BOOL granted) {
+						            if (granted == YES)
+						            {
+							            mac->isAuthorized = TRUE;
+						            }
+						            else
+							            WLog_WARN(TAG, "Microphone access denied by user");
+					            }];
 					break;
 				case AVAuthorizationStatusRestricted:
 					WLog_WARN(TAG, "Microphone access restricted by policy");

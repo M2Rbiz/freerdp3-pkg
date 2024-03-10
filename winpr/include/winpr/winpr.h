@@ -37,7 +37,7 @@
 #endif
 #endif
 #else
-#if __GNUC__ >= 4
+#if defined(__GNUC__) && (__GNUC__ >= 4)
 #define WINPR_API __attribute__((visibility("default")))
 #else
 #define WINPR_API
@@ -47,15 +47,58 @@
 #define WINPR_API
 #endif
 
-#if defined(WIN32) && !defined(__CYGWIN__)
-#define WINPR_DEPRECATED(obj) __declspec(deprecated) obj
+#if defined(__clang__) || defined(__GNUC__) && (__GNUC__ <= 10)
+#define WINPR_ATTR_MALLOC(deallocator, ptrindex) __attribute__((malloc, warn_unused_result))
 #elif defined(__GNUC__)
-#define WINPR_DEPRECATED(obj) obj __attribute__((deprecated))
+#define WINPR_ATTR_MALLOC(deallocator, ptrindex) \
+	__attribute__((malloc(deallocator, ptrindex), warn_unused_result))
 #else
-#define WINPR_DEPRECATED(obj) obj
+#define WINPR_ATTR_MALLOC(deallocator, ptrindex)
 #endif
 
-/* Thread local storage keyword define */
+#if defined(__GNUC__) || defined(__clang__)
+#define WINPR_ATTR_FORMAT_ARG(pos, args) __attribute__((__format__(__printf__, pos, args)))
+#define WINPR_FORMAT_ARG /**/
+#else
+#define WINPR_ATTR_FORMAT_ARG(pos, args)
+#define WINPR_FORMAT_ARG _Printf_format_string_
+#endif
+
+#if defined(__STDC__) && defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L)
+#define WINPR_DEPRECATED(obj) [[deprecated]] obj
+#define WINPR_DEPRECATED_VAR(text, obj) [[deprecated(text)]] obj
+#define WINPR_NORETURN(obj) [[noreturn]] obj
+#elif defined(WIN32) && !defined(__CYGWIN__)
+#define WINPR_DEPRECATED(obj) __declspec(deprecated) obj
+#define WINPR_DEPRECATED_VAR(text, obj) __declspec(deprecated(text)) obj
+#define WINPR_NORETURN(obj) __declspec(noreturn) obj
+#elif defined(__GNUC__)
+#define WINPR_DEPRECATED(obj) obj __attribute__((deprecated))
+#define WINPR_DEPRECATED_VAR(text, obj) obj __attribute__((deprecated(text)))
+#define WINPR_NORETURN(obj) __attribute__((__noreturn__)) obj
+#else
+#define WINPR_DEPRECATED(obj) obj
+#define WINPR_DEPRECATED_VAR(text, obj) obj
+#define WINPR_NORETURN(obj) obj
+#endif
+
+#if defined(EXPORT_ALL_SYMBOLS)
+#define WINPR_LOCAL WINPR_API
+#else
+#if defined _WIN32 || defined __CYGWIN__
+#define WINPR_LOCAL
+#else
+#if defined(__GNUC__) && (__GNUC__ >= 4)
+#define WINPR_LOCAL __attribute__((visibility("hidden")))
+#else
+#define WINPR_LOCAL
+#endif
+#endif
+#endif
+
+// WARNING: *do not* use thread-local storage for new code because it is not portable
+// It is only used for VirtualChannelInit, and all FreeRDP channels use VirtualChannelInitEx
+// The old virtual channel API is only realistically used on Windows where TLS is available
 #if defined _WIN32 || defined __CYGWIN__
 #ifdef __GNUC__
 #define WINPR_TLS __thread
@@ -65,8 +108,8 @@
 #elif !defined(__IOS__)
 #define WINPR_TLS __thread
 #else
-#warning "Target iOS does not support Thread Local Storage!"
-#warning "Multi Instance support is disabled!"
+// thread-local storage is not supported on iOS
+// don't warn because it isn't actually used on iOS
 #define WINPR_TLS
 #endif
 
@@ -78,7 +121,6 @@
 
 WINPR_API void winpr_get_version(int* major, int* minor, int* revision);
 WINPR_API const char* winpr_get_version_string(void);
-WINPR_API const char* winpr_get_build_date(void);
 WINPR_API const char* winpr_get_build_revision(void);
 WINPR_API const char* winpr_get_build_config(void);
 

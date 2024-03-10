@@ -35,7 +35,7 @@ typedef struct rdp_tsg rdpTsg;
 #include <freerdp/types.h>
 #include <freerdp/api.h>
 
-enum _TSG_STATE
+typedef enum
 {
 	TSG_STATE_INITIAL,
 	TSG_STATE_CONNECTED,
@@ -45,8 +45,7 @@ enum _TSG_STATE
 	TSG_STATE_TUNNEL_CLOSE_PENDING,
 	TSG_STATE_CHANNEL_CLOSE_PENDING,
 	TSG_STATE_FINAL
-};
-typedef enum _TSG_STATE TSG_STATE;
+} TSG_STATE;
 
 #define TsProxyCreateTunnelOpnum 1
 #define TsProxyAuthorizeTunnelOpnum 2
@@ -100,8 +99,10 @@ typedef enum _TSG_STATE TSG_STATE;
 #define E_PROXY_REAUTH_NAP_FAILED 0x00005A00
 #define E_PROXY_CONNECTIONABORTED 0x000004D4
 
-FREERDP_LOCAL rdpTsg* tsg_new(rdpTransport* transport);
 FREERDP_LOCAL void tsg_free(rdpTsg* tsg);
+
+WINPR_ATTR_MALLOC(tsg_free, 1)
+FREERDP_LOCAL rdpTsg* tsg_new(rdpTransport* transport);
 
 FREERDP_LOCAL BOOL tsg_proxy_begin(rdpTsg* tsg);
 

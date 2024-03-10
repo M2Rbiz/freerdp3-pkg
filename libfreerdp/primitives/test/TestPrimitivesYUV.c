@@ -1,7 +1,5 @@
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <math.h>
 
@@ -20,9 +18,7 @@
  * differing by less than 2 abs equal. */
 static BOOL similar(const BYTE* src, const BYTE* dst, size_t size)
 {
-	size_t x;
-
-	for (x = 0; x < size; x++)
+	for (size_t x = 0; x < size; x++)
 	{
 		int diff = src[x] - dst[x];
 
@@ -39,38 +35,48 @@ static BOOL similar(const BYTE* src, const BYTE* dst, size_t size)
 
 static BOOL similarRGB(const BYTE* src, const BYTE* dst, size_t size, UINT32 format, BOOL use444)
 {
-	size_t x;
-	const UINT32 bpp = GetBytesPerPixel(format);
+	const UINT32 bpp = FreeRDPGetBytesPerPixel(format);
 	BYTE fill = PADDING_FILL_VALUE;
-	if (!ColorHasAlpha(format))
+	if (!FreeRDPColorHasAlpha(format))
 		fill = 0xFF;
 
-	for (x = 0; x < size; x++)
+	for (size_t x = 0; x < size; x++)
 	{
-		const double maxDiff = 4.0;
-		UINT32 sColor, dColor;
-		BYTE sR, sG, sB, sA;
-		BYTE dR, dG, dB, dA;
-		sColor = ReadColor(src, format);
-		dColor = ReadColor(dst, format);
+		const LONG maxDiff = 4;
+		UINT32 sColor = 0;
+		UINT32 dColor = 0;
+		BYTE sR = 0;
+		BYTE sG = 0;
+		BYTE sB = 0;
+		BYTE sA = 0;
+		BYTE dR = 0;
+		BYTE dG = 0;
+		BYTE dB = 0;
+		BYTE dA = 0;
+		sColor = FreeRDPReadColor(src, format);
+		dColor = FreeRDPReadColor(dst, format);
 		src += bpp;
 		dst += bpp;
-		SplitColor(sColor, format, &sR, &sG, &sB, &sA, NULL);
-		SplitColor(dColor, format, &dR, &dG, &dB, &dA, NULL);
+		FreeRDPSplitColor(sColor, format, &sR, &sG, &sB, &sA, NULL);
+		FreeRDPSplitColor(dColor, format, &dR, &dG, &dB, &dA, NULL);
 
-		if ((abs(sR - dR) > maxDiff) || (abs(sG - dG) > maxDiff) || (abs(sB - dB) > maxDiff))
+		if ((labs(sR - dR) > maxDiff) || (labs(sG - dG) > maxDiff) || (labs(sB - dB) > maxDiff))
 		{
 			fprintf(
 			    stderr,
-			    "Color value  mismatch R[%02X %02X], G[%02X %02X], B[%02X %02X] at position %lu\n",
+			    "Color value  mismatch R[%02X %02X], G[%02X %02X], B[%02X %02X] at position %" PRIuz
+			    "\n",
 			    sR, dR, sG, dG, sA, dA, x);
 			return FALSE;
 		}
 
 		if (dA != fill)
 		{
-			fprintf(stderr, "[%s] Invalid destination alpha value %02X at position %lu\n",
-			        use444 ? "AVC444" : "AVC420", dA, x);
+			fprintf(
+			    stderr,
+			    "[%s] Invalid destination alpha value 0x%02X [expected 0x%02X] at position %" PRIuz
+			    "\n",
+			    use444 ? "AVC444" : "AVC420", dA, fill, x);
 			return FALSE;
 		}
 	}
@@ -81,8 +87,8 @@ static BOOL similarRGB(const BYTE* src, const BYTE* dst, size_t size, UINT32 for
 static void get_size(BOOL large, UINT32* width, UINT32* height)
 {
 	UINT32 shift = large ? 8 : 1;
-	winpr_RAND((BYTE*)width, sizeof(*width));
-	winpr_RAND((BYTE*)height, sizeof(*height));
+	winpr_RAND(width, sizeof(*width));
+	winpr_RAND(height, sizeof(*height));
 	// TODO: Algorithm only works on even resolutions...
 	*width = (*width % 64 + 1) << shift;
 	*height = (*height % 64 + 1) << shift;
@@ -90,10 +96,9 @@ static void get_size(BOOL large, UINT32* width, UINT32* height)
 
 static BOOL check_padding(const BYTE* psrc, size_t size, size_t padding, const char* buffer)
 {
-	size_t x;
 	BOOL rc = TRUE;
-	const BYTE* src;
-	const BYTE* esrc;
+	const BYTE* src = NULL;
+	const BYTE* esrc = NULL;
 	size_t halfPad = (padding + 1) / 2;
 
 	if (!psrc)
@@ -102,7 +107,7 @@ static BOOL check_padding(const BYTE* psrc, size_t size, size_t padding, const c
 	src = psrc - halfPad;
 	esrc = src + size + halfPad;
 
-	for (x = 0; x < halfPad; x++)
+	for (size_t x = 0; x < halfPad; x++)
 	{
 		const BYTE s = *src++;
 		const BYTE d = *esrc++;
@@ -140,8 +145,8 @@ static BOOL check_padding(const BYTE* psrc, size_t size, size_t padding, const c
 static void* set_padding(size_t size, size_t padding)
 {
 	size_t halfPad = (padding + 1) / 2;
-	BYTE* psrc;
-	BYTE* src = _aligned_malloc(size + 2 * halfPad, 16);
+	BYTE* psrc = NULL;
+	BYTE* src = winpr_aligned_malloc(size + 2 * halfPad, 16);
 
 	if (!src)
 		return NULL;
@@ -153,7 +158,7 @@ static void* set_padding(size_t size, size_t padding)
 
 	if (!check_padding(psrc, size, padding, "init"))
 	{
-		_aligned_free(src);
+		winpr_aligned_free(src);
 		return NULL;
 	}
 
@@ -162,21 +167,26 @@ static void* set_padding(size_t size, size_t padding)
 
 static void free_padding(void* src, size_t padding)
 {
-	BYTE* ptr;
+	BYTE* ptr = NULL;
 
 	if (!src)
 		return;
 
 	ptr = ((BYTE*)src) - (padding + 1) / 2;
-	_aligned_free(ptr);
+	winpr_aligned_free(ptr);
 }
 
 /* Create 2 pseudo YUV420 frames of same size.
  * Combine them and check, if the data is at the expected position. */
 static BOOL TestPrimitiveYUVCombine(primitives_t* prims, prim_size_t roi)
 {
-	UINT32 x, y, i;
-	UINT32 awidth, aheight;
+	union
+	{
+		const BYTE** cpv;
+		BYTE** pv;
+	} cnv;
+	UINT32 awidth = 0;
+	UINT32 aheight = 0;
 	BOOL rc = FALSE;
 	BYTE* luma[3] = { 0 };
 	BYTE* chroma[3] = { 0 };
@@ -205,7 +215,7 @@ static BOOL TestPrimitiveYUVCombine(primitives_t* prims, prim_size_t roi)
 	if (!prims || !prims->YUV420CombineToYUV444)
 		goto fail;
 
-	for (x = 0; x < 3; x++)
+	for (UINT32 x = 0; x < 3; x++)
 	{
 		size_t halfStride = ((x > 0) ? awidth / 2 : awidth);
 		size_t size = aheight * awidth;
@@ -252,15 +262,17 @@ static BOOL TestPrimitiveYUVCombine(primitives_t* prims, prim_size_t roi)
 
 	PROFILER_ENTER(yuvCombine)
 
-	if (prims->YUV420CombineToYUV444(AVC444_LUMA, (const BYTE**)luma, lumaStride, roi.width,
-	                                 roi.height, yuv, yuvStride, &rect) != PRIMITIVES_SUCCESS)
+	cnv.pv = luma;
+	if (prims->YUV420CombineToYUV444(AVC444_LUMA, cnv.cpv, lumaStride, roi.width, roi.height, yuv,
+	                                 yuvStride, &rect) != PRIMITIVES_SUCCESS)
 	{
 		PROFILER_EXIT(yuvCombine)
 		goto fail;
 	}
 
-	if (prims->YUV420CombineToYUV444(AVC444_CHROMAv1, (const BYTE**)chroma, chromaStride, roi.width,
-	                                 roi.height, yuv, yuvStride, &rect) != PRIMITIVES_SUCCESS)
+	cnv.pv = chroma;
+	if (prims->YUV420CombineToYUV444(AVC444_CHROMAv1, cnv.cpv, chromaStride, roi.width, roi.height,
+	                                 yuv, yuvStride, &rect) != PRIMITIVES_SUCCESS)
 	{
 		PROFILER_EXIT(yuvCombine)
 		goto fail;
@@ -268,7 +280,7 @@ static BOOL TestPrimitiveYUVCombine(primitives_t* prims, prim_size_t roi)
 
 	PROFILER_EXIT(yuvCombine)
 
-	for (x = 0; x < 3; x++)
+	for (UINT32 x = 0; x < 3; x++)
 	{
 		size_t halfStride = ((x > 0) ? awidth / 2 : awidth);
 		size_t size = aheight * awidth;
@@ -286,8 +298,9 @@ static BOOL TestPrimitiveYUVCombine(primitives_t* prims, prim_size_t roi)
 
 	PROFILER_ENTER(yuvSplit)
 
-	if (prims->YUV444SplitToYUV420((const BYTE**)yuv, yuvStride, pmain, lumaStride, paux,
-	                               chromaStride, &roi) != PRIMITIVES_SUCCESS)
+	cnv.pv = yuv;
+	if (prims->YUV444SplitToYUV420(cnv.cpv, yuvStride, pmain, lumaStride, paux, chromaStride,
+	                               &roi) != PRIMITIVES_SUCCESS)
 	{
 		PROFILER_EXIT(yuvSplit)
 		goto fail;
@@ -295,7 +308,7 @@ static BOOL TestPrimitiveYUVCombine(primitives_t* prims, prim_size_t roi)
 
 	PROFILER_EXIT(yuvSplit)
 
-	for (x = 0; x < 3; x++)
+	for (UINT32 x = 0; x < 3; x++)
 	{
 		size_t halfStride = ((x > 0) ? awidth / 2 : awidth);
 		size_t size = aheight * awidth;
@@ -311,9 +324,9 @@ static BOOL TestPrimitiveYUVCombine(primitives_t* prims, prim_size_t roi)
 			goto fail;
 	}
 
-	for (i = 0; i < 3; i++)
+	for (UINT32 i = 0; i < 3; i++)
 	{
-		for (y = 0; y < roi.height; y++)
+		for (UINT32 y = 0; y < roi.height; y++)
 		{
 			UINT32 w = roi.width;
 			UINT32 lstride = lumaStride[i];
@@ -358,7 +371,7 @@ fail:
 	PROFILER_FREE(yuvCombine)
 	PROFILER_FREE(yuvSplit)
 
-	for (x = 0; x < 3; x++)
+	for (UINT32 x = 0; x < 3; x++)
 	{
 		free_padding(yuv[x], padding);
 		free_padding(luma[x], padding);
@@ -372,17 +385,23 @@ fail:
 
 static BOOL TestPrimitiveYUV(primitives_t* prims, prim_size_t roi, BOOL use444)
 {
-	BOOL rc = FALSE;
-	UINT32 x, y;
-	UINT32 awidth, aheight;
+	union
+	{
+		const BYTE** cpv;
+		BYTE** pv;
+	} cnv;
+	BOOL res = FALSE;
+	UINT32 awidth = 0;
+	UINT32 aheight = 0;
 	BYTE* yuv[3] = { 0 };
 	UINT32 yuv_step[3];
 	BYTE* rgb = NULL;
 	BYTE* rgb_dst = NULL;
-	size_t size;
-	size_t uvsize, uvwidth;
+	size_t size = 0;
+	size_t uvsize = 0;
+	size_t uvwidth = 0;
 	size_t padding = 100 * 16;
-	UINT32 stride;
+	UINT32 stride = 0;
 	const UINT32 formats[] = { PIXEL_FORMAT_XRGB32, PIXEL_FORMAT_XBGR32, PIXEL_FORMAT_ARGB32,
 		                       PIXEL_FORMAT_ABGR32, PIXEL_FORMAT_RGBA32, PIXEL_FORMAT_RGBX32,
 		                       PIXEL_FORMAT_BGRA32, PIXEL_FORMAT_BGRX32 };
@@ -432,11 +451,11 @@ static BOOL TestPrimitiveYUV(primitives_t* prims, prim_size_t roi, BOOL use444)
 	if (!(yuv[2] = set_padding(uvsize, padding)))
 		goto fail;
 
-	for (y = 0; y < roi.height; y++)
+	for (UINT32 y = 0; y < roi.height; y++)
 	{
 		BYTE* line = &rgb[y * stride];
 
-		for (x = 0; x < roi.width; x++)
+		for (UINT32 x = 0; x < roi.width; x++)
 		{
 			line[x * 4 + 0] = 0x81;
 			line[x * 4 + 1] = 0x33;
@@ -449,9 +468,9 @@ static BOOL TestPrimitiveYUV(primitives_t* prims, prim_size_t roi, BOOL use444)
 	yuv_step[1] = uvwidth;
 	yuv_step[2] = uvwidth;
 
-	for (x = 0; x < sizeof(formats) / sizeof(formats[0]); x++)
+	for (UINT32 x = 0; x < ARRAYSIZE(formats); x++)
 	{
-		pstatus_t rc;
+		pstatus_t rc = 0;
 		const UINT32 DstFormat = formats[x];
 		printf("Testing destination color format %s\n", FreeRDPGetColorFormatName(DstFormat));
 		memset(rgb_dst, PADDING_FILL_VALUE, size * sizeof(UINT32));
@@ -502,11 +521,11 @@ static BOOL TestPrimitiveYUV(primitives_t* prims, prim_size_t roi, BOOL use444)
 			goto loop_fail;
 		}
 
+		cnv.pv = yuv;
 		if (use444)
 		{
 			PROFILER_ENTER(yuv444ToRGB)
-			rc = prims->YUV444ToRGB_8u_P3AC4R((const BYTE**)yuv, yuv_step, rgb_dst, stride,
-			                                  DstFormat, &roi);
+			rc = prims->YUV444ToRGB_8u_P3AC4R(cnv.cpv, yuv_step, rgb_dst, stride, DstFormat, &roi);
 			PROFILER_EXIT(yuv444ToRGB)
 
 			if (rc != PRIMITIVES_SUCCESS)
@@ -525,8 +544,8 @@ static BOOL TestPrimitiveYUV(primitives_t* prims, prim_size_t roi, BOOL use444)
 		{
 			PROFILER_ENTER(yuv420ToRGB)
 
-			if (prims->YUV420ToRGB_8u_P3AC4R((const BYTE**)yuv, yuv_step, rgb_dst, stride,
-			                                 DstFormat, &roi) != PRIMITIVES_SUCCESS)
+			if (prims->YUV420ToRGB_8u_P3AC4R(cnv.cpv, yuv_step, rgb_dst, stride, DstFormat, &roi) !=
+			    PRIMITIVES_SUCCESS)
 			{
 				PROFILER_EXIT(yuv420ToRGB)
 				goto fail;
@@ -546,7 +565,7 @@ static BOOL TestPrimitiveYUV(primitives_t* prims, prim_size_t roi, BOOL use444)
 		    (!check_padding(yuv[2], uvsize, padding, "V")))
 			goto fail;
 
-		for (y = 0; y < roi.height; y++)
+		for (UINT32 y = 0; y < roi.height; y++)
 		{
 			BYTE* srgb = &rgb[y * stride];
 			BYTE* drgb = &rgb_dst[y * stride];
@@ -561,14 +580,14 @@ static BOOL TestPrimitiveYUV(primitives_t* prims, prim_size_t roi, BOOL use444)
 		PROFILER_FREE(yuv444ToRGB)
 	}
 
-	rc = TRUE;
+	res = TRUE;
 fail:
 	free_padding(rgb, padding);
 	free_padding(rgb_dst, padding);
 	free_padding(yuv[0], padding);
 	free_padding(yuv[1], padding);
 	free_padding(yuv[2], padding);
-	return rc;
+	return res;
 }
 
 static BOOL allocate_yuv420(BYTE** planes, UINT32 width, UINT32 height, UINT32 padding)
@@ -620,9 +639,8 @@ static BOOL check_yuv420(BYTE** planes, UINT32 width, UINT32 height, UINT32 padd
 static BOOL check_for_mismatches(const BYTE* planeA, const BYTE* planeB, UINT32 size)
 {
 	BOOL rc = FALSE;
-	UINT32 x;
 
-	for (x = 0; x < size; x++)
+	for (UINT32 x = 0; x < size; x++)
 	{
 		const BYTE a = planeA[x];
 		const BYTE b = planeB[x];
@@ -668,20 +686,21 @@ static BOOL compare_yuv420(BYTE** planesA, BYTE** planesB, UINT32 width, UINT32 
 
 static BOOL TestPrimitiveRgbToLumaChroma(primitives_t* prims, prim_size_t roi, UINT32 version)
 {
-	BOOL rc = FALSE;
-	UINT32 x, y, cnt;
-	UINT32 awidth, aheight;
+	BOOL res = FALSE;
+	UINT32 awidth = 0;
+	UINT32 aheight = 0;
 	BYTE* luma[3] = { 0 };
 	BYTE* chroma[3] = { 0 };
 	BYTE* lumaGeneric[3] = { 0 };
 	BYTE* chromaGeneric[3] = { 0 };
 	UINT32 yuv_step[3];
 	BYTE* rgb = NULL;
-	size_t size;
-	size_t uvsize, uvwidth;
+	size_t size = 0;
+	size_t uvwidth = 0;
 	const size_t padding = 0x1000;
-	UINT32 stride;
-	__RGBToAVC444YUV_t fkt, gen;
+	UINT32 stride = 0;
+	__RGBToAVC444YUV_t fkt = NULL;
+	__RGBToAVC444YUV_t gen = NULL;
 	const UINT32 formats[] = { PIXEL_FORMAT_XRGB32, PIXEL_FORMAT_XBGR32, PIXEL_FORMAT_ARGB32,
 		                       PIXEL_FORMAT_ABGR32, PIXEL_FORMAT_RGBA32, PIXEL_FORMAT_RGBX32,
 		                       PIXEL_FORMAT_BGRA32, PIXEL_FORMAT_BGRX32 };
@@ -701,7 +720,6 @@ static BOOL TestPrimitiveRgbToLumaChroma(primitives_t* prims, prim_size_t roi, U
 	stride = awidth * sizeof(UINT32);
 	size = awidth * aheight;
 	uvwidth = (awidth + 1) / 2;
-	uvsize = (aheight + 1) / 2 * uvwidth;
 
 	if (!prims || !generic)
 		return FALSE;
@@ -744,11 +762,11 @@ static BOOL TestPrimitiveRgbToLumaChroma(primitives_t* prims, prim_size_t roi, U
 	if (!allocate_yuv420(chromaGeneric, awidth, aheight, padding))
 		goto fail;
 
-	for (y = 0; y < roi.height; y++)
+	for (UINT32 y = 0; y < roi.height; y++)
 	{
 		BYTE* line = &rgb[y * stride];
 
-		for (x = 0; x < roi.width; x++)
+		for (UINT32 x = 0; x < roi.width; x++)
 		{
 #if 1
 			line[x * 4 + 0] = rand();
@@ -768,15 +786,15 @@ static BOOL TestPrimitiveRgbToLumaChroma(primitives_t* prims, prim_size_t roi, U
 	yuv_step[1] = uvwidth;
 	yuv_step[2] = uvwidth;
 
-	for (x = 0; x < sizeof(formats) / sizeof(formats[0]); x++)
+	for (UINT32 x = 0; x < sizeof(formats) / sizeof(formats[0]); x++)
 	{
-		pstatus_t rc;
+		pstatus_t rc = -1;
 		const UINT32 DstFormat = formats[x];
 		printf("Testing destination color format %s\n", FreeRDPGetColorFormatName(DstFormat));
 		PROFILER_CREATE(rgbToYUV444, "RGBToYUV444-generic")
 		PROFILER_CREATE(rgbToYUV444opt, "RGBToYUV444-optimized")
 
-		for (cnt = 0; cnt < 10; cnt++)
+		for (UINT32 cnt = 0; cnt < 10; cnt++)
 		{
 			PROFILER_ENTER(rgbToYUV444opt)
 			rc = fkt(rgb, DstFormat, stride, luma, yuv_step, chroma, yuv_step, &roi);
@@ -803,7 +821,7 @@ static BOOL TestPrimitiveRgbToLumaChroma(primitives_t* prims, prim_size_t roi, U
 			goto loop_fail;
 		}
 
-		for (cnt = 0; cnt < 10; cnt++)
+		for (UINT32 cnt = 0; cnt < 10; cnt++)
 		{
 			PROFILER_ENTER(rgbToYUV444)
 			rc = gen(rgb, DstFormat, stride, lumaGeneric, yuv_step, chromaGeneric, yuv_step, &roi);
@@ -845,33 +863,34 @@ static BOOL TestPrimitiveRgbToLumaChroma(primitives_t* prims, prim_size_t roi, U
 			goto fail;
 	}
 
-	rc = TRUE;
+	res = TRUE;
 fail:
 	free_padding(rgb, padding);
 	free_yuv420(luma, padding);
 	free_yuv420(chroma, padding);
 	free_yuv420(lumaGeneric, padding);
 	free_yuv420(chromaGeneric, padding);
-	return rc;
+	return res;
 }
 
 int TestPrimitivesYUV(int argc, char* argv[])
 {
 	BOOL large = (argc > 1);
-	UINT32 x;
 	int rc = -1;
+	WINPR_UNUSED(argc);
+	WINPR_UNUSED(argv);
 	prim_test_setup(FALSE);
 	primitives_t* prims = primitives_get();
 
-	for (x = 0; x < 10; x++)
+	for (UINT32 x = 0; x < 5; x++)
 	{
 		prim_size_t roi;
 
 		if (argc > 1)
 		{
-			int rc = sscanf(argv[1], "%" PRIu32 "x%" PRIu32, &roi.width, &roi.height);
+			int crc = sscanf(argv[1], "%" PRIu32 "x%" PRIu32, &roi.width, &roi.height);
 
-			if (rc != 2)
+			if (crc != 2)
 			{
 				roi.width = 1920;
 				roi.height = 1080;

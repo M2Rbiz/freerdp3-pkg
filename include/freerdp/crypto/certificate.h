@@ -2,7 +2,8 @@
  * FreeRDP: A Remote Desktop Protocol Implementation
  * Certificate Handling
  *
- * Copyright 2011-2012 Marc-Andre Moreau <marcandre.moreau@gmail.com>
+ * Copyright 2023 Armin Novak <anovak@thincast.com>
+ * Copyright 2023 Thincast Technologies GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,56 +21,80 @@
 #ifndef FREERDP_CRYPTO_CERTIFICATE_H
 #define FREERDP_CRYPTO_CERTIFICATE_H
 
-typedef struct rdp_certificate_data rdpCertificateData;
-typedef struct rdp_certificate_store rdpCertificateStore;
-
-#include <freerdp/crypto/ber.h>
-#include <freerdp/crypto/crypto.h>
+#include <winpr/crypto.h>
 
 #include <freerdp/api.h>
-#include <freerdp/settings.h>
-
-#include <winpr/print.h>
-#include <winpr/stream.h>
-
-struct rdp_certificate_data
-{
-	char* hostname;
-	UINT16 port;
-	char* subject;
-	char* issuer;
-	char* fingerprint;
-};
-
-struct rdp_certificate_store
-{
-	char* path;
-	char* file;
-	char* legacy_file;
-	rdpSettings* settings;
-	rdpCertificateData* certificate_data;
-};
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-	FREERDP_API rdpCertificateData* certificate_data_new(const char* hostname, UINT16 port,
-	                                                     const char* subject, const char* issuer,
-	                                                     const char* fingerprint);
-	FREERDP_API void certificate_data_free(rdpCertificateData* certificate_data);
-	FREERDP_API rdpCertificateStore* certificate_store_new(rdpSettings* settings);
-	FREERDP_API BOOL certificate_data_replace(rdpCertificateStore* certificate_store,
-	                                          rdpCertificateData* certificate_data);
-	FREERDP_API void certificate_store_free(rdpCertificateStore* certificate_store);
-	FREERDP_API int certificate_data_match(rdpCertificateStore* certificate_store,
-	                                       rdpCertificateData* certificate_data);
-	FREERDP_API BOOL certificate_data_print(rdpCertificateStore* certificate_store,
-	                                        rdpCertificateData* certificate_data);
-	FREERDP_API BOOL certificate_get_stored_data(rdpCertificateStore* certificate_store,
-	                                             rdpCertificateData* certificate_data,
-	                                             char** subject, char** issuer, char** fingerprint);
+	enum FREERDP_CERT_PARAM
+	{
+		FREERDP_CERT_RSA_E,
+		FREERDP_CERT_RSA_N
+	};
+
+	typedef struct rdp_certificate rdpCertificate;
+
+	FREERDP_API void freerdp_certificate_free(rdpCertificate* certificate);
+
+	WINPR_ATTR_MALLOC(freerdp_certificate_free, 1)
+	FREERDP_API rdpCertificate* freerdp_certificate_new(void);
+
+	WINPR_ATTR_MALLOC(freerdp_certificate_free, 1)
+	FREERDP_API rdpCertificate* freerdp_certificate_new_from_file(const char* file);
+
+	WINPR_ATTR_MALLOC(freerdp_certificate_free, 1)
+	FREERDP_API rdpCertificate* freerdp_certificate_new_from_pem(const char* pem);
+
+	WINPR_ATTR_MALLOC(freerdp_certificate_free, 1)
+	FREERDP_API rdpCertificate* freerdp_certificate_new_from_der(const BYTE* data, size_t length);
+
+	FREERDP_API BOOL freerdp_certificate_is_rsa(const rdpCertificate* certificate);
+
+	FREERDP_API char* freerdp_certificate_get_hash(const rdpCertificate* certificate,
+	                                               const char* hash, size_t* plength);
+
+	FREERDP_API char* freerdp_certificate_get_fingerprint_by_hash(const rdpCertificate* certificate,
+	                                                              const char* hash);
+	FREERDP_API char*
+	freerdp_certificate_get_fingerprint_by_hash_ex(const rdpCertificate* certificate,
+	                                               const char* hash, BOOL separator);
+	FREERDP_API char* freerdp_certificate_get_fingerprint(const rdpCertificate* certificate);
+	FREERDP_API char* freerdp_certificate_get_pem(const rdpCertificate* certificate,
+	                                              size_t* pLength);
+	FREERDP_API BYTE* freerdp_certificate_get_der(const rdpCertificate* certificate,
+	                                              size_t* pLength);
+
+	FREERDP_API char* freerdp_certificate_get_subject(const rdpCertificate* certificate);
+	FREERDP_API char* freerdp_certificate_get_issuer(const rdpCertificate* certificate);
+
+	FREERDP_API char* freerdp_certificate_get_upn(const rdpCertificate* certificate);
+	FREERDP_API char* freerdp_certificate_get_email(const rdpCertificate* certificate);
+
+	FREERDP_API WINPR_MD_TYPE freerdp_certificate_get_signature_alg(const rdpCertificate* cert);
+
+	FREERDP_API char* freerdp_certificate_get_common_name(const rdpCertificate* cert,
+	                                                      size_t* plength);
+	FREERDP_API char** freerdp_certificate_get_dns_names(const rdpCertificate* cert, size_t* pcount,
+	                                                     size_t** pplengths);
+	FREERDP_API void freerdp_certificate_free_dns_names(size_t count, size_t* lengths,
+	                                                    char** names);
+
+	FREERDP_API BOOL freerdp_certificate_check_eku(const rdpCertificate* certificate, int nid);
+
+	FREERDP_API BOOL freerdp_certificate_get_public_key(const rdpCertificate* cert,
+	                                                    BYTE** PublicKey, DWORD* PublicKeyLength);
+
+	FREERDP_API BOOL freerdp_certificate_verify(const rdpCertificate* cert,
+	                                            const char* certificate_store_path);
+
+	FREERDP_API BOOL freerdp_certificate_is_rdp_security_compatible(const rdpCertificate* cert);
+
+	FREERDP_API char* freerdp_certificate_get_param(const rdpCertificate* cert,
+	                                                enum FREERDP_CERT_PARAM what, size_t* psize);
 
 #ifdef __cplusplus
 }

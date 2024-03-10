@@ -5,11 +5,14 @@
 
 int TestBufferPool(int argc, char* argv[])
 {
-	DWORD PoolSize;
-	int BufferSize;
-	wBufferPool* pool;
+	DWORD PoolSize = 0;
+	int BufferSize = 0;
+	wBufferPool* pool = NULL;
 	BYTE* Buffers[10];
 	int DefaultSize = 1234;
+
+	WINPR_UNUSED(argc);
+	WINPR_UNUSED(argv);
 
 	pool = BufferPool_New(TRUE, -1, 16);
 	if (!pool)

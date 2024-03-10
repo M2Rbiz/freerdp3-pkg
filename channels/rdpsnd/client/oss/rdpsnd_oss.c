@@ -19,9 +19,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,13 +45,12 @@
 #include <sys/ioctl.h>
 
 #include <freerdp/types.h>
+#include <freerdp/settings.h>
 #include <freerdp/channels/log.h>
 
 #include "rdpsnd_main.h"
 
-typedef struct rdpsnd_oss_plugin rdpsndOssPlugin;
-
-struct rdpsnd_oss_plugin
+typedef struct
 {
 	rdpsndDevicePlugin device;
 
@@ -65,13 +62,18 @@ struct rdpsnd_oss_plugin
 
 	UINT32 latency;
 	AUDIO_FORMAT format;
-};
+} rdpsndOssPlugin;
 
-#define OSS_LOG_ERR(_text, _error)                                         \
-	{                                                                      \
-		if (_error != 0)                                                   \
-			WLog_ERR(TAG, "%s: %i - %s", _text, _error, strerror(_error)); \
-	}
+#define OSS_LOG_ERR(_text, _error)                                      \
+	do                                                                  \
+	{                                                                   \
+		if (_error != 0)                                                \
+		{                                                               \
+			char ebuffer[256] = { 0 };                                  \
+			WLog_ERR(TAG, "%s: %i - %s", _text, _error,                 \
+			         winpr_strerror(_error, ebuffer, sizeof(ebuffer))); \
+		}                                                               \
+	} while (0)
 
 static int rdpsnd_oss_get_format(const AUDIO_FORMAT* format)
 {
@@ -141,7 +143,7 @@ static BOOL rdpsnd_oss_format_supported(rdpsndDevicePlugin* device, const AUDIO_
 static BOOL rdpsnd_oss_set_format(rdpsndDevicePlugin* device, const AUDIO_FORMAT* format,
                                   UINT32 latency)
 {
-	int tmp;
+	int tmp = 0;
 	rdpsndOssPlugin* oss = (rdpsndOssPlugin*)device;
 
 	if (device == NULL || oss->pcm_handle == -1 || format == NULL)
@@ -296,9 +298,10 @@ static void rdpsnd_oss_free(rdpsndDevicePlugin* device)
 
 static UINT32 rdpsnd_oss_get_volume(rdpsndDevicePlugin* device)
 {
-	int vol;
-	UINT32 dwVolume;
-	UINT16 dwVolumeLeft, dwVolumeRight;
+	int vol = 0;
+	UINT32 dwVolume = 0;
+	UINT16 dwVolumeLeft = 0;
+	UINT16 dwVolumeRight = 0;
 	rdpsndOssPlugin* oss = (rdpsndOssPlugin*)device;
 	/* On error return 50% volume. */
 	dwVolumeLeft = ((50 * 0xFFFF) / 100);  /* 50% */
@@ -322,7 +325,8 @@ static UINT32 rdpsnd_oss_get_volume(rdpsndDevicePlugin* device)
 
 static BOOL rdpsnd_oss_set_volume(rdpsndDevicePlugin* device, UINT32 value)
 {
-	int left, right;
+	int left = 0;
+	int right = 0;
 	rdpsndOssPlugin* oss = (rdpsndOssPlugin*)device;
 
 	if (device == NULL || oss->mixer_handle == -1)
@@ -382,12 +386,13 @@ static UINT rdpsnd_oss_play(rdpsndDevicePlugin* device, const BYTE* data, size_t
 	return 10; /* TODO: Get real latency in [ms] */
 }
 
-static int rdpsnd_oss_parse_addin_args(rdpsndDevicePlugin* device, ADDIN_ARGV* args)
+static int rdpsnd_oss_parse_addin_args(rdpsndDevicePlugin* device, const ADDIN_ARGV* args)
 {
-	int status;
-	char *str_num, *eptr;
-	DWORD flags;
-	COMMAND_LINE_ARGUMENT_A* arg;
+	int status = 0;
+	char* str_num = NULL;
+	char* eptr = NULL;
+	DWORD flags = 0;
+	const COMMAND_LINE_ARGUMENT_A* arg = NULL;
 	rdpsndOssPlugin* oss = (rdpsndOssPlugin*)device;
 	COMMAND_LINE_ARGUMENT_A rdpsnd_oss_args[] = { { "dev", COMMAND_LINE_VALUE_REQUIRED, "<device>",
 		                                            NULL, NULL, -1, NULL, "device" },
@@ -438,22 +443,16 @@ static int rdpsnd_oss_parse_addin_args(rdpsndDevicePlugin* device, ADDIN_ARGV* a
 	return status;
 }
 
-#ifdef BUILTIN_CHANNELS
-#define freerdp_rdpsnd_client_subsystem_entry oss_freerdp_rdpsnd_client_subsystem_entry
-#else
-#define freerdp_rdpsnd_client_subsystem_entry FREERDP_API freerdp_rdpsnd_client_subsystem_entry
-#endif
-
 /**
  * Function description
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-UINT freerdp_rdpsnd_client_subsystem_entry(PFREERDP_RDPSND_DEVICE_ENTRY_POINTS pEntryPoints)
+FREERDP_ENTRY_POINT(UINT oss_freerdp_rdpsnd_client_subsystem_entry(
+    PFREERDP_RDPSND_DEVICE_ENTRY_POINTS pEntryPoints))
 {
-	ADDIN_ARGV* args;
-	rdpsndOssPlugin* oss;
-	oss = (rdpsndOssPlugin*)calloc(1, sizeof(rdpsndOssPlugin));
+	const ADDIN_ARGV* args = NULL;
+	rdpsndOssPlugin* oss = (rdpsndOssPlugin*)calloc(1, sizeof(rdpsndOssPlugin));
 
 	if (!oss)
 		return CHANNEL_RC_NO_MEMORY;
@@ -469,7 +468,11 @@ UINT freerdp_rdpsnd_client_subsystem_entry(PFREERDP_RDPSND_DEVICE_ENTRY_POINTS p
 	oss->mixer_handle = -1;
 	oss->dev_unit = -1;
 	args = pEntryPoints->args;
-	rdpsnd_oss_parse_addin_args((rdpsndDevicePlugin*)oss, args);
+	if (rdpsnd_oss_parse_addin_args(&oss->device, args) < 0)
+	{
+		free(oss);
+		return ERROR_INVALID_PARAMETER;
+	}
 	pEntryPoints->pRegisterRdpsndDevice(pEntryPoints->rdpsnd, (rdpsndDevicePlugin*)oss);
 	return CHANNEL_RC_OK;
 }

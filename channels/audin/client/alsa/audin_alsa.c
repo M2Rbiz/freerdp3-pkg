@@ -19,9 +19,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,12 +33,13 @@
 
 #include <alsa/asoundlib.h>
 
+#include <freerdp/freerdp.h>
 #include <freerdp/addin.h>
 #include <freerdp/channels/rdpsnd.h>
 
 #include "audin_main.h"
 
-typedef struct _AudinALSADevice
+typedef struct
 {
 	IAudinDevice iface;
 
@@ -89,10 +88,10 @@ static snd_pcm_format_t audin_alsa_format(UINT32 wFormatTag, UINT32 bitPerChanne
 
 static BOOL audin_alsa_set_params(AudinALSADevice* alsa, snd_pcm_t* capture_handle)
 {
-	int error;
-	SSIZE_T s;
+	int error = 0;
+	SSIZE_T s = 0;
 	UINT32 channels = alsa->aformat.nChannels;
-	snd_pcm_hw_params_t* hw_params;
+	snd_pcm_hw_params_t* hw_params = NULL;
 	snd_pcm_format_t format =
 	    audin_alsa_format(alsa->aformat.wFormatTag, alsa->aformat.wBitsPerSample);
 
@@ -122,11 +121,11 @@ static BOOL audin_alsa_set_params(AudinALSADevice* alsa, snd_pcm_t* capture_hand
 
 static DWORD WINAPI audin_alsa_thread_func(LPVOID arg)
 {
-	long error;
-	BYTE* buffer;
+	int error = 0;
+	BYTE* buffer = NULL;
 	snd_pcm_t* capture_handle = NULL;
 	AudinALSADevice* alsa = (AudinALSADevice*)arg;
-	DWORD status;
+	DWORD status = 0;
 	WLog_Print(alsa->log, WLOG_DEBUG, "in");
 
 	if ((error = snd_pcm_open(&capture_handle, alsa->device_name, SND_PCM_STREAM_CAPTURE, 0)) < 0)
@@ -183,8 +182,8 @@ static DWORD WINAPI audin_alsa_thread_func(LPVOID arg)
 			break;
 		}
 
-		error =
-		    alsa->receive(&alsa->aformat, buffer, error * alsa->bytes_per_frame, alsa->user_data);
+		error = alsa->receive(&alsa->aformat, buffer, (long)error * alsa->bytes_per_frame,
+		                      alsa->user_data);
 
 		if (error)
 		{
@@ -346,11 +345,11 @@ static UINT audin_alsa_close(IAudinDevice* device)
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-static UINT audin_alsa_parse_addin_args(AudinALSADevice* device, ADDIN_ARGV* args)
+static UINT audin_alsa_parse_addin_args(AudinALSADevice* device, const ADDIN_ARGV* args)
 {
-	int status;
-	DWORD flags;
-	COMMAND_LINE_ARGUMENT_A* arg;
+	int status = 0;
+	DWORD flags = 0;
+	const COMMAND_LINE_ARGUMENT_A* arg = NULL;
 	AudinALSADevice* alsa = (AudinALSADevice*)device;
 	COMMAND_LINE_ARGUMENT_A audin_alsa_args[] = { { "dev", COMMAND_LINE_VALUE_REQUIRED, "<device>",
 		                                            NULL, NULL, -1, NULL, "audio device name" },
@@ -386,22 +385,17 @@ static UINT audin_alsa_parse_addin_args(AudinALSADevice* device, ADDIN_ARGV* arg
 	return CHANNEL_RC_OK;
 }
 
-#ifdef BUILTIN_CHANNELS
-#define freerdp_audin_client_subsystem_entry alsa_freerdp_audin_client_subsystem_entry
-#else
-#define freerdp_audin_client_subsystem_entry FREERDP_API freerdp_audin_client_subsystem_entry
-#endif
-
 /**
  * Function description
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-UINT freerdp_audin_client_subsystem_entry(PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints)
+FREERDP_ENTRY_POINT(
+    UINT alsa_freerdp_audin_client_subsystem_entry(PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints))
 {
-	ADDIN_ARGV* args;
-	AudinALSADevice* alsa;
-	UINT error;
+	const ADDIN_ARGV* args = NULL;
+	AudinALSADevice* alsa = NULL;
+	UINT error = 0;
 	alsa = (AudinALSADevice*)calloc(1, sizeof(AudinALSADevice));
 
 	if (!alsa)

@@ -54,7 +54,7 @@ typedef struct
 
 struct winpr_thread
 {
-	WINPR_HANDLE_DEF();
+	WINPR_HANDLE common;
 
 	ALIGN64 BOOL started;
 	ALIGN64 WINPR_EVENT_IMPL event;
@@ -77,17 +77,17 @@ struct winpr_thread
 	ALIGN64 void* exit_stack;
 #endif
 };
-typedef struct winpr_thread WINPR_THREAD;
 
 WINPR_THREAD* winpr_GetCurrentThread(VOID);
 
 typedef struct
 {
-	WINPR_HANDLE_DEF();
+	WINPR_HANDLE common;
 
 	pid_t pid;
 	int status;
 	DWORD dwExitCode;
+	int fd;
 } WINPR_PROCESS;
 
 #endif

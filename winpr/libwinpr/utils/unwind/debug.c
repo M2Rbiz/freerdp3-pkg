@@ -54,7 +54,7 @@ static _Unwind_Reason_Code unwind_backtrace_callback(struct _Unwind_Context* con
 	{
 		unwind_info_t* info = &ctx->info[ctx->pos++];
 		info->pc = _Unwind_GetIP(context);
-		info->langSpecificData = _Unwind_GetLanguageSpecificData(context);
+		info->langSpecificData = (void*)_Unwind_GetLanguageSpecificData(context);
 	}
 
 	return _URC_NO_REASON;
@@ -62,7 +62,7 @@ static _Unwind_Reason_Code unwind_backtrace_callback(struct _Unwind_Context* con
 
 void* winpr_unwind_backtrace(DWORD size)
 {
-	_Unwind_Reason_Code rc;
+	_Unwind_Reason_Code rc = _URC_FOREIGN_EXCEPTION_CAUGHT;
 	unwind_context_t* ctx = calloc(1, sizeof(unwind_context_t));
 	if (!ctx)
 		goto fail;
@@ -94,35 +94,39 @@ void winpr_unwind_backtrace_free(void* buffer)
 
 char** winpr_unwind_backtrace_symbols(void* buffer, size_t* used)
 {
-	size_t x;
-	char** str = NULL;
+	union
+	{
+		char* cp;
+		char** cpp;
+	} cnv;
 	unwind_context_t* ctx = buffer;
+	cnv.cpp = NULL;
 
 	if (!ctx)
 		return NULL;
 
-	str = calloc(ctx->pos * (sizeof(char*) + UNWIND_MAX_LINE_SIZE), sizeof(char*));
-	if (!str)
+	cnv.cpp = calloc(ctx->pos * (sizeof(char*) + UNWIND_MAX_LINE_SIZE), sizeof(char*));
+	if (!cnv.cpp)
 		return NULL;
 
 	if (used)
 		*used = ctx->pos;
 
-	for (x = 0; x < ctx->pos; x++)
+	for (size_t x = 0; x < ctx->pos; x++)
 	{
-		char* msg = str + ctx->pos * sizeof(char*) + x * UNWIND_MAX_LINE_SIZE;
+		char* msg = cnv.cp + ctx->pos * sizeof(char*) + x * UNWIND_MAX_LINE_SIZE;
 		const unwind_info_t* info = &ctx->info[x];
 		Dl_info dlinfo = { 0 };
-		int rc = dladdr(info->pc, &dlinfo);
+		int rc = dladdr((void*)info->pc, &dlinfo);
 
-		str[x] = msg;
+		cnv.cpp[x] = msg;
 
 		if (rc == 0)
-			_snprintf(msg, UNWIND_MAX_LINE_SIZE, "unresolvable, address=%p", info->pc);
+			_snprintf(msg, UNWIND_MAX_LINE_SIZE, "unresolvable, address=%p", (void*)info->pc);
 		else
 			_snprintf(msg, UNWIND_MAX_LINE_SIZE, "dli_fname=%s [%p], dli_sname=%s [%p]",
 			          dlinfo.dli_fname, dlinfo.dli_fbase, dlinfo.dli_sname, dlinfo.dli_saddr);
 	}
 
-	return str;
+	return cnv.cpp;
 }

@@ -16,7 +16,10 @@
 
 int TestPoolThread(int argc, char* argv[])
 {
-	TP_POOL* pool;
+	TP_POOL* pool = NULL;
+
+	WINPR_UNUSED(argc);
+	WINPR_UNUSED(argv);
 
 	if (!(pool = CreateThreadpool(NULL)))
 	{

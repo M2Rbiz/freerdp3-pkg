@@ -20,12 +20,10 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <errno.h>
-#include <assert.h>
+#include <winpr/assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,13 +37,14 @@
 #include <winpr/stream.h>
 #include <freerdp/freerdp.h>
 #include <freerdp/codec/dsp.h>
+#include <freerdp/client/channels.h>
 #include <freerdp/channels/audin.h>
 
 #include "audin_main.h"
 
 #define SNDIN_VERSION 0x02
 
-enum
+typedef enum
 {
 	MSG_SNDIN_VERSION = 0x01,
 	MSG_SNDIN_FORMATS = 0x02,
@@ -53,20 +52,10 @@ enum
 	MSG_SNDIN_OPEN_REPLY = 0x04,
 	MSG_SNDIN_DATA_INCOMING = 0x05,
 	MSG_SNDIN_DATA = 0x06,
-	MSG_SNDIN_FORMATCHANGE = 0x07
-} MSG_SNDIN_CMD;
+	MSG_SNDIN_FORMATCHANGE = 0x07,
+} MSG_SNDIN;
 
-typedef struct _AUDIN_LISTENER_CALLBACK AUDIN_LISTENER_CALLBACK;
-struct _AUDIN_LISTENER_CALLBACK
-{
-	IWTSListenerCallback iface;
-
-	IWTSPlugin* plugin;
-	IWTSVirtualChannelManager* channel_mgr;
-};
-
-typedef struct _AUDIN_CHANNEL_CALLBACK AUDIN_CHANNEL_CALLBACK;
-struct _AUDIN_CHANNEL_CALLBACK
+typedef struct
 {
 	IWTSVirtualChannelCallback iface;
 
@@ -81,14 +70,13 @@ struct _AUDIN_CHANNEL_CALLBACK
 	 */
 	AUDIO_FORMAT* formats;
 	UINT32 formats_count;
-};
+} AUDIN_CHANNEL_CALLBACK;
 
-typedef struct _AUDIN_PLUGIN AUDIN_PLUGIN;
-struct _AUDIN_PLUGIN
+typedef struct
 {
 	IWTSPlugin iface;
 
-	AUDIN_LISTENER_CALLBACK* listener_callback;
+	GENERIC_LISTENER_CALLBACK* listener_callback;
 
 	/* Parsed plugin data */
 	AUDIO_FORMAT* fixed_format;
@@ -111,15 +99,13 @@ struct _AUDIN_PLUGIN
 
 	BOOL initialized;
 	UINT32 version;
-};
+} AUDIN_PLUGIN;
 
-static BOOL audin_process_addin_args(AUDIN_PLUGIN* audin, ADDIN_ARGV* args);
+static BOOL audin_process_addin_args(AUDIN_PLUGIN* audin, const ADDIN_ARGV* args);
 
 static UINT audin_channel_write_and_free(AUDIN_CHANNEL_CALLBACK* callback, wStream* out,
                                          BOOL freeStream)
 {
-	UINT error;
-
 	if (!callback || !out)
 		return ERROR_INVALID_PARAMETER;
 
@@ -127,8 +113,9 @@ static UINT audin_channel_write_and_free(AUDIN_CHANNEL_CALLBACK* callback, wStre
 		return ERROR_INTERNAL_ERROR;
 
 	Stream_SealLength(out);
-	error =
-	    callback->channel->Write(callback->channel, Stream_Length(out), Stream_Buffer(out), NULL);
+	WINPR_ASSERT(Stream_Length(out) <= ULONG_MAX);
+	const UINT error = callback->channel->Write(callback->channel, (ULONG)Stream_Length(out),
+	                                            Stream_Buffer(out), NULL);
 
 	if (freeStream)
 		Stream_Free(out, TRUE);
@@ -143,11 +130,10 @@ static UINT audin_channel_write_and_free(AUDIN_CHANNEL_CALLBACK* callback, wStre
  */
 static UINT audin_process_version(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* callback, wStream* s)
 {
-	wStream* out;
 	const UINT32 ClientVersion = SNDIN_VERSION;
-	UINT32 ServerVersion;
+	UINT32 ServerVersion = 0;
 
-	if (Stream_GetRemainingLength(s) < 4)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
 		return ERROR_INVALID_DATA;
 
 	Stream_Read_UINT32(s, ServerVersion);
@@ -165,7 +151,7 @@ static UINT audin_process_version(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* c
 	}
 	audin->version = ServerVersion;
 
-	out = Stream_New(NULL, 5);
+	wStream* out = Stream_New(NULL, 5);
 
 	if (!out)
 	{
@@ -200,13 +186,14 @@ static UINT audin_send_incoming_data_pdu(AUDIN_CHANNEL_CALLBACK* callback)
  */
 static UINT audin_process_formats(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* callback, wStream* s)
 {
-	UINT32 i;
-	UINT error;
-	wStream* out;
-	UINT32 NumFormats;
-	UINT32 cbSizeFormatsPacket;
+	UINT error = ERROR_INTERNAL_ERROR;
+	UINT32 NumFormats = 0;
+	UINT32 cbSizeFormatsPacket = 0;
 
-	if (Stream_GetRemainingLength(s) < 8)
+	WINPR_ASSERT(audin);
+	WINPR_ASSERT(callback);
+
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 		return ERROR_INVALID_DATA;
 
 	Stream_Read_UINT32(s, NumFormats);
@@ -227,7 +214,7 @@ static UINT audin_process_formats(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* c
 		return ERROR_INVALID_DATA;
 	}
 
-	out = Stream_New(NULL, 9);
+	wStream* out = Stream_New(NULL, 9);
 
 	if (!out)
 	{
@@ -239,7 +226,7 @@ static UINT audin_process_formats(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* c
 	Stream_Seek(out, 9);
 
 	/* SoundFormats (variable) */
-	for (i = 0; i < NumFormats; i++)
+	for (UINT32 i = 0; i < NumFormats; i++)
 	{
 		AUDIO_FORMAT format = { 0 };
 
@@ -309,6 +296,9 @@ out:
 static UINT audin_send_format_change_pdu(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* callback,
                                          UINT32 NewFormat)
 {
+	WINPR_ASSERT(audin);
+	WINPR_ASSERT(callback);
+
 	wStream* out = Stream_New(NULL, 5);
 
 	if (!out)
@@ -330,6 +320,9 @@ static UINT audin_send_format_change_pdu(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALL
 static UINT audin_send_open_reply_pdu(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* callback,
                                       UINT32 Result)
 {
+	WINPR_ASSERT(audin);
+	WINPR_ASSERT(callback);
+
 	wStream* out = Stream_New(NULL, 5);
 
 	if (!out)
@@ -351,15 +344,15 @@ static UINT audin_send_open_reply_pdu(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBAC
 static UINT audin_receive_wave_data(const AUDIO_FORMAT* format, const BYTE* data, size_t size,
                                     void* user_data)
 {
-	UINT error;
-	BOOL compatible;
-	AUDIN_PLUGIN* audin;
+	WINPR_ASSERT(format);
+
+	UINT error = ERROR_INTERNAL_ERROR;
 	AUDIN_CHANNEL_CALLBACK* callback = (AUDIN_CHANNEL_CALLBACK*)user_data;
 
 	if (!callback)
 		return CHANNEL_RC_BAD_CHANNEL_HANDLE;
 
-	audin = (AUDIN_PLUGIN*)callback->plugin;
+	AUDIN_PLUGIN* audin = (AUDIN_PLUGIN*)callback->plugin;
 
 	if (!audin)
 		return CHANNEL_RC_BAD_CHANNEL_HANDLE;
@@ -374,7 +367,7 @@ static UINT audin_receive_wave_data(const AUDIO_FORMAT* format, const BYTE* data
 
 	Stream_Write_UINT8(audin->data, MSG_SNDIN_DATA);
 
-	compatible = audio_format_compatible(format, audin->format);
+	const BOOL compatible = audio_format_compatible(format, audin->format);
 	if (compatible && audin->device->FormatSupported(audin->device, audin->format))
 	{
 		if (!Stream_EnsureRemainingCapacity(audin->data, size))
@@ -408,36 +401,39 @@ static UINT audin_receive_wave_data(const AUDIO_FORMAT* format, const BYTE* data
 static BOOL audin_open_device(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* callback)
 {
 	UINT error = ERROR_INTERNAL_ERROR;
-	BOOL supported;
-	AUDIO_FORMAT format;
+	AUDIO_FORMAT format = { 0 };
 
 	if (!audin || !audin->device)
 		return FALSE;
 
 	format = *audin->format;
-	supported = IFCALLRESULT(FALSE, audin->device->FormatSupported, audin->device, &format);
+	const BOOL supported =
+	    IFCALLRESULT(FALSE, audin->device->FormatSupported, audin->device, &format);
 	WLog_Print(audin->log, WLOG_DEBUG, "microphone uses %s codec",
 	           audio_format_get_tag_string(format.wFormatTag));
 
 	if (!supported)
 	{
 		/* Default sample rates supported by most backends. */
-		const UINT32 samplerates[] = { 96000, 48000, 44100, 22050 };
+		const UINT32 samplerates[] = { format.nSamplesPerSec, 96000, 48000, 44100, 22050 };
 		BOOL test = FALSE;
 
 		format.wFormatTag = WAVE_FORMAT_PCM;
 		format.wBitsPerSample = 16;
-		test = IFCALLRESULT(FALSE, audin->device->FormatSupported, audin->device, &format);
-		if (!test)
+		format.cbSize = 0;
+		for (size_t x = 0; x < ARRAYSIZE(samplerates); x++)
 		{
-			size_t x;
-			for (x = 0; x < ARRAYSIZE(samplerates); x++)
+			format.nSamplesPerSec = samplerates[x];
+			for (UINT16 y = audin->format->nChannels; y > 0; y--)
 			{
-				format.nSamplesPerSec = samplerates[x];
+				format.nChannels = y;
+				format.nBlockAlign = 2 * format.nChannels;
 				test = IFCALLRESULT(FALSE, audin->device->FormatSupported, audin->device, &format);
 				if (test)
 					break;
 			}
+			if (test)
+				break;
 		}
 		if (!test)
 			return FALSE;
@@ -451,7 +447,7 @@ static BOOL audin_open_device(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* callb
 		return FALSE;
 	}
 
-	if (!freerdp_dsp_context_reset(audin->dsp_context, audin->format))
+	if (!freerdp_dsp_context_reset(audin->dsp_context, audin->format, audin->FramesPerPacket))
 		return FALSE;
 
 	IFCALLRET(audin->device->Open, error, audin->device, audin_receive_wave_data, callback);
@@ -464,6 +460,7 @@ static BOOL audin_open_device(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* callb
 
 	return TRUE;
 }
+
 /**
  * Function description
  *
@@ -471,11 +468,11 @@ static BOOL audin_open_device(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* callb
  */
 static UINT audin_process_open(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* callback, wStream* s)
 {
-	UINT32 initialFormat;
-	UINT32 FramesPerPacket;
+	UINT32 initialFormat = 0;
+	UINT32 FramesPerPacket = 0;
 	UINT error = CHANNEL_RC_OK;
 
-	if (Stream_GetRemainingLength(s) < 8)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 		return ERROR_INVALID_DATA;
 
 	Stream_Read_UINT32(s, FramesPerPacket);
@@ -486,7 +483,7 @@ static UINT audin_process_open(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* call
 
 	if (initialFormat >= callback->formats_count)
 	{
-		WLog_Print(audin->log, WLOG_ERROR, "invalid format index %" PRIu32 " (total %d)",
+		WLog_Print(audin->log, WLOG_ERROR, "invalid format index %" PRIu32 " (total %" PRIu32 ")",
 		           initialFormat, callback->formats_count);
 		return ERROR_INVALID_DATA;
 	}
@@ -516,10 +513,10 @@ static UINT audin_process_open(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* call
 static UINT audin_process_format_change(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLBACK* callback,
                                         wStream* s)
 {
-	UINT32 NewFormat;
+	UINT32 NewFormat = 0;
 	UINT error = CHANNEL_RC_OK;
 
-	if (Stream_GetRemainingLength(s) < 4)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
 		return ERROR_INVALID_DATA;
 
 	Stream_Read_UINT32(s, NewFormat);
@@ -527,8 +524,8 @@ static UINT audin_process_format_change(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLB
 
 	if (NewFormat >= callback->formats_count)
 	{
-		WLog_Print(audin->log, WLOG_ERROR, "invalid format index %" PRIu32 " (total %d)", NewFormat,
-		           callback->formats_count);
+		WLog_Print(audin->log, WLOG_ERROR, "invalid format index %" PRIu32 " (total %" PRIu32 ")",
+		           NewFormat, callback->formats_count);
 		return ERROR_INVALID_DATA;
 	}
 
@@ -561,20 +558,19 @@ static UINT audin_process_format_change(AUDIN_PLUGIN* audin, AUDIN_CHANNEL_CALLB
  */
 static UINT audin_on_data_received(IWTSVirtualChannelCallback* pChannelCallback, wStream* data)
 {
-	UINT error;
-	BYTE MessageId;
-	AUDIN_PLUGIN* audin;
+	UINT error = 0;
+	BYTE MessageId = 0;
 	AUDIN_CHANNEL_CALLBACK* callback = (AUDIN_CHANNEL_CALLBACK*)pChannelCallback;
 
 	if (!callback || !data)
 		return ERROR_INVALID_PARAMETER;
 
-	audin = (AUDIN_PLUGIN*)callback->plugin;
+	AUDIN_PLUGIN* audin = (AUDIN_PLUGIN*)callback->plugin;
 
 	if (!audin)
 		return ERROR_INTERNAL_ERROR;
 
-	if (Stream_GetRemainingCapacity(data) < 1)
+	if (!Stream_CheckAndLogRequiredCapacity(TAG, data, 1))
 		return ERROR_NO_DATA;
 
 	Stream_Read_UINT8(data, MessageId);
@@ -615,7 +611,11 @@ static UINT audin_on_data_received(IWTSVirtualChannelCallback* pChannelCallback,
 static UINT audin_on_close(IWTSVirtualChannelCallback* pChannelCallback)
 {
 	AUDIN_CHANNEL_CALLBACK* callback = (AUDIN_CHANNEL_CALLBACK*)pChannelCallback;
+	WINPR_ASSERT(callback);
+
 	AUDIN_PLUGIN* audin = (AUDIN_PLUGIN*)callback->plugin;
+	WINPR_ASSERT(audin);
+
 	UINT error = CHANNEL_RC_OK;
 	WLog_Print(audin->log, WLOG_TRACE, "...");
 
@@ -642,16 +642,15 @@ static UINT audin_on_new_channel_connection(IWTSListenerCallback* pListenerCallb
                                             IWTSVirtualChannel* pChannel, BYTE* Data,
                                             BOOL* pbAccept, IWTSVirtualChannelCallback** ppCallback)
 {
-	AUDIN_CHANNEL_CALLBACK* callback;
-	AUDIN_PLUGIN* audin;
-	AUDIN_LISTENER_CALLBACK* listener_callback = (AUDIN_LISTENER_CALLBACK*)pListenerCallback;
+	GENERIC_LISTENER_CALLBACK* listener_callback = (GENERIC_LISTENER_CALLBACK*)pListenerCallback;
 
 	if (!listener_callback || !listener_callback->plugin)
 		return ERROR_INTERNAL_ERROR;
 
-	audin = (AUDIN_PLUGIN*)listener_callback->plugin;
+	AUDIN_PLUGIN* audin = (AUDIN_PLUGIN*)listener_callback->plugin;
 	WLog_Print(audin->log, WLOG_TRACE, "...");
-	callback = (AUDIN_CHANNEL_CALLBACK*)calloc(1, sizeof(AUDIN_CHANNEL_CALLBACK));
+	AUDIN_CHANNEL_CALLBACK* callback =
+	    (AUDIN_CHANNEL_CALLBACK*)calloc(1, sizeof(AUDIN_CHANNEL_CALLBACK));
 
 	if (!callback)
 	{
@@ -675,7 +674,6 @@ static UINT audin_on_new_channel_connection(IWTSListenerCallback* pListenerCallb
  */
 static UINT audin_plugin_initialize(IWTSPlugin* pPlugin, IWTSVirtualChannelManager* pChannelMgr)
 {
-	UINT rc;
 	AUDIN_PLUGIN* audin = (AUDIN_PLUGIN*)pPlugin;
 
 	if (!audin)
@@ -691,7 +689,8 @@ static UINT audin_plugin_initialize(IWTSPlugin* pPlugin, IWTSVirtualChannelManag
 	}
 
 	WLog_Print(audin->log, WLOG_TRACE, "...");
-	audin->listener_callback = (AUDIN_LISTENER_CALLBACK*)calloc(1, sizeof(AUDIN_LISTENER_CALLBACK));
+	audin->listener_callback =
+	    (GENERIC_LISTENER_CALLBACK*)calloc(1, sizeof(GENERIC_LISTENER_CALLBACK));
 
 	if (!audin->listener_callback)
 	{
@@ -702,8 +701,8 @@ static UINT audin_plugin_initialize(IWTSPlugin* pPlugin, IWTSVirtualChannelManag
 	audin->listener_callback->iface.OnNewChannelConnection = audin_on_new_channel_connection;
 	audin->listener_callback->plugin = pPlugin;
 	audin->listener_callback->channel_mgr = pChannelMgr;
-	rc = pChannelMgr->CreateListener(pChannelMgr, AUDIN_DVC_CHANNEL_NAME, 0,
-	                                 &audin->listener_callback->iface, &audin->listener);
+	const UINT rc = pChannelMgr->CreateListener(pChannelMgr, AUDIN_DVC_CHANNEL_NAME, 0,
+	                                            &audin->listener_callback->iface, &audin->listener);
 
 	audin->initialized = rc == CHANNEL_RC_OK;
 	return rc;
@@ -787,6 +786,8 @@ static UINT audin_register_device_plugin(IWTSPlugin* pPlugin, IAudinDevice* devi
 {
 	AUDIN_PLUGIN* audin = (AUDIN_PLUGIN*)pPlugin;
 
+	WINPR_ASSERT(audin);
+
 	if (audin->device)
 	{
 		WLog_Print(audin->log, WLOG_ERROR, "existing device, abort.");
@@ -803,13 +804,15 @@ static UINT audin_register_device_plugin(IWTSPlugin* pPlugin, IAudinDevice* devi
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-static UINT audin_load_device_plugin(AUDIN_PLUGIN* audin, char* name, ADDIN_ARGV* args)
+static UINT audin_load_device_plugin(AUDIN_PLUGIN* audin, const char* name, const ADDIN_ARGV* args)
 {
-	PFREERDP_AUDIN_DEVICE_ENTRY entry;
-	FREERDP_AUDIN_DEVICE_ENTRY_POINTS entryPoints;
-	UINT error;
-	entry = (PFREERDP_AUDIN_DEVICE_ENTRY)freerdp_load_channel_addin_entry("audin", (LPSTR)name,
-	                                                                      NULL, 0);
+	WINPR_ASSERT(audin);
+
+	FREERDP_AUDIN_DEVICE_ENTRY_POINTS entryPoints = { 0 };
+	UINT error = ERROR_INTERNAL_ERROR;
+	const PFREERDP_AUDIN_DEVICE_ENTRY entry =
+	    (const PFREERDP_AUDIN_DEVICE_ENTRY)freerdp_load_channel_addin_entry(AUDIN_CHANNEL_NAME,
+	                                                                        name, NULL, 0);
 
 	if (entry == NULL)
 	{
@@ -819,7 +822,7 @@ static UINT audin_load_device_plugin(AUDIN_PLUGIN* audin, char* name, ADDIN_ARGV
 		return ERROR_INVALID_FUNCTION;
 	}
 
-	entryPoints.plugin = (IWTSPlugin*)audin;
+	entryPoints.plugin = &audin->iface;
 	entryPoints.pRegisterAudinDevice = audin_register_device_plugin;
 	entryPoints.args = args;
 	entryPoints.rdpcontext = audin->rdpcontext;
@@ -841,6 +844,8 @@ static UINT audin_load_device_plugin(AUDIN_PLUGIN* audin, char* name, ADDIN_ARGV
  */
 static UINT audin_set_subsystem(AUDIN_PLUGIN* audin, const char* subsystem)
 {
+	WINPR_ASSERT(audin);
+
 	free(audin->subsystem);
 	audin->subsystem = _strdup(subsystem);
 
@@ -860,6 +865,8 @@ static UINT audin_set_subsystem(AUDIN_PLUGIN* audin, const char* subsystem)
  */
 static UINT audin_set_device_name(AUDIN_PLUGIN* audin, const char* device_name)
 {
+	WINPR_ASSERT(audin);
+
 	free(audin->device_name);
 	audin->device_name = _strdup(device_name);
 
@@ -872,12 +879,8 @@ static UINT audin_set_device_name(AUDIN_PLUGIN* audin, const char* device_name)
 	return CHANNEL_RC_OK;
 }
 
-BOOL audin_process_addin_args(AUDIN_PLUGIN* audin, ADDIN_ARGV* args)
+BOOL audin_process_addin_args(AUDIN_PLUGIN* audin, const ADDIN_ARGV* args)
 {
-	int status;
-	DWORD flags;
-	COMMAND_LINE_ARGUMENT_A* arg;
-	UINT error;
 	COMMAND_LINE_ARGUMENT_A audin_args[] = {
 		{ "sys", COMMAND_LINE_VALUE_REQUIRED, "<subsystem>", NULL, NULL, -1, NULL, "subsystem" },
 		{ "dev", COMMAND_LINE_VALUE_REQUIRED, "<device>", NULL, NULL, -1, NULL, "device" },
@@ -890,15 +893,15 @@ BOOL audin_process_addin_args(AUDIN_PLUGIN* audin, ADDIN_ARGV* args)
 	if (!args || args->argc == 1)
 		return TRUE;
 
-	flags =
+	const DWORD flags =
 	    COMMAND_LINE_SIGIL_NONE | COMMAND_LINE_SEPARATOR_COLON | COMMAND_LINE_IGN_UNKNOWN_KEYWORD;
-	status =
+	const int status =
 	    CommandLineParseArgumentsA(args->argc, args->argv, audin_args, flags, audin, NULL, NULL);
 
 	if (status != 0)
 		return FALSE;
 
-	arg = audin_args;
+	const COMMAND_LINE_ARGUMENT_A* arg = audin_args;
 	errno = 0;
 
 	do
@@ -908,7 +911,8 @@ BOOL audin_process_addin_args(AUDIN_PLUGIN* audin, ADDIN_ARGV* args)
 
 		CommandLineSwitchStart(arg) CommandLineSwitchCase(arg, "sys")
 		{
-			if ((error = audin_set_subsystem(audin, arg->Value)))
+			const UINT error = audin_set_subsystem(audin, arg->Value);
+			if (error != CHANNEL_RC_OK)
 			{
 				WLog_Print(audin->log, WLOG_ERROR,
 				           "audin_set_subsystem failed with error %" PRIu32 "!", error);
@@ -917,7 +921,8 @@ BOOL audin_process_addin_args(AUDIN_PLUGIN* audin, ADDIN_ARGV* args)
 		}
 		CommandLineSwitchCase(arg, "dev")
 		{
-			if ((error = audin_set_device_name(audin, arg->Value)))
+			const UINT error = audin_set_device_name(audin, arg->Value);
+			if (error != CHANNEL_RC_OK)
 			{
 				WLog_Print(audin->log, WLOG_ERROR,
 				           "audin_set_device_name failed with error %" PRIu32 "!", error);
@@ -931,7 +936,7 @@ BOOL audin_process_addin_args(AUDIN_PLUGIN* audin, ADDIN_ARGV* args)
 			if ((errno != 0) || (val > UINT16_MAX))
 				return FALSE;
 
-			audin->fixed_format->wFormatTag = val;
+			audin->fixed_format->wFormatTag = (UINT16)val;
 		}
 		CommandLineSwitchCase(arg, "rate")
 		{
@@ -946,8 +951,8 @@ BOOL audin_process_addin_args(AUDIN_PLUGIN* audin, ADDIN_ARGV* args)
 		{
 			unsigned long val = strtoul(arg->Value, NULL, 0);
 
-			if ((errno != 0) || (val > UINT16_MAX))
-				audin->fixed_format->nChannels = val;
+			if ((errno != 0) || (val <= UINT16_MAX))
+				audin->fixed_format->nChannels = (UINT16)val;
 		}
 		CommandLineSwitchDefault(arg)
 		{
@@ -958,18 +963,12 @@ BOOL audin_process_addin_args(AUDIN_PLUGIN* audin, ADDIN_ARGV* args)
 	return TRUE;
 }
 
-#ifdef BUILTIN_CHANNELS
-#define DVCPluginEntry audin_DVCPluginEntry
-#else
-#define DVCPluginEntry FREERDP_API DVCPluginEntry
-#endif
-
 /**
  * Function description
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-UINT DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints)
+FREERDP_ENTRY_POINT(UINT audin_DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints))
 {
 	struct SubsystemEntry
 	{
@@ -977,8 +976,6 @@ UINT DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints)
 		char* device;
 	};
 	UINT error = CHANNEL_RC_INITIALIZATION_ERROR;
-	ADDIN_ARGV* args;
-	AUDIN_PLUGIN* audin;
 	struct SubsystemEntry entries[] =
 	{
 #if defined(WITH_PULSE)
@@ -999,12 +996,18 @@ UINT DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints)
 #if defined(WITH_MACAUDIO)
 		{ "mac", "default" },
 #endif
+#if defined(WITH_IOSAUDIO)
+		{ "ios", "default" },
+#endif
+#if defined(WITH_SNDIO)
+		{ "sndio", "default" },
+#endif
 		{ NULL, NULL }
 	};
 	struct SubsystemEntry* entry = &entries[0];
-	assert(pEntryPoints);
-	assert(pEntryPoints->GetPlugin);
-	audin = (AUDIN_PLUGIN*)pEntryPoints->GetPlugin(pEntryPoints, "audin");
+	WINPR_ASSERT(pEntryPoints);
+	WINPR_ASSERT(pEntryPoints->GetPlugin);
+	AUDIN_PLUGIN* audin = (AUDIN_PLUGIN*)pEntryPoints->GetPlugin(pEntryPoints, AUDIN_CHANNEL_NAME);
 
 	if (audin != NULL)
 		return CHANNEL_RC_ALREADY_INITIALIZED;
@@ -1039,9 +1042,9 @@ UINT DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints)
 	audin->iface.Terminated = audin_plugin_terminated;
 	audin->iface.Attached = audin_plugin_attached;
 	audin->iface.Detached = audin_plugin_detached;
-	args = pEntryPoints->GetPluginData(pEntryPoints);
-	audin->rdpcontext =
-	    ((freerdp*)((rdpSettings*)pEntryPoints->GetRdpSettings(pEntryPoints))->instance)->context;
+
+	const ADDIN_ARGV* args = pEntryPoints->GetPluginData(pEntryPoints);
+	audin->rdpcontext = pEntryPoints->GetRdpContext(pEntryPoints);
 
 	if (args)
 	{
@@ -1096,11 +1099,11 @@ UINT DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints)
 		goto out;
 	}
 
-	error = pEntryPoints->RegisterPlugin(pEntryPoints, "audin", (IWTSPlugin*)audin);
+	error = pEntryPoints->RegisterPlugin(pEntryPoints, AUDIN_CHANNEL_NAME, &audin->iface);
 	if (error == CHANNEL_RC_OK)
 		return error;
 
 out:
-	audin_plugin_terminated((IWTSPlugin*)audin);
+	audin_plugin_terminated(&audin->iface);
 	return error;
 }

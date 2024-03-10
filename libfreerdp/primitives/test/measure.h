@@ -25,11 +25,10 @@
 #ifndef TEST_MEASURE_H_INCLUDED
 #define TEST_MEASURE_H_INCLUDED
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <time.h>
+#include <winpr/string.h>
 
 #ifndef _WIN32
 #include <sys/param.h>
@@ -85,7 +84,7 @@ extern void _floatprint(float t, char* output);
 		int _loop;                                   \
 		float _delta;                                \
 		char _str1[32], _str2[32];                   \
-		_prefix = strdup(_prefix_);                  \
+		_prefix = _strdup(_prefix_);                 \
 		_str1[0] = '\0';                             \
 		_str2[0] = '\0';                             \
 		clock_gettime(CLOCK_MONOTONIC_RAW, &_start); \

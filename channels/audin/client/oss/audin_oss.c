@@ -19,9 +19,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,12 +44,13 @@
 #endif
 #include <sys/ioctl.h>
 
+#include <freerdp/freerdp.h>
 #include <freerdp/addin.h>
 #include <freerdp/channels/rdpsnd.h>
 
 #include "audin_main.h"
 
-typedef struct _AudinOSSDevice
+typedef struct
 {
 	IAudinDevice iface;
 
@@ -68,9 +67,16 @@ typedef struct _AudinOSSDevice
 	rdpContext* rdpcontext;
 } AudinOSSDevice;
 
-#define OSS_LOG_ERR(_text, _error) \
-	if (_error != 0)               \
-		WLog_ERR(TAG, "%s: %i - %s\n", _text, _error, strerror(_error));
+#define OSS_LOG_ERR(_text, _error)                                    \
+	do                                                                \
+	{                                                                 \
+		if (_error != 0)                                              \
+		{                                                             \
+			char buffer[256] = { 0 };                                 \
+			WLog_ERR(TAG, "%s: %i - %s\n", _text, _error,             \
+			         winpr_strerror(_error, buffer, sizeof(buffer))); \
+		}                                                             \
+	} while (0)
 
 static UINT32 audin_oss_get_format(const AUDIO_FORMAT* format)
 {
@@ -142,13 +148,14 @@ static DWORD WINAPI audin_oss_thread_func(LPVOID arg)
 {
 	char dev_name[PATH_MAX] = "/dev/dsp";
 	char mixer_name[PATH_MAX] = "/dev/mixer";
-	int pcm_handle = -1, mixer_handle;
+	int pcm_handle = -1;
+	int mixer_handle = 0;
 	BYTE* buffer = NULL;
-	unsigned long tmp;
-	size_t buffer_size;
+	unsigned long tmp = 0;
+	size_t buffer_size = 0;
 	AudinOSSDevice* oss = (AudinOSSDevice*)arg;
 	UINT error = 0;
-	DWORD status;
+	DWORD status = 0;
 
 	if (oss == NULL)
 	{
@@ -238,7 +245,7 @@ static DWORD WINAPI audin_oss_thread_func(LPVOID arg)
 
 	while (1)
 	{
-		SSIZE_T stmp;
+		SSIZE_T stmp = -1;
 		status = WaitForSingleObject(oss->stopEvent, 0);
 
 		if (status == WAIT_FAILED)
@@ -321,7 +328,7 @@ static UINT audin_oss_open(IAudinDevice* device, AudinReceive receive, void* use
  */
 static UINT audin_oss_close(IAudinDevice* device)
 {
-	UINT error;
+	UINT error = 0;
 	AudinOSSDevice* oss = (AudinOSSDevice*)device;
 
 	if (device == NULL)
@@ -357,14 +364,14 @@ static UINT audin_oss_close(IAudinDevice* device)
 static UINT audin_oss_free(IAudinDevice* device)
 {
 	AudinOSSDevice* oss = (AudinOSSDevice*)device;
-	UINT error;
+	UINT error = 0;
 
 	if (device == NULL)
 		return ERROR_INVALID_PARAMETER;
 
 	if ((error = audin_oss_close(device)))
 	{
-		WLog_ERR(TAG, "audin_oss_close failed with error code %d!", error);
+		WLog_ERR(TAG, "audin_oss_close failed with error code %" PRIu32 "!", error);
 	}
 
 	free(oss);
@@ -376,12 +383,13 @@ static UINT audin_oss_free(IAudinDevice* device)
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-static UINT audin_oss_parse_addin_args(AudinOSSDevice* device, ADDIN_ARGV* args)
+static UINT audin_oss_parse_addin_args(AudinOSSDevice* device, const ADDIN_ARGV* args)
 {
-	int status;
-	char *str_num, *eptr;
-	DWORD flags;
-	COMMAND_LINE_ARGUMENT_A* arg;
+	int status = 0;
+	char* str_num = NULL;
+	char* eptr = NULL;
+	DWORD flags = 0;
+	const COMMAND_LINE_ARGUMENT_A* arg = NULL;
 	AudinOSSDevice* oss = (AudinOSSDevice*)device;
 	COMMAND_LINE_ARGUMENT_A audin_oss_args[] = { { "dev", COMMAND_LINE_VALUE_REQUIRED, "<device>",
 		                                           NULL, NULL, -1, NULL, "audio device name" },
@@ -436,22 +444,17 @@ static UINT audin_oss_parse_addin_args(AudinOSSDevice* device, ADDIN_ARGV* args)
 	return CHANNEL_RC_OK;
 }
 
-#ifdef BUILTIN_CHANNELS
-#define freerdp_audin_client_subsystem_entry oss_freerdp_audin_client_subsystem_entry
-#else
-#define freerdp_audin_client_subsystem_entry FREERDP_API freerdp_audin_client_subsystem_entry
-#endif
-
 /**
  * Function description
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-UINT freerdp_audin_client_subsystem_entry(PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints)
+FREERDP_ENTRY_POINT(
+    UINT oss_freerdp_audin_client_subsystem_entry(PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints))
 {
-	ADDIN_ARGV* args;
-	AudinOSSDevice* oss;
-	UINT error;
+	const ADDIN_ARGV* args = NULL;
+	AudinOSSDevice* oss = NULL;
+	UINT error = 0;
 	oss = (AudinOSSDevice*)calloc(1, sizeof(AudinOSSDevice));
 
 	if (!oss)

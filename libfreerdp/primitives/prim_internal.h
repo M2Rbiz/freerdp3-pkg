@@ -17,9 +17,7 @@
 #ifndef FREERDP_LIB_PRIM_INTERNAL_H
 #define FREERDP_LIB_PRIM_INTERNAL_H
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <freerdp/primitives.h>
 #include <freerdp/api.h>
@@ -42,9 +40,9 @@
 
 #if defined(WITH_SSE2)
 /* Use lddqu for unaligned; load for 16-byte aligned. */
-#define LOAD_SI128(_ptr_)                                           \
-	(((ULONG_PTR)(_ptr_)&0x0f) ? _mm_lddqu_si128((__m128i*)(_ptr_)) \
-	                           : _mm_load_si128((__m128i*)(_ptr_)))
+#define LOAD_SI128(_ptr_)                                                       \
+	(((const ULONG_PTR)(_ptr_)&0x0f) ? _mm_lddqu_si128((const __m128i*)(_ptr_)) \
+	                                 : _mm_load_si128((const __m128i*)(_ptr_)))
 #endif
 
 static INLINE BYTE* writePixelBGRA(BYTE* dst, DWORD formatSize, UINT32 format, BYTE R, BYTE G,
@@ -161,7 +159,7 @@ static INLINE BYTE* writePixelGenericAlpha(BYTE* dst, DWORD formatSize, UINT32 f
                                            BYTE G, BYTE B, BYTE A)
 {
 	UINT32 color = FreeRDPGetColor(format, R, G, B, A);
-	WriteColor(dst, format, color);
+	FreeRDPWriteColor(dst, format, color);
 	return dst + formatSize;
 }
 
@@ -169,7 +167,7 @@ static INLINE BYTE* writePixelGeneric(BYTE* dst, DWORD formatSize, UINT32 format
                                       BYTE B, BYTE A)
 {
 	UINT32 color = FreeRDPGetColor(format, R, G, B, A);
-	WriteColorIgnoreAlpha(dst, format, color);
+	FreeRDPWriteColorIgnoreAlpha(dst, format, color);
 	return dst + formatSize;
 }
 
@@ -200,7 +198,7 @@ static INLINE fkt_writePixel getPixelWriteFunction(DWORD format, BOOL useAlpha)
 	}
 }
 
-static INLINE BYTE CLIP(INT32 X)
+static INLINE BYTE CLIP(INT64 X)
 {
 	if (X > 255L)
 		return 255L;
@@ -208,7 +206,20 @@ static INLINE BYTE CLIP(INT32 X)
 	if (X < 0L)
 		return 0L;
 
-	return X;
+	return (BYTE)X;
+}
+
+static INLINE BYTE CONDITIONAL_CLIP(INT32 in, BYTE original)
+{
+	BYTE out = CLIP(in);
+	BYTE diff;
+	if (out > original)
+		diff = out - original;
+	else
+		diff = original - out;
+	if (diff < 30)
+		return original;
+	return out;
 }
 
 /**

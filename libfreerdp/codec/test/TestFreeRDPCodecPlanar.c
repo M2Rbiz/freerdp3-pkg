@@ -3100,7 +3100,7 @@ static const BYTE TEST_RLE_BITMAP_EXPERIMENTAL_03[16384] =
     "\x57\xCD\x98\xFF\x57\xCD\x98\xFF\x56\xCD\x98\xFF\x57\xCD\x98\xFF\x57\xCD\x98\xFF\x57\xCD\x98"
     "\xFF\x56\xCB\x96\xFF\x51\xB7\x88\xFF";
 
-BYTE TEST_RLE_BITMAP_EXPERIMENTAL_03_RLE[11160] =
+static const BYTE TEST_RLE_BITMAP_EXPERIMENTAL_03_RLE[11160] =
     "\x30\xF0\x23\x1F\x1E\x1D\x1D\x1E\x1D\x1F\x23\x4A\x78\x71\x64\x58\x4B\xF0\x3E\x30\x29\x26\x24"
     "\x22\x21\x20\x20\x20\x1D\x1E\x20\x1E"
     "\x1F\x86\x20\x20\x1F\x20\x21\x22\x1E\x1F\xF0\x1E\x1D\x1F\x20\x1F\x1F\x1F\x1E\x1E\x1F\x1F\x20"
@@ -3800,7 +3800,7 @@ BYTE TEST_RLE_BITMAP_EXPERIMENTAL_03_RLE[11160] =
     "\x37\x2D\x1F\x11\x03\x00\x00\x00\x02\x24\x02\x00\x23\x02\x00\x80\x02\x02\x00\x02\x02\x12\x2E"
     "\x3C";
 
-BYTE TEST_64X64_RED_PLANE[4096] =
+static const BYTE TEST_64X64_RED_PLANE[4096] =
     "\x23\x1F\x1E\x1D\x1D\x1E\x1D\x1F\x23\x4A\x78\x71\x64\x58\x4B\x3E\x30\x29\x26\x24\x22\x21\x20"
     "\x20\x20\x1D\x1E\x20\x1E\x1F\x20\x20"
     "\x1F\x20\x21\x22\x1E\x1F\x1F\x1F\x1F\x1F\x1F\x1F\x1E\x1D\x1F\x20\x1F\x1F\x1F\x1E\x1E\x1F\x1F"
@@ -4058,7 +4058,7 @@ BYTE TEST_64X64_RED_PLANE[4096] =
     "\x24\x25\x29\x2D\x43\x59\x6E\x81\x93\x98\x98\x98\x98\x98\x98\x98\x97\x98\x98\x98\x98\x98\x98"
     "\x98\x98\x98\x98\x98\x98\x98\x96\x88";
 
-BYTE TEST_64X64_RED_PLANE_RLE[3739] =
+static const BYTE TEST_64X64_RED_PLANE_RLE[3739] =
     "\xF0\x23\x1F\x1E\x1D\x1D\x1E\x1D\x1F\x23\x4A\x78\x71\x64\x58\x4B\xF0\x3E\x30\x29\x26\x24\x22"
     "\x21\x20\x20\x20\x1D\x1E\x20\x1E\x1F"
     "\x86\x20\x20\x1F\x20\x21\x22\x1E\x1F\xF0\x1E\x1D\x1F\x20\x1F\x1F\x1F\x1E\x1E\x1F\x1F\x20\x1E"
@@ -4294,7 +4294,7 @@ BYTE TEST_64X64_RED_PLANE_RLE[3739] =
     "\xF0\x0D\x15\x19\x41\x69\x93\x89\x71\x51\x2D\x09\x02\x02\x00\x02\x2A\x02\x00\x70\x02\x00\x02"
     "\x04\x26\x70\x8C";
 
-BYTE TEST_64X64_GREEN_PLANE[4096] =
+static const BYTE TEST_64X64_GREEN_PLANE[4096] =
     "\x2A\x25\x23\x23\x23\x23\x23\x24\x2B\x60\xA2\x97\x84\x75\x62\x50\x3C\x34\x30\x2C\x29\x28\x26"
     "\x25\x25\x23\x23\x25\x24\x24\x25\x25"
     "\x25\x25\x26\x27\x25\x24\x25\x25\x27\x24\x24\x24\x24\x24\x25\x25\x24\x25\x26\x25\x23\x24\x24"
@@ -4552,7 +4552,7 @@ BYTE TEST_64X64_GREEN_PLANE[4096] =
     "\x2A\x2C\x31\x38\x57\x74\x91\xAD\xC7\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCC\xCD\xCD\xCD\xCD\xCD\xCD"
     "\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCB\xB7";
 
-BYTE TEST_64X64_GREEN_PLANE_RLE[3696] =
+static const BYTE TEST_64X64_GREEN_PLANE_RLE[3696] =
     "\x34\x2A\x25\x23\xF0\x24\x2B\x60\xA2\x97\x84\x75\x62\x50\x3C\x34\x30\x2C\x29\x28\x93\x26\x25"
     "\x25\x23\x23\x25\x24\x24\x25\x84\x26"
     "\x27\x25\x24\x25\x25\x27\x24\xC3\x25\x25\x24\x25\x26\x25\x23\x24\x24\x25\x23\x24\x30\x22\x23"
@@ -4785,7 +4785,7 @@ BYTE TEST_64X64_GREEN_PLANE_RLE[3696] =
     "\xF0\x13\x19\x29\x5B\x97\xCF\xC1\xA1"
     "\x75\x3F\x0B\x02\x02\x00\x02\x2C\x02\x00\x50\x02\x06\x36\x9C\xC4";
 
-BYTE TEST_64X64_BLUE_PLANE[4096] =
+static const BYTE TEST_64X64_BLUE_PLANE[4096] =
     "\x27\x23\x23\x24\x25\x25\x25\x25\x28\x37\x4A\x47\x41\x3D\x38\x33\x2E\x2A\x28\x27\x26\x27\x27"
     "\x27\x25\x24\x26\x28\x26\x27\x28\x28"
     "\x26\x28\x28\x2A\x26\x27\x27\x28\x27\x27\x25\x26\x24\x25\x27\x28\x27\x28\x27\x27\x25\x26\x27"
@@ -5043,7 +5043,7 @@ BYTE TEST_64X64_BLUE_PLANE[4096] =
     "\x28\x28\x2A\x2C\x35\x3E\x46\x4E\x55\x57\x57\x57\x57\x57\x57\x57\x56\x57\x57\x57\x57\x57\x57"
     "\x57\x57\x57\x56\x57\x57\x57\x56\x51";
 
-BYTE TEST_64X64_BLUE_PLANE_RLE[3724] =
+static const BYTE TEST_64X64_BLUE_PLANE_RLE[3724] =
     "\x53\x27\x23\x23\x24\x25\xF0\x28\x37\x4A\x47\x41\x3D\x38\x33\x2E\x2A\x28\x27\x26\x27\x27\xF0"
     "\x27\x25\x24\x26\x28\x26\x27\x28\x28"
     "\x26\x28\x28\x2A\x26\x27\xF0\x27\x28\x27\x27\x25\x26\x24\x25\x27\x28\x27\x28\x27\x27\x25\xB0"
@@ -5423,11 +5423,10 @@ static const UINT32 colorFormatCount = sizeof(colorFormatList) / sizeof(colorFor
 static BOOL CompareBitmap(const BYTE* srcA, UINT32 srcAFormat, const BYTE* srcB, UINT32 srcBFormat,
                           UINT32 width, UINT32 height)
 {
-	double maxDiff;
-	const UINT32 srcABits = GetBitsPerPixel(srcAFormat);
-	const UINT32 srcBBits = GetBitsPerPixel(srcBFormat);
+	double maxDiff = NAN;
+	const UINT32 srcABits = FreeRDPGetBitsPerPixel(srcAFormat);
+	const UINT32 srcBBits = FreeRDPGetBitsPerPixel(srcBFormat);
 	UINT32 diff = fabs((double)srcABits - srcBBits);
-	UINT32 x, y;
 
 	/* No support for 8bpp */
 	if ((srcABits < 15) || (srcBBits < 15))
@@ -5462,20 +5461,27 @@ static BOOL CompareBitmap(const BYTE* srcA, UINT32 srcAFormat, const BYTE* srcB,
 			maxDiff = 0.0;
 	}
 
-	for (y = 0; y < height; y++)
+	for (UINT32 y = 0; y < height; y++)
 	{
-		const BYTE* lineA = &srcA[width * GetBytesPerPixel(srcAFormat) * y];
-		const BYTE* lineB = &srcB[width * GetBytesPerPixel(srcBFormat) * y];
+		const BYTE* lineA = &srcA[width * FreeRDPGetBytesPerPixel(srcAFormat) * y];
+		const BYTE* lineB = &srcB[width * FreeRDPGetBytesPerPixel(srcBFormat) * y];
 
-		for (x = 0; x < width; x++)
+		for (UINT32 x = 0; x < width; x++)
 		{
-			BYTE sR, sG, sB, sA, dR, dG, dB, dA;
-			const BYTE* a = &lineA[x * GetBytesPerPixel(srcAFormat)];
-			const BYTE* b = &lineB[x * GetBytesPerPixel(srcBFormat)];
-			UINT32 colorA = ReadColor(a, srcAFormat);
-			UINT32 colorB = ReadColor(b, srcBFormat);
-			SplitColor(colorA, srcAFormat, &sR, &sG, &sB, &sA, NULL);
-			SplitColor(colorB, srcBFormat, &dR, &dG, &dB, &dA, NULL);
+			BYTE sR = 0;
+			BYTE sG = 0;
+			BYTE sB = 0;
+			BYTE sA = 0;
+			BYTE dR = 0;
+			BYTE dG = 0;
+			BYTE dB = 0;
+			BYTE dA = 0;
+			const BYTE* a = &lineA[x * FreeRDPGetBytesPerPixel(srcAFormat)];
+			const BYTE* b = &lineB[x * FreeRDPGetBytesPerPixel(srcBFormat)];
+			UINT32 colorA = FreeRDPReadColor(a, srcAFormat);
+			UINT32 colorB = FreeRDPReadColor(b, srcBFormat);
+			FreeRDPSplitColor(colorA, srcAFormat, &sR, &sG, &sB, &sA, NULL);
+			FreeRDPSplitColor(colorB, srcBFormat, &dR, &dG, &dB, &dA, NULL);
 
 			if (fabs((double)sR - dR) > maxDiff)
 				return FALSE;
@@ -5499,11 +5505,11 @@ static BOOL RunTestPlanar(BITMAP_PLANAR_CONTEXT* planar, const BYTE* srcBitmap,
                           const UINT32 height)
 {
 	BOOL rc = FALSE;
-	UINT32 dstSize;
+	UINT32 dstSize = 0;
 	BYTE* compressedBitmap = freerdp_bitmap_compress_planar(planar, srcBitmap, srcFormat, width,
 	                                                        height, 0, NULL, &dstSize);
-	BYTE* decompressedBitmap = (BYTE*)calloc(height, width * GetBytesPerPixel(dstFormat));
-	printf("%s [%s] --> [%s]: ", __FUNCTION__, FreeRDPGetColorFormatName(srcFormat),
+	BYTE* decompressedBitmap = (BYTE*)calloc(height, width * FreeRDPGetBytesPerPixel(dstFormat));
+	printf("%s [%s] --> [%s]: ", __func__, FreeRDPGetColorFormatName(srcFormat),
 	       FreeRDPGetColorFormatName(dstFormat));
 	fflush(stdout);
 	printf("TODO: Skipping unfinished test!");
@@ -5541,25 +5547,24 @@ fail:
 static BOOL RunTestPlanarSingleColor(BITMAP_PLANAR_CONTEXT* planar, const UINT32 srcFormat,
                                      const UINT32 dstFormat)
 {
-	UINT32 i, j, x, y;
 	BOOL rc = FALSE;
-	printf("%s: [%s] --> [%s]: ", __FUNCTION__, FreeRDPGetColorFormatName(srcFormat),
+	printf("%s: [%s] --> [%s]: ", __func__, FreeRDPGetColorFormatName(srcFormat),
 	       FreeRDPGetColorFormatName(dstFormat));
 	fflush(stdout);
 
-	for (j = 0; j < 100; j += 8)
+	for (UINT32 j = 0; j < 32; j += 8)
 	{
-		for (i = 4; i < 64; i += 8)
+		for (UINT32 i = 4; i < 32; i += 8)
 		{
-			UINT32 compressedSize;
+			UINT32 compressedSize = 0;
 			const UINT32 fill = j;
 			const UINT32 color =
 			    FreeRDPGetColor(srcFormat, (fill >> 8) & 0xF, (fill >> 4) & 0xF, (fill)&0xF, 0xFF);
 			const UINT32 width = i;
 			const UINT32 height = i;
 			BOOL failed = TRUE;
-			const UINT32 srcSize = width * height * GetBytesPerPixel(srcFormat);
-			const UINT32 dstSize = width * height * GetBytesPerPixel(dstFormat);
+			const UINT32 srcSize = width * height * FreeRDPGetBytesPerPixel(srcFormat);
+			const UINT32 dstSize = width * height * FreeRDPGetBytesPerPixel(dstFormat);
 			BYTE* compressedBitmap = NULL;
 			BYTE* bmp = malloc(srcSize);
 			BYTE* decompressedBitmap = (BYTE*)malloc(dstSize);
@@ -5567,14 +5572,14 @@ static BOOL RunTestPlanarSingleColor(BITMAP_PLANAR_CONTEXT* planar, const UINT32
 			if (!bmp || !decompressedBitmap)
 				goto fail_loop;
 
-			for (y = 0; y < height; y++)
+			for (UINT32 y = 0; y < height; y++)
 			{
-				BYTE* line = &bmp[width * GetBytesPerPixel(srcFormat) * y];
+				BYTE* line = &bmp[width * FreeRDPGetBytesPerPixel(srcFormat) * y];
 
-				for (x = 0; x < width; x++)
+				for (UINT32 x = 0; x < width; x++)
 				{
-					WriteColor(line, srcFormat, color);
-					line += GetBytesPerPixel(srcFormat);
+					FreeRDPWriteColor(line, srcFormat, color);
+					line += FreeRDPGetBytesPerPixel(srcFormat);
 				}
 			}
 
@@ -5615,7 +5620,6 @@ fail:
 
 static BOOL TestPlanar(const UINT32 format)
 {
-	UINT32 x;
 	BOOL rc = FALSE;
 	const DWORD planarFlags = PLANAR_FORMAT_HEADER_NA | PLANAR_FORMAT_HEADER_RLE;
 	BITMAP_PLANAR_CONTEXT* planar = freerdp_bitmap_planar_context_new(planarFlags, 64, 64);
@@ -5639,7 +5643,7 @@ static BOOL TestPlanar(const UINT32 format)
 	                   32))
 		goto fail;
 
-	for (x = 0; x < colorFormatCount; x++)
+	for (UINT32 x = 0; x < colorFormatCount; x++)
 	{
 		if (!RunTestPlanarSingleColor(planar, format, colorFormatList[x]))
 			goto fail;
@@ -5653,16 +5657,15 @@ fail:
 
 static UINT32 prand(UINT32 max)
 {
-	UINT32 tmp;
+	UINT32 tmp = 0;
 	if (max <= 1)
 		return 1;
-	winpr_RAND((BYTE*)&tmp, sizeof(tmp));
+	winpr_RAND(&tmp, sizeof(tmp));
 	return tmp % (max - 1) + 1;
 }
 
 static BOOL FuzzPlanar(void)
 {
-	UINT32 x;
 	BOOL rc = FALSE;
 	const DWORD planarFlags = PLANAR_FORMAT_HEADER_NA | PLANAR_FORMAT_HEADER_RLE;
 	BITMAP_PLANAR_CONTEXT* planar = freerdp_bitmap_planar_context_new(planarFlags, 64, 64);
@@ -5670,18 +5673,18 @@ static BOOL FuzzPlanar(void)
 	if (!planar)
 		goto fail;
 
-	for (x = 0; x < 10000; x++)
+	for (UINT32 x = 0; x < 100; x++)
 	{
 		BYTE data[0x10000] = { 0 };
 		size_t dataSize = 0x10000;
 		BYTE dstData[0x10000] = { 0 };
 
-		UINT32 DstFormat;
-		UINT32 nDstStep;
-		UINT32 nXDst;
-		UINT32 nYDst;
-		UINT32 nDstWidth;
-		UINT32 nDstHeight;
+		UINT32 DstFormat = 0;
+		UINT32 nDstStep = 0;
+		UINT32 nXDst = 0;
+		UINT32 nYDst = 0;
+		UINT32 nDstWidth = 0;
+		UINT32 nDstHeight = 0;
 		BOOL invalid = TRUE;
 		do
 		{
@@ -5744,15 +5747,16 @@ static BOOL FuzzPlanar(void)
 			nDstStep = prand(sizeof(dstData));
 			nXDst = prand(nDstStep);
 			nYDst = prand(sizeof(dstData) / nDstStep);
-			nDstWidth = prand(nDstStep / GetBytesPerPixel(DstFormat));
+			nDstWidth = prand(nDstStep / FreeRDPGetBytesPerPixel(DstFormat));
 			nDstHeight = prand(sizeof(dstData) / nDstStep);
-			invalid = nXDst * GetBytesPerPixel(DstFormat) + (nYDst + nDstHeight) * nDstStep >
+			invalid = nXDst * FreeRDPGetBytesPerPixel(DstFormat) + (nYDst + nDstHeight) * nDstStep >
 			          sizeof(dstData);
 		} while (invalid);
 		printf("DstFormat=%s, nXDst=%" PRIu32 ", nYDst=%" PRIu32 ", nDstWidth=%" PRIu32
 		       ", nDstHeight=%" PRIu32 ", nDstStep=%" PRIu32 ", total size=%" PRIuz "\n",
 		       FreeRDPGetColorFormatName(DstFormat), nXDst, nYDst, nDstWidth, nDstHeight, nDstStep,
 		       sizeof(dstData));
+		freerdp_planar_switch_bgr(planar, rand() % 2);
 		planar_decompress(planar, data, dataSize, prand(4096), prand(4096), dstData, DstFormat,
 		                  nDstStep, nXDst, nYDst, nDstWidth, nDstHeight, prand(2));
 	}
@@ -5765,14 +5769,13 @@ fail:
 
 int TestFreeRDPCodecPlanar(int argc, char* argv[])
 {
-	UINT32 x;
 	WINPR_UNUSED(argc);
 	WINPR_UNUSED(argv);
 
 	if (!FuzzPlanar())
 		return -2;
 
-	for (x = 0; x < colorFormatCount; x++)
+	for (UINT32 x = 0; x < colorFormatCount; x++)
 	{
 		if (!TestPlanar(colorFormatList[x]))
 			return -1;

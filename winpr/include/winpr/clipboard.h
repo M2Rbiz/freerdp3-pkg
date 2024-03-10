@@ -23,31 +23,29 @@
 #include <winpr/winpr.h>
 #include <winpr/wtypes.h>
 
-typedef struct _wClipboard wClipboard;
+typedef struct s_wClipboard wClipboard;
 
 typedef void* (*CLIPBOARD_SYNTHESIZE_FN)(wClipboard* clipboard, UINT32 formatId, const void* data,
                                          UINT32* pSize);
 
-struct _wClipboardFileSizeRequest
+typedef struct
 {
 	UINT32 streamId;
 	UINT32 listIndex;
-};
-typedef struct _wClipboardFileSizeRequest wClipboardFileSizeRequest;
+} wClipboardFileSizeRequest;
 
-struct _wClipboardFileRangeRequest
+typedef struct
 {
 	UINT32 streamId;
 	UINT32 listIndex;
 	UINT32 nPositionLow;
 	UINT32 nPositionHigh;
 	UINT32 cbRequested;
-};
-typedef struct _wClipboardFileRangeRequest wClipboardFileRangeRequest;
+} wClipboardFileRangeRequest;
 
-typedef struct _wClipboardDelegate wClipboardDelegate;
+typedef struct s_wClipboardDelegate wClipboardDelegate;
 
-struct _wClipboardDelegate
+struct s_wClipboardDelegate
 {
 	wClipboard* clipboard;
 	void* custom;
@@ -101,6 +99,8 @@ extern "C"
 
 	WINPR_API wClipboard* ClipboardCreate(void);
 	WINPR_API void ClipboardDestroy(wClipboard* clipboard);
+
+	WINPR_API const char* ClipboardGetFormatIdString(UINT32 formatId);
 
 #ifdef __cplusplus
 }

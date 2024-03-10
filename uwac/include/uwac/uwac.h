@@ -26,7 +26,7 @@
 #include <wayland-client.h>
 #include <stdbool.h>
 
-#if __GNUC__ >= 4
+#if defined(__GNUC__) && (__GNUC__ >= 4)
 #define UWAC_API __attribute__((visibility("default")))
 #else
 #define UWAC_API
@@ -93,6 +93,7 @@ enum
 	UWAC_EVENT_POINTER_BUTTONS,
 	UWAC_EVENT_POINTER_AXIS,
 	UWAC_EVENT_KEYBOARD_ENTER,
+	UWAC_EVENT_KEYBOARD_MODIFIERS,
 	UWAC_EVENT_KEY,
 	UWAC_EVENT_TOUCH_FRAME_BEGIN,
 	UWAC_EVENT_TOUCH_UP,
@@ -106,7 +107,6 @@ enum
 	UWAC_EVENT_CLIPBOARD_SELECT,
 	UWAC_EVENT_CLIPBOARD_OFFER,
 	UWAC_EVENT_OUTPUT_GEOMETRY,
-	UWAC_EVENT_KEYBOARD_MODIFIERS,
 	UWAC_EVENT_POINTER_AXIS_DISCRETE,
 	UWAC_EVENT_POINTER_FRAME,
 	UWAC_EVENT_POINTER_SOURCE
@@ -261,6 +261,7 @@ struct uwac_key_event
 	uint32_t raw_key;
 	uint32_t sym;
 	bool pressed;
+	bool repeated;
 };
 typedef struct uwac_key_event UwacKeyEvent;
 
@@ -294,8 +295,8 @@ struct uwac_output_geometry_event
 };
 typedef struct uwac_output_geometry_event UwacOutputGeometryEvent;
 
-/** @brief */
-union uwac_event {
+union uwac_event
+{
 	int type;
 	UwacOutputNewEvent output_new;
 	UwacOutputGeometryEvent output_geometry;
@@ -337,7 +338,7 @@ extern "C"
 	 *	handler is supposed to answer if the execution can continue. I can also be used
 	 *	to log things.
 	 *
-	 * @param handler
+	 * @param handler the error handling function to install
 	 */
 	UWAC_API void UwacInstallErrorHandler(UwacErrorHandler handler);
 
@@ -477,10 +478,10 @@ extern "C"
 	 *	Sets the region that should be considered opaque to the compositor.
 	 *
 	 * @param window the UwacWindow
-	 * @param x
-	 * @param y
-	 * @param width
-	 * @param height
+	 * @param x The horizontal coordinate in pixels
+	 * @param y The vertical coordinate in pixels
+	 * @param width The width of the region
+	 * @param height The height of the region
 	 * @return UWAC_SUCCESS on success, an error otherwise
 	 */
 	UWAC_API UwacReturnCode UwacWindowSetOpaqueRegion(UwacWindow* window, uint32_t x, uint32_t y,
@@ -490,11 +491,11 @@ extern "C"
 	 *	Sets the region of the window that can trigger input events
 	 *
 	 * @param window the UwacWindow
-	 * @param x
-	 * @param y
-	 * @param width
-	 * @param height
-	 * @return
+	 * @param x The horizontal coordinate in pixels
+	 * @param y The vertical coordinate in pixels
+	 * @param width The width of the region
+	 * @param height The height of the region
+	 * @return UWAC_SUCCESS on success, an error otherwise
 	 */
 	UWAC_API UwacReturnCode UwacWindowSetInputRegion(UwacWindow* window, uint32_t x, uint32_t y,
 	                                                 uint32_t width, uint32_t height);

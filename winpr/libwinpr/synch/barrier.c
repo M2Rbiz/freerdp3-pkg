@@ -18,11 +18,10 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #include <winpr/synch.h>
+#include <winpr/assert.h>
 
 #include "synch.h"
 
@@ -30,7 +29,6 @@
 
 #ifdef WINPR_SYNCHRONIZATION_BARRIER
 
-#include <assert.h>
 #include <winpr/sysinfo.h>
 #include <winpr/library.h>
 #include <winpr/interlocked.h>
@@ -93,8 +91,8 @@ BOOL WINAPI winpr_InitializeSynchronizationBarrier(LPSYNCHRONIZATION_BARRIER lpB
                                                    LONG lTotalThreads, LONG lSpinCount)
 {
 	SYSTEM_INFO sysinfo;
-	HANDLE hEvent0;
-	HANDLE hEvent1;
+	HANDLE hEvent0 = NULL;
+	HANDLE hEvent1 = NULL;
 
 #ifdef _WIN32
 	InitOnceExecuteOnce(&g_InitOnce, InitOnce_Barrier, NULL, NULL);
@@ -125,21 +123,23 @@ BOOL WINAPI winpr_InitializeSynchronizationBarrier(LPSYNCHRONIZATION_BARRIER lpB
 
 	GetNativeSystemInfo(&sysinfo);
 
-	lpBarrier->Reserved1 = lTotalThreads;
-	lpBarrier->Reserved2 = lTotalThreads;
+	WINPR_ASSERT(lTotalThreads >= 0);
+	lpBarrier->Reserved1 = (DWORD)lTotalThreads;
+	lpBarrier->Reserved2 = (DWORD)lTotalThreads;
 	lpBarrier->Reserved3[0] = (ULONG_PTR)hEvent0;
 	lpBarrier->Reserved3[1] = (ULONG_PTR)hEvent1;
 	lpBarrier->Reserved4 = sysinfo.dwNumberOfProcessors;
-	lpBarrier->Reserved5 = lSpinCount;
+	WINPR_ASSERT(lSpinCount >= 0);
+	lpBarrier->Reserved5 = (DWORD)lSpinCount;
 
 	return TRUE;
 }
 
 BOOL WINAPI winpr_EnterSynchronizationBarrier(LPSYNCHRONIZATION_BARRIER lpBarrier, DWORD dwFlags)
 {
-	LONG remainingThreads;
-	HANDLE hCurrentEvent;
-	HANDLE hDormantEvent;
+	LONG remainingThreads = 0;
+	HANDLE hCurrentEvent = NULL;
+	HANDLE hDormantEvent = NULL;
 
 #ifdef _WIN32
 	if (g_NativeBarrier)
@@ -175,13 +175,13 @@ BOOL WINAPI winpr_EnterSynchronizationBarrier(LPSYNCHRONIZATION_BARRIER lpBarrie
 
 	remainingThreads = InterlockedDecrement((LONG*)&lpBarrier->Reserved1);
 
-	assert(remainingThreads >= 0);
+	WINPR_ASSERT(remainingThreads >= 0);
 
 	if (remainingThreads > 0)
 	{
 		DWORD dwProcessors = lpBarrier->Reserved4;
-		BOOL spinOnly = dwFlags & SYNCHRONIZATION_BARRIER_FLAGS_SPIN_ONLY;
-		BOOL blockOnly = dwFlags & SYNCHRONIZATION_BARRIER_FLAGS_BLOCK_ONLY;
+		BOOL spinOnly = (dwFlags & SYNCHRONIZATION_BARRIER_FLAGS_SPIN_ONLY) ? TRUE : FALSE;
+		BOOL blockOnly = (dwFlags & SYNCHRONIZATION_BARRIER_FLAGS_BLOCK_ONLY) ? TRUE : FALSE;
 		BOOL block = TRUE;
 
 		/**

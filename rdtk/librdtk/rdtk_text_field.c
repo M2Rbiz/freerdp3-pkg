@@ -16,26 +16,30 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/assert.h>
+
+#include <rdtk/config.h>
 
 #include "rdtk_font.h"
 
 #include "rdtk_text_field.h"
 
-int rdtk_text_field_draw(rdtkSurface* surface, int nXDst, int nYDst, int nWidth, int nHeight,
-                         rdtkTextField* textField, const char* text)
+int rdtk_text_field_draw(rdtkSurface* surface, uint16_t nXDst, uint16_t nYDst, uint16_t nWidth,
+                         uint16_t nHeight, rdtkTextField* textField, const char* text)
 {
-	int offsetX;
-	int offsetY;
-	int textWidth;
-	int textHeight;
-	int fillWidth;
-	int fillHeight;
-	rdtkFont* font;
-	rdtkEngine* engine;
-	rdtkNinePatch* ninePatch;
+	uint16_t offsetX = 0;
+	uint16_t offsetY = 0;
+	uint16_t textWidth = 0;
+	uint16_t textHeight = 0;
+	uint16_t fillWidth = 0;
+	uint16_t fillHeight = 0;
+	rdtkFont* font = NULL;
+	rdtkEngine* engine = NULL;
+	rdtkNinePatch* ninePatch = NULL;
+
+	WINPR_ASSERT(surface);
+	WINPR_ASSERT(textField);
+	WINPR_ASSERT(text);
 
 	engine = surface->engine;
 	font = engine->font;
@@ -72,9 +76,10 @@ int rdtk_text_field_draw(rdtkSurface* surface, int nXDst, int nYDst, int nWidth,
 
 rdtkTextField* rdtk_text_field_new(rdtkEngine* engine, rdtkNinePatch* ninePatch)
 {
-	rdtkTextField* textField;
+	WINPR_ASSERT(engine);
+	WINPR_ASSERT(ninePatch);
 
-	textField = (rdtkTextField*)calloc(1, sizeof(rdtkTextField));
+	rdtkTextField* textField = (rdtkTextField*)calloc(1, sizeof(rdtkTextField));
 
 	if (!textField)
 		return NULL;
@@ -92,9 +97,13 @@ void rdtk_text_field_free(rdtkTextField* textField)
 
 int rdtk_text_field_engine_init(rdtkEngine* engine)
 {
+	WINPR_ASSERT(engine);
+
 	if (!engine->textField)
 	{
 		engine->textField = rdtk_text_field_new(engine, engine->textField9patch);
+		if (!engine->textField)
+			return -1;
 	}
 
 	return 1;
@@ -102,6 +111,7 @@ int rdtk_text_field_engine_init(rdtkEngine* engine)
 
 int rdtk_text_field_engine_uninit(rdtkEngine* engine)
 {
+	WINPR_ASSERT(engine);
 	if (engine->textField)
 	{
 		rdtk_text_field_free(engine->textField);

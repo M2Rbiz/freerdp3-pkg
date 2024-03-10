@@ -20,28 +20,18 @@
 #ifndef FREERDP_CODEC_INTERLEAVED_H
 #define FREERDP_CODEC_INTERLEAVED_H
 
-typedef struct _BITMAP_INTERLEAVED_CONTEXT BITMAP_INTERLEAVED_CONTEXT;
-
 #include <freerdp/api.h>
 #include <freerdp/types.h>
 
 #include <freerdp/codec/color.h>
 #include <freerdp/codec/bitmap.h>
 
-struct _BITMAP_INTERLEAVED_CONTEXT
-{
-	BOOL Compressor;
-
-	UINT32 TempSize;
-	BYTE* TempBuffer;
-
-	wStream* bts;
-};
-
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+	typedef struct S_BITMAP_INTERLEAVED_CONTEXT BITMAP_INTERLEAVED_CONTEXT;
 
 	FREERDP_API BOOL interleaved_decompress(BITMAP_INTERLEAVED_CONTEXT* interleaved,
 	                                        const BYTE* pSrcData, UINT32 SrcSize, UINT32 nSrcWidth,
@@ -58,8 +48,10 @@ extern "C"
 
 	FREERDP_API BOOL bitmap_interleaved_context_reset(BITMAP_INTERLEAVED_CONTEXT* interleaved);
 
-	FREERDP_API BITMAP_INTERLEAVED_CONTEXT* bitmap_interleaved_context_new(BOOL Compressor);
 	FREERDP_API void bitmap_interleaved_context_free(BITMAP_INTERLEAVED_CONTEXT* interleaved);
+
+	WINPR_ATTR_MALLOC(bitmap_interleaved_context_free, 1)
+	FREERDP_API BITMAP_INTERLEAVED_CONTEXT* bitmap_interleaved_context_new(BOOL Compressor);
 
 #ifdef __cplusplus
 }

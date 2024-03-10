@@ -6,14 +6,17 @@
 
 int TestWLog(int argc, char* argv[])
 {
-	wLog* root;
-	wLog* logA;
-	wLog* logB;
-	wLogLayout* layout;
-	wLogAppender* appender;
+	wLog* root = NULL;
+	wLog* logA = NULL;
+	wLog* logB = NULL;
+	wLogLayout* layout = NULL;
+	wLogAppender* appender = NULL;
 	char* tmp_path = NULL;
 	char* wlog_file = NULL;
 	int result = 1;
+
+	WINPR_UNUSED(argc);
+	WINPR_UNUSED(argv);
 
 	if (!(tmp_path = GetKnownPath(KNOWN_PATH_TEMP)))
 	{

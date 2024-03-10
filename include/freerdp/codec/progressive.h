@@ -20,8 +20,6 @@
 #ifndef FREERDP_CODEC_PROGRESSIVE_H
 #define FREERDP_CODEC_PROGRESSIVE_H
 
-typedef struct _PROGRESSIVE_CONTEXT PROGRESSIVE_CONTEXT;
-
 #include <freerdp/api.h>
 #include <freerdp/types.h>
 
@@ -37,29 +35,19 @@ extern "C"
 {
 #endif
 
-#if !defined(DEFINE_NO_DEPRECATED)
-	FREERDP_API WINPR_DEPRECATED(int progressive_compress(PROGRESSIVE_CONTEXT* progressive,
-	                                                      const BYTE* pSrcData, UINT32 SrcSize,
-	                                                      BYTE** ppDstData, UINT32* pDstSize));
-#endif
+	typedef struct S_PROGRESSIVE_CONTEXT PROGRESSIVE_CONTEXT;
 
-	FREERDP_API int progressive_compress_ex(PROGRESSIVE_CONTEXT* progressive, const BYTE* pSrcData,
-	                                        UINT32 SrcSize, UINT32 SrcFormat, UINT32 Width,
-	                                        UINT32 Height, UINT32 ScanLine,
-	                                        const REGION16* invalidRegion, BYTE** ppDstData,
-	                                        UINT32* pDstSize);
-#if !defined(DEFINE_NO_DEPRECATED)
-	FREERDP_API WINPR_DEPRECATED(INT32 progressive_decompress(
-	    PROGRESSIVE_CONTEXT* progressive, const BYTE* pSrcData, UINT32 SrcSize, BYTE* pDstData,
-	    UINT32 DstFormat, UINT32 nDstStep, UINT32 nXDst, UINT32 nYDst, REGION16* invalidRegion,
-	    UINT16 surfaceId));
-#endif
+	FREERDP_API int progressive_compress(PROGRESSIVE_CONTEXT* progressive, const BYTE* pSrcData,
+	                                     UINT32 SrcSize, UINT32 SrcFormat, UINT32 Width,
+	                                     UINT32 Height, UINT32 ScanLine,
+	                                     const REGION16* invalidRegion, BYTE** ppDstData,
+	                                     UINT32* pDstSize);
 
-	FREERDP_API INT32 progressive_decompress_ex(PROGRESSIVE_CONTEXT* progressive,
-	                                            const BYTE* pSrcData, UINT32 SrcSize,
-	                                            BYTE* pDstData, UINT32 DstFormat, UINT32 nDstStep,
-	                                            UINT32 nXDst, UINT32 nYDst, REGION16* invalidRegion,
-	                                            UINT16 surfaceId, UINT32 frameId);
+	FREERDP_API INT32 progressive_decompress(PROGRESSIVE_CONTEXT* progressive, const BYTE* pSrcData,
+	                                         UINT32 SrcSize, BYTE* pDstData, UINT32 DstFormat,
+	                                         UINT32 nDstStep, UINT32 nXDst, UINT32 nYDst,
+	                                         REGION16* invalidRegion, UINT16 surfaceId,
+	                                         UINT32 frameId);
 
 	FREERDP_API INT32 progressive_create_surface_context(PROGRESSIVE_CONTEXT* progressive,
 	                                                     UINT16 surfaceId, UINT32 width,
@@ -69,8 +57,17 @@ extern "C"
 
 	FREERDP_API BOOL progressive_context_reset(PROGRESSIVE_CONTEXT* progressive);
 
-	FREERDP_API PROGRESSIVE_CONTEXT* progressive_context_new(BOOL Compressor);
 	FREERDP_API void progressive_context_free(PROGRESSIVE_CONTEXT* progressive);
+
+	WINPR_ATTR_MALLOC(progressive_context_free, 1)
+	FREERDP_API PROGRESSIVE_CONTEXT* progressive_context_new(BOOL Compressor);
+
+	WINPR_ATTR_MALLOC(progressive_context_free, 1)
+	FREERDP_API PROGRESSIVE_CONTEXT* progressive_context_new_ex(BOOL Compressor,
+	                                                            UINT32 ThreadingFlags);
+
+	FREERDP_API BOOL progressive_rfx_write_message_progressive_simple(
+	    PROGRESSIVE_CONTEXT* progressive, wStream* s, const RFX_MESSAGE* msg);
 
 #ifdef __cplusplus
 }

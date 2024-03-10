@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <winpr/platform.h>
 #include <winpr/winpr.h>
 #include <winpr/wtypes.h>
 #include <winpr/error.h>
@@ -108,6 +109,10 @@ extern "C"
 	WINPR_API BOOL SetEvent(HANDLE hEvent);
 	WINPR_API BOOL ResetEvent(HANDLE hEvent);
 
+#if defined(WITH_DEBUG_EVENTS)
+#define DumpEventHandles() DumpEventHandles_(__func__, __FILE__, __LINE__)
+	WINPR_API void DumpEventHandles_(const char* fkt, const char* file, size_t line);
+#endif
 #ifdef UNICODE
 #define CreateEvent CreateEventW
 #define CreateEventEx CreateEventExW
@@ -125,7 +130,7 @@ extern "C"
 
 	/* Critical Section */
 
-	typedef struct _RTL_CRITICAL_SECTION
+	typedef struct
 	{
 		PVOID DebugInfo;
 		LONG LockCount;
@@ -170,17 +175,17 @@ extern "C"
 
 	/* Wait */
 
-#define INFINITE 0xFFFFFFFF
+#define INFINITE 0xFFFFFFFFUL
 
-#define WAIT_OBJECT_0 0x00000000L
-#define WAIT_ABANDONED 0x00000080L
-#define WAIT_IO_COMPLETION 0x000000C0L
+#define WAIT_OBJECT_0 0x00000000UL
+#define WAIT_ABANDONED 0x00000080UL
+#define WAIT_IO_COMPLETION 0x000000C0UL
 
 #ifndef WAIT_TIMEOUT
-#define WAIT_TIMEOUT 0x00000102L
+#define WAIT_TIMEOUT 0x00000102UL
 #endif
 
-#define WAIT_FAILED ((DWORD)0xFFFFFFFF)
+#define WAIT_FAILED 0xFFFFFFFFUL
 
 #define MAXIMUM_WAIT_OBJECTS 64
 
@@ -198,7 +203,7 @@ extern "C"
 
 #define CREATE_WAITABLE_TIMER_MANUAL_RESET 0x00000001
 
-	typedef struct _REASON_CONTEXT
+	typedef struct
 	{
 		ULONG Version;
 		DWORD Flags;
@@ -258,6 +263,8 @@ extern "C"
 #define OpenWaitableTimer OpenWaitableTimerA
 #endif
 
+	WINPR_API int GetTimerFileDescriptor(HANDLE hEvent);
+
 	/**
 	 * Timer-Queue Timer
 	 */
@@ -293,8 +300,13 @@ extern "C"
 	InitializeCriticalSectionAndSpinCount(lpCriticalSection, dwSpinCount)
 #endif
 
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_RESERVED_ID_MACRO
+
 #ifndef _RTL_RUN_ONCE_DEF
 #define _RTL_RUN_ONCE_DEF
+
+	WINPR_PRAGMA_DIAG_POP
 
 #define RTL_RUN_ONCE_INIT \
 	{                     \
@@ -307,7 +319,7 @@ extern "C"
 
 #define RTL_RUN_ONCE_CTX_RESERVED_BITS 2
 
-	typedef struct _RTL_RUN_ONCE
+	typedef struct
 	{
 		PVOID Ptr;
 	} RTL_RUN_ONCE, *PRTL_RUN_ONCE;
@@ -350,7 +362,7 @@ extern "C"
 
 #ifdef WINPR_SYNCHRONIZATION_BARRIER
 
-	typedef struct _RTL_BARRIER
+	typedef struct
 	{
 		DWORD Reserved1;
 		DWORD Reserved2;

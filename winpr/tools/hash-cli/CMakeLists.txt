@@ -30,7 +30,7 @@ if (WIN32)
 	set(RC_VERSION_FILE "${MODULE_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
 
 	configure_file(
-		${CMAKE_SOURCE_DIR}/cmake/WindowsDLLVersion.rc.in
+		${PROJECT_SOURCE_DIR}/cmake/WindowsDLLVersion.rc.in
 		${CMAKE_CURRENT_BINARY_DIR}/version.rc
 		@ONLY)
 
@@ -41,14 +41,19 @@ add_executable(${MODULE_NAME} ${${MODULE_PREFIX}_SRCS})
 
 set(${MODULE_PREFIX}_LIBS winpr)
 
+set(MANPAGE_NAME "${MODULE_NAME}")
+if (WITH_BINARY_VERSIONING)
+	set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME "${MODULE_NAME}${WINPR_API_VERSION}")
+        set(MANPAGE_NAME "${MODULE_NAME}${WINPR_API_VERSION}")
+endif()
 target_link_libraries(${MODULE_NAME} ${${MODULE_PREFIX}_LIBS})
 
 install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT tools EXPORT WinPRTargets)
 
 if (WITH_DEBUG_SYMBOLS AND MSVC)
-	install(FILES ${CMAKE_BINARY_DIR}/${MODULE_NAME}.pdb DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT symbols)
+	install(FILES ${PROJECT_BINARY_DIR}/${MODULE_NAME}.pdb DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT symbols)
 endif()
 
 set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "WinPR/Tools")
-configure_file(winpr-hash.1.in ${CMAKE_CURRENT_BINARY_DIR}/winpr-hash.1)
-install_freerdp_man(${CMAKE_CURRENT_BINARY_DIR}/winpr-hash.1 1)
+configure_file(winpr-hash.1.in ${CMAKE_CURRENT_BINARY_DIR}/${MANPAGE_NAME}.1)
+install_freerdp_man(${CMAKE_CURRENT_BINARY_DIR}/${MANPAGE_NAME}.1 1)

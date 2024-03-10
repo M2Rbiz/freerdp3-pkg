@@ -19,9 +19,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <winpr/crt.h>
 #include <winpr/print.h>
@@ -42,17 +40,16 @@
  * Minimum match length: 3 bytes
  */
 
-struct _ZGFX_TOKEN
+typedef struct
 {
 	UINT32 prefixLength;
 	UINT32 prefixCode;
 	UINT32 valueBits;
 	UINT32 tokenType;
 	UINT32 valueBase;
-};
-typedef struct _ZGFX_TOKEN ZGFX_TOKEN;
+} ZGFX_TOKEN;
 
-struct _ZGFX_CONTEXT
+struct S_ZGFX_CONTEXT
 {
 	BOOL Compressor;
 
@@ -117,31 +114,31 @@ static const ZGFX_TOKEN ZGFX_TOKEN_TABLE[] = {
 	{ 0 }
 };
 
-static INLINE BOOL zgfx_GetBits(ZGFX_CONTEXT* _zgfx, UINT32 _nbits)
+static INLINE BOOL zgfx_GetBits(ZGFX_CONTEXT* zgfx, UINT32 nbits)
 {
-	if (!_zgfx)
+	if (!zgfx)
 		return FALSE;
 
-	while (_zgfx->cBitsCurrent < _nbits)
+	while (zgfx->cBitsCurrent < nbits)
 	{
-		_zgfx->BitsCurrent <<= 8;
+		zgfx->BitsCurrent <<= 8;
 
-		if (_zgfx->pbInputCurrent < _zgfx->pbInputEnd)
-			_zgfx->BitsCurrent += *(_zgfx->pbInputCurrent)++;
+		if (zgfx->pbInputCurrent < zgfx->pbInputEnd)
+			zgfx->BitsCurrent += *(zgfx->pbInputCurrent)++;
 
-		_zgfx->cBitsCurrent += 8;
+		zgfx->cBitsCurrent += 8;
 	}
 
-	_zgfx->cBitsRemaining -= _nbits;
-	_zgfx->cBitsCurrent -= _nbits;
-	_zgfx->bits = _zgfx->BitsCurrent >> _zgfx->cBitsCurrent;
-	_zgfx->BitsCurrent &= ((1 << _zgfx->cBitsCurrent) - 1);
+	zgfx->cBitsRemaining -= nbits;
+	zgfx->cBitsCurrent -= nbits;
+	zgfx->bits = zgfx->BitsCurrent >> zgfx->cBitsCurrent;
+	zgfx->BitsCurrent &= ((1 << zgfx->cBitsCurrent) - 1);
 	return TRUE;
 }
 
 static void zgfx_history_buffer_ring_write(ZGFX_CONTEXT* zgfx, const BYTE* src, size_t count)
 {
-	UINT32 front;
+	UINT32 front = 0;
 
 	if (count <= 0)
 		return;
@@ -172,11 +169,11 @@ static void zgfx_history_buffer_ring_write(ZGFX_CONTEXT* zgfx, const BYTE* src, 
 
 static void zgfx_history_buffer_ring_read(ZGFX_CONTEXT* zgfx, int offset, BYTE* dst, UINT32 count)
 {
-	UINT32 front;
-	UINT32 index;
-	INT32 bytes;
-	UINT32 valid;
-	INT32 bytesLeft;
+	UINT32 front = 0;
+	UINT32 index = 0;
+	INT32 bytes = 0;
+	UINT32 valid = 0;
+	INT32 bytesLeft = 0;
 	BYTE* dptr = dst;
 	BYTE* origDst = dst;
 
@@ -219,23 +216,23 @@ static void zgfx_history_buffer_ring_read(ZGFX_CONTEXT* zgfx, int offset, BYTE* 
 
 static BOOL zgfx_decompress_segment(ZGFX_CONTEXT* zgfx, wStream* stream, size_t segmentSize)
 {
-	BYTE c;
-	BYTE flags;
+	BYTE c = 0;
+	BYTE flags = 0;
 	UINT32 extra = 0;
-	int opIndex;
-	UINT32 haveBits;
-	UINT32 inPrefix;
-	UINT32 count;
-	UINT32 distance;
-	BYTE* pbSegment;
-	size_t cbSegment;
+	int opIndex = 0;
+	UINT32 haveBits = 0;
+	UINT32 inPrefix = 0;
+	UINT32 count = 0;
+	UINT32 distance = 0;
+	BYTE* pbSegment = NULL;
+	size_t cbSegment = 0;
 
 	if (!zgfx || !stream || (segmentSize < 2))
 		return FALSE;
 
 	cbSegment = segmentSize - 1;
 
-	if ((Stream_GetRemainingLength(stream) < segmentSize) || (segmentSize > UINT32_MAX))
+	if (!Stream_CheckAndLogRequiredLength(TAG, stream, segmentSize) || (segmentSize > UINT32_MAX))
 		return FALSE;
 
 	Stream_Read_UINT8(stream, flags); /* header (1 byte) */
@@ -385,13 +382,14 @@ int zgfx_decompress(ZGFX_CONTEXT* zgfx, const BYTE* pSrcData, UINT32 SrcSize, BY
                     UINT32* pDstSize, UINT32 flags)
 {
 	int status = -1;
-	BYTE descriptor;
-	wStream* stream = Stream_New((BYTE*)pSrcData, SrcSize);
+	BYTE descriptor = 0;
+	wStream sbuffer = { 0 };
+	wStream* stream = Stream_StaticConstInit(&sbuffer, pSrcData, SrcSize);
 
 	if (!stream)
 		return -1;
 
-	if (Stream_GetRemainingLength(stream) < 1)
+	if (!Stream_CheckAndLogRequiredLength(TAG, stream, 1))
 		goto fail;
 
 	Stream_Read_UINT8(stream, descriptor); /* descriptor (1 byte) */
@@ -414,20 +412,20 @@ int zgfx_decompress(ZGFX_CONTEXT* zgfx, const BYTE* pSrcData, UINT32 SrcSize, BY
 	}
 	else if (descriptor == ZGFX_SEGMENTED_MULTIPART)
 	{
-		UINT32 segmentSize;
-		UINT16 segmentNumber;
-		UINT16 segmentCount;
-		UINT32 uncompressedSize;
-		BYTE* pConcatenated;
+		UINT32 segmentSize = 0;
+		UINT16 segmentNumber = 0;
+		UINT16 segmentCount = 0;
+		UINT32 uncompressedSize = 0;
+		BYTE* pConcatenated = NULL;
 		size_t used = 0;
 
-		if (Stream_GetRemainingLength(stream) < 6)
+		if (!Stream_CheckAndLogRequiredLength(TAG, stream, 6))
 			goto fail;
 
 		Stream_Read_UINT16(stream, segmentCount);     /* segmentCount (2 bytes) */
 		Stream_Read_UINT32(stream, uncompressedSize); /* uncompressedSize (4 bytes) */
 
-		if (Stream_GetRemainingLength(stream) < segmentCount * sizeof(UINT32))
+		if (!Stream_CheckAndLogRequiredLengthOfSize(TAG, stream, segmentCount, sizeof(UINT32)))
 			goto fail;
 
 		pConcatenated = aligned_zgfx_malloc(uncompressedSize);
@@ -440,7 +438,7 @@ int zgfx_decompress(ZGFX_CONTEXT* zgfx, const BYTE* pSrcData, UINT32 SrcSize, BY
 
 		for (segmentNumber = 0; segmentNumber < segmentCount; segmentNumber++)
 		{
-			if (Stream_GetRemainingLength(stream) < sizeof(UINT32))
+			if (!Stream_CheckAndLogRequiredLength(TAG, stream, sizeof(UINT32)))
 				goto fail;
 
 			Stream_Read_UINT32(stream, segmentSize); /* segmentSize (4 bytes) */
@@ -466,7 +464,6 @@ int zgfx_decompress(ZGFX_CONTEXT* zgfx, const BYTE* pSrcData, UINT32 SrcSize, BY
 
 	status = 1;
 fail:
-	Stream_Free(stream, FALSE);
 	return status;
 }
 
@@ -489,22 +486,22 @@ static BOOL zgfx_compress_segment(ZGFX_CONTEXT* zgfx, wStream* s, const BYTE* pS
 int zgfx_compress_to_stream(ZGFX_CONTEXT* zgfx, wStream* sDst, const BYTE* pUncompressed,
                             UINT32 uncompressedSize, UINT32* pFlags)
 {
-	int fragment;
-	UINT16 maxLength;
-	UINT32 totalLength;
+	int fragment = 0;
+	UINT16 maxLength = 0;
+	UINT32 totalLength = 0;
 	size_t posSegmentCount = 0;
-	const BYTE* pSrcData;
+	const BYTE* pSrcData = NULL;
 	int status = 0;
 	maxLength = ZGFX_SEGMENTED_MAXSIZE;
 	totalLength = uncompressedSize;
 	pSrcData = pUncompressed;
 
-	for (fragment = 0; (totalLength > 0) || (fragment == 0); fragment++)
+	for (; (totalLength > 0) || (fragment == 0); fragment++)
 	{
-		UINT32 SrcSize;
-		size_t posDstSize;
-		size_t posDataStart;
-		UINT32 DstSize;
+		UINT32 SrcSize = 0;
+		size_t posDstSize = 0;
+		size_t posDataStart = 0;
+		UINT32 DstSize = 0;
 		SrcSize = (totalLength > maxLength) ? maxLength : totalLength;
 		posDstSize = 0;
 		totalLength -= SrcSize;
@@ -571,7 +568,7 @@ int zgfx_compress_to_stream(ZGFX_CONTEXT* zgfx, wStream* sDst, const BYTE* pUnco
 int zgfx_compress(ZGFX_CONTEXT* zgfx, const BYTE* pSrcData, UINT32 SrcSize, BYTE** ppDstData,
                   UINT32* pDstSize, UINT32* pFlags)
 {
-	int status;
+	int status = 0;
 	wStream* s = Stream_New(NULL, SrcSize);
 	status = zgfx_compress_to_stream(zgfx, s, pSrcData, SrcSize, pFlags);
 	(*ppDstData) = Stream_Buffer(s);
@@ -587,7 +584,7 @@ void zgfx_context_reset(ZGFX_CONTEXT* zgfx, BOOL flush)
 
 ZGFX_CONTEXT* zgfx_context_new(BOOL Compressor)
 {
-	ZGFX_CONTEXT* zgfx;
+	ZGFX_CONTEXT* zgfx = NULL;
 	zgfx = (ZGFX_CONTEXT*)calloc(1, sizeof(ZGFX_CONTEXT));
 
 	if (zgfx)

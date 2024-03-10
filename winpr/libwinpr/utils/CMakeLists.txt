@@ -15,15 +15,55 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+include(CheckFunctionExists)
+
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
+option(WITH_LODEPNG "build WinPR with PNG support" OFF)
+if (WITH_LODEPNG)
+        find_package(lodepng REQUIRED)
+
+        winpr_definition_add(-DWITH_LODEPNG)
+        set(WINPR_WITH_PNG ON CACHE BOOL "build cache")
+
+        winpr_include_directory_add(${lodepng_INCLUDE_DIRS})
+        winpr_library_add_private(${lodepng_LIBRARIES})
+endif()
+
+option(WINPR_UTILS_IMAGE_PNG "Add PNG <--> BMP conversion support to clipboard" OFF)
+if (WINPR_UTILS_IMAGE_PNG)
+	find_package(PNG REQUIRED)
+
+        set(WINPR_WITH_PNG ON CACHE BOOL "build cache")
+	winpr_include_directory_add(${PNG_INCLUDE_DIRS})
+	winpr_library_add_private(${PNG_LIBRARIES})
+endif()
+
+option(WINPR_UTILS_IMAGE_WEBP "Add WebP <--> BMP conversion support to clipboard" OFF)
+if (WINPR_UTILS_IMAGE_WEBP)
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(WEBP libwebp REQUIRED)
+
+	winpr_include_directory_add(${WEBP_INCLUDE_DIRS})
+	winpr_library_add_private(${WEBP_LIBRARIES})
+endif()
+
+option(WINPR_UTILS_IMAGE_JPEG "Add Jpeg <--> BMP conversion support to clipboard" OFF)
+if (WINPR_UTILS_IMAGE_JPEG)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(JPEG libjpeg REQUIRED)
+
+    winpr_include_directory_add(${JPEG_INCLUDE_DIRS})
+    winpr_library_add_private(${JPEG_LIBRARIES})
+endif()
+
+
 set(COLLECTIONS_SRCS
+	collections/Object.c
 	collections/Queue.c
 	collections/Stack.c
 	collections/PubSub.c
-	collections/BipBuffer.c
-	collections/BitStream.c
-	collections/Reference.c
+        collections/BitStream.c
 	collections/ArrayList.c
 	collections/LinkedList.c
 	collections/HashTable.c
@@ -35,36 +75,26 @@ set(COLLECTIONS_SRCS
 	collections/MessageQueue.c
 	collections/MessagePipe.c)
 
-set(LODEPNG_SRCS
-	lodepng/lodepng.c
-	lodepng/lodepng.h)
-
-set(TRIO_SRCS
-	trio/strio.h
-	trio/trio.c
-	trio/trio.h
-	trio/triodef.h
-	trio/trionan.c
-	trio/trionan.h
-	trio/triop.h
-	trio/triostr.c
-	trio/triostr.h)
-
-if (HAVE_SYSLOG_H)
+if (WINPR_HAVE_SYSLOG_H)
 	set(SYSLOG_SRCS
 		wlog/SyslogAppender.c
 		wlog/SyslogAppender.h
 	)
 endif()
 
-if (LIBSYSTEMD_FOUND)
-	set(JOURNALD_SRCS
+find_package(libsystemd)
+option(WITH_SYSTEMD "allows to export wLog to systemd journal" ${libsystemd_FOUND})
+if(WITH_LIBSYSTEMD)
+    find_package(libsystemd REQUIRED)
+    set(WINPR_HAVE_JOURNALD_H TRUE)
+    set(JOURNALD_SRCS
 		wlog/JournaldAppender.c
 		wlog/JournaldAppender.h
-	)
-
+    )
 	winpr_include_directory_add(${LIBSYSTEMD_INCLUDE_DIR})
 	winpr_library_add_private(${LIBSYSTEMD_LIBRARY})
+else()
+    unset(WINPR_HAVE_JOURNALD_H)
 endif()
 
 set(WLOG_SRCS
@@ -96,6 +126,9 @@ set(WLOG_SRCS
 	${JOURNALD_SRCS}
 	)
 
+set(ASN1_SRCS
+	asn1/asn1.c
+)
 
 set(SRCS
 	ini.c
@@ -103,6 +136,7 @@ set(SRCS
 	ntlm.c
 	image.c
 	print.c
+	stream.h
 	stream.c
 	strlst.c
 	debug.c
@@ -111,14 +145,15 @@ set(SRCS
 	ssl.c)
 
 if (ANDROID)
+	list(APPEND SRCS android.h android.c)
 	include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-    if (NOT HAVE_UNWIND_H)
+    if (NOT WINPR_HAVE_UNWIND_H)
         message("[backtrace] android NDK without unwind.h, falling back to corkscrew")
-        set(HAVE_CORKSCREW 1)
+        set(WINPR_HAVE_CORKSCREW 1)
     endif()
 endif()
 
-if (HAVE_CORKSCREW)
+if (WINPR_HAVE_CORKSCREW)
     list(APPEND SRCS
         corkscrew/debug.c
         corkscrew/debug.h)
@@ -130,16 +165,20 @@ if (WIN32)
         windows/debug.h)
 endif()
 
-if (HAVE_EXECINFO_H)
-    list(APPEND SRCS
-        execinfo/debug.c
-        execinfo/debug.h)
+if (WINPR_HAVE_EXECINFO_H)
+    option(USE_EXECINFO "Use execinfo.h to generate backtraces" ON)
+    if (USE_EXECINFO)
+        winpr_definition_add(-DUSE_EXECINFO)
+        list(APPEND SRCS
+            execinfo/debug.c
+            execinfo/debug.h)
+    endif()
 endif()
 
-if (HAVE_UNWIND_H)
+if (WINPR_HAVE_UNWIND_H)
     option(USE_UNWIND "Use unwind.h to generate backtraces" ON)
     if (USE_UNWIND)
-        add_definitions(-DUSE_UNWIND)
+        winpr_definition_add(-DUSE_UNWIND)
         list(APPEND SRCS
             unwind/debug.c
             unwind/debug.h)
@@ -148,14 +187,13 @@ endif()
 
 winpr_module_add(${SRCS}
 	${COLLECTIONS_SRCS}
-	${LODEPNG_SRCS}
-	${TRIO_SRCS}
-	${WLOG_SRCS})
+	${WLOG_SRCS}
+	${ASN1_SRCS}
+)
 
 winpr_include_directory_add(
-	"lodepng"
-	"trio"
-	".")
+	"."
+)
 
 if(OPENSSL_FOUND)
 	winpr_include_directory_add(${OPENSSL_INCLUDE_DIR})
@@ -169,10 +207,16 @@ endif()
 
 if(UNIX)
 	winpr_library_add_private(m)
-endif()
 
-if((FREEBSD) AND (NOT KFREEBSD))
-	winpr_library_add_private(execinfo)
+	set(CMAKE_REQUIRED_INCLUDES backtrace.h)
+	check_function_exists(backtrace BACKTRACE)
+	if (NOT BACKTRACE)
+		set(CMAKE_REQUIRED_LIBRARIES execinfo)
+		check_function_exists(backtrace EXECINFO)
+		if (EXECINFO)
+			winpr_library_add_private(execinfo)
+		endif()
+	endif()
 endif()
 
 if(WIN32)

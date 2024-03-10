@@ -32,18 +32,13 @@ extern "C"
 {
 #endif
 
-	struct _REGION16_DATA;
-	typedef struct _REGION16_DATA REGION16_DATA;
+	typedef struct S_REGION16_DATA REGION16_DATA;
 
-	/**
-	 * @brief
-	 */
-	struct _REGION16
+	typedef struct
 	{
 		RECTANGLE_16 extents;
 		REGION16_DATA* data;
-	};
-	typedef struct _REGION16 REGION16;
+	} REGION16;
 
 	/** computes if two rectangles are equal
 	 * @param r1 first rectangle
@@ -88,19 +83,19 @@ extern "C"
 	FREERDP_API const RECTANGLE_16* region16_extents(const REGION16* region);
 
 	/** returns if the rectangle is empty
-	 * @param rect
+	 * @param rect the rectangle to check
 	 * @return if the rectangle is empty
 	 */
 	FREERDP_API BOOL rectangle_is_empty(const RECTANGLE_16* rect);
 
 	/** returns if the region is empty
-	 * @param region
+	 * @param region the region to check
 	 * @return if the region is empty
 	 */
 	FREERDP_API BOOL region16_is_empty(const REGION16* region);
 
-	/** clears the region, the region is resetted to a (0,0,0,0) region
-	 * @param region
+	/** clears the region, the region is reset to a (0,0,0,0) region
+	 * @param region the region to clear
 	 */
 	FREERDP_API void region16_clear(REGION16* region);
 

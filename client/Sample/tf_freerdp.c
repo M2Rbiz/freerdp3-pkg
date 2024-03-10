@@ -19,9 +19,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -30,6 +28,7 @@
 #include <freerdp/freerdp.h>
 #include <freerdp/constants.h>
 #include <freerdp/gdi/gdi.h>
+#include <freerdp/streamdump.h>
 #include <freerdp/utils/signal.h>
 
 #include <freerdp/client/file.h>
@@ -39,6 +38,7 @@
 #include <freerdp/channels/channels.h>
 
 #include <winpr/crt.h>
+#include <winpr/assert.h>
 #include <winpr/synch.h>
 #include <freerdp/log.h>
 
@@ -51,7 +51,16 @@
  * It can be used to reset invalidated areas. */
 static BOOL tf_begin_paint(rdpContext* context)
 {
-	rdpGdi* gdi = context->gdi;
+	rdpGdi* gdi = NULL;
+
+	WINPR_ASSERT(context);
+
+	gdi = context->gdi;
+	WINPR_ASSERT(gdi);
+	WINPR_ASSERT(gdi->primary);
+	WINPR_ASSERT(gdi->primary->hdc);
+	WINPR_ASSERT(gdi->primary->hdc->hwnd);
+	WINPR_ASSERT(gdi->primary->hdc->hwnd->invalid);
 	gdi->primary->hdc->hwnd->invalid->null = TRUE;
 	return TRUE;
 }
@@ -62,12 +71,36 @@ static BOOL tf_begin_paint(rdpContext* context)
  */
 static BOOL tf_end_paint(rdpContext* context)
 {
-	rdpGdi* gdi = context->gdi;
+	rdpGdi* gdi = NULL;
+
+	WINPR_ASSERT(context);
+
+	gdi = context->gdi;
+	WINPR_ASSERT(gdi);
+	WINPR_ASSERT(gdi->primary);
+	WINPR_ASSERT(gdi->primary->hdc);
+	WINPR_ASSERT(gdi->primary->hdc->hwnd);
+	WINPR_ASSERT(gdi->primary->hdc->hwnd->invalid);
 
 	if (gdi->primary->hdc->hwnd->invalid->null)
 		return TRUE;
 
 	return TRUE;
+}
+
+static BOOL tf_desktop_resize(rdpContext* context)
+{
+	rdpGdi* gdi = NULL;
+	rdpSettings* settings = NULL;
+
+	WINPR_ASSERT(context);
+
+	settings = context->settings;
+	WINPR_ASSERT(settings);
+
+	gdi = context->gdi;
+	return gdi_resize(gdi, freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth),
+	                  freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight));
 }
 
 /* This function is called to output a System BEEP */
@@ -106,12 +139,20 @@ static BOOL tf_keyboard_set_ime_status(rdpContext* context, UINT16 imeId, UINT32
  * Set all configuration options to support and load channels here. */
 static BOOL tf_pre_connect(freerdp* instance)
 {
-	rdpSettings* settings;
-	settings = instance->settings;
+	rdpSettings* settings = NULL;
+
+	WINPR_ASSERT(instance);
+	WINPR_ASSERT(instance->context);
+
+	settings = instance->context->settings;
+	WINPR_ASSERT(settings);
+
 	/* Optional OS identifier sent to server */
-	settings->OsMajorType = OSMAJORTYPE_UNIX;
-	settings->OsMinorType = OSMINORTYPE_NATIVE_XSERVER;
-	/* settings->OrderSupport is initialized at this point.
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_OsMajorType, OSMAJORTYPE_UNIX))
+		return FALSE;
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_OsMinorType, OSMINORTYPE_NATIVE_XSERVER))
+		return FALSE;
+	/* OrderSupport is initialized at this point.
 	 * Only override it if you plan to implement custom order
 	 * callbacks or deactiveate certain features. */
 	/* Register the channel listeners.
@@ -119,11 +160,6 @@ static BOOL tf_pre_connect(freerdp* instance)
 	PubSub_SubscribeChannelConnected(instance->context->pubSub, tf_OnChannelConnectedEventHandler);
 	PubSub_SubscribeChannelDisconnected(instance->context->pubSub,
 	                                    tf_OnChannelDisconnectedEventHandler);
-
-	/* Load all required plugins / channels / libraries specified by current
-	 * settings. */
-	if (!freerdp_client_load_addins(instance->context->channels, instance->settings))
-		return FALSE;
 
 	/* TODO: Any code your client requires */
 	return TRUE;
@@ -139,14 +175,28 @@ static BOOL tf_pre_connect(freerdp* instance)
  */
 static BOOL tf_post_connect(freerdp* instance)
 {
+	rdpContext* context = NULL;
+
 	if (!gdi_init(instance, PIXEL_FORMAT_XRGB32))
 		return FALSE;
 
-	instance->update->BeginPaint = tf_begin_paint;
-	instance->update->EndPaint = tf_end_paint;
-	instance->update->PlaySound = tf_play_sound;
-	instance->update->SetKeyboardIndicators = tf_keyboard_set_indicators;
-	instance->update->SetKeyboardImeStatus = tf_keyboard_set_ime_status;
+	context = instance->context;
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(context->update);
+
+	/* With this setting we disable all graphics processing in the library.
+	 *
+	 * This allows low resource (client) protocol parsing.
+	 */
+	if (!freerdp_settings_set_bool(context->settings, FreeRDP_DeactivateClientDecoding, TRUE))
+		return FALSE;
+
+	context->update->BeginPaint = tf_begin_paint;
+	context->update->EndPaint = tf_end_paint;
+	context->update->PlaySound = tf_play_sound;
+	context->update->DesktopResize = tf_desktop_resize;
+	context->update->SetKeyboardIndicators = tf_keyboard_set_indicators;
+	context->update->SetKeyboardImeStatus = tf_keyboard_set_ime_status;
 	return TRUE;
 }
 
@@ -155,7 +205,7 @@ static BOOL tf_post_connect(freerdp* instance)
  */
 static void tf_post_disconnect(freerdp* instance)
 {
-	tfContext* context;
+	tfContext* context = NULL;
 
 	if (!instance)
 		return;
@@ -179,16 +229,18 @@ static void tf_post_disconnect(freerdp* instance)
 static DWORD WINAPI tf_client_thread_proc(LPVOID arg)
 {
 	freerdp* instance = (freerdp*)arg;
-	DWORD nCount;
-	DWORD status;
+	DWORD nCount = 0;
+	DWORD status = 0;
 	DWORD result = 0;
-	HANDLE handles[64];
+	HANDLE handles[MAXIMUM_WAIT_OBJECTS] = { 0 };
 	BOOL rc = freerdp_connect(instance);
 
-	if (instance->settings->AuthenticationOnly)
+	WINPR_ASSERT(instance->context);
+	WINPR_ASSERT(instance->context->settings);
+	if (freerdp_settings_get_bool(instance->context->settings, FreeRDP_AuthenticationOnly))
 	{
 		result = freerdp_get_last_error(instance->context);
-		freerdp_abort_connect(instance);
+		freerdp_abort_connect_context(instance->context);
 		WLog_ERR(TAG, "Authentication only, exit status 0x%08" PRIx32 "", result);
 		goto disconnect;
 	}
@@ -200,13 +252,13 @@ static DWORD WINAPI tf_client_thread_proc(LPVOID arg)
 		return result;
 	}
 
-	while (!freerdp_shall_disconnect(instance))
+	while (!freerdp_shall_disconnect_context(instance->context))
 	{
-		nCount = freerdp_get_event_handles(instance->context, &handles[0], 64);
+		nCount = freerdp_get_event_handles(instance->context, handles, ARRAYSIZE(handles));
 
 		if (nCount == 0)
 		{
-			WLog_ERR(TAG, "%s: freerdp_get_event_handles failed", __FUNCTION__);
+			WLog_ERR(TAG, "freerdp_get_event_handles failed");
 			break;
 		}
 
@@ -214,8 +266,7 @@ static DWORD WINAPI tf_client_thread_proc(LPVOID arg)
 
 		if (status == WAIT_FAILED)
 		{
-			WLog_ERR(TAG, "%s: WaitForMultipleObjects failed with %" PRIu32 "", __FUNCTION__,
-			         status);
+			WLog_ERR(TAG, "WaitForMultipleObjects failed with %" PRIu32 "", status);
 			break;
 		}
 
@@ -251,7 +302,7 @@ static void tf_client_global_uninit(void)
 
 static int tf_logon_error_info(freerdp* instance, UINT32 data, UINT32 type)
 {
-	tfContext* tf;
+	tfContext* tf = NULL;
 	const char* str_data = freerdp_get_logon_error_info_data(data);
 	const char* str_type = freerdp_get_logon_error_info_type(type);
 
@@ -275,10 +326,6 @@ static BOOL tf_client_new(freerdp* instance, rdpContext* context)
 	instance->PreConnect = tf_pre_connect;
 	instance->PostConnect = tf_post_connect;
 	instance->PostDisconnect = tf_post_disconnect;
-	instance->Authenticate = client_cli_authenticate;
-	instance->GatewayAuthenticate = client_cli_gw_authenticate;
-	instance->VerifyCertificateEx = client_cli_verify_certificate_ex;
-	instance->VerifyChangedCertificateEx = client_cli_verify_changed_certificate_ex;
 	instance->LogonErrorInfo = tf_logon_error_info;
 	/* TODO: Client display set up */
 	WINPR_UNUSED(tf);
@@ -312,6 +359,8 @@ static int tf_client_stop(rdpContext* context)
 
 static int RdpClientEntry(RDP_CLIENT_ENTRY_POINTS* pEntryPoints)
 {
+	WINPR_ASSERT(pEntryPoints);
+
 	ZeroMemory(pEntryPoints, sizeof(RDP_CLIENT_ENTRY_POINTS));
 	pEntryPoints->Version = RDP_CLIENT_INTERFACE_VERSION;
 	pEntryPoints->Size = sizeof(RDP_CLIENT_ENTRY_POINTS_V1);
@@ -328,9 +377,9 @@ static int RdpClientEntry(RDP_CLIENT_ENTRY_POINTS* pEntryPoints)
 int main(int argc, char* argv[])
 {
 	int rc = -1;
-	DWORD status;
+	DWORD status = 0;
 	RDP_CLIENT_ENTRY_POINTS clientEntryPoints;
-	rdpContext* context;
+	rdpContext* context = NULL;
 	RdpClientEntry(&clientEntryPoints);
 	context = freerdp_client_context_new(&clientEntryPoints);
 
@@ -344,6 +393,9 @@ int main(int argc, char* argv[])
 		                                                       argv);
 		goto fail;
 	}
+
+	if (!stream_dump_register_handlers(context, CONNECTION_STATE_MCS_CREATE_REQUEST, FALSE))
+		goto fail;
 
 	if (freerdp_client_start(context) != 0)
 		goto fail;

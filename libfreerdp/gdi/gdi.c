@@ -19,14 +19,13 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <winpr/crt.h>
+#include <winpr/assert.h>
 
 #include <freerdp/api.h>
 #include <freerdp/log.h>
@@ -45,6 +44,8 @@
 #include "line.h"
 #include "gdi.h"
 #include "../core/graphics.h"
+#include "../core/update.h"
+#include "../cache/cache.h"
 
 #define TAG FREERDP_TAG("gdi")
 
@@ -322,15 +323,15 @@ static const BYTE GDI_BS_HATCHED_PATTERNS[] = {
 	0x7E, 0xBD, 0xDB, 0xE7, 0xE7, 0xDB, 0xBD, 0x7E  /* HS_DIACROSS */
 };
 
-INLINE BOOL gdi_decode_color(rdpGdi* gdi, const UINT32 srcColor, UINT32* color, UINT32* format)
+BOOL gdi_decode_color(rdpGdi* gdi, const UINT32 srcColor, UINT32* color, UINT32* format)
 {
-	UINT32 SrcFormat;
-	UINT32 ColorDepth;
+	UINT32 SrcFormat = 0;
 
 	if (!gdi || !color || !gdi->context || !gdi->context->settings)
 		return FALSE;
 
-	ColorDepth = gdi->context->settings->ColorDepth;
+	const UINT32 ColorDepth =
+	    freerdp_settings_get_uint32(gdi->context->settings, FreeRDP_ColorDepth);
 
 	switch (ColorDepth)
 	{
@@ -376,9 +377,8 @@ const char* gdi_rop3_code_string(BYTE code)
 const char* gdi_rop3_string(DWORD rop)
 {
 	const size_t count = sizeof(rop3_code_table) / sizeof(rop3_code_table[0]);
-	size_t x;
 
-	for (x = 0; x < count; x++)
+	for (size_t x = 0; x < count; x++)
 	{
 		if (rop3_code_table[x].code == rop)
 			return rop3_code_table[x].name;
@@ -389,7 +389,7 @@ const char* gdi_rop3_string(DWORD rop)
 
 UINT32 gdi_get_pixel_format(UINT32 bitsPerPixel)
 {
-	UINT32 format;
+	UINT32 format = 0;
 
 	switch (bitsPerPixel)
 	{
@@ -424,7 +424,7 @@ UINT32 gdi_get_pixel_format(UINT32 bitsPerPixel)
 
 gdiBitmap* gdi_bitmap_new_ex(rdpGdi* gdi, int width, int height, int bpp, BYTE* data)
 {
-	gdiBitmap* bitmap;
+	gdiBitmap* bitmap = NULL;
 	bitmap = (gdiBitmap*)calloc(1, sizeof(gdiBitmap));
 
 	if (!bitmap)
@@ -468,18 +468,26 @@ void gdi_bitmap_free_ex(gdiBitmap* bitmap)
 
 BOOL gdi_bitmap_update(rdpContext* context, const BITMAP_UPDATE* bitmapUpdate)
 {
-	UINT32 index;
-
 	if (!context || !bitmapUpdate || !context->gdi || !context->codecs)
+	{
+		WLog_ERR(TAG,
+		         "Invalid arguments: context=%p, bitmapUpdate=%p, context->gdi=%p, "
+		         "context->codecs=%p",
+		         context, bitmapUpdate, context ? context->gdi : NULL,
+		         context ? context->codecs : NULL);
 		return FALSE;
+	}
 
-	for (index = 0; index < bitmapUpdate->number; index++)
+	for (UINT32 index = 0; index < bitmapUpdate->number; index++)
 	{
 		const BITMAP_DATA* bitmap = &(bitmapUpdate->rectangles[index]);
 		rdpBitmap* bmp = Bitmap_Alloc(context);
 
 		if (!bmp)
+		{
+			WLog_ERR(TAG, "Bitmap_Alloc failed");
 			return FALSE;
+		}
 
 		Bitmap_SetDimensions(bmp, bitmap->width, bitmap->height);
 		Bitmap_SetRectangle(bmp, bitmap->destLeft, bitmap->destTop, bitmap->destRight,
@@ -489,18 +497,21 @@ BOOL gdi_bitmap_update(rdpContext* context, const BITMAP_UPDATE* bitmapUpdate)
 		                     bitmap->bitsPerPixel, bitmap->bitmapLength, bitmap->compressed,
 		                     RDP_CODEC_ID_NONE))
 		{
+			WLog_ERR(TAG, "bmp->Decompress failed");
 			Bitmap_Free(context, bmp);
 			return FALSE;
 		}
 
 		if (!bmp->New(context, bmp))
 		{
+			WLog_ERR(TAG, "bmp->New failed");
 			Bitmap_Free(context, bmp);
 			return FALSE;
 		}
 
 		if (!bmp->Paint(context, bmp))
 		{
+			WLog_ERR(TAG, "bmp->Paint failed");
 			Bitmap_Free(context, bmp);
 			return FALSE;
 		}
@@ -513,8 +524,7 @@ BOOL gdi_bitmap_update(rdpContext* context, const BITMAP_UPDATE* bitmapUpdate)
 
 static BOOL gdi_palette_update(rdpContext* context, const PALETTE_UPDATE* palette)
 {
-	UINT32 index;
-	rdpGdi* gdi;
+	rdpGdi* gdi = NULL;
 
 	if (!context || !palette)
 		return FALSE;
@@ -522,7 +532,7 @@ static BOOL gdi_palette_update(rdpContext* context, const PALETTE_UPDATE* palett
 	gdi = context->gdi;
 	gdi->palette.format = gdi->dstFormat;
 
-	for (index = 0; index < palette->number; index++)
+	for (UINT32 index = 0; index < palette->number; index++)
 	{
 		const PALETTE_ENTRY* pe = &(palette->entries[index]);
 		gdi->palette.palette[index] =
@@ -534,7 +544,7 @@ static BOOL gdi_palette_update(rdpContext* context, const PALETTE_UPDATE* palett
 
 static BOOL gdi_set_bounds(rdpContext* context, const rdpBounds* bounds)
 {
-	rdpGdi* gdi;
+	rdpGdi* gdi = NULL;
 
 	if (!context)
 		return FALSE;
@@ -554,7 +564,7 @@ static BOOL gdi_set_bounds(rdpContext* context, const rdpBounds* bounds)
 
 static BOOL gdi_dstblt(rdpContext* context, const DSTBLT_ORDER* dstblt)
 {
-	rdpGdi* gdi;
+	rdpGdi* gdi = NULL;
 
 	if (!context || !dstblt)
 		return FALSE;
@@ -567,10 +577,11 @@ static BOOL gdi_dstblt(rdpContext* context, const DSTBLT_ORDER* dstblt)
 static BOOL gdi_patblt(rdpContext* context, PATBLT_ORDER* patblt)
 {
 	const rdpBrush* brush = &patblt->brush;
-	UINT32 foreColor;
-	UINT32 backColor;
-	UINT32 originalColor;
-	HGDI_BRUSH originalBrush, hbrush = NULL;
+	UINT32 foreColor = 0;
+	UINT32 backColor = 0;
+	UINT32 originalColor = 0;
+	HGDI_BRUSH originalBrush = NULL;
+	HGDI_BRUSH hbrush = NULL;
 	rdpGdi* gdi = context->gdi;
 	BOOL ret = FALSE;
 	const DWORD rop = gdi_rop3_code(patblt->bRop);
@@ -596,7 +607,7 @@ static BOOL gdi_patblt(rdpContext* context, PATBLT_ORDER* patblt)
 
 		case GDI_BS_HATCHED:
 		{
-			const BYTE* hatched;
+			const BYTE* hatched = NULL;
 			hatched = GDI_BS_HATCHED_PATTERNS + (8 * brush->hatch);
 
 			if (!freerdp_image_copy_from_monochrome(data, gdi->drawing->hdc->format, 0, 0, 0, 8, 8,
@@ -614,13 +625,14 @@ static BOOL gdi_patblt(rdpContext* context, PATBLT_ORDER* patblt)
 
 		case GDI_BS_PATTERN:
 		{
-			UINT32 brushFormat;
+			UINT32 brushFormat = 0;
 
 			if (brush->bpp > 1)
 			{
 				UINT32 bpp = brush->bpp;
 
-				if ((bpp == 16) && (context->settings->ColorDepth == 15))
+				if ((bpp == 16) &&
+				    (freerdp_settings_get_uint32(context->settings, FreeRDP_ColorDepth) == 15))
 					bpp = 15;
 
 				brushFormat = gdi_get_pixel_format(bpp);
@@ -670,7 +682,7 @@ out_error:
 
 static BOOL gdi_scrblt(rdpContext* context, const SCRBLT_ORDER* scrblt)
 {
-	rdpGdi* gdi;
+	rdpGdi* gdi = NULL;
 
 	if (!context || !context->gdi)
 		return FALSE;
@@ -684,10 +696,10 @@ static BOOL gdi_scrblt(rdpContext* context, const SCRBLT_ORDER* scrblt)
 static BOOL gdi_opaque_rect(rdpContext* context, const OPAQUE_RECT_ORDER* opaque_rect)
 {
 	GDI_RECT rect;
-	HGDI_BRUSH hBrush;
-	UINT32 brush_color;
+	HGDI_BRUSH hBrush = NULL;
+	UINT32 brush_color = 0;
 	rdpGdi* gdi = context->gdi;
-	BOOL ret;
+	BOOL ret = 0;
 	INT32 x = opaque_rect->nLeftRect;
 	INT32 y = opaque_rect->nTopRect;
 	INT32 w = opaque_rect->nWidth;
@@ -709,10 +721,9 @@ static BOOL gdi_opaque_rect(rdpContext* context, const OPAQUE_RECT_ORDER* opaque
 static BOOL gdi_multi_opaque_rect(rdpContext* context,
                                   const MULTI_OPAQUE_RECT_ORDER* multi_opaque_rect)
 {
-	UINT32 i;
 	GDI_RECT rect;
-	HGDI_BRUSH hBrush;
-	UINT32 brush_color;
+	HGDI_BRUSH hBrush = NULL;
+	UINT32 brush_color = 0;
 	rdpGdi* gdi = context->gdi;
 	BOOL ret = TRUE;
 
@@ -724,7 +735,7 @@ static BOOL gdi_multi_opaque_rect(rdpContext* context,
 	if (!hBrush)
 		return FALSE;
 
-	for (i = 0; i < multi_opaque_rect->numRectangles; i++)
+	for (UINT32 i = 0; i < multi_opaque_rect->numRectangles; i++)
 	{
 		const DELTA_RECT* rectangle = &multi_opaque_rect->rectangles[i];
 		INT32 x = rectangle->left;
@@ -745,8 +756,8 @@ static BOOL gdi_multi_opaque_rect(rdpContext* context,
 
 static BOOL gdi_line_to(rdpContext* context, const LINE_TO_ORDER* lineTo)
 {
-	UINT32 color;
-	HGDI_PEN hPen;
+	UINT32 color = 0;
+	HGDI_PEN hPen = NULL;
 	rdpGdi* gdi = context->gdi;
 	INT32 xStart = lineTo->nXStart;
 	INT32 yStart = lineTo->nYStart;
@@ -774,14 +785,14 @@ static BOOL gdi_line_to(rdpContext* context, const LINE_TO_ORDER* lineTo)
 
 static BOOL gdi_polyline(rdpContext* context, const POLYLINE_ORDER* polyline)
 {
-	UINT32 i;
-	INT32 x;
-	INT32 y;
-	UINT32 color;
-	HGDI_PEN hPen;
-	DELTA_POINT* points;
+	INT32 x = 0;
+	INT32 y = 0;
+	UINT32 color = 0;
+	HGDI_PEN hPen = NULL;
+	DELTA_POINT* points = NULL;
 	rdpGdi* gdi = context->gdi;
-	INT32 w = 0, h = 0;
+	INT32 w = 0;
+	INT32 h = 0;
 
 	if (!gdi_decode_color(gdi, polyline->penColor, &color, NULL))
 		return FALSE;
@@ -797,7 +808,7 @@ static BOOL gdi_polyline(rdpContext* context, const POLYLINE_ORDER* polyline)
 	gdi_MoveToEx(gdi->drawing->hdc, x, y, NULL);
 	points = polyline->points;
 
-	for (i = 0; i < polyline->numDeltaEntries; i++)
+	for (UINT32 i = 0; i < polyline->numDeltaEntries; i++)
 	{
 		x += points[i].x;
 		y += points[i].y;
@@ -812,8 +823,8 @@ static BOOL gdi_polyline(rdpContext* context, const POLYLINE_ORDER* polyline)
 
 static BOOL gdi_memblt(rdpContext* context, MEMBLT_ORDER* memblt)
 {
-	gdiBitmap* bitmap;
-	rdpGdi* gdi;
+	gdiBitmap* bitmap = NULL;
+	rdpGdi* gdi = NULL;
 
 	if (!context || !memblt || !context->gdi || !memblt->bitmap)
 		return FALSE;
@@ -827,14 +838,14 @@ static BOOL gdi_memblt(rdpContext* context, MEMBLT_ORDER* memblt)
 
 static BOOL gdi_mem3blt(rdpContext* context, MEM3BLT_ORDER* mem3blt)
 {
-	HGDI_BRUSH originalBrush;
+	HGDI_BRUSH originalBrush = NULL;
 	rdpGdi* gdi = context->gdi;
 	BOOL ret = TRUE;
 	const rdpBrush* brush = &mem3blt->brush;
 	gdiBitmap* bitmap = (gdiBitmap*)mem3blt->bitmap;
-	UINT32 foreColor;
-	UINT32 backColor;
-	UINT32 originalColor;
+	UINT32 foreColor = 0;
+	UINT32 backColor = 0;
+	UINT32 originalColor = 0;
 
 	if (!gdi_decode_color(gdi, mem3blt->foreColor, &foreColor, NULL))
 		return FALSE;
@@ -865,10 +876,10 @@ static BOOL gdi_mem3blt(rdpContext* context, MEM3BLT_ORDER* mem3blt)
 
 		case GDI_BS_PATTERN:
 		{
-			HGDI_BITMAP hBmp;
-			UINT32 brushFormat;
-			BYTE* data =
-			    (BYTE*)_aligned_malloc(8 * 8 * GetBytesPerPixel(gdi->drawing->hdc->format), 16);
+			HGDI_BITMAP hBmp = NULL;
+			UINT32 brushFormat = 0;
+			BYTE* data = (BYTE*)winpr_aligned_malloc(
+			    8 * 8 * FreeRDPGetBytesPerPixel(gdi->drawing->hdc->format), 16);
 
 			if (!data)
 			{
@@ -880,7 +891,9 @@ static BOOL gdi_mem3blt(rdpContext* context, MEM3BLT_ORDER* mem3blt)
 			{
 				UINT32 bpp = brush->bpp;
 
-				if ((bpp == 16) && (context->settings->ColorDepth == 15))
+				const UINT32 ColorDepth =
+				    freerdp_settings_get_uint32(gdi->context->settings, FreeRDP_ColorDepth);
+				if ((bpp == 16) && (ColorDepth == 15))
 					bpp = 15;
 
 				brushFormat = gdi_get_pixel_format(bpp);
@@ -889,7 +902,7 @@ static BOOL gdi_mem3blt(rdpContext* context, MEM3BLT_ORDER* mem3blt)
 				                        brushFormat, 0, 0, 0, &gdi->palette, FREERDP_FLIP_NONE))
 				{
 					ret = FALSE;
-					_aligned_free(data);
+					winpr_aligned_free(data);
 					goto out_fail;
 				}
 			}
@@ -900,7 +913,7 @@ static BOOL gdi_mem3blt(rdpContext* context, MEM3BLT_ORDER* mem3blt)
 				                                        &gdi->palette))
 				{
 					ret = FALSE;
-					_aligned_free(data);
+					winpr_aligned_free(data);
 					goto out_fail;
 				}
 			}
@@ -910,7 +923,7 @@ static BOOL gdi_mem3blt(rdpContext* context, MEM3BLT_ORDER* mem3blt)
 			if (!hBmp)
 			{
 				ret = FALSE;
-				_aligned_free(data);
+				winpr_aligned_free(data);
 				goto out_fail;
 			}
 
@@ -946,25 +959,25 @@ out_fail:
 
 static BOOL gdi_polygon_sc(rdpContext* context, const POLYGON_SC_ORDER* polygon_sc)
 {
-	WLog_WARN(TAG, "%s: not implemented", __FUNCTION__);
+	WLog_WARN(TAG, "not implemented");
 	return FALSE;
 }
 
 static BOOL gdi_polygon_cb(rdpContext* context, POLYGON_CB_ORDER* polygon_cb)
 {
-	WLog_WARN(TAG, "%s: not implemented", __FUNCTION__);
+	WLog_WARN(TAG, "not implemented");
 	return FALSE;
 }
 
 static BOOL gdi_ellipse_sc(rdpContext* context, const ELLIPSE_SC_ORDER* ellipse_sc)
 {
-	WLog_WARN(TAG, "%s: not implemented", __FUNCTION__);
+	WLog_WARN(TAG, "not implemented");
 	return FALSE;
 }
 
 static BOOL gdi_ellipse_cb(rdpContext* context, const ELLIPSE_CB_ORDER* ellipse_cb)
 {
-	WLog_WARN(TAG, "%s: not implemented", __FUNCTION__);
+	WLog_WARN(TAG, "not implemented");
 	return FALSE;
 }
 
@@ -985,7 +998,7 @@ static BOOL gdi_surface_frame_marker(rdpContext* context,
 			break;
 
 		case SURFACECMD_FRAMEACTION_END:
-			if (context->settings->FrameAcknowledge > 0)
+			if (freerdp_settings_get_uint32(context->settings, FreeRDP_FrameAcknowledge) > 0)
 			{
 				IFCALL(context->update->SurfaceFrameAcknowledge, context,
 				       surfaceFrameMarker->frameId);
@@ -1030,12 +1043,12 @@ static BOOL intersect_rect(const rdpGdi* gdi, const SURFACE_BITS_COMMAND* cmd, R
 static BOOL gdi_surface_bits(rdpContext* context, const SURFACE_BITS_COMMAND* cmd)
 {
 	BOOL result = FALSE;
-	DWORD format;
+	DWORD format = 0;
 	rdpGdi* gdi = NULL;
-	size_t size;
+	size_t size = 0;
 	REGION16 region;
 	RECTANGLE_16 cmdRect = { 0 };
-	UINT32 nbRects;
+	UINT32 nbRects = 0;
 	const RECTANGLE_16* rects = NULL;
 
 	if (!context || !cmd)
@@ -1057,6 +1070,7 @@ static BOOL gdi_surface_bits(rdpContext* context, const SURFACE_BITS_COMMAND* cm
 	switch (cmd->bmp.codecID)
 	{
 		case RDP_CODEC_ID_REMOTEFX:
+		case RDP_CODEC_ID_IMAGE_REMOTEFX:
 			if (!rfx_process_message(context->codecs->rfx, cmd->bmp.bitmapData,
 			                         cmd->bmp.bitmapDataLength, cmdRect.left, cmdRect.top,
 			                         gdi->primary_buffer, gdi->dstFormat, gdi->stride, gdi->height,
@@ -1086,7 +1100,7 @@ static BOOL gdi_surface_bits(rdpContext* context, const SURFACE_BITS_COMMAND* cm
 
 		case RDP_CODEC_ID_NONE:
 			format = gdi_get_pixel_format(cmd->bmp.bpp);
-			size = 1ull * cmd->bmp.width * cmd->bmp.height * GetBytesPerPixel(format);
+			size = 1ull * cmd->bmp.width * cmd->bmp.height * FreeRDPGetBytesPerPixel(format);
 			if (size > cmd->bmp.bitmapDataLength)
 			{
 				WLog_ERR(TAG, "Short nocodec message: got %" PRIu32 " bytes, require %" PRIuz,
@@ -1136,13 +1150,25 @@ out:
 
 /**
  * Register GDI callbacks with libfreerdp-core.
- * @param inst current instance
- * @return
+ * @param update current instance
  */
 
 static void gdi_register_update_callbacks(rdpUpdate* update)
 {
-	rdpPrimaryUpdate* primary = update->primary;
+	rdpPrimaryUpdate* primary = NULL;
+	const rdpSettings* settings = NULL;
+
+	WINPR_ASSERT(update);
+	WINPR_ASSERT(update->context);
+
+	settings = update->context->settings;
+	WINPR_ASSERT(settings);
+
+	primary = update->primary;
+	WINPR_ASSERT(primary);
+
+	if (freerdp_settings_get_bool(settings, FreeRDP_DeactivateClientDecoding))
+		return;
 	update->Palette = gdi_palette_update;
 	update->SetBounds = gdi_set_bounds;
 	primary->DstBlt = gdi_dstblt;
@@ -1173,8 +1199,14 @@ static void gdi_register_update_callbacks(rdpUpdate* update)
 }
 
 static BOOL gdi_init_primary(rdpGdi* gdi, UINT32 stride, UINT32 format, BYTE* buffer,
-                             void (*pfree)(void*))
+                             void (*pfree)(void*), BOOL isLocked)
 {
+	WINPR_ASSERT(gdi);
+	WINPR_ASSERT(gdi->context);
+	WINPR_ASSERT(gdi->context->update);
+	if (!isLocked)
+		rdp_update_lock(gdi->context->update);
+
 	gdi->primary = (gdiBitmap*)calloc(1, sizeof(gdiBitmap));
 
 	if (format > 0)
@@ -1183,7 +1215,7 @@ static BOOL gdi_init_primary(rdpGdi* gdi, UINT32 stride, UINT32 format, BYTE* bu
 	if (stride > 0)
 		gdi->stride = stride;
 	else
-		gdi->stride = gdi->width * GetBytesPerPixel(gdi->dstFormat);
+		gdi->stride = gdi->width * FreeRDPGetBytesPerPixel(gdi->dstFormat);
 
 	if (!gdi->primary)
 		goto fail_primary;
@@ -1227,6 +1259,7 @@ static BOOL gdi_init_primary(rdpGdi* gdi, UINT32 stride, UINT32 format, BYTE* bu
 	if (!gdi->drawing)
 		gdi->drawing = gdi->primary;
 
+	rdp_update_unlock(gdi->context->update);
 	return TRUE;
 fail_hwnd:
 	gdi_DeleteObject((HGDIOBJECT)gdi->primary->bitmap);
@@ -1236,6 +1269,7 @@ fail_hdc:
 	free(gdi->primary);
 	gdi->primary = NULL;
 fail_primary:
+	rdp_update_unlock(gdi->context->update);
 	return FALSE;
 }
 
@@ -1257,6 +1291,10 @@ BOOL gdi_resize_ex(rdpGdi* gdi, UINT32 width, UINT32 height, UINT32 stride, UINT
 	    (!buffer || (gdi->primary_buffer == buffer)))
 		return TRUE;
 
+	WINPR_ASSERT(gdi->context);
+	WINPR_ASSERT(gdi->context->update);
+	rdp_update_lock(gdi->context->update);
+
 	if (gdi->drawing == gdi->primary)
 		gdi->drawing = NULL;
 
@@ -1265,38 +1303,61 @@ BOOL gdi_resize_ex(rdpGdi* gdi, UINT32 width, UINT32 height, UINT32 stride, UINT
 	gdi_bitmap_free_ex(gdi->primary);
 	gdi->primary = NULL;
 	gdi->primary_buffer = NULL;
-	return gdi_init_primary(gdi, stride, format, buffer, pfree);
+	return gdi_init_primary(gdi, stride, format, buffer, pfree, TRUE);
 }
 
 /**
  * Initialize GDI
- * @param inst current instance
- * @return
+ *
+ * @param instance A pointer to the instance to use
+ * @param format The color format for the local framebuffer
+ * @return \b TRUE for success, \b FALSE for failure
  */
 BOOL gdi_init(freerdp* instance, UINT32 format)
 {
-	return gdi_init_ex(instance, format, 0, NULL, _aligned_free);
+	return gdi_init_ex(instance, format, 0, NULL, winpr_aligned_free);
 }
 
+/**
+ * Initialize GDI
+ *
+ * @param instance A pointer to the instance to use
+ * @param format The color format for the local framebuffer
+ * @param stride The size of a framebuffer line in bytes
+ * @param buffer A pointer to a buffer to be used as framebuffer
+ * @param pfree A custom function pointer to use to free the framebuffer
+ *
+ * @return \b TRUE for success, \b FALSE for failure
+ */
 BOOL gdi_init_ex(freerdp* instance, UINT32 format, UINT32 stride, BYTE* buffer,
                  void (*pfree)(void*))
 {
-	UINT32 SrcFormat = gdi_get_pixel_format(instance->settings->ColorDepth);
-	rdpGdi* gdi = (rdpGdi*)calloc(1, sizeof(rdpGdi));
-	rdpContext* context = instance->context;
+	rdpContext* context = NULL;
+	UINT32 SrcFormat = 0;
+	rdpGdi* gdi = NULL;
+
+	WINPR_ASSERT(instance);
+
+	context = instance->context;
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(context->settings);
+
+	const UINT32 ColorDepth = freerdp_settings_get_uint32(context->settings, FreeRDP_ColorDepth);
+	SrcFormat = gdi_get_pixel_format(ColorDepth);
+	gdi = (rdpGdi*)calloc(1, sizeof(rdpGdi));
 
 	if (!gdi)
 		goto fail;
 
-	instance->context->gdi = gdi;
+	context->gdi = gdi;
 	gdi->log = WLog_Get(TAG);
 
 	if (!gdi->log)
 		goto fail;
 
-	gdi->context = instance->context;
-	gdi->width = instance->settings->DesktopWidth;
-	gdi->height = instance->settings->DesktopHeight;
+	gdi->context = context;
+	gdi->width = freerdp_settings_get_uint32(context->settings, FreeRDP_DesktopWidth);
+	gdi->height = freerdp_settings_get_uint32(context->settings, FreeRDP_DesktopHeight);
 	gdi->dstFormat = format;
 	/* default internal buffer format */
 	WLog_Print(gdi->log, WLOG_INFO, "Local framebuffer format  %s",
@@ -1309,20 +1370,20 @@ BOOL gdi_init_ex(freerdp* instance, UINT32 format, UINT32 stride, BYTE* buffer,
 
 	gdi->hdc->format = gdi->dstFormat;
 
-	if (!gdi_init_primary(gdi, stride, gdi->dstFormat, buffer, pfree))
+	if (!gdi_init_primary(gdi, stride, gdi->dstFormat, buffer, pfree, FALSE))
 		goto fail;
 
-	if (!(context->cache = cache_new(instance->settings)))
+	if (!(context->cache = cache_new(context)))
 		goto fail;
 
-	gdi_register_update_callbacks(instance->update);
-	brush_cache_register_callbacks(instance->update);
-	glyph_cache_register_callbacks(instance->update);
-	bitmap_cache_register_callbacks(instance->update);
-	offscreen_cache_register_callbacks(instance->update);
-	palette_cache_register_callbacks(instance->update);
+	gdi_register_update_callbacks(context->update);
+	brush_cache_register_callbacks(context->update);
+	glyph_cache_register_callbacks(context->update);
+	bitmap_cache_register_callbacks(context->update);
+	offscreen_cache_register_callbacks(context->update);
+	palette_cache_register_callbacks(context->update);
 
-	if (!gdi_register_graphics(instance->context->graphics))
+	if (!gdi_register_graphics(context->graphics))
 		goto fail;
 
 	return TRUE;
@@ -1334,8 +1395,8 @@ fail:
 
 void gdi_free(freerdp* instance)
 {
-	rdpGdi* gdi;
-	rdpContext* context;
+	rdpGdi* gdi = NULL;
+	rdpContext* context = NULL;
 
 	if (!instance || !instance->context)
 		return;
@@ -1358,8 +1419,8 @@ void gdi_free(freerdp* instance)
 BOOL gdi_send_suppress_output(rdpGdi* gdi, BOOL suppress)
 {
 	RECTANGLE_16 rect;
-	rdpSettings* settings;
-	rdpUpdate* update;
+	rdpSettings* settings = NULL;
+	rdpUpdate* update = NULL;
 
 	if (!gdi || !gdi->context->settings || !gdi->context->update)
 		return FALSE;
@@ -1372,7 +1433,7 @@ BOOL gdi_send_suppress_output(rdpGdi* gdi, BOOL suppress)
 	update = gdi->context->update;
 	rect.left = 0;
 	rect.top = 0;
-	rect.right = settings->DesktopWidth;
-	rect.bottom = settings->DesktopHeight;
+	rect.right = freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
+	rect.bottom = freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
 	return update->SuppressOutput(gdi->context, !suppress, &rect);
 }

@@ -19,14 +19,13 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <winpr/crt.h>
 #include <winpr/print.h>
 #include <winpr/stream.h>
 #include <freerdp/channels/log.h>
+#include <freerdp/channels/drdynvc.h>
 
 #include "drdynvc_main.h"
 
@@ -121,7 +120,7 @@ static DWORD WINAPI drdynvc_server_thread(LPVOID arg)
 static UINT drdynvc_server_start(DrdynvcServerContext* context)
 {
 	context->priv->ChannelHandle =
-	    WTSVirtualChannelOpen(context->vcm, WTS_CURRENT_SESSION, "drdynvc");
+	    WTSVirtualChannelOpen(context->vcm, WTS_CURRENT_SESSION, DRDYNVC_SVC_CHANNEL_NAME);
 
 	if (!context->priv->ChannelHandle)
 	{
@@ -154,7 +153,7 @@ static UINT drdynvc_server_start(DrdynvcServerContext* context)
  */
 static UINT drdynvc_server_stop(DrdynvcServerContext* context)
 {
-	UINT error;
+	UINT error = 0;
 	SetEvent(context->priv->StopEvent);
 
 	if (WaitForSingleObject(context->priv->Thread, INFINITE) == WAIT_FAILED)
@@ -170,7 +169,7 @@ static UINT drdynvc_server_stop(DrdynvcServerContext* context)
 
 DrdynvcServerContext* drdynvc_server_context_new(HANDLE vcm)
 {
-	DrdynvcServerContext* context;
+	DrdynvcServerContext* context = NULL;
 	context = (DrdynvcServerContext*)calloc(1, sizeof(DrdynvcServerContext));
 
 	if (context)

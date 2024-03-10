@@ -5,10 +5,11 @@
 
 int TestCryptoRand(int argc, char* argv[])
 {
-	char* str;
-	BYTE rnd[16];
+	char* str = NULL;
+	BYTE rnd[16] = { 0 };
 
-	ZeroMemory(rnd, sizeof(rnd));
+	WINPR_UNUSED(argc);
+	WINPR_UNUSED(argv);
 
 	winpr_RAND(rnd, sizeof(rnd));
 

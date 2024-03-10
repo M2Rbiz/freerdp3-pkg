@@ -30,6 +30,8 @@
 
 #ifndef _WIN32
 
+#include <stdio.h>
+
 #ifndef MAX_PATH
 #define MAX_PATH 260
 #endif
@@ -39,21 +41,21 @@
 #define INVALID_SET_FILE_POINTER ((DWORD)-1)
 #define INVALID_FILE_ATTRIBUTES ((DWORD)-1)
 
-#define FILE_ATTRIBUTE_READONLY 0x00000001
-#define FILE_ATTRIBUTE_HIDDEN 0x00000002
-#define FILE_ATTRIBUTE_SYSTEM 0x00000004
-#define FILE_ATTRIBUTE_DIRECTORY 0x00000010
-#define FILE_ATTRIBUTE_ARCHIVE 0x00000020
-#define FILE_ATTRIBUTE_DEVICE 0x00000040
-#define FILE_ATTRIBUTE_NORMAL 0x00000080
-#define FILE_ATTRIBUTE_TEMPORARY 0x00000100
-#define FILE_ATTRIBUTE_SPARSE_FILE 0x00000200
-#define FILE_ATTRIBUTE_REPARSE_POINT 0x00000400
-#define FILE_ATTRIBUTE_COMPRESSED 0x00000800
-#define FILE_ATTRIBUTE_OFFLINE 0x00001000
-#define FILE_ATTRIBUTE_NOT_CONTENT_INDEXED 0x00002000
-#define FILE_ATTRIBUTE_ENCRYPTED 0x00004000
-#define FILE_ATTRIBUTE_VIRTUAL 0x00010000
+#define FILE_ATTRIBUTE_READONLY 0x00000001u
+#define FILE_ATTRIBUTE_HIDDEN 0x00000002u
+#define FILE_ATTRIBUTE_SYSTEM 0x00000004u
+#define FILE_ATTRIBUTE_DIRECTORY 0x00000010u
+#define FILE_ATTRIBUTE_ARCHIVE 0x00000020u
+#define FILE_ATTRIBUTE_DEVICE 0x00000040u
+#define FILE_ATTRIBUTE_NORMAL 0x00000080u
+#define FILE_ATTRIBUTE_TEMPORARY 0x00000100u
+#define FILE_ATTRIBUTE_SPARSE_FILE 0x00000200u
+#define FILE_ATTRIBUTE_REPARSE_POINT 0x00000400u
+#define FILE_ATTRIBUTE_COMPRESSED 0x00000800u
+#define FILE_ATTRIBUTE_OFFLINE 0x00001000u
+#define FILE_ATTRIBUTE_NOT_CONTENT_INDEXED 0x00002000u
+#define FILE_ATTRIBUTE_ENCRYPTED 0x00004000u
+#define FILE_ATTRIBUTE_VIRTUAL 0x00010000u
 
 #define FILE_NOTIFY_CHANGE_FILE_NAME 0x00000001
 #define FILE_NOTIFY_CHANGE_DIR_NAME 0x00000002
@@ -180,12 +182,13 @@
 #define MOVEFILE_CREATE_HARDLINK 0x10
 #define MOVEFILE_FAIL_IF_NOT_TRACKABLE 0x20
 
-typedef union _FILE_SEGMENT_ELEMENT {
+typedef union
+{
 	PVOID64 Buffer;
 	ULONGLONG Alignment;
 } FILE_SEGMENT_ELEMENT, *PFILE_SEGMENT_ELEMENT;
 
-typedef struct _WIN32_FIND_DATAA
+typedef struct
 {
 	DWORD dwFileAttributes;
 	FILETIME ftCreationTime;
@@ -199,7 +202,7 @@ typedef struct _WIN32_FIND_DATAA
 	CHAR cAlternateFileName[14];
 } WIN32_FIND_DATAA, *PWIN32_FIND_DATAA, *LPWIN32_FIND_DATAA;
 
-typedef struct _WIN32_FIND_DATAW
+typedef struct
 {
 	DWORD dwFileAttributes;
 	FILETIME ftCreationTime;
@@ -213,13 +216,27 @@ typedef struct _WIN32_FIND_DATAW
 	WCHAR cAlternateFileName[14];
 } WIN32_FIND_DATAW, *PWIN32_FIND_DATAW, *LPWIN32_FIND_DATAW;
 
-typedef enum _FINDEX_INFO_LEVELS
+typedef struct
+{
+	DWORD dwFileAttributes;
+	FILETIME ftCreationTime;
+	FILETIME ftLastAccessTime;
+	FILETIME ftLastWriteTime;
+	DWORD dwVolumeSerialNumber;
+	DWORD nFileSizeHigh;
+	DWORD nFileSizeLow;
+	DWORD nNumberOfLinks;
+	DWORD nFileIndexHigh;
+	DWORD nFileIndexLow;
+} BY_HANDLE_FILE_INFORMATION, *PBY_HANDLE_FILE_INFORMATION, *LPBY_HANDLE_FILE_INFORMATION;
+
+typedef enum
 {
 	FindExInfoStandard,
 	FindExInfoMaxInfoLevel
 } FINDEX_INFO_LEVELS;
 
-typedef enum _FINDEX_SEARCH_OPS
+typedef enum
 {
 	FindExSearchNameMatch,
 	FindExSearchLimitToDirectories,
@@ -283,7 +300,7 @@ extern "C"
 
 	WINPR_API BOOL FlushFileBuffers(HANDLE hFile);
 
-	typedef struct _WIN32_FILE_ATTRIBUTE_DATA
+	typedef struct
 	{
 		DWORD dwFileAttributes;
 		FILETIME ftCreationTime;
@@ -293,7 +310,7 @@ extern "C"
 		DWORD nFileSizeLow;
 	} WIN32_FILE_ATTRIBUTE_DATA, *LPWIN32_FILE_ATTRIBUTE_DATA;
 
-	typedef enum _GET_FILEEX_INFO_LEVELS
+	typedef enum
 	{
 		GetFileExInfoStandard,
 		GetFileExMaxInfoLevel
@@ -308,6 +325,9 @@ extern "C"
 	                                    LPVOID lpFileInformation);
 
 	WINPR_API DWORD GetFileAttributesW(LPCWSTR lpFileName);
+
+	WINPR_API BOOL GetFileInformationByHandle(HANDLE hFile,
+	                                          LPBY_HANDLE_FILE_INFORMATION lpFileInformation);
 
 	WINPR_API BOOL SetFileAttributesA(LPCSTR lpFileName, DWORD dwFileAttributes);
 
@@ -422,15 +442,15 @@ typedef HANDLE (*pcCreateFileA)(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD 
                                 DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes,
                                 HANDLE hTemplateFile);
 
-typedef struct _HANDLE_CREATOR
+typedef struct
 {
 	pcIsFileHandled IsHandled;
 	pcCreateFileA CreateFileA;
 } HANDLE_CREATOR, *PHANDLE_CREATOR, *LPHANDLE_CREATOR;
 
-WINPR_API BOOL ValidFileNameComponent(LPCWSTR lpFileName);
-
 #endif /* _WIN32 */
+
+WINPR_API BOOL ValidFileNameComponent(LPCWSTR lpFileName);
 
 #ifdef _UWP
 
@@ -521,7 +541,7 @@ extern "C"
 	WINPR_API int GetNamePipeFileDescriptor(HANDLE hNamedPipe);
 	WINPR_API HANDLE GetFileHandleForFileDescriptor(int fd);
 
-WINPR_API FILE* winpr_fopen(const char* path, const char* mode);
+	WINPR_API FILE* winpr_fopen(const char* path, const char* mode);
 
 #ifdef __cplusplus
 }

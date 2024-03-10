@@ -16,10 +16,9 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
+#include <winpr/assert.h>
 #include <rdtk/rdtk.h>
 
 #include "shadow.h"
@@ -28,10 +27,10 @@
 
 BOOL shadow_client_init_lobby(rdpShadowServer* server)
 {
-	int width;
-	int height;
-	rdtkEngine* engine;
-	rdtkSurface* surface;
+	int width = 0;
+	int height = 0;
+	rdtkEngine* engine = NULL;
+	rdtkSurface* surface = NULL;
 	RECTANGLE_16 invalidRect;
 	rdpShadowSurface* lobby = server->lobby;
 
@@ -52,8 +51,10 @@ BOOL shadow_client_init_lobby(rdpShadowServer* server)
 
 	invalidRect.left = 0;
 	invalidRect.top = 0;
-	invalidRect.right = lobby->width;
-	invalidRect.bottom = lobby->height;
+	WINPR_ASSERT(lobby->width <= UINT16_MAX);
+	WINPR_ASSERT(lobby->height <= UINT16_MAX);
+	invalidRect.right = (UINT16)lobby->width;
+	invalidRect.bottom = (UINT16)lobby->height;
 	if (server->shareSubRect)
 	{
 		/* If we have shared sub rect setting, only fill shared rect */
@@ -62,10 +63,15 @@ BOOL shadow_client_init_lobby(rdpShadowServer* server)
 
 	width = invalidRect.right - invalidRect.left;
 	height = invalidRect.bottom - invalidRect.top;
-	rdtk_surface_fill(surface, invalidRect.left, invalidRect.top, width, height, 0x3BB9FF);
+	WINPR_ASSERT(width <= UINT16_MAX);
+	WINPR_ASSERT(width >= 0);
+	WINPR_ASSERT(height <= UINT16_MAX);
+	WINPR_ASSERT(height >= 0);
+	rdtk_surface_fill(surface, invalidRect.left, invalidRect.top, (UINT16)width, (UINT16)height,
+	                  0x3BB9FF);
 
-	rdtk_label_draw(surface, invalidRect.left, invalidRect.top, width, height, NULL, "Welcome", 0,
-	                0);
+	rdtk_label_draw(surface, invalidRect.left, invalidRect.top, (UINT16)width, (UINT16)height, NULL,
+	                "Welcome", 0, 0);
 	// rdtk_button_draw(surface, 16, 64, 128, 32, NULL, "button");
 	// rdtk_text_field_draw(surface, 16, 128, 128, 32, NULL, "text field");
 

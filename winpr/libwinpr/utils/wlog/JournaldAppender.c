@@ -18,9 +18,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #include "JournaldAppender.h"
 
@@ -31,18 +29,17 @@
 #include <winpr/crt.h>
 #include <winpr/environment.h>
 
-struct _wLogJournaldAppender
+typedef struct
 {
 	WLOG_APPENDER_COMMON();
 	char* identifier;
 	FILE* stream;
-};
-typedef struct _wLogJournaldAppender wLogJournaldAppender;
+} wLogJournaldAppender;
 
 static BOOL WLog_JournaldAppender_Open(wLog* log, wLogAppender* appender)
 {
-	int fd;
-	wLogJournaldAppender* journaldAppender;
+	int fd = 0;
+	wLogJournaldAppender* journaldAppender = NULL;
 
 	if (!log || !appender)
 		return FALSE;
@@ -77,9 +74,9 @@ static BOOL WLog_JournaldAppender_Close(wLog* log, wLogAppender* appender)
 static BOOL WLog_JournaldAppender_WriteMessage(wLog* log, wLogAppender* appender,
                                                wLogMessage* message)
 {
-	char* formatStr;
-	wLogJournaldAppender* journaldAppender;
-	char prefix[WLOG_MAX_PREFIX_SIZE];
+	char* formatStr = NULL;
+	wLogJournaldAppender* journaldAppender = NULL;
+	char prefix[WLOG_MAX_PREFIX_SIZE] = { 0 };
 
 	if (!log || !appender || !message)
 		return FALSE;
@@ -107,7 +104,7 @@ static BOOL WLog_JournaldAppender_WriteMessage(wLog* log, wLogAppender* appender
 		case WLOG_OFF:
 			return TRUE;
 		default:
-			fprintf(stderr, "%s: unknown level %" PRIu32 "\n", __FUNCTION__, message->Level);
+			fprintf(stderr, "%s: unknown level %" PRIu32 "\n", __func__, message->Level);
 			return FALSE;
 	}
 
@@ -160,7 +157,7 @@ static BOOL WLog_JournaldAppender_Set(wLogAppender* appender, const char* settin
 
 static void WLog_JournaldAppender_Free(wLogAppender* appender)
 {
-	wLogJournaldAppender* journaldAppender;
+	wLogJournaldAppender* journaldAppender = NULL;
 	if (appender)
 	{
 		journaldAppender = (wLogJournaldAppender*)appender;
@@ -173,8 +170,8 @@ static void WLog_JournaldAppender_Free(wLogAppender* appender)
 
 wLogAppender* WLog_JournaldAppender_New(wLog* log)
 {
-	wLogJournaldAppender* appender;
-	DWORD nSize;
+	wLogJournaldAppender* appender = NULL;
+	DWORD nSize = 0;
 	LPCSTR name = "WLOG_JOURNALD_ID";
 
 	appender = (wLogJournaldAppender*)calloc(1, sizeof(wLogJournaldAppender));

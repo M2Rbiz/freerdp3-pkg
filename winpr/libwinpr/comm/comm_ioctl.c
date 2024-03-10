@@ -20,13 +20,11 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #if defined __linux__ && !defined ANDROID
 
-#include <assert.h>
+#include <winpr/assert.h>
 #include <errno.h>
 
 #include <winpr/wlog.h>
@@ -55,9 +53,7 @@
 
 const char* _comm_serial_ioctl_name(ULONG number)
 {
-	int i;
-
-	for (i = 0; _SERIAL_IOCTL_NAMES[i].number != 0; i++)
+	for (int i = 0; _SERIAL_IOCTL_NAMES[i].number != 0; i++)
 	{
 		if (_SERIAL_IOCTL_NAMES[i].number == number)
 		{
@@ -68,24 +64,15 @@ const char* _comm_serial_ioctl_name(ULONG number)
 	return "(unknown ioctl name)";
 }
 
-static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID lpInBuffer,
-                                 DWORD nInBufferSize, LPVOID lpOutBuffer, DWORD nOutBufferSize,
-                                 LPDWORD lpBytesReturned, LPOVERLAPPED lpOverlapped)
+static BOOL s_CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID lpInBuffer,
+                                  DWORD nInBufferSize, LPVOID lpOutBuffer, DWORD nOutBufferSize,
+                                  LPDWORD lpBytesReturned, LPOVERLAPPED lpOverlapped)
 {
 	WINPR_COMM* pComm = (WINPR_COMM*)hDevice;
 	SERIAL_DRIVER* pServerSerialDriver = NULL;
 
-	if (hDevice == INVALID_HANDLE_VALUE)
-	{
-		SetLastError(ERROR_INVALID_HANDLE);
+	if (!CommIsHandleValid(hDevice))
 		return FALSE;
-	}
-
-	if (!pComm || pComm->Type != HANDLE_TYPE_COMM || !pComm->fd)
-	{
-		SetLastError(ERROR_INVALID_HANDLE);
-		return FALSE;
-	}
 
 	if (lpOverlapped)
 	{
@@ -132,7 +119,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			break;
 	}
 
-	assert(pServerSerialDriver != NULL);
+	WINPR_ASSERT(pServerSerialDriver != NULL);
 
 	switch (dwIoControlCode)
 	{
@@ -150,7 +137,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				SERIAL_BAUD_RATE* pBaudRate = (SERIAL_BAUD_RATE*)lpInBuffer;
 
-				assert(nInBufferSize >= sizeof(SERIAL_BAUD_RATE));
+				WINPR_ASSERT(nInBufferSize >= sizeof(SERIAL_BAUD_RATE));
 				if (nInBufferSize < sizeof(SERIAL_BAUD_RATE))
 				{
 					SetLastError(ERROR_INVALID_PARAMETER);
@@ -167,7 +154,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				SERIAL_BAUD_RATE* pBaudRate = (SERIAL_BAUD_RATE*)lpOutBuffer;
 
-				assert(nOutBufferSize >= sizeof(SERIAL_BAUD_RATE));
+				WINPR_ASSERT(nOutBufferSize >= sizeof(SERIAL_BAUD_RATE));
 				if (nOutBufferSize < sizeof(SERIAL_BAUD_RATE))
 				{
 					SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -188,7 +175,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				COMMPROP* pProperties = (COMMPROP*)lpOutBuffer;
 
-				assert(nOutBufferSize >= sizeof(COMMPROP));
+				WINPR_ASSERT(nOutBufferSize >= sizeof(COMMPROP));
 				if (nOutBufferSize < sizeof(COMMPROP))
 				{
 					SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -209,7 +196,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				SERIAL_CHARS* pSerialChars = (SERIAL_CHARS*)lpInBuffer;
 
-				assert(nInBufferSize >= sizeof(SERIAL_CHARS));
+				WINPR_ASSERT(nInBufferSize >= sizeof(SERIAL_CHARS));
 				if (nInBufferSize < sizeof(SERIAL_CHARS))
 				{
 					SetLastError(ERROR_INVALID_PARAMETER);
@@ -226,7 +213,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				SERIAL_CHARS* pSerialChars = (SERIAL_CHARS*)lpOutBuffer;
 
-				assert(nOutBufferSize >= sizeof(SERIAL_CHARS));
+				WINPR_ASSERT(nOutBufferSize >= sizeof(SERIAL_CHARS));
 				if (nOutBufferSize < sizeof(SERIAL_CHARS))
 				{
 					SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -247,7 +234,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				SERIAL_LINE_CONTROL* pLineControl = (SERIAL_LINE_CONTROL*)lpInBuffer;
 
-				assert(nInBufferSize >= sizeof(SERIAL_LINE_CONTROL));
+				WINPR_ASSERT(nInBufferSize >= sizeof(SERIAL_LINE_CONTROL));
 				if (nInBufferSize < sizeof(SERIAL_LINE_CONTROL))
 				{
 					SetLastError(ERROR_INVALID_PARAMETER);
@@ -264,7 +251,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				SERIAL_LINE_CONTROL* pLineControl = (SERIAL_LINE_CONTROL*)lpOutBuffer;
 
-				assert(nOutBufferSize >= sizeof(SERIAL_LINE_CONTROL));
+				WINPR_ASSERT(nOutBufferSize >= sizeof(SERIAL_LINE_CONTROL));
 				if (nOutBufferSize < sizeof(SERIAL_LINE_CONTROL))
 				{
 					SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -285,7 +272,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				SERIAL_HANDFLOW* pHandflow = (SERIAL_HANDFLOW*)lpInBuffer;
 
-				assert(nInBufferSize >= sizeof(SERIAL_HANDFLOW));
+				WINPR_ASSERT(nInBufferSize >= sizeof(SERIAL_HANDFLOW));
 				if (nInBufferSize < sizeof(SERIAL_HANDFLOW))
 				{
 					SetLastError(ERROR_INVALID_PARAMETER);
@@ -302,7 +289,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				SERIAL_HANDFLOW* pHandflow = (SERIAL_HANDFLOW*)lpOutBuffer;
 
-				assert(nOutBufferSize >= sizeof(SERIAL_HANDFLOW));
+				WINPR_ASSERT(nOutBufferSize >= sizeof(SERIAL_HANDFLOW));
 				if (nOutBufferSize < sizeof(SERIAL_HANDFLOW))
 				{
 					SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -323,7 +310,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				SERIAL_TIMEOUTS* pHandflow = (SERIAL_TIMEOUTS*)lpInBuffer;
 
-				assert(nInBufferSize >= sizeof(SERIAL_TIMEOUTS));
+				WINPR_ASSERT(nInBufferSize >= sizeof(SERIAL_TIMEOUTS));
 				if (nInBufferSize < sizeof(SERIAL_TIMEOUTS))
 				{
 					SetLastError(ERROR_INVALID_PARAMETER);
@@ -340,7 +327,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				SERIAL_TIMEOUTS* pHandflow = (SERIAL_TIMEOUTS*)lpOutBuffer;
 
-				assert(nOutBufferSize >= sizeof(SERIAL_TIMEOUTS));
+				WINPR_ASSERT(nOutBufferSize >= sizeof(SERIAL_TIMEOUTS));
 				if (nOutBufferSize < sizeof(SERIAL_TIMEOUTS))
 				{
 					SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -393,7 +380,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				ULONG* pRegister = (ULONG*)lpOutBuffer;
 
-				assert(nOutBufferSize >= sizeof(ULONG));
+				WINPR_ASSERT(nOutBufferSize >= sizeof(ULONG));
 				if (nOutBufferSize < sizeof(ULONG))
 				{
 					SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -414,7 +401,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				ULONG* pWaitMask = (ULONG*)lpInBuffer;
 
-				assert(nInBufferSize >= sizeof(ULONG));
+				WINPR_ASSERT(nInBufferSize >= sizeof(ULONG));
 				if (nInBufferSize < sizeof(ULONG))
 				{
 					SetLastError(ERROR_INVALID_PARAMETER);
@@ -431,7 +418,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				ULONG* pWaitMask = (ULONG*)lpOutBuffer;
 
-				assert(nOutBufferSize >= sizeof(ULONG));
+				WINPR_ASSERT(nOutBufferSize >= sizeof(ULONG));
 				if (nOutBufferSize < sizeof(ULONG))
 				{
 					SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -452,7 +439,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				ULONG* pOutputMask = (ULONG*)lpOutBuffer;
 
-				assert(nOutBufferSize >= sizeof(ULONG));
+				WINPR_ASSERT(nOutBufferSize >= sizeof(ULONG));
 				if (nOutBufferSize < sizeof(ULONG))
 				{
 					SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -476,7 +463,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				SERIAL_QUEUE_SIZE* pQueueSize = (SERIAL_QUEUE_SIZE*)lpInBuffer;
 
-				assert(nInBufferSize >= sizeof(SERIAL_QUEUE_SIZE));
+				WINPR_ASSERT(nInBufferSize >= sizeof(SERIAL_QUEUE_SIZE));
 				if (nInBufferSize < sizeof(SERIAL_QUEUE_SIZE))
 				{
 					SetLastError(ERROR_INVALID_PARAMETER);
@@ -493,7 +480,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				ULONG* pPurgeMask = (ULONG*)lpInBuffer;
 
-				assert(nInBufferSize >= sizeof(ULONG));
+				WINPR_ASSERT(nInBufferSize >= sizeof(ULONG));
 				if (nInBufferSize < sizeof(ULONG))
 				{
 					SetLastError(ERROR_INVALID_PARAMETER);
@@ -510,7 +497,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				SERIAL_STATUS* pCommstatus = (SERIAL_STATUS*)lpOutBuffer;
 
-				assert(nOutBufferSize >= sizeof(SERIAL_STATUS));
+				WINPR_ASSERT(nOutBufferSize >= sizeof(SERIAL_STATUS));
 				if (nOutBufferSize < sizeof(SERIAL_STATUS))
 				{
 					SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -563,7 +550,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				ULONG* pMask = (ULONG*)lpOutBuffer;
 
-				assert(nOutBufferSize >= sizeof(ULONG));
+				WINPR_ASSERT(nOutBufferSize >= sizeof(ULONG));
 				if (nOutBufferSize < sizeof(ULONG))
 				{
 					SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -584,7 +571,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				ULONG* pSize = (ULONG*)lpOutBuffer;
 
-				assert(nOutBufferSize >= sizeof(ULONG));
+				WINPR_ASSERT(nOutBufferSize >= sizeof(ULONG));
 				if (nOutBufferSize < sizeof(ULONG))
 				{
 					SetLastError(ERROR_INSUFFICIENT_BUFFER);
@@ -605,7 +592,7 @@ static BOOL _CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID l
 			{
 				UCHAR* pChar = (UCHAR*)lpInBuffer;
 
-				assert(nInBufferSize >= sizeof(UCHAR));
+				WINPR_ASSERT(nInBufferSize >= sizeof(UCHAR));
 				if (nInBufferSize < sizeof(UCHAR))
 				{
 					SetLastError(ERROR_INVALID_PARAMETER);
@@ -650,7 +637,7 @@ BOOL CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID lpInBuffe
                          LPDWORD lpBytesReturned, LPOVERLAPPED lpOverlapped)
 {
 	WINPR_COMM* pComm = (WINPR_COMM*)hDevice;
-	BOOL result;
+	BOOL result = 0;
 
 	if (hDevice == INVALID_HANDLE_VALUE)
 	{
@@ -658,14 +645,17 @@ BOOL CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID lpInBuffe
 		return FALSE;
 	}
 
-	if (!pComm || pComm->Type != HANDLE_TYPE_COMM || !pComm->fd)
+	if (!CommIsHandled(hDevice))
+		return FALSE;
+
+	if (!pComm->fd)
 	{
 		SetLastError(ERROR_INVALID_HANDLE);
 		return FALSE;
 	}
 
-	result = _CommDeviceIoControl(hDevice, dwIoControlCode, lpInBuffer, nInBufferSize, lpOutBuffer,
-	                              nOutBufferSize, lpBytesReturned, lpOverlapped);
+	result = s_CommDeviceIoControl(hDevice, dwIoControlCode, lpInBuffer, nInBufferSize, lpOutBuffer,
+	                               nOutBufferSize, lpBytesReturned, lpOverlapped);
 
 	if (lpBytesReturned && *lpBytesReturned != nOutBufferSize)
 	{
@@ -694,8 +684,8 @@ BOOL CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID lpInBuffe
 
 int _comm_ioctl_tcsetattr(int fd, int optional_actions, const struct termios* termios_p)
 {
-	int result;
-	struct termios currentState;
+	int result = 0;
+	struct termios currentState = { 0 };
 
 	if ((result = tcsetattr(fd, optional_actions, termios_p)) < 0)
 	{
@@ -704,7 +694,6 @@ int _comm_ioctl_tcsetattr(int fd, int optional_actions, const struct termios* te
 	}
 
 	/* NB: tcsetattr() can succeed even if not all changes have been applied. */
-	ZeroMemory(&currentState, sizeof(struct termios));
 	if ((result = tcgetattr(fd, &currentState)) < 0)
 	{
 		CommLog_Print(WLOG_WARN, "tcgetattr failure, errno: %d", errno);

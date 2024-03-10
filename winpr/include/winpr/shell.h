@@ -35,8 +35,7 @@
 #else
 
 /* Shell clipboard formats */
-
-struct _FILEDESCRIPTORW
+typedef struct
 {
 	DWORD dwFlags;
 	CLSID clsid;
@@ -49,12 +48,10 @@ struct _FILEDESCRIPTORW
 	DWORD nFileSizeHigh;
 	DWORD nFileSizeLow;
 	WCHAR cFileName[260];
-};
-typedef struct _FILEDESCRIPTORW FILEDESCRIPTORW;
+} FILEDESCRIPTORW;
 
-#if !defined(DEFINE_NO_DEPRECATED)
 /* Legacy definition, some types do not match the windows equivalent. */
-struct _FILEDESCRIPTOR
+typedef struct
 {
 	DWORD dwFlags;
 	BYTE clsid[16];
@@ -67,9 +64,7 @@ struct _FILEDESCRIPTOR
 	DWORD nFileSizeHigh;
 	DWORD nFileSizeLow;
 	WCHAR cFileName[260];
-};
-typedef struct _FILEDESCRIPTOR FILEDESCRIPTOR;
-#endif
+} FILEDESCRIPTOR;
 
 /* FILEDESCRIPTOR.dwFlags */
 typedef enum
@@ -79,26 +74,15 @@ typedef enum
 	FD_ATTRIBUTES = 0x00000004,
 	FD_CREATETIME = 0x00000008,
 	FD_ACCESSTIME = 0x00000010,
-	FD_WRITETIME = 0x00000020,
+	FD_WRITESTIME = 0x00000020,
 	FD_FILESIZE = 0x00000040,
 	FD_PROGRESSUI = 0x00004000,
 	FD_LINKUI = 0x00008000,
-	FD_UNICODE = 0x80000000
 } FD_FLAGS;
+#define FD_UNICODE 0x80000000
 
-#if !defined(DEFINE_NO_DEPRECATED)
 /* Deprecated, here for compatibility */
 #define FD_SHOWPROGRESSUI FD_PROGRESSUI
-#define FD_WRITESTIME FD_WRITETIME
-#endif
-
-/* FILEDESCRIPTOR.dwFileAttributes */
-#define FILE_ATTRIBUTE_READONLY 0x00000001
-#define FILE_ATTRIBUTE_HIDDEN 0x00000002
-#define FILE_ATTRIBUTE_SYSTEM 0x00000004
-#define FILE_ATTRIBUTE_DIRECTORY 0x00000010
-#define FILE_ATTRIBUTE_ARCHIVE 0x00000020
-#define FILE_ATTRIBUTE_NORMAL 0x00000080
 
 #ifdef __cplusplus
 extern "C"

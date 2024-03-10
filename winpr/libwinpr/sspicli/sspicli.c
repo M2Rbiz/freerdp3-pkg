@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #include <winpr/assert.h>
 #include <winpr/sspicli.h>
@@ -57,14 +55,12 @@
 
 #include <winpr/crt.h>
 
-#ifdef HAVE_UNISTD_H
+#ifdef WINPR_HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
-#if defined(HAVE_GETPWUID_R)
+#if defined(WINPR_HAVE_GETPWUID_R)
 #include <sys/types.h>
-#include <pwd.h>
-#include <unistd.h>
 #endif
 
 #include <pthread.h>
@@ -80,15 +76,7 @@ static BOOL LogonUserCloseHandle(HANDLE handle);
 
 static BOOL LogonUserIsHandled(HANDLE handle)
 {
-	WINPR_ACCESS_TOKEN* pLogonUser = (WINPR_ACCESS_TOKEN*)handle;
-
-	if (!pLogonUser || (pLogonUser->Type != HANDLE_TYPE_ACCESS_TOKEN))
-	{
-		SetLastError(ERROR_INVALID_HANDLE);
-		return FALSE;
-	}
-
-	return TRUE;
+	return WINPR_HANDLE_IS_HANDLED(handle, HANDLE_TYPE_ACCESS_TOKEN, FALSE);
 }
 
 static int LogonUserGetFd(HANDLE handle)
@@ -135,13 +123,14 @@ static HANDLE_OPS ops = { LogonUserIsHandled,
 	                      NULL,
 	                      NULL,
 	                      NULL,
+	                      NULL,
 	                      NULL };
 
 BOOL LogonUserA(LPCSTR lpszUsername, LPCSTR lpszDomain, LPCSTR lpszPassword, DWORD dwLogonType,
                 DWORD dwLogonProvider, PHANDLE phToken)
 {
-	struct passwd* pw;
-	WINPR_ACCESS_TOKEN* token;
+	struct passwd* pw = NULL;
+	WINPR_ACCESS_TOKEN* token = NULL;
 
 	if (!lpszUsername)
 		return FALSE;
@@ -152,7 +141,7 @@ BOOL LogonUserA(LPCSTR lpszUsername, LPCSTR lpszDomain, LPCSTR lpszPassword, DWO
 		return FALSE;
 
 	WINPR_HANDLE_SET_TYPE_AND_MODE(token, HANDLE_TYPE_ACCESS_TOKEN, WINPR_FD_READ);
-	token->ops = &ops;
+	token->common.ops = &ops;
 	token->Username = _strdup(lpszUsername);
 
 	if (!token->Username)
@@ -213,9 +202,9 @@ BOOL GetUserNameExA(EXTENDED_NAME_FORMAT NameFormat, LPSTR lpNameBuffer, PULONG 
 	switch (NameFormat)
 	{
 		case NameSamCompatible:
-#if defined(HAVE_GETPWUID_R)
+#if defined(WINPR_HAVE_GETPWUID_R)
 		{
-			int rc;
+			int rc = 0;
 			struct passwd pwd = { 0 };
 			struct passwd* result = NULL;
 			uid_t uid = getuid();
@@ -226,7 +215,7 @@ BOOL GetUserNameExA(EXTENDED_NAME_FORMAT NameFormat, LPSTR lpNameBuffer, PULONG 
 			if (result == NULL)
 				return FALSE;
 		}
-#elif defined(HAVE_GETLOGIN_R)
+#elif defined(WINPR_HAVE_GETLOGIN_R)
 			if (getlogin_r(lpNameBuffer, *nSize) != 0)
 				return FALSE;
 #else
@@ -259,9 +248,8 @@ BOOL GetUserNameExA(EXTENDED_NAME_FORMAT NameFormat, LPSTR lpNameBuffer, PULONG 
 
 BOOL GetUserNameExW(EXTENDED_NAME_FORMAT NameFormat, LPWSTR lpNameBuffer, PULONG nSize)
 {
-	int res;
 	BOOL rc = FALSE;
-	char* name;
+	char* name = NULL;
 
 	WINPR_ASSERT(nSize);
 	WINPR_ASSERT(lpNameBuffer);
@@ -273,7 +261,7 @@ BOOL GetUserNameExW(EXTENDED_NAME_FORMAT NameFormat, LPWSTR lpNameBuffer, PULONG
 	if (!GetUserNameExA(NameFormat, name, nSize))
 		goto fail;
 
-	res = ConvertToUnicode(CP_UTF8, 0, name, -1, &lpNameBuffer, *nSize);
+	const SSIZE_T res = ConvertUtf8ToWChar(name, lpNameBuffer, *nSize);
 	if (res < 0)
 		goto fail;
 

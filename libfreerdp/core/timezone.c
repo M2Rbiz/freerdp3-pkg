@@ -17,22 +17,24 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <winpr/crt.h>
 #include <winpr/assert.h>
 #include <winpr/timezone.h>
 
+#include "settings.h"
 #include "timezone.h"
+
+#include <freerdp/log.h>
+#define TAG FREERDP_TAG("core.timezone")
 
 static BOOL rdp_read_system_time(wStream* s, SYSTEMTIME* system_time);
 static BOOL rdp_write_system_time(wStream* s, const SYSTEMTIME* system_time);
 
 /**
- * Read SYSTEM_TIME structure (TS_SYSTEMTIME).\n
- * @msdn{cc240478}
+ * Read SYSTEM_TIME structure (TS_SYSTEMTIME).
+ * msdn{cc240478}
  * @param s stream
  * @param system_time system time structure
  */
@@ -41,7 +43,7 @@ BOOL rdp_read_system_time(wStream* s, SYSTEMTIME* system_time)
 {
 	WINPR_ASSERT(system_time);
 
-	if (Stream_GetRemainingLength(s) < 16ull)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 16ull))
 		return FALSE;
 
 	Stream_Read_UINT16(s, system_time->wYear);         /* wYear, must be set to 0 */
@@ -56,8 +58,8 @@ BOOL rdp_read_system_time(wStream* s, SYSTEMTIME* system_time)
 }
 
 /**
- * Write SYSTEM_TIME structure (TS_SYSTEMTIME).\n
- * @msdn{cc240478}
+ * Write SYSTEM_TIME structure (TS_SYSTEMTIME).
+ * msdn{cc240478}
  * @param s stream
  * @param system_time system time structure
  */
@@ -85,10 +87,12 @@ BOOL rdp_write_system_time(wStream* s, const SYSTEMTIME* system_time)
 }
 
 /**
- * Read client time zone information (TS_TIME_ZONE_INFORMATION).\n
- * @msdn{cc240477}
+ * Read client time zone information (TS_TIME_ZONE_INFORMATION).
+ * msdn{cc240477}
  * @param s stream
  * @param settings settings
+ *
+ * @return \b TRUE for success, \b FALSE otherwise
  */
 
 BOOL rdp_read_client_time_zone(wStream* s, rdpSettings* settings)
@@ -98,7 +102,7 @@ BOOL rdp_read_client_time_zone(wStream* s, rdpSettings* settings)
 	if (!s || !settings)
 		return FALSE;
 
-	if (Stream_GetRemainingLength(s) < 172)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 172))
 		return FALSE;
 
 	tz = settings->ClientTimeZone;
@@ -121,10 +125,12 @@ BOOL rdp_read_client_time_zone(wStream* s, rdpSettings* settings)
 }
 
 /**
- * Write client time zone information (TS_TIME_ZONE_INFORMATION).\n
- * @msdn{cc240477}
+ * Write client time zone information (TS_TIME_ZONE_INFORMATION).
+ * msdn{cc240477}
  * @param s stream
  * @param settings settings
+ *
+ * @return \b TRUE for success, \b FALSE otherwise
  */
 
 BOOL rdp_write_client_time_zone(wStream* s, rdpSettings* settings)

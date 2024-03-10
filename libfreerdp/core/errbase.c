@@ -18,9 +18,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdio.h>
 
@@ -47,7 +45,7 @@ static const ERRINFO ERRBASE_CODES[] = { ERRBASE_DEFINE(SUCCESS),
 
 const char* freerdp_get_error_base_string(UINT32 code)
 {
-	const ERRINFO* errInfo;
+	const ERRINFO* errInfo = NULL;
 
 	errInfo = &ERRBASE_CODES[0];
 
@@ -66,7 +64,7 @@ const char* freerdp_get_error_base_string(UINT32 code)
 
 const char* freerdp_get_error_base_category(UINT32 code)
 {
-	const ERRINFO* errInfo;
+	const ERRINFO* errInfo = NULL;
 
 	errInfo = &ERRBASE_CODES[0];
 
@@ -85,7 +83,7 @@ const char* freerdp_get_error_base_category(UINT32 code)
 
 const char* freerdp_get_error_base_name(UINT32 code)
 {
-	const ERRINFO* errInfo;
+	const ERRINFO* errInfo = NULL;
 
 	errInfo = &ERRBASE_CODES[0];
 

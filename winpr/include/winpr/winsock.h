@@ -20,6 +20,7 @@
 #ifndef WINPR_WINSOCK_H
 #define WINPR_WINSOCK_H
 
+#include <winpr/platform.h>
 #include <winpr/winpr.h>
 #include <winpr/wtypes.h>
 #include <winpr/windows.h>
@@ -178,11 +179,15 @@ struct sockaddr_in6_old
 	IN6_ADDR sin6_addr;
 };
 
-typedef union sockaddr_gen {
+typedef union sockaddr_gen
+{
 	struct sockaddr Address;
 	struct sockaddr_in AddressIn;
 	struct sockaddr_in6_old AddressIn6;
 } sockaddr_gen;
+
+WINPR_PRAGMA_DIAG_PUSH
+WINPR_PRAGMA_DIAG_IGNORED_RESERVED_ID_MACRO
 
 #define _IFF_UP 0x00000001
 #define _IFF_BROADCAST 0x00000002
@@ -190,26 +195,27 @@ typedef union sockaddr_gen {
 #define _IFF_POINTTOPOINT 0x00000008
 #define _IFF_MULTICAST 0x00000010
 
-struct _INTERFACE_INFO
+WINPR_PRAGMA_DIAG_POP
+
+typedef struct
 {
 	ULONG iiFlags;
 	sockaddr_gen iiAddress;
 	sockaddr_gen iiBroadcastAddress;
 	sockaddr_gen iiNetmask;
-};
-typedef struct _INTERFACE_INFO INTERFACE_INFO;
+} INTERFACE_INFO;
 typedef INTERFACE_INFO* LPINTERFACE_INFO;
 
 #define MAX_PROTOCOL_CHAIN 7
 #define WSAPROTOCOL_LEN 255
 
-typedef struct _WSAPROTOCOLCHAIN
+typedef struct
 {
 	int ChainLen;
 	DWORD ChainEntries[MAX_PROTOCOL_CHAIN];
 } WSAPROTOCOLCHAIN, *LPWSAPROTOCOLCHAIN;
 
-typedef struct _WSAPROTOCOL_INFOA
+typedef struct
 {
 	DWORD dwServiceFlags1;
 	DWORD dwServiceFlags2;
@@ -233,7 +239,7 @@ typedef struct _WSAPROTOCOL_INFOA
 	CHAR szProtocol[WSAPROTOCOL_LEN + 1];
 } WSAPROTOCOL_INFOA, *LPWSAPROTOCOL_INFOA;
 
-typedef struct _WSAPROTOCOL_INFOW
+typedef struct
 {
 	DWORD dwServiceFlags1;
 	DWORD dwServiceFlags2;

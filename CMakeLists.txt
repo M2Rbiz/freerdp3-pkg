@@ -18,9 +18,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.13)
 
-project(FreeRDP C CXX)
+if(POLICY CMP0091)
+	cmake_policy(SET CMP0091 NEW)
+endif()
+project(FreeRDP
+	LANGUAGES C
+)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS ON)
+
+add_custom_target(fuzzers
+	COMMENT "Build fuzzers"
+)
 
 if(NOT DEFINED VENDOR)
 	set(VENDOR "FreeRDP" CACHE STRING "FreeRDP package vendor")
@@ -34,12 +47,18 @@ if(NOT DEFINED FREERDP_VENDOR)
 	set(FREERDP_VENDOR 1)
 endif()
 
-option(CMAKE_COLOR_MAKEFILE "colorful CMake makefile" ON)
-option(CMAKE_VERBOSE_MAKEFILE "verbose CMake makefile" ON)
-option(CMAKE_POSITION_INDEPENDENT_CODE "build with position independent code (-fPIC or -fPIE)" ON)
+if (NOT WIN32 AND NOT ANDROID)
+	if (APPLE)
+		set(OPT_DEFAULT_VAL OFF)
+	else()
+		set(OPT_DEFAULT_VAL ON)
+	endif()
+	option(WITH_X11 "build X11 client/server" ${OPT_DEFAULT_VAL})
+endif()
 
 # Include our extra modules
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/)
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/)
+include(CommonConfigOptions)
 
 if((CMAKE_SYSTEM_NAME MATCHES "WindowsStore") AND (CMAKE_SYSTEM_VERSION MATCHES "10.0"))
 	set(UWP 1)
@@ -55,52 +74,49 @@ if(WITH_CLANG_FORMAT)
 	include(ClangFormat)
 endif()
 
+include(CompilerFlags)
+include(DetectBSD)
 include(CheckIncludeFiles)
 include(CheckLibraryExists)
 include(CheckSymbolExists)
 include(CheckStructHasMember)
-include(FindPkgConfig)
 include(TestBigEndian)
 
 include(FindFeature)
+include(ShowCMakeVars)
 include(ConfigOptions)
-include(ComplexLibrary)
 include(FeatureSummary)
 include(CheckCCompilerFlag)
-include(CheckCXXCompilerFlag)
-include(GNUInstallDirsWrapper)
 include(CMakePackageConfigHelpers)
 include(InstallFreeRDPMan)
 include(GetGitRevisionDescription)
 include(SetFreeRDPCMakeInstallDir)
-
-if (DEFINE_NO_DEPRECATED)
-    add_definitions(-DDEFINE_NO_DEPRECATED)
-endif()
 
 # Soname versioning
 set(BUILD_NUMBER 0)
 if ($ENV{BUILD_NUMBER})
 	set(BUILD_NUMBER $ENV{BUILD_NUMBER})
 endif()
-set(WITH_LIBRARY_VERSIONING "ON")
 
-set(RAW_VERSION_STRING "2.11.2")
-if(EXISTS "${CMAKE_SOURCE_DIR}/.source_tag")
-	file(READ ${CMAKE_SOURCE_DIR}/.source_tag RAW_VERSION_STRING)
+set(VERSION_REGEX "^(.*)([0-9]+)\\.([0-9]+)\\.([0-9]+)-?(.*)")
+set(RAW_VERSION_STRING "3.3.0")
+if(EXISTS "${PROJECT_SOURCE_DIR}/.source_tag")
+	file(READ ${PROJECT_SOURCE_DIR}/.source_tag RAW_VERSION_STRING)
 elseif(USE_VERSION_FROM_GIT_TAG)
 	git_get_exact_tag(_GIT_TAG --tags --always)
 	if (NOT ${_GIT_TAG} STREQUAL "n/a")
-		set(RAW_VERSION_STRING ${_GIT_TAG})
+		string(REGEX MATCH ${VERSION_REGEX} FOUND_TAG "${_GIT_TAG}")
+		if (FOUND_TAG)
+			set(RAW_VERSION_STRING ${_GIT_TAG})
+		endif()
 	endif()
 endif()
 string(STRIP ${RAW_VERSION_STRING} RAW_VERSION_STRING)
 
-set(VERSION_REGEX "^.?([0-9]+)\\.([0-9]+)\\.([0-9]+)-?(.*)")
-string(REGEX REPLACE "${VERSION_REGEX}" "\\1" FREERDP_VERSION_MAJOR "${RAW_VERSION_STRING}")
-string(REGEX REPLACE "${VERSION_REGEX}" "\\2" FREERDP_VERSION_MINOR "${RAW_VERSION_STRING}")
-string(REGEX REPLACE "${VERSION_REGEX}" "\\3" FREERDP_VERSION_REVISION "${RAW_VERSION_STRING}")
-string(REGEX REPLACE "${VERSION_REGEX}" "\\4" FREERDP_VERSION_SUFFIX "${RAW_VERSION_STRING}")
+string(REGEX REPLACE "${VERSION_REGEX}" "\\2" FREERDP_VERSION_MAJOR "${RAW_VERSION_STRING}")
+string(REGEX REPLACE "${VERSION_REGEX}" "\\3" FREERDP_VERSION_MINOR "${RAW_VERSION_STRING}")
+string(REGEX REPLACE "${VERSION_REGEX}" "\\4" FREERDP_VERSION_REVISION "${RAW_VERSION_STRING}")
+string(REGEX REPLACE "${VERSION_REGEX}" "\\5" FREERDP_VERSION_SUFFIX "${RAW_VERSION_STRING}")
 
 set(FREERDP_API_VERSION "${FREERDP_VERSION_MAJOR}")
 set(FREERDP_VERSION "${FREERDP_VERSION_MAJOR}.${FREERDP_VERSION_MINOR}.${FREERDP_VERSION_REVISION}")
@@ -129,12 +145,26 @@ endif()
 
 message(STATUS "Git Revision ${GIT_REVISION}")
 
-set(FREERDP_INCLUDE_DIR "include/freerdp${FREERDP_VERSION_MAJOR}/")
+# Make the detected version available as default version for all subprojects
+set(FREERDP_DEFAULT_PROJECT_VERSION ${FREERDP_VERSION} CACHE STRING INTERNAL)
 
-# Compatibility options
-if(DEFINED STATIC_CHANNELS)
-	message(WARNING "STATIC_CHANNELS is obsolete, please use BUILTIN_CHANNELS instead")
-	set(BUILTIN_CHANNELS ${STATIC_CHANNELS} CACHE BOOL "" FORCE)
+set(FREERDP_MAJOR_DIR "freerdp${FREERDP_VERSION_MAJOR}")
+set(FREERDP_INCLUDE_DIR "include/${FREERDP_MAJOR_DIR}/")
+
+option(WITH_SMARTCARD_EMULATE "Emulate smartcards instead of redirecting readers" ON)
+if (WITH_SMARTCARD_EMULATE)
+	add_definitions(-DWITH_SMARTCARD_EMULATE)
+	find_package(ZLIB REQUIRED)
+endif()
+
+option(WITH_FREERDP_DEPRECATED "Build FreeRDP deprecated symbols" OFF)
+if (WITH_FREERDP_DEPRECATED)
+	add_definitions(-DWITH_FREERDP_DEPRECATED)
+endif()
+
+option(WITH_FREERDP_DEPRECATED_COMMANDLINE "Build FreeRDP deprecated command line options" OFF)
+if (WITH_FREERDP_DEPRECATED_COMMANDLINE)
+	add_definitions(-DWITH_FREERDP_DEPRECATED_COMMANDLINE)
 endif()
 
 # Make paths absolute
@@ -152,17 +182,9 @@ endif(CMAKE_CROSSCOMPILING)
 
 find_program(CCACHE ccache)
 if(CCACHE AND WITH_CCACHE)
-	if(CMAKE_VERSION VERSION_GREATER 3.3.2)
-		if(NOT DEFINED CMAKE_C_COMPILER_LAUNCHER)
-			SET(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
-		endif(NOT DEFINED CMAKE_C_COMPILER_LAUNCHER)
-		if(NOT DEFINED CMAKE_CXX_COMPILER_LAUNCHER)
-			SET(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
-		endif(NOT DEFINED CMAKE_CXX_COMPILER_LAUNCHER)
-	else()
-		set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE})
-		set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE})
-	endif()
+	if(NOT DEFINED CMAKE_C_COMPILER_LAUNCHER)
+		SET(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
+	endif(NOT DEFINED CMAKE_C_COMPILER_LAUNCHER)
 endif(CCACHE AND WITH_CCACHE)
 
 if(CMAKE_CROSSCOMPILING)
@@ -173,73 +195,24 @@ endif(CMAKE_CROSSCOMPILING)
 # Turn on solution folders (2.8.4+)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-# Default to release build type
-if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE "Release")
-endif()
-
-if(NOT DEFINED BUILD_SHARED_LIBS)
-	if(IOS)
-		set(BUILD_SHARED_LIBS OFF)
-	else()
-		set(BUILD_SHARED_LIBS ON)
-	endif()
-endif()
+option(EXPORT_ALL_SYMBOLS "Export all symbols form library" OFF)
 
 if(BUILD_TESTING)
 	set(EXPORT_ALL_SYMBOLS TRUE)
+	set(CTEST_OUTPUT_ON_FAILURE TRUE)
+	add_definitions(-DBUILD_TESTING)
 elseif(NOT DEFINED EXPORT_ALL_SYMBOLS)
 	set(EXPORT_ALL_SYMBOLS FALSE)
 endif()
 
 if (EXPORT_ALL_SYMBOLS)
-#	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-	add_definitions(-DFREERDP_TEST_EXPORTS -DBUILD_TESTING)
+	#	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+	add_definitions(-DEXPORT_ALL_SYMBOLS)
 endif(EXPORT_ALL_SYMBOLS)
-
-# BSD
-if(${CMAKE_SYSTEM_NAME} MATCHES "BSD")
-	set(BSD TRUE)
-	if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-		set(FREEBSD TRUE)
-	endif()
-	if(${CMAKE_SYSTEM_NAME} MATCHES "kFreeBSD")
-		set(KFREEBSD TRUE)
-	endif()
-	if(${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD")
-		set(OPENBSD TRUE)
-	endif()
-endif()
-
-if(${CMAKE_SYSTEM_NAME} MATCHES "DragonFly")
-	set(BSD TRUE)
-	set(FREEBSD TRUE)
-endif()
 
 if(FREEBSD)
 	find_path(EPOLLSHIM_INCLUDE_DIR NAMES sys/epoll.h sys/timerfd.h HINTS /usr/local/include/libepoll-shim)
 	find_library(EPOLLSHIM_LIBS NAMES epoll-shim libepoll-shim HINTS /usr/local/lib)
-endif()
-
-# Configure MSVC Runtime
-if(MSVC)
-	include(MSVCRuntime)
-	if(NOT DEFINED MSVC_RUNTIME)
-		set(MSVC_RUNTIME "dynamic" CACHE STRING "MSVC runtime type [dynamic|static]")
-	endif()
-	if(MSVC_RUNTIME STREQUAL "static")
-		if(BUILD_SHARED_LIBS)
-			message(FATAL_ERROR "Static CRT is only supported in a fully static build")
-		endif()
-		message(STATUS "Use the MSVC static runtime option carefully!")
-		message(STATUS "OpenSSL uses /MD by default, and is very picky")
-		message(STATUS "Random freeing errors are a common sign of runtime issues")
-	endif()
-	configure_msvc_runtime()
-
-	if(NOT DEFINED CMAKE_SUPPRESS_REGENERATION)
-		set(CMAKE_SUPPRESS_REGENERATION ON)
-	endif()
 endif()
 
 # Enable 64bit file support on linux and FreeBSD.
@@ -261,42 +234,13 @@ if(CMAKE_COMPILER_IS_GNUCC)
 		else()
 			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=i686")
 		endif()
-	else()
-		if(CMAKE_POSITION_INDEPENDENT_CODE)
-			if(${CMAKE_VERSION} VERSION_LESS 2.8.9)
-				set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-			endif()
-		endif()
 	endif()
 
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
-	CHECK_C_COMPILER_FLAG (-Wno-unused-result Wno-unused-result)
-	if(Wno-unused-result)
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-result")
-	endif()
-	CHECK_C_COMPILER_FLAG (-Wno-unused-but-set-variable Wno-unused-but-set-variable)
-	if(Wno-unused-but-set-variable)
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-but-set-variable")
-	endif()
-	CHECK_C_COMPILER_FLAG(-Wno-deprecated-declarations Wno-deprecated-declarations)
-	if(Wno-deprecated-declarations)
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-declarations")
-	endif()
-	CHECK_CXX_COMPILER_FLAG(-Wno-deprecated-declarations Wno-deprecated-declarationsCXX)
-	if(Wno-deprecated-declarationsCXX)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
-	endif()
-
 	if(NOT EXPORT_ALL_SYMBOLS)
 		message(STATUS "GCC default symbol visibility: hidden")
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
-	endif()
-	if(BUILD_TESTING)
-		CHECK_C_COMPILER_FLAG(-Wno-format Wno-format)
-		if(Wno-format)
-			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format")
-		endif()
 	endif()
 	CHECK_C_COMPILER_FLAG (-Wimplicit-function-declaration Wimplicit-function-declaration)
 	if(Wimplicit-function-declaration)
@@ -313,7 +257,6 @@ if(CMAKE_COMPILER_IS_GNUCC)
 		add_definitions(-DNDEBUG)
 	else()
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 	endif()
 endif()
 
@@ -324,49 +267,19 @@ if (CMAKE_GENERATOR MATCHES "Unix Makefile*")
 		string(TOUPPER ${CMAKE_BUILD_TYPE} UPPER_BUILD_TYPE)
 		CHECK_C_COMPILER_FLAG (-Wno-builtin-macro-redefined Wno-builtin-macro-redefined)
 		if(Wno-builtin-macro-redefined)
-			set(CMAKE_C_FLAGS_${UPPER_BUILD_TYPE} "${CMAKE_C_FLAGS_${UPPER_BUILD_TYPE}} -Wno-builtin-macro-redefined -D__FILE__='\"$(subst ${CMAKE_BINARY_DIR}/,,$(subst ${CMAKE_SOURCE_DIR}/,,$(abspath $<)))\"'")
-		endif()
-
-		CHECK_CXX_COMPILER_FLAG (-Wno-builtin-macro-redefined Wno-builtin-macro-redefinedCXX)
-		if(Wno-builtin-macro-redefinedCXX)
-			set(CMAKE_CXX_FLAGS_${UPPER_BUILD_TYPE} "${CMAKE_CXX_FLAGS_${UPPER_BUILD_TYPE}} -Wno-builtin-macro-redefined -D__FILE__='\"$(subst ${CMAKE_BINARY_DIR}/,,$(subst ${CMAKE_SOURCE_DIR}/,,$(abspath $<)))\"'")
+			set(CMAKE_C_FLAGS_${UPPER_BUILD_TYPE} "${CMAKE_C_FLAGS_${UPPER_BUILD_TYPE}} -Wno-builtin-macro-redefined -D__FILE__='\"$(subst ${PROJECT_BINARY_DIR}/,,$(subst ${PROJECT_SOURCE_DIR}/,,$(abspath $<)))\"'")
 		endif()
 	endif()
 endif()
 
 if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-parameter")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-macros -Wno-padded")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-c11-extensions -Wno-gnu")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-command-line-argument")
-	CHECK_C_COMPILER_FLAG(-Wno-deprecated-declarations Wno-deprecated-declarations)
-	if(Wno-deprecated-declarations)
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-declarations")
-	endif()
-	CHECK_CXX_COMPILER_FLAG(-Wno-deprecated-declarations Wno-deprecated-declarationsCXX)
-	if(Wno-deprecated-declarationsCXX)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
-	endif()
 endif()
 
 set(THREAD_PREFER_PTHREAD_FLAG TRUE)
 
 if(NOT IOS)
 	find_package(Threads REQUIRED)
-endif()
-
-if(NOT WIN32 AND NOT IOS)
-	CHECK_SYMBOL_EXISTS(pthread_mutex_timedlock pthread.h HAVE_PTHREAD_MUTEX_TIMEDLOCK_SYMBOL)
-	if (NOT HAVE_PTHREAD_MUTEX_TIMEDLOCK_SYMBOL)
-		CHECK_LIBRARY_EXISTS(pthread pthread_mutex_timedlock "" HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIB)
-	endif (NOT HAVE_PTHREAD_MUTEX_TIMEDLOCK_SYMBOL)
-	if (NOT HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIB)
-		CHECK_LIBRARY_EXISTS(pthreads pthread_mutex_timedlock "" HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIBS)
-	endif (NOT HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIB)
-
-	if (HAVE_PTHREAD_MUTEX_TIMEDLOCK_SYMBOL OR HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIB OR HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIBS)
-		set(HAVE_PTHREAD_MUTEX_TIMEDLOCK ON)
-	endif (HAVE_PTHREAD_MUTEX_TIMEDLOCK_SYMBOL OR HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIB OR HAVE_PTHREAD_MUTEX_TIMEDLOCK_LIBS)
 endif()
 
 # Enable address sanitizer, where supported and when required
@@ -378,11 +291,11 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang" OR CMAKE_COMPILER_IS_GNUCC)
 	endif()
 
 	set(CMAKE_REQUIRED_LINK_OPTIONS_SAVED ${CMAKE_REQUIRED_LINK_OPTIONS})
-	file(WRITE ${CMAKE_BINARY_DIR}/foo.txt "")
+	file(WRITE ${PROJECT_BINARY_DIR}/foo.txt "")
 	if(WITH_SANITIZE_ADDRESS)
 		list(APPEND CMAKE_REQUIRED_LINK_OPTIONS "-fsanitize=address")
 		CHECK_C_COMPILER_FLAG ("-fsanitize=address" fsanitize-address)
-		CHECK_C_COMPILER_FLAG ("-fsanitize-blacklist=${CMAKE_BINARY_DIR}/foo.txt" fsanitize-blacklist)
+		CHECK_C_COMPILER_FLAG ("-fsanitize-blacklist=${PROJECT_BINARY_DIR}/foo.txt" fsanitize-blacklist)
 		CHECK_C_COMPILER_FLAG ("-fsanitize-address-use-after-scope" fsanitize-address-use-after-scope)
 
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
@@ -390,7 +303,7 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang" OR CMAKE_COMPILER_IS_GNUCC)
 		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
 
 		if(fsanitize-blacklist)
-			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize-blacklist=${CMAKE_SOURCE_DIR}/scripts/blacklist-address-sanitizer.txt")
+			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/scripts/blacklist-address-sanitizer.txt")
 		endif(fsanitize-blacklist)
 
 		if(fsanitize-address-use-after-scope)
@@ -399,7 +312,7 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang" OR CMAKE_COMPILER_IS_GNUCC)
 	elseif(WITH_SANITIZE_MEMORY)
 		list(APPEND CMAKE_REQUIRED_LINK_OPTIONS "-fsanitize=memory")
 		CHECK_C_COMPILER_FLAG ("-fsanitize=memory" fsanitize-memory)
-		CHECK_C_COMPILER_FLAG ("-fsanitize-blacklist=${CMAKE_BINARY_DIR}/foo.txt" fsanitize-blacklist)
+		CHECK_C_COMPILER_FLAG ("-fsanitize-blacklist=${PROJECT_BINARY_DIR}/foo.txt" fsanitize-blacklist)
 		CHECK_C_COMPILER_FLAG ("-fsanitize-memory-use-after-dtor" fsanitize-memory-use-after-dtor)
 		CHECK_C_COMPILER_FLAG ("-fsanitize-memory-track-origins" fsanitize-memory-track-origins)
 
@@ -408,7 +321,7 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang" OR CMAKE_COMPILER_IS_GNUCC)
 		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=memory")
 
 		if(fsanitize-blacklist)
-			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize-blacklist=${CMAKE_SOURCE_DIR}/scripts/blacklist-memory-sanitizer.txt")
+			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/scripts/blacklist-memory-sanitizer.txt")
 		endif(fsanitize-blacklist)
 
 		if (fsanitize-memory-use-after-dtor)
@@ -421,17 +334,17 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang" OR CMAKE_COMPILER_IS_GNUCC)
 	elseif(WITH_SANITIZE_THREAD)
 		list(APPEND CMAKE_REQUIRED_LINK_OPTIONS "-fsanitize=thread")
 		CHECK_C_COMPILER_FLAG ("-fsanitize=thread" fsanitize-thread)
-		CHECK_C_COMPILER_FLAG ("-fsanitize-blacklist=${CMAKE_BINARY_DIR}/foo.txt" fsanitize-blacklist)
+		CHECK_C_COMPILER_FLAG ("-fsanitize-blacklist=${PROJECT_BINARY_DIR}/foo.txt" fsanitize-blacklist)
 
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
 		if(fsanitize-blacklist)
-			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize-blacklist=${CMAKE_SOURCE_DIR}/scripts/blacklist-thread-sanitizer.txt")
+			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/scripts/blacklist-thread-sanitizer.txt")
 		endif(fsanitize-blacklist)
 		set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fsanitize=thread")
 		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=thread")
 	endif()
 
-	file(REMOVE ${CMAKE_BINARY_DIR}/foo.txt)
+	file(REMOVE ${PROJECT_BINARY_DIR}/foo.txt)
 	set(CMAKE_REQUIRED_LINK_OPTIONS ${CMAKE_REQUIRED_LINK_OPTIONS_SAVED})
 
 	if (WITH_NO_UNDEFINED)
@@ -445,29 +358,7 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang" OR CMAKE_COMPILER_IS_GNUCC)
 endif()
 
 if(MSVC)
-	# Remove previous warning definitions,
-	# NMake is otherwise complaining.
-	foreach (flags_var_to_scrub
-		CMAKE_C_FLAGS
-		CMAKE_CXX_FLAGS
-		CMAKE_CXX_FLAGS_RELEASE
-		CMAKE_CXX_FLAGS_RELWITHDEBINFO
-		CMAKE_CXX_FLAGS_MINSIZEREL
-		CMAKE_C_FLAGS_RELEASE
-		CMAKE_C_FLAGS_RELWITHDEBINFO
-		CMAKE_C_FLAGS_MINSIZEREL)
-		string (REGEX REPLACE "(^| )[/-]W[ ]*[1-9]" " "
-		"${flags_var_to_scrub}" "${${flags_var_to_scrub}}")
-	endforeach()
-
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Gd")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
-
-	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-		add_definitions(-D_AMD64_)
-	else()
-		add_definitions(-D_X86_)
-	endif()
 
 	set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR})
 	set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR})
@@ -475,9 +366,15 @@ if(MSVC)
 	if(CMAKE_BUILD_TYPE STREQUAL "Release")
 	else()
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Zi")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zi")
 	endif()
 
+	add_definitions(-D_CRT_NONSTDC_NO_DEPRECATE)
+endif()
+
+if(ANDROID)
+	# workaround for https://github.com/android-ndk/ndk/issues/243
+	string(REPLACE "-g " "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g")
 endif()
 
 if(WIN32)
@@ -486,11 +383,12 @@ if(WIN32)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)
 	add_definitions(-D_WINSOCK_DEPRECATED_NO_WARNINGS)
 
+	set(CMAKE_DL_LIBS "")
 	set(CMAKE_USE_RELATIVE_PATH ON)
 	if (${CMAKE_GENERATOR} MATCHES "NMake Makefile*" OR ${CMAKE_GENERATOR} MATCHES "Ninja*" OR ${CMAKE_GENERATOR} MATCHES "Unix Makefiles")
-		set(CMAKE_PDB_BINARY_DIR ${CMAKE_BINARY_DIR})
+		set(CMAKE_PDB_BINARY_DIR ${PROJECT_BINARY_DIR})
 	elseif (${CMAKE_GENERATOR} MATCHES "Visual Studio*")
-		set(CMAKE_PDB_BINARY_DIR "${CMAKE_BINARY_DIR}/\${CMAKE_INSTALL_CONFIG_NAME}")
+		set(CMAKE_PDB_BINARY_DIR "${PROJECT_BINARY_DIR}/\${CMAKE_INSTALL_CONFIG_NAME}")
 	else()
 		message(FATAL_ERROR "Unknown generator ${CMAKE_GENERATOR}")
 	endif()
@@ -522,47 +420,7 @@ if(WIN32)
 	endif()
 endif()
 
-if(IOS)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -isysroot ${CMAKE_IOS_SDK_ROOT} -g")
-endif()
-
-add_definitions(-DWINPR_EXPORTS -DFREERDP_EXPORTS)
-
-# Include files
-if(NOT IOS)
-	check_include_files(fcntl.h HAVE_FCNTL_H)
-	check_include_files(unistd.h HAVE_UNISTD_H)
-	check_include_files(inttypes.h HAVE_INTTYPES_H)
-	check_include_files(sys/modem.h HAVE_SYS_MODEM_H)
-	check_include_files(sys/filio.h HAVE_SYS_FILIO_H)
-	check_include_files(sys/sockio.h HAVE_SYS_SOCKIO_H)
-	check_include_files(sys/strtio.h HAVE_SYS_STRTIO_H)
-	check_include_files(sys/select.h HAVE_SYS_SELECT_H)
-	check_include_files(syslog.h HAVE_SYSLOG_H)
-	check_include_files(execinfo.h HAVE_EXECINFO_HEADER)
-	if (HAVE_EXECINFO_HEADER)
-		check_symbol_exists(backtrace execinfo.h HAVE_EXECINFO_BACKTRACE)
-		check_symbol_exists(backtrace_symbols execinfo.h HAVE_EXECINFO_BACKTRACE_SYMBOLS)
-		check_symbol_exists(backtrace_symbols_fd execinfo.h HAVE_EXECINFO_BACKTRACE_SYMBOLS_FD)
-
-		# Some implementations (e.g. Android NDK API < 33) provide execinfo.h but do not define
-		# the backtrace functions. Disable detection for these cases
-		if (HAVE_EXECINFO_BACKTRACE AND HAVE_EXECINFO_BACKTRACE_SYMBOLS AND HAVE_EXECINFO_BACKTRACE_SYMBOLS_FD)
-			set(HAVE_EXECINFO_H ON)
-		endif()
-	endif()
-else()
-	set(HAVE_FCNTL_H 1)
-	set(HAVE_UNISTD_H 1)
-	set(HAVE_INTTYPES_H 1)
-	set(HAVE_SYS_FILIO_H 1)
-endif()
-
-if(NOT IOS)
-	check_struct_has_member("struct tm" tm_gmtoff time.h HAVE_TM_GMTOFF)
-else()
-	set(HAVE_TM_GMTOFF 1)
-endif()
+add_definitions(-DFREERDP_EXPORTS)
 
 # Mac OS X
 if(APPLE)
@@ -572,10 +430,6 @@ if(APPLE)
 		endif()
 		set(CMAKE_FIND_ROOT_PATH ${CMAKE_FIND_ROOT_PATH} ${FREERDP_IOS_EXTERNAL_SSL_PATH})
 		set_property(GLOBAL PROPERTY XCODE_ATTRIBUTE_SKIP_INSTALL YES)
-	else(IOS)
-		if(NOT DEFINED CMAKE_OSX_ARCHITECTURES)
-			set(CMAKE_OSX_ARCHITECTURES i386 x86_64)
-		endif()
 	endif(IOS)
 
 # Temporarily disabled, causes the cmake script to be reexecuted, causing the compilation to fail.
@@ -586,23 +440,11 @@ if(APPLE)
 
 	if (WITH_VERBOSE)
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -v")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -v")
 	endif()
 endif(APPLE)
 
-# OpenBSD
-if(OPENBSD)
-	set(WITH_MANPAGES "ON")
-	set(WITH_ALSA "OFF")
-	set(WITH_PULSE "OFF")
-	set(WITH_OSS "ON")
-	set(WITH_WAYLAND "OFF")
-endif()
-
 # Android
 if(ANDROID)
-	set(WITH_LIBRARY_VERSIONING "OFF")
-
 	set_property( GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ${ANDROID_LIBRARY_USE_LIB64_PATHS} )
 
 	if (${ANDROID_ABI} STREQUAL "armeabi")
@@ -624,6 +466,11 @@ if(ANDROID)
 	endif()
 	set(CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS} -llog")
 
+	# CMAKE_PREFIX_PATH detection is broken in most Android toolchain files
+	# Append it to CMAKE_FIND_ROOT_PATH and avoid potential duplicates
+	list(APPEND CMAKE_FIND_ROOT_PATH ${CMAKE_PREFIX_PATH})
+	list(REMOVE_DUPLICATES CMAKE_FIND_ROOT_PATH)
+
 	if (NOT FREERDP_EXTERNAL_PATH)
 		if (IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external/")
 			set (FREERDP_EXTERNAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/external/")
@@ -638,43 +485,20 @@ if(ANDROID)
 	set( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH )
 
 	if (WITH_GPROF)
-		CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/scripts/gprof_generate.sh.cmake
-			${CMAKE_BINARY_DIR}/scripts/gprof_generate.sh @ONLY)
+		CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/scripts/gprof_generate.sh.cmake
+			${PROJECT_BINARY_DIR}/scripts/gprof_generate.sh @ONLY)
 	endif(WITH_GPROF)
 endif()
 
 if(WITH_VALGRIND_MEMCHECK)
-	check_include_files(valgrind/memcheck.h HAVE_VALGRIND_MEMCHECK_H)
+	check_include_files(valgrind/memcheck.h FREERDP_HAVE_VALGRIND_MEMCHECK_H)
 else()
-	unset(HAVE_VALGRIND_MEMCHECK_H CACHE)
+	unset(FREERDP_HAVE_VALGRIND_MEMCHECK_H CACHE)
 endif()
 
 if(UNIX OR CYGWIN)
-	check_include_files(aio.h HAVE_AIO_H)
-	check_include_files(sys/eventfd.h HAVE_SYS_EVENTFD_H)
-	if (HAVE_SYS_EVENTFD_H)
-		check_symbol_exists(eventfd_read sys/eventfd.h WITH_EVENTFD_READ_WRITE)
-	endif()
-	if (FREEBSD)
-		list(APPEND CMAKE_REQUIRED_INCLUDES ${EPOLLSHIM_INCLUDE_DIR})
-	endif()
-	check_include_files(sys/timerfd.h HAVE_SYS_TIMERFD_H)
-	if (FREEBSD)
-		list(REMOVE_ITEM CMAKE_REQUIRED_INCLUDES ${EPOLLSHIM_INCLUDE_DIR})
-	endif()
-	check_include_files(poll.h HAVE_POLL_H)
-	list(APPEND CMAKE_REQUIRED_LIBRARIES m)
-	check_symbol_exists(ceill math.h HAVE_MATH_C99_LONG_DOUBLE)
-	list(REMOVE_ITEM CMAKE_REQUIRED_LIBRARIES m)
-	set(X11_FEATURE_TYPE "RECOMMENDED")
 	set(WAYLAND_FEATURE_TYPE "RECOMMENDED")
-
-	include(CheckFunctionExists)
-
-	check_function_exists(getlogin_r HAVE_GETLOGIN_R)
-	check_function_exists(getpwuid_r HAVE_GETPWUID_R)
 else()
-	set(X11_FEATURE_TYPE "DISABLED")
 	set(WAYLAND_FEATURE_TYPE "DISABLED")
 endif()
 
@@ -682,15 +506,8 @@ if(WITH_PCSC_WINPR)
 	find_package(PCSCWinPR)
 endif()
 
-set(X11_FEATURE_PURPOSE "X11")
-set(X11_FEATURE_DESCRIPTION "X11 client and server")
-
 set(WAYLAND_FEATURE_PURPOSE "Wayland")
 set(WAYLAND_FEATURE_DESCRIPTION "Wayland client")
-
-set(ZLIB_FEATURE_TYPE "REQUIRED")
-set(ZLIB_FEATURE_PURPOSE "compression")
-set(ZLIB_FEATURE_DESCRIPTION "data compression")
 
 set(OPENSSL_FEATURE_TYPE "REQUIRED")
 set(OPENSSL_FEATURE_PURPOSE "cryptography")
@@ -699,26 +516,6 @@ set(OPENSSL_FEATURE_DESCRIPTION "encryption, certificate validation, hashing fun
 set(MBEDTLS_FEATURE_TYPE "OPTIONAL")
 set(MBEDTLS_FEATURE_PURPOSE "cryptography")
 set(MBEDTLS_FEATURE_DESCRIPTION "encryption, certificate validation, hashing functions")
-
-set(OPENSLES_FEATURE_TYPE "OPTIONAL")
-set(OPENSLES_FEATURE_PURPOSE "multimedia")
-set(OPENSLES_FEATURE_DESCRIPTION "OpenSLES audio / video")
-
-set(OSS_FEATURE_TYPE "RECOMMENDED")
-set(OSS_FEATURE_PURPOSE "sound")
-set(OSS_FEATURE_DESCRIPTION "audio input, audio output and multimedia redirection")
-
-set(ALSA_FEATURE_TYPE "RECOMMENDED")
-set(ALSA_FEATURE_PURPOSE "sound")
-set(ALSA_FEATURE_DESCRIPTION "audio input, audio output and multimedia redirection")
-
-set(PULSE_FEATURE_TYPE "RECOMMENDED")
-set(PULSE_FEATURE_PURPOSE "sound")
-set(PULSE_FEATURE_DESCRIPTION "audio input, audio output and multimedia redirection")
-
-set(CUPS_FEATURE_TYPE "RECOMMENDED")
-set(CUPS_FEATURE_PURPOSE "printing")
-set(CUPS_FEATURE_DESCRIPTION "printer device redirection")
 
 set(PCSC_FEATURE_TYPE "RECOMMENDED")
 set(PCSC_FEATURE_PURPOSE "smart card")
@@ -730,15 +527,11 @@ set(FFMPEG_FEATURE_DESCRIPTION "multimedia redirection, audio and video playback
 
 set(VAAPI_FEATURE_TYPE "OPTIONAL")
 set(VAAPI_FEATURE_PURPOSE "multimedia")
-set(VAAPI_FEATURE_DESCRIPTION "[experimental] VA-API hardware acceleration for video playback")
+set(VAAPI_FEATURE_DESCRIPTION "VA-API hardware acceleration for video playback")
 
 set(IPP_FEATURE_TYPE "OPTIONAL")
 set(IPP_FEATURE_PURPOSE "performance")
 set(IPP_FEATURE_DESCRIPTION "Intel Integrated Performance Primitives library")
-
-set(JPEG_FEATURE_TYPE "OPTIONAL")
-set(JPEG_FEATURE_PURPOSE "codec")
-set(JPEG_FEATURE_DESCRIPTION "use JPEG library")
 
 set(OPENH264_FEATURE_TYPE "OPTIONAL")
 set(OPENH264_FEATURE_PURPOSE "codec")
@@ -746,7 +539,7 @@ set(OPENH264_FEATURE_DESCRIPTION "use OpenH264 library")
 
 set(OPENCL_FEATURE_TYPE "OPTIONAL")
 set(OPENCL_FEATURE_PURPOSE "codec")
-set(OPENCL_FEATURE_DESCRIPTION "[experimental] use OpenCL library")
+set(OPENCL_FEATURE_DESCRIPTION "use OpenCL library")
 
 set(GSM_FEATURE_TYPE "OPTIONAL")
 set(GSM_FEATURE_PURPOSE "codec")
@@ -762,91 +555,63 @@ set(FAAD2_FEATURE_DESCRIPTION "FAAD2 AAC audio codec library")
 
 set(FAAC_FEATURE_TYPE "OPTIONAL")
 set(FAAC_FEATURE_PURPOSE "codec")
-set(FAAC_FEATURE_DESCRIPTION "[experimental] FAAC AAC audio codec library")
+set(FAAC_FEATURE_DESCRIPTION "FAAC AAC audio codec library")
 
 set(SOXR_FEATURE_TYPE "OPTIONAL")
 set(SOXR_FEATURE_PURPOSE "codec")
 set(SOXR_FEATURE_DESCRIPTION "SOX audio resample library")
 
-set(GSSAPI_FEATURE_TYPE "OPTIONAL")
-set(GSSAPI_FEATURE_PURPOSE "auth")
-set(GSSAPI_FEATURE_DESCRIPTION "[experimental] add kerberos support")
-
 if(WIN32)
-	set(X11_FEATURE_TYPE "DISABLED")
 	set(WAYLAND_FEATURE_TYPE "DISABLED")
-	set(ZLIB_FEATURE_TYPE "DISABLED")
-	set(OSS_FEATURE_TYPE "DISABLED")
-	set(ALSA_FEATURE_TYPE "DISABLED")
-	set(PULSE_FEATURE_TYPE "DISABLED")
-	set(CUPS_FEATURE_TYPE "DISABLED")
 	set(PCSC_FEATURE_TYPE "DISABLED")
-	set(FFMPEG_FEATURE_TYPE "DISABLED")
+	set(FFMPEG_FEATURE_TYPE "OPTIONAL")
 	set(VAAPI_FEATURE_TYPE "DISABLED")
-	set(OPENSLES_FEATURE_TYPE "DISABLED")
 endif()
 
 if(APPLE)
 	set(FFMPEG_FEATURE_TYPE "OPTIONAL")
 	set(VAAPI_FEATURE_TYPE "DISABLED")
-	set(X11_FEATURE_TYPE "OPTIONAL")
 	set(WAYLAND_FEATURE_TYPE "DISABLED")
-	set(OSS_FEATURE_TYPE "DISABLED")
-	set(ALSA_FEATURE_TYPE "DISABLED")
 	if(IOS)
-		set(X11_FEATURE_TYPE "DISABLED")
-		set(PULSE_FEATURE_TYPE "DISABLED")
-		set(CUPS_FEATURE_TYPE "DISABLED")
 		set(PCSC_FEATURE_TYPE "DISABLED")
 	endif()
-	set(OPENSLES_FEATURE_TYPE "DISABLED")
 endif()
-
-if(UNIX AND NOT ANDROID)
-	set(WLOG_SYSTEMD_JOURNAL_FEATURE_TYPE "RECOMMENDED")
-	set(WLOG_SYSTEMD_JOURNAL_FEATURE_PURPOSE "systemd journal appender")
-	set(WLOG_SYSTEMD_JOURNAL_FEATURE_DESCRIPTION "allows to export wLog to systemd journal")
-
-	#include(Findlibsystemd)
-	find_feature(libsystemd ${WLOG_SYSTEMD_JOURNAL_FEATURE_TYPE} ${WLOG_SYSTEMD_JOURNAL_FEATURE_PURPOSE} ${WLOG_SYSTEMD_JOURNAL_FEATURE_DESCRIPTION})
-
-	if(LIBSYSTEMD_FOUND)
-		set(HAVE_JOURNALD_H TRUE)
-	else()
-		unset(HAVE_JOURNALD_H)
-	endif()
-endif(UNIX AND NOT ANDROID)
 
 if(ANDROID)
-	set(X11_FEATURE_TYPE "DISABLED")
 	set(WAYLAND_FEATURE_TYPE "DISABLED")
-	set(OSS_FEATURE_TYPE "DISABLED")
-	set(ALSA_FEATURE_TYPE "DISABLED")
-	set(PULSE_FEATURE_TYPE "DISABLED")
-	set(CUPS_FEATURE_TYPE "DISABLED")
 	set(PCSC_FEATURE_TYPE "DISABLED")
 	set(VAAPI_FEATURE_TYPE "DISABLED")
-	set(OPENSLES_FEATURE_TYPE "REQUIRED")
 endif()
 
-find_feature(X11 ${X11_FEATURE_TYPE} ${X11_FEATURE_PURPOSE} ${X11_FEATURE_DESCRIPTION})
 find_feature(Wayland ${WAYLAND_FEATURE_TYPE} ${WAYLAND_FEATURE_PURPOSE} ${WAYLAND_FEATURE_DESCRIPTION})
 
-find_feature(ZLIB ${ZLIB_FEATURE_TYPE} ${ZLIB_FEATURE_PURPOSE} ${ZLIB_FEATURE_DESCRIPTION})
-find_feature(OpenSSL ${OPENSSL_FEATURE_TYPE} ${OPENSSL_FEATURE_PURPOSE} ${OPENSSL_FEATURE_DESCRIPTION})
-find_feature(MbedTLS ${MBEDTLS_FEATURE_TYPE} ${MBEDTLS_FEATURE_PURPOSE} ${MBEDTLS_FEATURE_DESCRIPTION})
-find_feature(OpenSLES ${OPENSLES_FEATURE_TYPE} ${OPENSLES_FEATURE_PURPOSE} ${OPENSLES_FEATURE_DESCRIPTION})
+option(WITH_LIBRESSL "build with LibreSSL" OFF)
+if (WITH_LIBRESSL)
+	find_package(LibreSSL REQUIRED)
+	include_directories(${LibreSSL_INCLUDE_DIRS})
+	set(OPENSSL_INCLUDE_DIR ${LIBRESSL_INCLUDE_DIR})
+	set(OPENSSL_LIBRARIES ${LIBRESSL_LIBRARIES})
+	set(OPENSSL_CRYPTO_LIBRARIES ${LIBRESSL_LIBRARIES})
+	set(WITH_OPENSSL ON)
+	set(OPENSSL_FOUND ON)
+	add_definitions("-DWITH_LIBRESSL")
+	add_definitions("-DWITH_OPENSSL")
+else()
+	find_feature(OpenSSL ${OPENSSL_FEATURE_TYPE} ${OPENSSL_FEATURE_PURPOSE} ${OPENSSL_FEATURE_DESCRIPTION})
+	find_feature(MbedTLS ${MBEDTLS_FEATURE_TYPE} ${MBEDTLS_FEATURE_PURPOSE} ${MBEDTLS_FEATURE_DESCRIPTION})
+endif()
 
-find_feature(OSS ${OSS_FEATURE_TYPE} ${OSS_FEATURE_PURPOSE} ${OSS_FEATURE_DESCRIPTION})
-find_feature(ALSA ${ALSA_FEATURE_TYPE} ${ALSA_FEATURE_PURPOSE} ${ALSA_FEATURE_DESCRIPTION})
-find_feature(Pulse ${PULSE_FEATURE_TYPE} ${PULSE_FEATURE_PURPOSE} ${PULSE_FEATURE_DESCRIPTION})
-
-find_feature(Cups ${CUPS_FEATURE_TYPE} ${CUPS_FEATURE_PURPOSE} ${CUPS_FEATURE_DESCRIPTION})
 find_feature(PCSC ${PCSC_FEATURE_TYPE} ${PCSC_FEATURE_PURPOSE} ${PCSC_FEATURE_DESCRIPTION})
+
+find_package(cJSON)
+option(WITH_AAD "Compile with support for Azure AD authentication" ${cJSON_FOUND})
+
+if (WITH_DSP_FFMPEG OR WITH_VIDEO_FFMPEG OR WITH_FFMPEG)
+	set(FFMPEG_FEATURE_TYPE "REQUIRED" )
+endif()
 
 find_feature(FFmpeg ${FFMPEG_FEATURE_TYPE} ${FFMPEG_FEATURE_PURPOSE} ${FFMPEG_FEATURE_DESCRIPTION})
 
-find_feature(JPEG ${JPEG_FEATURE_TYPE} ${JPEG_FEATURE_PURPOSE} ${JPEG_FEATURE_DESCRIPTION})
 find_feature(OpenH264 ${OPENH264_FEATURE_TYPE} ${OPENH264_FEATURE_PURPOSE} ${OPENH264_FEATURE_DESCRIPTION})
 find_feature(OpenCL ${OPENCL_FEATURE_TYPE} ${OPENCL_FEATURE_PURPOSE} ${OPENCL_FEATURE_DESCRIPTION})
 find_feature(GSM ${GSM_FEATURE_TYPE} ${GSM_FEATURE_PURPOSE} ${GSM_FEATURE_DESCRIPTION})
@@ -855,16 +620,9 @@ find_feature(FAAD2 ${FAAD2_FEATURE_TYPE} ${FAAD2_FEATURE_PURPOSE} ${FAAD2_FEATUR
 find_feature(FAAC ${FAAC_FEATURE_TYPE} ${FAAC_FEATURE_PURPOSE} ${FAAC_FEATURE_DESCRIPTION})
 find_feature(soxr ${SOXR_FEATURE_TYPE} ${SOXR_FEATURE_PURPOSE} ${SOXR_FEATURE_DESCRIPTION})
 
-find_feature(GSSAPI ${GSSAPI_FEATURE_TYPE} ${GSSAPI_FEATURE_PURPOSE} ${GSSAPI_FEATURE_DESCRIPTION})
-
 if (WITH_OPENH264 AND NOT WITH_OPENH264_LOADING)
 	option(WITH_OPENH264_LOADING "Use LoadLibrary to load openh264 at runtime" OFF)
 endif (WITH_OPENH264 AND NOT WITH_OPENH264_LOADING)
-
-if ((WITH_FFMPEG OR WITH_DSP_FFMPEG) AND NOT FFMPEG_FOUND)
-	message(FATAL_ERROR "FFMPEG support requested but not detected")
-endif()
-set(WITH_FFMPEG ${FFMPEG_FOUND})
 
 # Version check, if we have detected FFMPEG but the version is too old
 # deactivate it as sound backend.
@@ -903,23 +661,6 @@ if (WITH_OPENH264 AND NOT OPENH264_FOUND)
 endif()
 set(WITH_OPENH264 ${OPENH264_FOUND})
 
-if ( (WITH_GSSAPI) AND (NOT GSS_FOUND))
-	message(WARNING "-DWITH_GSSAPI=ON is set, but not GSSAPI implementation was found, disabling")
-elseif(WITH_GSSAPI)
-	if(GSS_FLAVOUR STREQUAL "MIT")
-		add_definitions("-DWITH_GSSAPI -DWITH_GSSAPI_MIT")
-		if(GSS_VERSION_1_13)
-			add_definitions("-DHAVE_AT_LEAST_KRB_V1_13")
-		endif()
-		include_directories(${_GSS_INCLUDE_DIR})
-	elseif(GSS_FLAVOUR STREQUAL "Heimdal")
-		add_definitions("-DWITH_GSSAPI -DWITH_GSSAPI_HEIMDAL")
-		include_directories(${_GSS_INCLUDE_DIR})
-	else()
-		message(WARNING "Kerberos version not detected")
-	endif()
-endif()
-
 if(TARGET_ARCH MATCHES "x86|x64")
 	if (NOT APPLE)
 		# Intel Performance Primitives
@@ -937,7 +678,7 @@ if(MBEDTLS_FOUND)
 	add_definitions("-DWITH_MBEDTLS")
 endif()
 
-if (WITH_OPENH264 OR WITH_MEDIA_FOUNDATION OR WITH_FFMPEG OR WITH_MEDIACODEC)
+if (WITH_OPENH264 OR WITH_MEDIA_FOUNDATION OR WITH_VIDEO_FFMPEG OR WITH_MEDIACODEC)
 	set(WITH_GFX_H264 ON)
 else()
 	set(WITH_GFX_H264 OFF)
@@ -946,6 +687,13 @@ endif()
 # Android expects all libraries to be loadable
 # without paths.
 if (ANDROID OR WIN32 OR MAC_BUNDLE)
+	set(PLUGIN_ABS_PATHS_DEFAULT OFF)
+else()
+	set(PLUGIN_ABS_PATHS_DEFAULT ON)
+endif()
+option(WITH_ABSOLUTE_PLUGIN_LOAD_PATHS "Load plugins with absolute paths" ${PLUGIN_ABS_PATHS_DEFAULT})
+
+if (NOT WITH_ABSOLUTE_PLUGIN_LOAD_PATHS)
   set(FREERDP_DATA_PATH "share")
   if (NOT FREERDP_INSTALL_PREFIX)
 	  set(FREERDP_INSTALL_PREFIX ".")
@@ -953,55 +701,31 @@ if (ANDROID OR WIN32 OR MAC_BUNDLE)
   set(FREERDP_LIBRARY_PATH ".")
   set(FREERDP_PLUGIN_PATH ".")
 else()
-	set(FREERDP_DATA_PATH "${CMAKE_INSTALL_PREFIX}/share/freerdp${FREERDP_VERSION_MAJOR}")
+	set(FREERDP_DATA_PATH "${CMAKE_INSTALL_PREFIX}/share/${FREERDP_MAJOR_DIR}")
 	if (NOT FREERDP_INSTALL_PREFIX)
 		set(FREERDP_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 	endif()
 	set(FREERDP_LIBRARY_PATH "${CMAKE_INSTALL_LIBDIR}")
-	set(FREERDP_PLUGIN_PATH "${CMAKE_INSTALL_LIBDIR}/freerdp${FREERDP_VERSION_MAJOR}")
+	if (WIN32)
+		set(FREERDP_PLUGIN_PATH "${CMAKE_INSTALL_BINDIR}/${FREERDP_MAJOR_DIR}")
+	else()
+		set(FREERDP_PLUGIN_PATH "${CMAKE_INSTALL_LIBDIR}/${FREERDP_MAJOR_DIR}")
+	endif()
 endif()
 set(FREERDP_ADDIN_PATH "${FREERDP_PLUGIN_PATH}")
 
 # Path to put extensions
-set(FREERDP_EXTENSION_PATH "${CMAKE_INSTALL_FULL_LIBDIR}/freerdp${FREERDP_VERSION_MAJOR}/extensions")
+set(FREERDP_EXTENSION_POSTFIX "${FREERDP_MAJOR_DIR}/extensions")
+set(FREERDP_EXTENSION_REL_PATH "${CMAKE_INSTALL_LIBDIR}/${FREERDP_EXTENSION_POSTFIX}")
+set(FREERDP_EXTENSION_PATH "${CMAKE_INSTALL_FULL_LIBDIR}/${FREERDP_EXTENSION_POSTFIX}")
 
 # Proxy plugins path
 if(NOT DEFINED PROXY_PLUGINDIR)
 	message("using default plugins location")
-  	set(FREERDP_PROXY_PLUGINDIR "${CMAKE_BINARY_DIR}/server/proxy/plugins")
+	set(FREERDP_PROXY_PLUGINDIR "${FREERDP_PLUGIN_PATH}/proxy/")
 else()
 	set(FREERDP_PROXY_PLUGINDIR "${PROXY_PLUGINDIR}")
 endif()
-
-# Declare we have config.h, generated later on.
-add_definitions("-DHAVE_CONFIG_H")
-
-# Include directories
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-# RPATH configuration
-set(CMAKE_SKIP_BUILD_RPATH FALSE)
-set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-if (APPLE)
-	set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
-	set(CMAKE_INSTALL_RPATH "@loader_path/../Frameworks")
-else (APPLE)
-	set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-	if (NOT FREEBSD)
-		if (NOT BUILTIN_CHANNELS)
-			if (NOT DEFINED WITH_PLUGIN_RPATH_ONLY)
-				set(CMAKE_INSTALL_RPATH "\$ORIGIN/../${CMAKE_INSTALL_LIBDIR}:\$ORIGIN/..:\$ORIGIN/../${FREERDP_PLUGIN_PATH}")
-			else()
-				# we need to supply this run path, even if not using RPATH in general
-				set(CMAKE_INSTALL_RPATH "\$ORIGIN/../${FREERDP_PLUGIN_PATH}")
-			endif()
-		else()
-			set(CMAKE_INSTALL_RPATH "\$ORIGIN/../${CMAKE_INSTALL_LIBDIR}:\$ORIGIN/..")
-		endif()
-	endif()
-endif(APPLE)
 
 if (BUILD_SHARED_LIBS)
 	set(CMAKE_MACOSX_RPATH ON)
@@ -1025,29 +749,42 @@ if(BUILD_TESTING)
 	enable_testing()
 
 	if(MSVC)
-		set(TESTING_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+		set(TESTING_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
 	else()
-		set(TESTING_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/Testing")
+		set(TESTING_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/Testing")
 	endif()
 endif()
 
 # WinPR
-include_directories("${CMAKE_SOURCE_DIR}/winpr/include")
-include_directories("${CMAKE_BINARY_DIR}/winpr/include")
+# We want to control the winpr assert for the whole project
+option(WITH_VERBOSE_WINPR_ASSERT "Compile with verbose WINPR_ASSERT." ON)
+if (WITH_VERBOSE_WINPR_ASSERT)
+	add_definitions(-DWITH_VERBOSE_WINPR_ASSERT)
+endif()
 
-if (${CMAKE_VERSION} VERSION_LESS 2.8.12)
-	set(PUBLIC_KEYWORD "")
-	set(PRIVATE_KEYWORD "")
+if (FREERDP_UNIFIED_BUILD)
+	add_subdirectory(winpr)
+	if (WITH_WAYLAND)
+		add_subdirectory(uwac)
+	endif()
+	if (WITH_SERVER)
+		option(WITH_RDTK "build rdtk toolkit" ON)
+		if (WITH_RDTK)
+			add_subdirectory(rdtk)
+		endif()
+	endif()
+
+	include_directories(${PROJECT_SOURCE_DIR}/winpr/include)
+	include_directories(${PROJECT_BINARY_DIR}/winpr/include)
 else()
-	set(PUBLIC_KEYWORD "PUBLIC")
-	set(PRIVATE_KEYWORD "PRIVATE")
+	find_package(WinPR 3 REQUIRED)
+	include_directories(${WinPR_INCLUDE_DIR})
 endif()
 
-if(BUILD_SHARED_LIBS)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DWINPR_DLL")
-endif()
-
-add_subdirectory(winpr)
+# Include directories
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Sub-directories
 
@@ -1058,19 +795,8 @@ if(WITH_THIRD_PARTY)
 	endif()
 endif()
 
-add_subdirectory(include)
 
 add_subdirectory(libfreerdp)
-
-# RdTk
-include_directories("${CMAKE_SOURCE_DIR}/rdtk/include")
-include_directories("${CMAKE_BINARY_DIR}/rdtk/include")
-
-add_subdirectory(rdtk)
-
-if(WAYLAND_FOUND)
-	add_subdirectory(uwac)
-endif()
 
 if(BSD)
 	if(IS_DIRECTORY /usr/local/include)
@@ -1096,16 +822,13 @@ if(WITH_SERVER)
 	add_subdirectory(server)
 endif()
 
-# Configure files - Add last so all symbols are defined
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
-
 # Packaging
 
 set(CMAKE_CPACK_INCLUDE_FILE "CMakeCPack.cmake")
 
 if(NOT (VENDOR MATCHES "FreeRDP"))
 	if(DEFINED CLIENT_VENDOR_PATH)
-		if(EXISTS "${CMAKE_SOURCE_DIR}/${CLIENT_VENDOR_PATH}/CMakeCPack.cmake")
+		if(EXISTS "${PROJECT_SOURCE_DIR}/${CLIENT_VENDOR_PATH}/CMakeCPack.cmake")
 			set(CMAKE_CPACK_INCLUDE_FILE "${CLIENT_VENDOR_PATH}/CMakeCPack.cmake")
 		endif()
 	endif()
@@ -1113,14 +836,24 @@ endif()
 
 #message("VENDOR: ${VENDOR} CLIENT_VENDOR_PATH: ${CLIENT_VENDOR_PATH} CMAKE_CPACK_INCLUDE_FILE: ${CMAKE_CPACK_INCLUDE_FILE}")
 
-include(${CMAKE_CPACK_INCLUDE_FILE})
-
 set(FREERDP_BUILD_CONFIG_LIST "")
 GET_CMAKE_PROPERTY(res VARIABLES)
 FOREACH(var ${res})
-	IF (var MATCHES "^WITH_*|^BUILD_TESTING|^BUILTIN_CHANNELS|^HAVE_*")
+	IF (var MATCHES "^WITH_*|^BUILD_TESTING|^WINPR_HAVE_*")
 		LIST(APPEND FREERDP_BUILD_CONFIG_LIST "${var}=${${var}}")
 	ENDIF()
 ENDFOREACH()
 string(REPLACE ";" " " FREERDP_BUILD_CONFIG "${FREERDP_BUILD_CONFIG_LIST}")
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/buildflags.h.in ${CMAKE_CURRENT_BINARY_DIR}/buildflags.h)
+
+add_subdirectory(include)
+
+include(${CMAKE_CPACK_INCLUDE_FILE})
+
+message(STATUS "Intrinsic path configuration:")
+#ShowCMakeVars("^CMAKE_INSTALL_PREFIX")
+#ShowCMakeVars("^CMAKE_INSTALL_LIBDIR")
+ShowCMakeVars("^FREERDP_INSTALL_PREFIX|^FREERDP_LIBRARY_PATH|^FREERDP_PLUGIN_PATH")
+ShowCMakeVars("^FREERDP_ADDIN_PATH|^FREERDP_EXTENSION_PATH|^FREERDP_PROXY_PLUGINDIR")
+
+
+

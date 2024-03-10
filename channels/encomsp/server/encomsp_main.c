@@ -19,14 +19,13 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <winpr/crt.h>
 #include <winpr/print.h>
 #include <winpr/stream.h>
 
+#include <freerdp/freerdp.h>
 #include <freerdp/channels/log.h>
 
 #include "encomsp_main.h"
@@ -40,7 +39,7 @@
  */
 static UINT encomsp_read_header(wStream* s, ENCOMSP_ORDER_HEADER* header)
 {
-	if (Stream_GetRemainingLength(s) < ENCOMSP_ORDER_HEADER_SIZE)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, ENCOMSP_ORDER_HEADER_SIZE))
 		return ERROR_INVALID_DATA;
 
 	Stream_Read_UINT16(s, header->Type);   /* Type (2 bytes) */
@@ -61,7 +60,7 @@ static int encomsp_read_unicode_string(wStream* s, ENCOMSP_UNICODE_STRING* str)
 {
 	ZeroMemory(str, sizeof(ENCOMSP_UNICODE_STRING));
 
-	if (Stream_GetRemainingLength(s) < 2)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 2))
 		return -1;
 
 	Stream_Read_UINT16(s, str->cchString); /* cchString (2 bytes) */
@@ -69,7 +68,7 @@ static int encomsp_read_unicode_string(wStream* s, ENCOMSP_UNICODE_STRING* str)
 	if (str->cchString > 1024)
 		return -1;
 
-	if (Stream_GetRemainingLength(s) < (str->cchString * 2))
+    if (!Stream_CheckAndLogRequiredLengthOfSize(TAG, s, str->cchString, sizeof(WCHAR)))
 		return -1;
 
 	Stream_Read(s, &(str->wString), (str->cchString * 2)); /* String (variable) */
@@ -87,17 +86,15 @@ static UINT encomsp_recv_change_participant_control_level_pdu(EncomspServerConte
                                                               wStream* s,
                                                               ENCOMSP_ORDER_HEADER* header)
 {
-	int beg, end;
+	int beg = 0;
+	int end = 0;
 	ENCOMSP_CHANGE_PARTICIPANT_CONTROL_LEVEL_PDU pdu;
 	UINT error = CHANNEL_RC_OK;
 	beg = ((int)Stream_GetPosition(s)) - ENCOMSP_ORDER_HEADER_SIZE;
 	CopyMemory(&pdu, header, sizeof(ENCOMSP_ORDER_HEADER));
 
-	if (Stream_GetRemainingLength(s) < 6)
-	{
-		WLog_ERR(TAG, "Not enough data!");
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 6))
 		return ERROR_INVALID_DATA;
-	}
 
 	Stream_Read_UINT16(s, pdu.Flags);         /* Flags (2 bytes) */
 	Stream_Read_UINT32(s, pdu.ParticipantId); /* ParticipantId (4 bytes) */
@@ -111,11 +108,8 @@ static UINT encomsp_recv_change_participant_control_level_pdu(EncomspServerConte
 
 	if ((beg + header->Length) > end)
 	{
-		if (Stream_GetRemainingLength(s) < (size_t)((beg + header->Length) - end))
-		{
-			WLog_ERR(TAG, "Not enough data!");
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, (size_t)((beg + header->Length) - end)))
 			return ERROR_INVALID_DATA;
-		}
 
 		Stream_SetPosition(s, (beg + header->Length));
 	}
@@ -168,7 +162,6 @@ static UINT encomsp_server_receive_pdu(EncomspServerContext* context, wStream* s
 			default:
 				WLog_ERR(TAG, "header.Type unknown %" PRIu16 "!", header.Type);
 				return ERROR_INVALID_DATA;
-				break;
 		}
 	}
 
@@ -177,16 +170,16 @@ static UINT encomsp_server_receive_pdu(EncomspServerContext* context, wStream* s
 
 static DWORD WINAPI encomsp_server_thread(LPVOID arg)
 {
-	wStream* s;
-	DWORD nCount;
-	void* buffer;
+	wStream* s = NULL;
+	DWORD nCount = 0;
+	void* buffer = NULL;
 	HANDLE events[8];
-	HANDLE ChannelEvent;
-	DWORD BytesReturned;
-	ENCOMSP_ORDER_HEADER* header;
-	EncomspServerContext* context;
+	HANDLE ChannelEvent = NULL;
+	DWORD BytesReturned = 0;
+	ENCOMSP_ORDER_HEADER* header = NULL;
+	EncomspServerContext* context = NULL;
 	UINT error = CHANNEL_RC_OK;
-	DWORD status;
+	DWORD status = 0;
 	context = (EncomspServerContext*)arg;
 
 	buffer = NULL;
@@ -298,7 +291,7 @@ out:
 static UINT encomsp_server_start(EncomspServerContext* context)
 {
 	context->priv->ChannelHandle =
-	    WTSVirtualChannelOpen(context->vcm, WTS_CURRENT_SESSION, "encomsp");
+	    WTSVirtualChannelOpen(context->vcm, WTS_CURRENT_SESSION, ENCOMSP_SVC_CHANNEL_NAME);
 
 	if (!context->priv->ChannelHandle)
 		return CHANNEL_RC_BAD_CHANNEL;
@@ -345,7 +338,7 @@ static UINT encomsp_server_stop(EncomspServerContext* context)
 
 EncomspServerContext* encomsp_server_context_new(HANDLE vcm)
 {
-	EncomspServerContext* context;
+	EncomspServerContext* context = NULL;
 	context = (EncomspServerContext*)calloc(1, sizeof(EncomspServerContext));
 
 	if (context)

@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #include <winpr/crt.h>
 #include <winpr/path.h>
@@ -31,10 +29,10 @@
 
 char* WLog_Message_GetOutputFileName(int id, const char* ext)
 {
-	DWORD ProcessId;
-	char* FilePath;
-	char* FileName;
-	char* FullFileName;
+	DWORD ProcessId = 0;
+	char* FilePath = NULL;
+	char* FileName = NULL;
+	char* FullFileName = NULL;
 
 	if (!(FileName = (char*)malloc(256)))
 		return NULL;
