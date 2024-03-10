@@ -1318,6 +1318,9 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_MoveFileEx@Base 3.0.0
  winpr_NCryptOpenStorageProviderEx@Base 3.0.0
  winpr_NCryptSecurityStatusError@Base 3.0.0
+ winpr_ObjectStringClone@Base 3.3.0
+ winpr_ObjectStringFree@Base 3.3.0
+ winpr_ObjectWStringClone@Base 3.3.0
  winpr_PathFileExists@Base 3.0.0
  winpr_PathMakePath@Base 3.0.0
  winpr_RAND@Base 3.0.0
@@ -1366,11 +1369,17 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_get_build_revision@Base 3.0.0
  winpr_get_version@Base 3.0.0
  winpr_get_version_string@Base 3.0.0
+ winpr_image_equal@Base 3.3.0
+ winpr_image_format_extension@Base 3.3.0
+ winpr_image_format_is_supported@Base 3.3.0
+ winpr_image_format_mime@Base 3.3.0
  winpr_image_free@Base 3.0.0
  winpr_image_new@Base 3.0.0
  winpr_image_read@Base 3.0.0
  winpr_image_read_buffer@Base 3.0.0
  winpr_image_write@Base 3.0.0
+ winpr_image_write_buffer@Base 3.3.0
+ winpr_image_write_ex@Base 3.3.0
  winpr_log_backtrace@Base 3.0.0
  winpr_log_backtrace_ex@Base 3.0.0
  winpr_md_type_from_string@Base 3.0.0

@@ -542,7 +542,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_target_net_addresses_copy@Base 3.0.0
  freerdp_target_net_addresses_free@Base 3.0.0
  freerdp_update_gateway_usage_method@Base 3.0.0
- freerdp_utils_aad_get_access_token@Base 3.0.0
+ (optional)freerdp_utils_aad_get_access_token@Base 3.0.0
  gdi_BitBlt@Base 3.0.0
  gdi_CRectToCRgn@Base 3.0.0
  gdi_CRectToRgn@Base 3.0.0
