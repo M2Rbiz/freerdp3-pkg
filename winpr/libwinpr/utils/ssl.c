@@ -18,9 +18,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #include <winpr/crt.h>
 #include <winpr/synch.h>
@@ -123,7 +121,7 @@ static void _winpr_openssl_dynlock_destroy(struct CRYPTO_dynlock_value* dynlock,
 
 static BOOL _winpr_openssl_initialize_locking(void)
 {
-	int i, count;
+	int count;
 
 	/* OpenSSL static locking */
 
@@ -143,7 +141,7 @@ static BOOL _winpr_openssl_initialize_locking(void)
 				return FALSE;
 			}
 
-			for (i = 0; i < count; i++)
+			for (int i = 0; i < count; i++)
 			{
 				if (!(locks[i] = CreateMutex(NULL, FALSE, NULL)))
 				{
@@ -201,10 +199,9 @@ static BOOL _winpr_openssl_cleanup_locking(void)
 	/* undo our static locking modifications */
 	if (CRYPTO_get_locking_callback() == _winpr_openssl_locking)
 	{
-		int i;
 		CRYPTO_set_locking_callback(NULL);
 
-		for (i = 0; i < g_winpr_openssl_num_locks; i++)
+		for (int i = 0; i < g_winpr_openssl_num_locks; i++)
 		{
 			CloseHandle(g_winpr_openssl_locks[i]);
 		}
@@ -284,7 +281,12 @@ static BOOL winpr_enable_fips(DWORD flags)
 	return TRUE;
 }
 
-static BOOL CALLBACK _winpr_openssl_initialize(PINIT_ONCE once, PVOID param, PVOID* context)
+static void winpr_openssl_cleanup(void)
+{
+	winpr_CleanupSSL(WINPR_SSL_INIT_DEFAULT);
+}
+
+static BOOL CALLBACK winpr_openssl_initialize(PINIT_ONCE once, PVOID param, PVOID* context)
 {
 	DWORD flags = param ? *(PDWORD)param : WINPR_SSL_INIT_DEFAULT;
 
@@ -335,6 +337,7 @@ static BOOL CALLBACK _winpr_openssl_initialize(PINIT_ONCE once, PVOID param, PVO
 	}
 #endif
 
+	atexit(winpr_openssl_cleanup);
 	g_winpr_openssl_initialized_by_winpr = TRUE;
 	return TRUE;
 }
@@ -345,11 +348,29 @@ BOOL winpr_InitializeSSL(DWORD flags)
 {
 	static INIT_ONCE once = INIT_ONCE_STATIC_INIT;
 
-	if (!InitOnceExecuteOnce(&once, _winpr_openssl_initialize, &flags, NULL))
+	if (!InitOnceExecuteOnce(&once, winpr_openssl_initialize, &flags, NULL))
 		return FALSE;
 
 	return winpr_enable_fips(flags);
 }
+
+#if defined(OPENSSL_VERSION_MAJOR) && (OPENSSL_VERSION_MAJOR >= 3)
+static int unload(OSSL_PROVIDER* provider, void* data)
+{
+	if (!provider)
+		return 1;
+	const char* name = OSSL_PROVIDER_get0_name(provider);
+	if (!name)
+		return 1;
+
+	OSSL_LIB_CTX* ctx = OSSL_LIB_CTX_get0_global_default();
+	const int rc = OSSL_PROVIDER_available(ctx, name);
+	if (rc < 1)
+		return 1;
+	OSSL_PROVIDER_unload(provider);
+	return 1;
+}
+#endif
 
 BOOL winpr_CleanupSSL(DWORD flags)
 {
@@ -388,10 +409,10 @@ BOOL winpr_CleanupSSL(DWORD flags)
 
 #endif
 #if defined(OPENSSL_VERSION_MAJOR) && (OPENSSL_VERSION_MAJOR >= 3)
-	OSSL_PROVIDER_unload(s_winpr_openssl_provider_fips);
-	OSSL_PROVIDER_unload(s_winpr_openssl_provider_legacy);
-	OSSL_PROVIDER_unload(s_winpr_openssl_provider_default);
+	OSSL_LIB_CTX* ctx = OSSL_LIB_CTX_get0_global_default();
+	OSSL_PROVIDER_do_all(ctx, unload, NULL);
 #endif
+
 	return TRUE;
 }
 

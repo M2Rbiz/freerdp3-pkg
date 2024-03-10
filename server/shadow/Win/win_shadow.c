@@ -25,6 +25,7 @@
 #include <freerdp/log.h>
 #include <freerdp/codec/color.h>
 #include <freerdp/codec/region.h>
+#include <freerdp/server/server-common.h>
 
 #include "win_shadow.h"
 
@@ -40,12 +41,12 @@
 static BOOL win_shadow_input_synchronize_event(rdpShadowSubsystem* subsystem,
                                                rdpShadowClient* client, UINT32 flags)
 {
-	WLog_WARN(TAG, "%s: TODO: Implement!", __FUNCTION__);
+	WLog_WARN(TAG, "TODO: Implement!");
 	return TRUE;
 }
 
 static BOOL win_shadow_input_keyboard_event(rdpShadowSubsystem* subsystem, rdpShadowClient* client,
-                                            UINT16 flags, UINT16 code)
+                                            UINT16 flags, UINT8 code)
 {
 	UINT rc;
 	INPUT event;
@@ -94,10 +95,10 @@ static BOOL win_shadow_input_mouse_event(rdpShadowSubsystem* subsystem, rdpShado
                                          UINT16 flags, UINT16 x, UINT16 y)
 {
 	UINT rc = 1;
-	INPUT event;
+	INPUT event = { 0 };
 	float width;
 	float height;
-	ZeroMemory(&event, sizeof(INPUT));
+
 	event.type = INPUT_MOUSE;
 
 	if (flags & (PTR_FLAGS_WHEEL | PTR_FLAGS_HWHEEL))
@@ -179,10 +180,9 @@ static BOOL win_shadow_input_extended_mouse_event(rdpShadowSubsystem* subsystem,
                                                   UINT16 y)
 {
 	UINT rc = 1;
-	INPUT event;
+	INPUT event = { 0 };
 	float width;
 	float height;
-	ZeroMemory(&event, sizeof(INPUT));
 
 	if ((flags & PTR_XFLAGS_BUTTON1) || (flags & PTR_XFLAGS_BUTTON2))
 	{
@@ -291,9 +291,17 @@ static int win_shadow_surface_copy(winShadowSubsystem* subsystem)
 		rdpGdi* gdi;
 		shwContext* shw;
 		rdpContext* context;
+
+		WINPR_ASSERT(subsystem);
 		shw = subsystem->shw;
-		context = &shw->context;
+		WINPR_ASSERT(shw);
+
+		context = &shw->common.context;
+		WINPR_ASSERT(context);
+
 		gdi = context->gdi;
+		WINPR_ASSERT(gdi);
+
 		pDstData = gdi->primary_buffer;
 		nDstStep = gdi->width * 4;
 		DstFormat = gdi->dstFormat;
@@ -417,8 +425,8 @@ static UINT32 win_shadow_enum_monitors(MONITOR_DEF* monitors, UINT32 maxMonitors
 	DWORD iDevNum = 0;
 	int numMonitors = 0;
 	MONITOR_DEF* monitor;
-	DISPLAY_DEVICE displayDevice;
-	ZeroMemory(&displayDevice, sizeof(DISPLAY_DEVICE));
+	DISPLAY_DEVICE displayDevice = { 0 };
+
 	displayDevice.cb = sizeof(DISPLAY_DEVICE);
 
 	if (EnumDisplayDevices(NULL, iDevNum, &displayDevice, 0))
@@ -530,8 +538,17 @@ static rdpShadowSubsystem* win_shadow_subsystem_new(void)
 	return &subsystem->base;
 }
 
-FREERDP_API int Win_ShadowSubsystemEntry(RDP_SHADOW_ENTRY_POINTS* pEntryPoints)
+FREERDP_API const char* ShadowSubsystemName(void)
 {
+	return "Win";
+}
+
+FREERDP_API int ShadowSubsystemEntry(RDP_SHADOW_ENTRY_POINTS* pEntryPoints)
+{
+	const char name[] = "windows shadow subsystem";
+	const char* arg[] = { name };
+
+	freerdp_server_warn_unmaintained(ARRAYSIZE(arg), arg);
 	pEntryPoints->New = win_shadow_subsystem_new;
 	pEntryPoints->Free = win_shadow_subsystem_free;
 	pEntryPoints->Init = win_shadow_subsystem_init;

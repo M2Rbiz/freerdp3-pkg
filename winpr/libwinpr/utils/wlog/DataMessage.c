@@ -17,22 +17,20 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #include "wlog.h"
 
-#include "wlog/DataMessage.h"
+#include "DataMessage.h"
 
 #include <winpr/file.h>
 
 #include "../../log.h"
 #define TAG WINPR_TAG("utils.wlog")
 
-BOOL WLog_DataMessage_Write(char* filename, void* data, int length)
+BOOL WLog_DataMessage_Write(const char* filename, const void* data, size_t length)
 {
-	FILE* fp;
+	FILE* fp = NULL;
 	BOOL ret = TRUE;
 
 	fp = winpr_fopen(filename, "w+b");

@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #include <winpr/crt.h>
 #include <winpr/string.h>
@@ -30,7 +28,7 @@
 
 errno_t _itoa_s(int value, char* buffer, size_t sizeInCharacters, int radix)
 {
-	int length;
+	int length = 0;
 
 	length = sprintf_s(NULL, 0, "%d", value);
 

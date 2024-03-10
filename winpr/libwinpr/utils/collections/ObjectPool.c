@@ -17,13 +17,22 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #include <winpr/crt.h>
+#include <winpr/assert.h>
 
 #include <winpr/collections.h>
+
+struct s_wObjectPool
+{
+	size_t size;
+	size_t capacity;
+	void** array;
+	CRITICAL_SECTION lock;
+	wObject object;
+	BOOL synchronized;
+};
 
 /**
  * C Object Pool similar to C# BufferManager Class:
@@ -34,6 +43,20 @@
  * Methods
  */
 
+static void ObjectPool_Lock(wObjectPool* pool)
+{
+	WINPR_ASSERT(pool);
+	if (pool->synchronized)
+		EnterCriticalSection(&pool->lock);
+}
+
+static void ObjectPool_Unlock(wObjectPool* pool)
+{
+	WINPR_ASSERT(pool);
+	if (pool->synchronized)
+		LeaveCriticalSection(&pool->lock);
+}
+
 /**
  * Gets an object from the pool.
  */
@@ -42,8 +65,7 @@ void* ObjectPool_Take(wObjectPool* pool)
 {
 	void* obj = NULL;
 
-	if (pool->synchronized)
-		EnterCriticalSection(&pool->lock);
+	ObjectPool_Lock(pool);
 
 	if (pool->size > 0)
 		obj = pool->array[--(pool->size)];
@@ -57,8 +79,7 @@ void* ObjectPool_Take(wObjectPool* pool)
 	if (pool->object.fnObjectInit)
 		pool->object.fnObjectInit(obj);
 
-	if (pool->synchronized)
-		LeaveCriticalSection(&pool->lock);
+	ObjectPool_Unlock(pool);
 
 	return obj;
 }
@@ -69,13 +90,12 @@ void* ObjectPool_Take(wObjectPool* pool)
 
 void ObjectPool_Return(wObjectPool* pool, void* obj)
 {
-	if (pool->synchronized)
-		EnterCriticalSection(&pool->lock);
+	ObjectPool_Lock(pool);
 
 	if ((pool->size + 1) >= pool->capacity)
 	{
-		size_t new_cap;
-		void** new_arr;
+		size_t new_cap = 0;
+		void** new_arr = NULL;
 
 		new_cap = pool->capacity * 2;
 		new_arr = (void**)realloc(pool->array, sizeof(void*) * new_cap);
@@ -92,8 +112,13 @@ void ObjectPool_Return(wObjectPool* pool, void* obj)
 		pool->object.fnObjectUninit(obj);
 
 out:
-	if (pool->synchronized)
-		LeaveCriticalSection(&pool->lock);
+	ObjectPool_Unlock(pool);
+}
+
+wObject* ObjectPool_Object(wObjectPool* pool)
+{
+	WINPR_ASSERT(pool);
+	return &pool->object;
 }
 
 /**
@@ -102,8 +127,7 @@ out:
 
 void ObjectPool_Clear(wObjectPool* pool)
 {
-	if (pool->synchronized)
-		EnterCriticalSection(&pool->lock);
+	ObjectPool_Lock(pool);
 
 	while (pool->size > 0)
 	{
@@ -113,8 +137,7 @@ void ObjectPool_Clear(wObjectPool* pool)
 			pool->object.fnObjectFree(pool->array[pool->size]);
 	}
 
-	if (pool->synchronized)
-		LeaveCriticalSection(&pool->lock);
+	ObjectPool_Unlock(pool);
 }
 
 /**

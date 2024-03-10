@@ -17,11 +17,11 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
-#include <assert.h>
+#include "settings.h"
+
+#include <winpr/assert.h>
 
 #include <freerdp/utils/pcap.h>
 #include <freerdp/log.h>
@@ -36,12 +36,8 @@ static BOOL update_recv_surfcmd_bitmap_header_ex(wStream* s, TS_COMPRESSED_BITMA
 	if (!s || !header)
 		return FALSE;
 
-	if (Stream_GetRemainingLength(s) < 24)
-	{
-		WLog_ERR(TAG, "got %" PRIuz ", expected %" PRIuz " bytes", Stream_GetRemainingLength(s),
-		         24);
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 24))
 		return FALSE;
-	}
 
 	Stream_Read_UINT32(s, header->highUniqueId);
 	Stream_Read_UINT32(s, header->lowUniqueId);
@@ -52,17 +48,11 @@ static BOOL update_recv_surfcmd_bitmap_header_ex(wStream* s, TS_COMPRESSED_BITMA
 
 static BOOL update_recv_surfcmd_bitmap_ex(wStream* s, TS_BITMAP_DATA_EX* bmp)
 {
-	size_t pos;
-
 	if (!s || !bmp)
 		return FALSE;
 
-	if (Stream_GetRemainingLength(s) < 12)
-	{
-		WLog_ERR(TAG, "got %" PRIuz ", expected %" PRIuz " bytes", Stream_GetRemainingLength(s),
-		         12);
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 12))
 		return FALSE;
-	}
 
 	Stream_Read_UINT8(s, bmp->bpp);
 	Stream_Read_UINT8(s, bmp->flags);
@@ -85,33 +75,28 @@ static BOOL update_recv_surfcmd_bitmap_ex(wStream* s, TS_BITMAP_DATA_EX* bmp)
 		return FALSE;
 	}
 
-	memset(&bmp->exBitmapDataHeader, 0, sizeof(TS_COMPRESSED_BITMAP_HEADER_EX));
-
 	if (bmp->flags & EX_COMPRESSED_BITMAP_HEADER_PRESENT)
 	{
 		if (!update_recv_surfcmd_bitmap_header_ex(s, &bmp->exBitmapDataHeader))
 			return FALSE;
 	}
 
-	if (Stream_GetRemainingLength(s) < bmp->bitmapDataLength)
+	bmp->bitmapData = Stream_Pointer(s);
+	if (!Stream_SafeSeek(s, bmp->bitmapDataLength))
 	{
 		WLog_ERR(TAG, "expected bitmapDataLength %" PRIu32 ", not enough data",
 		         bmp->bitmapDataLength);
 		return FALSE;
 	}
-
-	pos = Stream_GetPosition(s) + bmp->bitmapDataLength;
-	bmp->bitmapData = Stream_Pointer(s);
-	Stream_SetPosition(s, pos);
 	return TRUE;
 }
 
 static BOOL update_recv_surfcmd_is_rect_valid(const rdpContext* context,
                                               const SURFACE_BITS_COMMAND* cmd)
 {
-	assert(context);
-	assert(context->settings);
-	assert(cmd);
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(context->settings);
+	WINPR_ASSERT(cmd);
 
 	/* We need a rectangle with left/top being smaller than right/bottom.
 	 * Also do not allow empty rectangles. */
@@ -141,13 +126,11 @@ static BOOL update_recv_surfcmd_is_rect_valid(const rdpContext* context,
 
 static BOOL update_recv_surfcmd_surface_bits(rdpUpdate* update, wStream* s, UINT16 cmdType)
 {
+	BOOL rc = FALSE;
 	SURFACE_BITS_COMMAND cmd = { 0 };
 
-	if (Stream_GetRemainingLength(s) < 8)
-	{
-		WLog_ERR(TAG, "got %" PRIuz ", expected %" PRIuz " bytes", Stream_GetRemainingLength(s), 8);
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 		goto fail;
-	}
 
 	cmd.cmdType = cmdType;
 	Stream_Read_UINT16(s, cmd.destLeft);
@@ -161,34 +144,29 @@ static BOOL update_recv_surfcmd_surface_bits(rdpUpdate* update, wStream* s, UINT
 	if (!update_recv_surfcmd_bitmap_ex(s, &cmd.bmp))
 		goto fail;
 
-	if (!update->SurfaceBits)
-	{
-		WLog_ERR(TAG, "Missing callback update->SurfaceBits");
-		goto fail;
-	}
-
-	if (!update->SurfaceBits(update->context, &cmd))
+	if (!IFCALLRESULT(TRUE, update->SurfaceBits, update->context, &cmd))
 	{
 		WLog_DBG(TAG, "update->SurfaceBits implementation failed");
 		goto fail;
 	}
-	return TRUE;
+
+	rc = TRUE;
 fail:
-	return FALSE;
+	return rc;
 }
 
 static BOOL update_recv_surfcmd_frame_marker(rdpUpdate* update, wStream* s)
 {
-	SURFACE_FRAME_MARKER marker;
+	SURFACE_FRAME_MARKER marker = { 0 };
+	rdp_update_internal* up = update_cast(update);
 
-	if (Stream_GetRemainingLength(s) < 2)
-	{
-		WLog_ERR(TAG, "got %" PRIuz ", expected %" PRIuz " bytes", Stream_GetRemainingLength(s), 6);
+	WINPR_ASSERT(s);
+
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 2))
 		return FALSE;
-	}
 
 	Stream_Read_UINT16(s, marker.frameAction);
-	if (Stream_GetRemainingLength(s) < 4)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
 		WLog_WARN(TAG,
 		          "[SERVER-BUG]: got %" PRIuz ", expected %" PRIuz
 		          " bytes. [MS-RDPBCGR] 2.2.9.2.3 Frame Marker Command (TS_FRAME_MARKER) is "
@@ -196,12 +174,14 @@ static BOOL update_recv_surfcmd_frame_marker(rdpUpdate* update, wStream* s)
 		          Stream_GetRemainingLength(s), 4);
 	else
 		Stream_Read_UINT32(s, marker.frameId);
-	WLog_Print(update->log, WLOG_DEBUG,
-	           "SurfaceFrameMarker: action: %s (%" PRIu32 ") id: %" PRIu32 "",
+	WLog_Print(up->log, WLOG_DEBUG, "SurfaceFrameMarker: action: %s (%" PRIu32 ") id: %" PRIu32 "",
 	           (!marker.frameAction) ? "Begin" : "End", marker.frameAction, marker.frameId);
 
 	if (!update->SurfaceFrameMarker)
 	{
+		WINPR_ASSERT(update->context);
+		if (freerdp_settings_get_bool(update->context->settings, FreeRDP_DeactivateClientDecoding))
+			return TRUE;
 		WLog_ERR(TAG, "Missing callback update->SurfaceFrameMarker");
 		return FALSE;
 	}
@@ -217,13 +197,16 @@ static BOOL update_recv_surfcmd_frame_marker(rdpUpdate* update, wStream* s)
 
 int update_recv_surfcmds(rdpUpdate* update, wStream* s)
 {
-	BYTE* mark;
-	UINT16 cmdType;
+	UINT16 cmdType = 0;
+	rdp_update_internal* up = update_cast(update);
+
+	WINPR_ASSERT(s);
 
 	while (Stream_GetRemainingLength(s) >= 2)
 	{
 		const size_t start = Stream_GetPosition(s);
-		Stream_GetPointer(s, mark);
+		const BYTE* mark = Stream_ConstPointer(s);
+
 		Stream_Read_UINT16(s, cmdType);
 
 		switch (cmdType)
@@ -246,12 +229,12 @@ int update_recv_surfcmds(rdpUpdate* update, wStream* s)
 				return -1;
 		}
 
-		if (update->dump_rfx)
+		if (up->dump_rfx)
 		{
 			const size_t size = Stream_GetPosition(s) - start;
 			/* TODO: treat return values */
-			pcap_add_record(update->pcap_rfx, mark, size);
-			pcap_flush(update->pcap_rfx);
+			pcap_add_record(up->pcap_rfx, mark, size);
+			pcap_flush(up->pcap_rfx);
 		}
 	}
 
@@ -310,7 +293,7 @@ static BOOL update_write_surfcmd_bitmap_ex(wStream* s, const TS_BITMAP_DATA_EX* 
 
 BOOL update_write_surfcmd_surface_bits(wStream* s, const SURFACE_BITS_COMMAND* cmd)
 {
-	UINT16 cmdType;
+	UINT16 cmdType = 0;
 	if (!Stream_EnsureRemainingCapacity(s, SURFCMD_SURFACE_BITS_HEADER_LENGTH))
 		return FALSE;
 

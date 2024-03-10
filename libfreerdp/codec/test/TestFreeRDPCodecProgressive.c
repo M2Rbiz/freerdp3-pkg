@@ -4,7 +4,6 @@
 #include <winpr/image.h>
 #include <winpr/print.h>
 #include <winpr/wlog.h>
-#include <winpr/image.h>
 #include <winpr/sysinfo.h>
 #include <winpr/file.h>
 
@@ -128,12 +127,11 @@
  * 	dec_2_3_100_sampleimage3.bmp
  */
 
-struct _EGFX_SAMPLE_FILE
+typedef struct
 {
 	BYTE* buffer;
 	size_t size;
-};
-typedef struct _EGFX_SAMPLE_FILE EGFX_SAMPLE_FILE;
+} EGFX_SAMPLE_FILE;
 
 static int g_Width = 0;
 static int g_Height = 0;
@@ -152,12 +150,11 @@ static void sample_file_free(EGFX_SAMPLE_FILE* file)
 
 static void test_fill_image_alpha_channel(BYTE* data, int width, int height, BYTE value)
 {
-	int i, j;
-	UINT32* pixel;
+	UINT32* pixel = NULL;
 
-	for (i = 0; i < height; i++)
+	for (int i = 0; i < height; i++)
 	{
-		for (j = 0; j < width; j++)
+		for (int j = 0; j < width; j++)
 		{
 			pixel = (UINT32*)&data[((i * width) + j) * 4];
 			*pixel = ((*pixel & 0x00FFFFFF) | (value << 24));
@@ -178,13 +175,12 @@ static void* test_image_memset32(UINT32* ptr, UINT32 fill, size_t length)
 static int test_image_fill(BYTE* pDstData, int nDstStep, int nXDst, int nYDst, int nWidth,
                            int nHeight, UINT32 color)
 {
-	int y;
-	UINT32* pDstPixel;
+	UINT32* pDstPixel = NULL;
 
 	if (nDstStep < 0)
 		nDstStep = 4 * nWidth;
 
-	for (y = 0; y < nHeight; y++)
+	for (int y = 0; y < nHeight; y++)
 	{
 		pDstPixel = (UINT32*)&pDstData[((nYDst + y) * nDstStep) + (nXDst * 4)];
 		test_image_memset32(pDstPixel, color, nWidth);
@@ -271,24 +267,24 @@ static int test_image_fill_unused_quarters(BYTE* pDstData, int nDstStep, int nWi
 
 static BYTE* test_progressive_load_file(const char* path, const char* file, size_t* size)
 {
-	FILE* fp;
-	BYTE* buffer;
-	char* filename;
-	filename = GetCombinedPath(path, file);
+	char* filename = GetCombinedPath(path, file);
 
 	if (!filename)
 		return NULL;
 
-	fp = winpr_fopen(filename, "r");
+	FILE* fp = winpr_fopen(filename, "r");
 	free(filename);
 
 	if (!fp)
 		return NULL;
 
 	_fseeki64(fp, 0, SEEK_END);
-	*size = _ftelli64(fp);
+	const INT64 pos = _ftelli64(fp);
+	WINPR_ASSERT(pos >= 0);
+	WINPR_ASSERT(pos <= SIZE_MAX);
+	*size = (size_t)pos;
 	_fseeki64(fp, 0, SEEK_SET);
-	buffer = (BYTE*)malloc(*size);
+	BYTE* buffer = (BYTE*)malloc(*size);
 
 	if (!buffer)
 	{
@@ -537,10 +533,10 @@ static int test_progressive_load_files(char* ms_sample_path, EGFX_SAMPLE_FILE fi
 
 static BYTE* test_progressive_load_bitmap(char* path, char* file, size_t* size, int quarter)
 {
-	int status;
-	BYTE* buffer;
-	wImage* image;
-	char* filename;
+	int status = 0;
+	BYTE* buffer = NULL;
+	wImage* image = NULL;
+	char* filename = NULL;
 	filename = GetCombinedPath(path, file);
 
 	if (!filename)
@@ -794,17 +790,15 @@ static int test_progressive_load_bitmaps(char* ms_sample_path, EGFX_SAMPLE_FILE 
 	return 1;
 }
 
-static int test_memcmp_count(const BYTE* mem1, const BYTE* mem2, int size, int margin)
+static size_t test_memcmp_count(const BYTE* mem1, const BYTE* mem2, size_t size, int margin)
 {
-	int error;
-	int count = 0;
-	int index = 0;
+	size_t count = 0;
 
-	for (index = 0; index < size; index++)
+	for (size_t index = 0; index < size; index++)
 	{
 		if (*mem1 != *mem2)
 		{
-			error = (*mem1 > *mem2) ? *mem1 - *mem2 : *mem2 - *mem1;
+			const int error = (*mem1 > *mem2) ? *mem1 - *mem2 : *mem2 - *mem1;
 
 			if (error > margin)
 				count++;
@@ -820,31 +814,20 @@ static int test_memcmp_count(const BYTE* mem1, const BYTE* mem2, int size, int m
 static int test_progressive_decode(PROGRESSIVE_CONTEXT* progressive, EGFX_SAMPLE_FILE files[4],
                                    EGFX_SAMPLE_FILE bitmaps[4], int quarter, int count)
 {
-	int cnt;
-	int pass;
-	int size;
-	int index;
-	int status;
-	int nXSrc, nYSrc;
-	int nXDst, nYDst;
-	int nWidth, nHeight;
-	RECTANGLE_16 tileRect;
-	RECTANGLE_16 updateRect;
-	RECTANGLE_16 clippingRect;
-	RFX_PROGRESSIVE_TILE* tile;
-	PROGRESSIVE_BLOCK_REGION* region;
-	clippingRect.left = 0;
-	clippingRect.top = 0;
+	int nXSrc = 0;
+	int nYSrc = 0;
+
+	RECTANGLE_16 clippingRect = { 0 };
 	clippingRect.right = g_Width;
 	clippingRect.bottom = g_Height;
 
-	for (pass = 0; pass < count; pass++)
+	for (int pass = 0; pass < count; pass++)
 	{
-		status =
-		    progressive_decompress_ex(progressive, files[pass].buffer, files[pass].size, g_DstData,
-		                              PIXEL_FORMAT_XRGB32, g_DstStep, 0, 0, NULL, 0, 0);
+		const int status =
+		    progressive_decompress(progressive, files[pass].buffer, files[pass].size, g_DstData,
+		                           PIXEL_FORMAT_XRGB32, g_DstStep, 0, 0, NULL, 0, 0);
 		printf("ProgressiveDecompress: status: %d pass: %d\n", status, pass + 1);
-		region = &(progressive->region);
+		PROGRESSIVE_BLOCK_REGION* region = &(progressive->region);
 
 		switch (quarter)
 		{
@@ -877,18 +860,18 @@ static int test_progressive_decode(PROGRESSIVE_CONTEXT* progressive, EGFX_SAMPLE
 				break;
 		}
 
-		for (index = 0; index < region->numTiles; index++)
+		for (UINT16 index = 0; index < region->numTiles; index++)
 		{
-			tile = region->tiles[index];
-			tileRect.left = tile->x;
-			tileRect.top = tile->y;
-			tileRect.right = tile->x + tile->width;
-			tileRect.bottom = tile->y + tile->height;
+			RFX_PROGRESSIVE_TILE* tile = region->tiles[index];
+
+			const RECTANGLE_16 tileRect = { tile->x, tile->y, tile->x + tile->width,
+				                            tile->y + tile->height };
+			RECTANGLE_16 updateRect = { 0 };
 			rectangles_intersection(&tileRect, &clippingRect, &updateRect);
-			nXDst = updateRect.left;
-			nYDst = updateRect.top;
-			nWidth = updateRect.right - updateRect.left;
-			nHeight = updateRect.bottom - updateRect.top;
+			const UINT16 nXDst = updateRect.left;
+			const UINT16 nYDst = updateRect.top;
+			const UINT16 nWidth = updateRect.right - updateRect.left;
+			const UINT16 nHeight = updateRect.bottom - updateRect.top;
 
 			if ((nWidth <= 0) || (nHeight <= 0))
 				continue;
@@ -900,14 +883,14 @@ static int test_progressive_decode(PROGRESSIVE_CONTEXT* progressive, EGFX_SAMPLE
 			                   FREERDP_FLIP_NONE);
 		}
 
-		size = bitmaps[pass].size;
-		cnt = test_memcmp_count(g_DstData, bitmaps[pass].buffer, size, 1);
+		const size_t size = bitmaps[pass].size;
+		const size_t cnt = test_memcmp_count(g_DstData, bitmaps[pass].buffer, size, 1);
 
 		if (cnt)
 		{
-			float rate = ((float)cnt) / ((float)size) * 100.0f;
+			const float rate = ((float)cnt) / ((float)size) * 100.0f;
 			printf("Progressive RemoteFX decompression failure\n");
-			printf("Actual, Expected (%d/%d = %.3f%%):\n", cnt, size, rate);
+			printf("Actual, Expected (%" PRIuz "/%" PRIuz " = %.3f%%):\n", cnt, size, rate);
 		}
 
 		// WLog_Image(progressive->log, WLOG_TRACE, g_DstData, g_Width, g_Height, 32);
@@ -918,26 +901,23 @@ static int test_progressive_decode(PROGRESSIVE_CONTEXT* progressive, EGFX_SAMPLE
 
 static int test_progressive_ms_sample(char* ms_sample_path)
 {
-	int i, j, k;
-	int count;
-	int status;
-	EGFX_SAMPLE_FILE files[3][4][4];
-	EGFX_SAMPLE_FILE bitmaps[3][4][4];
-	PROGRESSIVE_CONTEXT* progressive;
+	int count = 0;
+	int status = 0;
+	EGFX_SAMPLE_FILE files[3][4][4] = { 0 };
+	EGFX_SAMPLE_FILE bitmaps[3][4][4] = { 0 };
+	PROGRESSIVE_CONTEXT* progressive = NULL;
 	g_Width = 1920;
 	g_Height = 1080;
 	g_DstStep = g_Width * 4;
-	ZeroMemory(files, sizeof(files));
-	ZeroMemory(bitmaps, sizeof(bitmaps));
 	status = test_progressive_load_files(ms_sample_path, files);
 
 	if (status < 0)
 	{
-		for (i = 0; i < 3; i++)
+		for (int i = 0; i < 3; i++)
 		{
-			for (j = 0; j < 4; j++)
+			for (int j = 0; j < 4; j++)
 			{
-				for (k = 0; k < 4; k++)
+				for (int k = 0; k < 4; k++)
 					sample_file_free(&files[i][j][k]);
 			}
 		}
@@ -949,11 +929,11 @@ static int test_progressive_ms_sample(char* ms_sample_path)
 
 	if (status < 0)
 	{
-		for (i = 0; i < 3; i++)
+		for (int i = 0; i < 3; i++)
 		{
-			for (j = 0; j < 4; j++)
+			for (int j = 0; j < 4; j++)
 			{
-				for (k = 0; k < 4; k++)
+				for (int k = 0; k < 4; k++)
 					sample_file_free(&files[i][j][k]);
 			}
 		}
@@ -963,7 +943,7 @@ static int test_progressive_ms_sample(char* ms_sample_path)
 
 	count = 4;
 	progressive = progressive_context_new(FALSE);
-	g_DstData = _aligned_malloc(g_DstStep * g_Height, 16);
+	g_DstData = winpr_aligned_malloc(g_DstStep * g_Height, 16);
 	progressive_create_surface_context(progressive, 0, g_Width, g_Height);
 
 	/* image 1 */
@@ -1004,11 +984,11 @@ static int test_progressive_ms_sample(char* ms_sample_path)
 
 	progressive_context_free(progressive);
 
-	for (i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 	{
-		for (j = 0; j < 4; j++)
+		for (int j = 0; j < 4; j++)
 		{
-			for (k = 0; k < 4; k++)
+			for (int k = 0; k < 4; k++)
 			{
 				sample_file_free(&bitmaps[i][j][k]);
 				sample_file_free(&files[i][j][k]);
@@ -1016,7 +996,7 @@ static int test_progressive_ms_sample(char* ms_sample_path)
 		}
 	}
 
-	_aligned_free(g_DstData);
+	winpr_aligned_free(g_DstData);
 	return 0;
 }
 
@@ -1031,10 +1011,16 @@ static BOOL diff(BYTE a, BYTE b)
 
 static BOOL colordiff(UINT32 format, UINT32 a, UINT32 b)
 {
-	BYTE ar, ag, ab, aa;
-	BYTE br, bg, bb, ba;
-	SplitColor(a, format, &ar, &ag, &ab, &aa, NULL);
-	SplitColor(b, format, &br, &bg, &bb, &ba, NULL);
+	BYTE ar = 0;
+	BYTE ag = 0;
+	BYTE ab = 0;
+	BYTE aa = 0;
+	BYTE br = 0;
+	BYTE bg = 0;
+	BYTE bb = 0;
+	BYTE ba = 0;
+	FreeRDPSplitColor(a, format, &ar, &ag, &ab, &aa, NULL);
+	FreeRDPSplitColor(b, format, &br, &bg, &bb, &ba, NULL);
 	if (!diff(aa, ba) || !diff(ar, br) || !diff(ag, bg) || !diff(ab, bb))
 		return FALSE;
 	return TRUE;
@@ -1042,9 +1028,8 @@ static BOOL colordiff(UINT32 format, UINT32 a, UINT32 b)
 
 static BOOL test_encode_decode(const char* path)
 {
-	int x, y;
 	BOOL res = FALSE;
-	int rc;
+	int rc = 0;
 	BYTE* resultData = NULL;
 	BYTE* dstData = NULL;
 	UINT32 dstSize = 0;
@@ -1069,17 +1054,17 @@ static BOOL test_encode_decode(const char* path)
 		goto fail;
 
 	// Progressive encode
-	rc = progressive_compress_ex(progressiveEnc, image->data, image->scanline * image->height,
-	                             ColorFormat, image->width, image->height, image->scanline, NULL,
-	                             &dstData, &dstSize);
+	rc = progressive_compress(progressiveEnc, image->data, image->scanline * image->height,
+	                          ColorFormat, image->width, image->height, image->scanline, NULL,
+	                          &dstData, &dstSize);
 
 	// Progressive decode
 	rc = progressive_create_surface_context(progressiveDec, 0, image->width, image->height);
 	if (rc <= 0)
 		goto fail;
 
-	rc = progressive_decompress_ex(progressiveDec, dstData, dstSize, resultData, ColorFormat,
-	                               image->scanline, 0, 0, &invalidRegion, 0, 0);
+	rc = progressive_decompress(progressiveDec, dstData, dstSize, resultData, ColorFormat,
+	                            image->scanline, 0, 0, &invalidRegion, 0, 0);
 	if (rc < 0)
 		goto fail;
 
@@ -1090,20 +1075,21 @@ static BOOL test_encode_decode(const char* path)
 		dstImage->data = resultData;
 		winpr_image_write(dstImage, "/tmp/test.bmp");
 	}
-	for (y = 0; y < image->height; y++)
+	for (UINT32 y = 0; y < image->height; y++)
 	{
 		const BYTE* orig = &image->data[y * image->scanline];
 		const BYTE* dec = &resultData[y * image->scanline];
-		for (x = 0; x < image->width; x++)
+		for (UINT32 x = 0; x < image->width; x++)
 		{
 			const BYTE* po = &orig[x * 4];
 			const BYTE* pd = &dec[x * 4];
 
-			const DWORD a = ReadColor(po, ColorFormat);
-			const DWORD b = ReadColor(pd, ColorFormat);
+			const DWORD a = FreeRDPReadColor(po, ColorFormat);
+			const DWORD b = FreeRDPReadColor(pd, ColorFormat);
 			if (!colordiff(ColorFormat, a, b))
 			{
-				printf("xxxxxxx [%u:%u] %08X != %08X\n", x, y, a, b);
+				printf("xxxxxxx [%u:%u] [%s] %08X != %08X\n", x, y,
+				       FreeRDPGetColorFormatName(ColorFormat), a, b);
 				goto fail;
 			}
 		}
@@ -1123,7 +1109,7 @@ fail:
 int TestFreeRDPCodecProgressive(int argc, char* argv[])
 {
 	int rc = -1;
-	char* ms_sample_path;
+	char* ms_sample_path = NULL;
 	char name[8192];
 	SYSTEMTIME systemTime;
 	WINPR_UNUSED(argc);

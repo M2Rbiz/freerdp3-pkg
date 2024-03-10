@@ -4,16 +4,15 @@
 #include <winpr/stream.h>
 #include <winpr/bitstream.h>
 
-void BitStrGen()
+static void BitStrGen(void)
 {
-	DWORD i, j;
-	char str[64];
+	char str[64] = { 0 };
 
-	for (i = 0; i < 256;)
+	for (DWORD i = 0; i < 256;)
 	{
 		printf("\t");
 
-		for (j = 0; j < 4; j++)
+		for (DWORD j = 0; j < 4; j++)
 		{
 			if (0)
 			{
@@ -52,9 +51,12 @@ void BitStrGen()
 
 int TestBitStream(int argc, char* argv[])
 {
-	wBitStream* bs;
-	BYTE buffer[1024];
-	ZeroMemory(buffer, sizeof(buffer));
+	wBitStream* bs = NULL;
+	BYTE buffer[1024] = { 0 };
+
+	WINPR_UNUSED(argc);
+	WINPR_UNUSED(argv);
+
 	bs = BitStream_New();
 	if (!bs)
 		return 1;
@@ -63,22 +65,22 @@ int TestBitStream(int argc, char* argv[])
 	BitStream_Write_Bits(bs, 0xF, 4);  /* 1111 */
 	BitStream_Write_Bits(bs, 0xA, 4);  /* 0101 */
 	BitStream_Flush(bs);
-	BitDump(__FUNCTION__, WLOG_INFO, buffer, bs->position, BITDUMP_MSB_FIRST);
+	BitDump(__func__, WLOG_INFO, buffer, bs->position, BITDUMP_MSB_FIRST);
 	BitStream_Write_Bits(bs, 3, 2);    /* 11 */
 	BitStream_Write_Bits(bs, 0, 3);    /* 000 */
 	BitStream_Write_Bits(bs, 0x2D, 6); /* 101101 */
 	BitStream_Write_Bits(bs, 0x19, 5); /* 11001 */
 	// BitStream_Flush(bs); /* flush should be done automatically here (32 bits written) */
-	BitDump(__FUNCTION__, WLOG_INFO, buffer, bs->position, BITDUMP_MSB_FIRST);
+	BitDump(__func__, WLOG_INFO, buffer, bs->position, BITDUMP_MSB_FIRST);
 	BitStream_Write_Bits(bs, 3, 2); /* 11 */
 	BitStream_Flush(bs);
-	BitDump(__FUNCTION__, WLOG_INFO, buffer, bs->position, BITDUMP_MSB_FIRST);
+	BitDump(__func__, WLOG_INFO, buffer, bs->position, BITDUMP_MSB_FIRST);
 	BitStream_Write_Bits(bs, 00, 2);  /* 00 */
 	BitStream_Write_Bits(bs, 0xF, 4); /* 1111 */
 	BitStream_Write_Bits(bs, 0, 20);
 	BitStream_Write_Bits(bs, 0xAFF, 12); /* 111111110101 */
 	BitStream_Flush(bs);
-	BitDump(__FUNCTION__, WLOG_INFO, buffer, bs->position, BITDUMP_MSB_FIRST);
+	BitDump(__func__, WLOG_INFO, buffer, bs->position, BITDUMP_MSB_FIRST);
 	BitStream_Free(bs);
 	return 0;
 }

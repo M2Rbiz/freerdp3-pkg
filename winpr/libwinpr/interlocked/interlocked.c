@@ -17,10 +17,9 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
+#include <winpr/platform.h>
 #include <winpr/synch.h>
 #include <winpr/handle.h>
 
@@ -110,7 +109,7 @@ WINPR_PSLIST_ENTRY InterlockedPopEntrySList(WINPR_PSLIST_HEADER ListHead)
 {
 	WINPR_SLIST_HEADER old;
 	WINPR_SLIST_HEADER newHeader;
-	WINPR_PSLIST_ENTRY entry;
+	WINPR_PSLIST_ENTRY entry = NULL;
 
 #ifdef _WIN64
 	while (1)
@@ -222,8 +221,11 @@ USHORT QueryDepthSList(WINPR_PSLIST_HEADER ListHead)
 
 LONG InterlockedIncrement(LONG volatile* Addend)
 {
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_ATOMIC_SEQ_CST
 	return __sync_add_and_fetch(Addend, 1);
+	WINPR_PRAGMA_DIAG_POP
 #else
 	return 0;
 #endif
@@ -231,8 +233,11 @@ LONG InterlockedIncrement(LONG volatile* Addend)
 
 LONG InterlockedDecrement(LONG volatile* Addend)
 {
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_ATOMIC_SEQ_CST
 	return __sync_sub_and_fetch(Addend, 1);
+	WINPR_PRAGMA_DIAG_POP
 #else
 	return 0;
 #endif
@@ -240,8 +245,11 @@ LONG InterlockedDecrement(LONG volatile* Addend)
 
 LONG InterlockedExchange(LONG volatile* Target, LONG Value)
 {
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_ATOMIC_SEQ_CST
 	return __sync_val_compare_and_swap(Target, *Target, Value);
+	WINPR_PRAGMA_DIAG_POP
 #else
 	return 0;
 #endif
@@ -249,8 +257,11 @@ LONG InterlockedExchange(LONG volatile* Target, LONG Value)
 
 LONG InterlockedExchangeAdd(LONG volatile* Addend, LONG Value)
 {
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_ATOMIC_SEQ_CST
 	return __sync_fetch_and_add(Addend, Value);
+	WINPR_PRAGMA_DIAG_POP
 #else
 	return 0;
 #endif
@@ -258,8 +269,11 @@ LONG InterlockedExchangeAdd(LONG volatile* Addend, LONG Value)
 
 LONG InterlockedCompareExchange(LONG volatile* Destination, LONG Exchange, LONG Comperand)
 {
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_ATOMIC_SEQ_CST
 	return __sync_val_compare_and_swap(Destination, Comperand, Exchange);
+	WINPR_PRAGMA_DIAG_POP
 #else
 	return 0;
 #endif
@@ -268,8 +282,11 @@ LONG InterlockedCompareExchange(LONG volatile* Destination, LONG Exchange, LONG 
 PVOID InterlockedCompareExchangePointer(PVOID volatile* Destination, PVOID Exchange,
                                         PVOID Comperand)
 {
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_ATOMIC_SEQ_CST
 	return __sync_val_compare_and_swap(Destination, Comperand, Exchange);
+	WINPR_PRAGMA_DIAG_POP
 #else
 	return 0;
 #endif
@@ -349,8 +366,11 @@ LONGLONG InterlockedCompareExchange64(LONGLONG volatile* Destination, LONGLONG E
 LONGLONG InterlockedCompareExchange64(LONGLONG volatile* Destination, LONGLONG Exchange,
                                       LONGLONG Comperand)
 {
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_ATOMIC_SEQ_CST
 	return __sync_val_compare_and_swap(Destination, Comperand, Exchange);
+	WINPR_PRAGMA_DIAG_POP
 #else
 	return 0;
 #endif
@@ -380,8 +400,8 @@ BOOL IsListEmpty(const WINPR_LIST_ENTRY* ListHead)
 
 BOOL RemoveEntryList(WINPR_PLIST_ENTRY Entry)
 {
-	WINPR_PLIST_ENTRY OldFlink;
-	WINPR_PLIST_ENTRY OldBlink;
+	WINPR_PLIST_ENTRY OldFlink = NULL;
+	WINPR_PLIST_ENTRY OldBlink = NULL;
 
 	OldFlink = Entry->Flink;
 	OldBlink = Entry->Blink;
@@ -393,7 +413,7 @@ BOOL RemoveEntryList(WINPR_PLIST_ENTRY Entry)
 
 VOID InsertHeadList(WINPR_PLIST_ENTRY ListHead, WINPR_PLIST_ENTRY Entry)
 {
-	WINPR_PLIST_ENTRY OldFlink;
+	WINPR_PLIST_ENTRY OldFlink = NULL;
 
 	OldFlink = ListHead->Flink;
 	Entry->Flink = OldFlink;
@@ -404,8 +424,8 @@ VOID InsertHeadList(WINPR_PLIST_ENTRY ListHead, WINPR_PLIST_ENTRY Entry)
 
 WINPR_PLIST_ENTRY RemoveHeadList(WINPR_PLIST_ENTRY ListHead)
 {
-	WINPR_PLIST_ENTRY Flink;
-	WINPR_PLIST_ENTRY Entry;
+	WINPR_PLIST_ENTRY Flink = NULL;
+	WINPR_PLIST_ENTRY Entry = NULL;
 
 	Entry = ListHead->Flink;
 	Flink = Entry->Flink;
@@ -417,7 +437,7 @@ WINPR_PLIST_ENTRY RemoveHeadList(WINPR_PLIST_ENTRY ListHead)
 
 VOID InsertTailList(WINPR_PLIST_ENTRY ListHead, WINPR_PLIST_ENTRY Entry)
 {
-	WINPR_PLIST_ENTRY OldBlink;
+	WINPR_PLIST_ENTRY OldBlink = NULL;
 
 	OldBlink = ListHead->Blink;
 	Entry->Flink = ListHead;
@@ -428,8 +448,8 @@ VOID InsertTailList(WINPR_PLIST_ENTRY ListHead, WINPR_PLIST_ENTRY Entry)
 
 WINPR_PLIST_ENTRY RemoveTailList(WINPR_PLIST_ENTRY ListHead)
 {
-	WINPR_PLIST_ENTRY Blink;
-	WINPR_PLIST_ENTRY Entry;
+	WINPR_PLIST_ENTRY Blink = NULL;
+	WINPR_PLIST_ENTRY Entry = NULL;
 
 	Entry = ListHead->Blink;
 	Blink = Entry->Blink;
@@ -457,7 +477,7 @@ VOID PushEntryList(WINPR_PSINGLE_LIST_ENTRY ListHead, WINPR_PSINGLE_LIST_ENTRY E
 
 WINPR_PSINGLE_LIST_ENTRY PopEntryList(WINPR_PSINGLE_LIST_ENTRY ListHead)
 {
-	WINPR_PSINGLE_LIST_ENTRY FirstEntry;
+	WINPR_PSINGLE_LIST_ENTRY FirstEntry = NULL;
 
 	FirstEntry = ListHead->Next;
 

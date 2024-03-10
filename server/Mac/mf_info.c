@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdlib.h>
 #include <errno.h>
@@ -126,7 +124,6 @@ void mf_info_peer_register(mfInfo* mfi, mfPeerContext* context)
 {
 	if (mf_info_lock(mfi) > 0)
 	{
-		int i;
 		int peerId;
 
 		if (mfi->peerCount == MF_INFO_MAXPEERS)
@@ -146,7 +143,7 @@ void mf_info_peer_register(mfInfo* mfi, mfPeerContext* context)
 
 		peerId = 0;
 
-		for (i = 0; i < MF_INFO_MAXPEERS; ++i)
+		for (int i = 0; i < MF_INFO_MAXPEERS; ++i)
 		{
 			// empty index will be our peer id
 			if (mfi->peers[i] == NULL)
@@ -210,7 +207,7 @@ void mf_info_invalidate_full_screen(mfInfo* mfi)
 	mfi->invalid.x = 0;
 	mfi->invalid.y = 0;
 	mfi->invalid.height = mfi->servscreen_height;
-	mfi->invalid.height = mfi->servscreen_width;
+	mfi->invalid.width = mfi->servscreen_width;
 }
 
 BOOL mf_info_have_invalid_region(mfInfo* mfi)

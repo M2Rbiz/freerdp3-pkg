@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,7 +48,7 @@ struct LanguageIdentifier
 	const char* SublanguageSymbol;
 };
 
-const struct LanguageIdentifier language_identifiers[] = {
+static const struct LanguageIdentifier language_identifiers[] = {
 	/* 	[Language identifier]		[Primary language]		[Prim. lang. identifier]		[Prim.
 	   lang. symbol]		[Sublanguage]		[Sublang. identifier]		[Sublang. symbol]	*/
 	{ "", 0xc00, "Default custom locale language", 0x0, "LANG_NEUTRAL",
@@ -710,13 +708,12 @@ static const RDP_KEYBOARD_LAYOUT RDP_KEYBOARD_LAYOUT_TABLE[] = {
 	{ 0x0000046a, "Yoruba" },
 };
 
-struct _RDP_KEYBOARD_LAYOUT_VARIANT
+typedef struct
 {
 	DWORD code;       /* Keyboard layout code */
 	DWORD id;         /* Keyboard variant ID */
 	const char* name; /* Keyboard layout variant name */
-};
-typedef struct _RDP_KEYBOARD_LAYOUT_VARIANT RDP_KEYBOARD_LAYOUT_VARIANT;
+} RDP_KEYBOARD_LAYOUT_VARIANT;
 
 static const RDP_KEYBOARD_LAYOUT_VARIANT RDP_KEYBOARD_LAYOUT_VARIANT_TABLE[] = {
 	{ KBD_ARABIC_102, 0x0028, "Arabic (102)" },
@@ -768,13 +765,12 @@ static const RDP_KEYBOARD_LAYOUT_VARIANT RDP_KEYBOARD_LAYOUT_VARIANT_TABLE[] = {
 
 /* Input Method Editor (IME) */
 
-struct _RDP_KEYBOARD_IME
+typedef struct
 {
 	DWORD code;       /* Keyboard layout code */
 	const char* file; /* IME file */
 	const char* name; /* Keyboard layout name */
-};
-typedef struct _RDP_KEYBOARD_IME RDP_KEYBOARD_IME;
+} RDP_KEYBOARD_IME;
 
 /* Global Input Method Editors (IME) */
 
@@ -801,15 +797,14 @@ static const RDP_KEYBOARD_IME RDP_KEYBOARD_IME_TABLE[] = {
 	{ KBD_CHINESE_TRADITIONAL_ALPHANUMERIC, "romanime.ime", "Chinese (Traditional) - Alphanumeric" }
 };
 
-void freerdp_keyboard_layouts_free(RDP_KEYBOARD_LAYOUT* layouts)
+void freerdp_keyboard_layouts_free(RDP_KEYBOARD_LAYOUT* layouts, size_t count)
 {
-	RDP_KEYBOARD_LAYOUT* current = layouts;
-
 	if (!layouts)
 		return;
 
-	while ((current->code != 0) && (current->name != NULL))
+	for (size_t x = 0; x < count; x++)
 	{
+		RDP_KEYBOARD_LAYOUT* current = &layouts[x];
 		free(current->name);
 		current++;
 	}
@@ -817,29 +812,28 @@ void freerdp_keyboard_layouts_free(RDP_KEYBOARD_LAYOUT* layouts)
 	free(layouts);
 }
 
-RDP_KEYBOARD_LAYOUT* freerdp_keyboard_get_layouts(DWORD types)
+RDP_KEYBOARD_LAYOUT* freerdp_keyboard_get_layouts(DWORD types, size_t* count)
 {
-	size_t num, length, i;
-	RDP_KEYBOARD_LAYOUT* layouts;
-	RDP_KEYBOARD_LAYOUT* new;
-	num = 0;
-	layouts = (RDP_KEYBOARD_LAYOUT*)calloc((num + 1), sizeof(RDP_KEYBOARD_LAYOUT));
+	size_t num = 0;
+	RDP_KEYBOARD_LAYOUT* layouts = NULL;
 
-	if (!layouts)
-		return NULL;
+	num = 0;
+
+	WINPR_ASSERT(count);
+	*count = 0;
 
 	if ((types & RDP_KEYBOARD_LAYOUT_TYPE_STANDARD) != 0)
 	{
-		length = ARRAYSIZE(RDP_KEYBOARD_LAYOUT_TABLE);
-		new = (RDP_KEYBOARD_LAYOUT*)realloc(layouts,
-		                                    (num + length + 1) * sizeof(RDP_KEYBOARD_LAYOUT));
+		const size_t length = ARRAYSIZE(RDP_KEYBOARD_LAYOUT_TABLE);
+		RDP_KEYBOARD_LAYOUT* new = (RDP_KEYBOARD_LAYOUT*)realloc(
+		    layouts, (num + length + 1) * sizeof(RDP_KEYBOARD_LAYOUT));
 
 		if (!new)
 			goto fail;
 
 		layouts = new;
 
-		for (i = 0; i < length; i++, num++)
+		for (size_t i = 0; i < length; i++, num++)
 		{
 			layouts[num].code = RDP_KEYBOARD_LAYOUT_TABLE[i].code;
 			layouts[num].name = _strdup(RDP_KEYBOARD_LAYOUT_TABLE[i].name);
@@ -851,16 +845,16 @@ RDP_KEYBOARD_LAYOUT* freerdp_keyboard_get_layouts(DWORD types)
 
 	if ((types & RDP_KEYBOARD_LAYOUT_TYPE_VARIANT) != 0)
 	{
-		length = ARRAYSIZE(RDP_KEYBOARD_LAYOUT_VARIANT_TABLE);
-		new = (RDP_KEYBOARD_LAYOUT*)realloc(layouts,
-		                                    (num + length + 1) * sizeof(RDP_KEYBOARD_LAYOUT));
+		const size_t length = ARRAYSIZE(RDP_KEYBOARD_LAYOUT_VARIANT_TABLE);
+		RDP_KEYBOARD_LAYOUT* new = (RDP_KEYBOARD_LAYOUT*)realloc(
+		    layouts, (num + length + 1) * sizeof(RDP_KEYBOARD_LAYOUT));
 
 		if (!new)
 			goto fail;
 
 		layouts = new;
 
-		for (i = 0; i < length; i++, num++)
+		for (size_t i = 0; i < length; i++, num++)
 		{
 			layouts[num].code = RDP_KEYBOARD_LAYOUT_VARIANT_TABLE[i].code;
 			layouts[num].name = _strdup(RDP_KEYBOARD_LAYOUT_VARIANT_TABLE[i].name);
@@ -872,16 +866,16 @@ RDP_KEYBOARD_LAYOUT* freerdp_keyboard_get_layouts(DWORD types)
 
 	if ((types & RDP_KEYBOARD_LAYOUT_TYPE_IME) != 0)
 	{
-		length = ARRAYSIZE(RDP_KEYBOARD_IME_TABLE);
-		new = (RDP_KEYBOARD_LAYOUT*)realloc(layouts,
-		                                    (num + length + 1) * sizeof(RDP_KEYBOARD_LAYOUT));
+		const size_t length = ARRAYSIZE(RDP_KEYBOARD_IME_TABLE);
+		RDP_KEYBOARD_LAYOUT* new = (RDP_KEYBOARD_LAYOUT*)realloc(
+		    layouts, (num + length + 1) * sizeof(RDP_KEYBOARD_LAYOUT));
 
 		if (!new)
 			goto fail;
 
 		layouts = new;
 
-		for (i = 0; i < length; i++, num++)
+		for (size_t i = 0; i < length; i++, num++)
 		{
 			layouts[num].code = RDP_KEYBOARD_IME_TABLE[i].code;
 			layouts[num].name = _strdup(RDP_KEYBOARD_IME_TABLE[i].name);
@@ -891,30 +885,28 @@ RDP_KEYBOARD_LAYOUT* freerdp_keyboard_get_layouts(DWORD types)
 		}
 	}
 
-	ZeroMemory(&layouts[num], sizeof(RDP_KEYBOARD_LAYOUT));
+	*count = num;
 	return layouts;
 fail:
-	freerdp_keyboard_layouts_free(layouts);
+	freerdp_keyboard_layouts_free(layouts, num);
 	return NULL;
 }
 
 const char* freerdp_keyboard_get_layout_name_from_id(DWORD keyboardLayoutID)
 {
-	size_t i;
-
-	for (i = 0; i < ARRAYSIZE(RDP_KEYBOARD_LAYOUT_TABLE); i++)
+	for (size_t i = 0; i < ARRAYSIZE(RDP_KEYBOARD_LAYOUT_TABLE); i++)
 	{
 		if (RDP_KEYBOARD_LAYOUT_TABLE[i].code == keyboardLayoutID)
 			return RDP_KEYBOARD_LAYOUT_TABLE[i].name;
 	}
 
-	for (i = 0; i < ARRAYSIZE(RDP_KEYBOARD_LAYOUT_VARIANT_TABLE); i++)
+	for (size_t i = 0; i < ARRAYSIZE(RDP_KEYBOARD_LAYOUT_VARIANT_TABLE); i++)
 	{
 		if (RDP_KEYBOARD_LAYOUT_VARIANT_TABLE[i].code == keyboardLayoutID)
 			return RDP_KEYBOARD_LAYOUT_VARIANT_TABLE[i].name;
 	}
 
-	for (i = 0; i < ARRAYSIZE(RDP_KEYBOARD_IME_TABLE); i++)
+	for (size_t i = 0; i < ARRAYSIZE(RDP_KEYBOARD_IME_TABLE); i++)
 	{
 		if (RDP_KEYBOARD_IME_TABLE[i].code == keyboardLayoutID)
 			return RDP_KEYBOARD_IME_TABLE[i].name;
@@ -925,21 +917,19 @@ const char* freerdp_keyboard_get_layout_name_from_id(DWORD keyboardLayoutID)
 
 DWORD freerdp_keyboard_get_layout_id_from_name(const char* name)
 {
-	size_t i;
-
-	for (i = 0; i < ARRAYSIZE(RDP_KEYBOARD_LAYOUT_TABLE); i++)
+	for (size_t i = 0; i < ARRAYSIZE(RDP_KEYBOARD_LAYOUT_TABLE); i++)
 	{
 		if (strcmp(RDP_KEYBOARD_LAYOUT_TABLE[i].name, name) == 0)
 			return RDP_KEYBOARD_LAYOUT_TABLE[i].code;
 	}
 
-	for (i = 0; i < ARRAYSIZE(RDP_KEYBOARD_LAYOUT_VARIANT_TABLE); i++)
+	for (size_t i = 0; i < ARRAYSIZE(RDP_KEYBOARD_LAYOUT_VARIANT_TABLE); i++)
 	{
 		if (strcmp(RDP_KEYBOARD_LAYOUT_VARIANT_TABLE[i].name, name) == 0)
 			return RDP_KEYBOARD_LAYOUT_VARIANT_TABLE[i].code;
 	}
 
-	for (i = 0; i < ARRAYSIZE(RDP_KEYBOARD_IME_TABLE); i++)
+	for (size_t i = 0; i < ARRAYSIZE(RDP_KEYBOARD_IME_TABLE); i++)
 	{
 		if (strcmp(RDP_KEYBOARD_IME_TABLE[i].name, name) == 0)
 			return RDP_KEYBOARD_IME_TABLE[i].code;
@@ -969,7 +959,7 @@ static void copy(const struct LanguageIdentifier* id, RDP_CODEPAGE* cp)
 static BOOL copyOnMatch(DWORD column, const char* filter, const struct LanguageIdentifier* cur,
                         RDP_CODEPAGE* dst)
 {
-	const char* what;
+	const char* what = NULL;
 	switch (column)
 	{
 		case 0:
@@ -1003,7 +993,6 @@ static BOOL copyOnMatch(DWORD column, const char* filter, const struct LanguageI
 RDP_CODEPAGE* freerdp_keyboard_get_matching_codepages(DWORD column, const char* filter,
                                                       size_t* count)
 {
-	size_t x;
 	size_t cnt = 0;
 	const size_t c = ARRAYSIZE(language_identifiers);
 	RDP_CODEPAGE* pages = calloc(ARRAYSIZE(language_identifiers), sizeof(RDP_CODEPAGE));
@@ -1017,7 +1006,7 @@ RDP_CODEPAGE* freerdp_keyboard_get_matching_codepages(DWORD column, const char* 
 	if (column > 4)
 		goto fail;
 
-	for (x = 0; x < c; x++)
+	for (size_t x = 0; x < c; x++)
 	{
 		const struct LanguageIdentifier* cur = &language_identifiers[x];
 		if (copyOnMatch(column, filter, cur, &pages[cnt]))

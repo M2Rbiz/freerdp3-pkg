@@ -23,6 +23,9 @@ set(WINPR_LIBS_PRIVATE "")
 set(WINPR_LIBS_PUBLIC "")
 set(WINPR_INCLUDES "")
 set(WINPR_DEFINITIONS "")
+set(WINPR_COMPILE_OPTIONS "")
+set(WINPR_LINK_OPTIONS "")
+set(WINPR_LINK_DIRS "")
 
 macro (winpr_module_add)
     file (RELATIVE_PATH _relPath "${WINPR_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -77,16 +80,54 @@ macro (winpr_definition_add)
      set (WINPR_DEFINITIONS ${WINPR_DEFINITIONS} PARENT_SCOPE)
 endmacro()
 
+macro (winpr_library_add_compile_options)
+    foreach (_define ${ARGN})
+	    list (APPEND WINPR_COMPILE_OPTIONS "${_define}")
+    endforeach()
+    set (WINPR_COMPILE_OPTIONS ${WINPR_COMPILE_OPTIONS} PARENT_SCOPE)
+endmacro()
+
+macro (winpr_library_add_link_options)
+    foreach (_define ${ARGN})
+	    list (APPEND WINPR_LINK_OPTIONS "${_define}")
+    endforeach()
+    set (WINPR_LINK_OPTIONS ${WINPR_LINK_OPTIONS} PARENT_SCOPE)
+endmacro()
+
+macro (winpr_library_add_link_directory)
+    foreach (_define ${ARGN})
+	    list (APPEND WINPR_LINK_DIRS "${_define}")
+    endforeach()
+    set (WINPR_LINK_DIRS ${WINPR_LINK_DIRS} PARENT_SCOPE)
+endmacro()
+
 set(CMAKE_REQUIRED_LIBRARIES rt)
-if (NOT IOS)
-	check_function_exists(timer_create TIMER_CREATE)
-	check_function_exists(timer_delete TIMER_DELETE)
-	check_function_exists(timer_settime TIMER_SETTIME)
-	check_function_exists(timer_gettime TIMER_GETTIME)
-	if (TIMER_CREATE AND TIMER_DELETE AND TIMER_SETTIME AND TIMER_GETTIME)
-			add_definitions(-DWITH_POSIX_TIMER)
-		winpr_library_add_private(rt)
+
+find_package(uriparser)
+option(WITH_URIPARSER "use uriparser library to handle URIs" ${uriparser_FOUND})
+if (WITH_URIPARSER)
+	find_package(uriparser CONFIG COMPONENTS char)
+	if (uriparser_FOUND)
+		winpr_library_add_private(uriparser::uriparser)
+	else()
+		find_package(PkgConfig REQUIRED)
+		pkg_check_modules(uriparser REQUIRED liburiparser)
+		winpr_include_directory_add(${uriparser_INCLUDEDIR})
+		winpr_include_directory_add(${uriparser_INCLUDE_DIRS})
+		winpr_library_add_private(${uriparser_LIBRARIES})
 	endif()
+	add_definitions("-DWITH_URIPARSER")
+endif()
+
+if(NOT IOS)
+    check_function_exists(timer_create TIMER_CREATE)
+    check_function_exists(timer_delete TIMER_DELETE)
+    check_function_exists(timer_settime TIMER_SETTIME)
+    check_function_exists(timer_gettime TIMER_GETTIME)
+    if (TIMER_CREATE AND TIMER_DELETE AND TIMER_SETTIME AND TIMER_GETTIME)
+        add_definitions(-DWITH_POSIX_TIMER)
+        winpr_library_add_private(rt)
+    endif()
 endif()
 
 if (ANDROID)
@@ -94,17 +135,17 @@ if (ANDROID)
 endif()
 
 # Level "1" API as defined for MinCore.lib
-set(WINPR_CORE synch locale library file comm pipe interlocked security
-	environment crypto registry credentials path io memory input shell
-	heap utils error timezone sysinfo pool handle thread)
+set(WINPR_CORE synch library file comm pipe interlocked security
+	environment crypto registry path io memory ncrypt input shell
+	utils error timezone sysinfo pool handle thread)
 
 foreach(DIR ${WINPR_CORE})
 	add_subdirectory(${DIR})
 	source_group("${DIR}" REGULAR_EXPRESSION "${DIR}/.*\\.[ch]")
 endforeach()
 
-set(WINPR_LEVEL2 winsock sspi winhttp asn1 sspicli crt bcrypt rpc credui
-	wtsapi dsparse wnd smartcard nt clipboard)
+set(WINPR_LEVEL2 winsock sspi sspicli crt bcrypt rpc
+	wtsapi dsparse smartcard nt clipboard)
 
 foreach(DIR ${WINPR_LEVEL2})
 	add_subdirectory(${DIR})
@@ -113,10 +154,12 @@ endforeach()
 
 set(MODULE_NAME winpr)
 list(REMOVE_DUPLICATES WINPR_DEFINITIONS)
+list(REMOVE_DUPLICATES WINPR_COMPILE_OPTIONS)
+list(REMOVE_DUPLICATES WINPR_LINK_OPTIONS)
+list(REMOVE_DUPLICATES WINPR_LINK_DIRS)
 list(REMOVE_DUPLICATES WINPR_LIBS_PRIVATE)
 list(REMOVE_DUPLICATES WINPR_LIBS_PUBLIC)
 list(REMOVE_DUPLICATES WINPR_INCLUDES)
-include_directories(${WINPR_INCLUDES})
 
 # On windows create dll version information.
 # Vendor, product and year are already set in top level CMakeLists.txt
@@ -124,10 +167,10 @@ if (WIN32)
   set (RC_VERSION_MAJOR ${WINPR_VERSION_MAJOR})
   set (RC_VERSION_MINOR ${WINPR_VERSION_MINOR})
   set (RC_VERSION_BUILD ${WINPR_VERSION_REVISION})
-  set (RC_VERSION_FILE "${CMAKE_SHARED_LIBRARY_PREFIX}${MODULE_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}" )
+  set (RC_VERSION_FILE "${CMAKE_SHARED_LIBRARY_PREFIX}${MODULE_NAME}${WINPR_API_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}" )
 
   configure_file(
-    ${CMAKE_SOURCE_DIR}/cmake/WindowsDLLVersion.rc.in
+    ${PROJECT_SOURCE_DIR}/cmake/WindowsDLLVersion.rc.in
     ${CMAKE_CURRENT_BINARY_DIR}/version.rc
     @ONLY)
 
@@ -136,15 +179,33 @@ if (WIN32)
 endif()
 
 add_library(${MODULE_NAME} ${WINPR_SRCS})
+if (APPLE)
+    set_target_properties(${MODULE_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION FALSE)
+endif()
 set_target_properties(${MODULE_NAME} PROPERTIES LINKER_LANGUAGE C)
 set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME ${MODULE_NAME}${WINPR_API_VERSION})
 if (WITH_LIBRARY_VERSIONING)
     set_target_properties(${MODULE_NAME} PROPERTIES VERSION ${WINPR_VERSION} SOVERSION ${WINPR_API_VERSION})
 endif()
 
-add_definitions(${WINPR_DEFINITIONS})
-target_link_libraries(${MODULE_NAME} ${PRIVATE_KEYWORD} ${WINPR_LIBS_PRIVATE} ${PUBLIC_KEYWORD} ${WINPR_LIBS_PUBLIC})
-install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries EXPORT WinPRTargets)
+if (NOT BUILD_SHARED_LIBS)
+    set(LINK_OPTS_MODE PUBLIC)
+else()
+    set(LINK_OPTS_MODE PRIVATE)
+endif()
+target_link_options(${MODULE_NAME} ${LINK_OPTS_MODE} ${WINPR_LINK_OPTIONS})
+target_include_directories(${MODULE_NAME} PRIVATE ${WINPR_INCLUDES})
+target_include_directories(${MODULE_NAME} INTERFACE $<INSTALL_INTERFACE:include/winpr${WINPR_VERSION_MAJOR}>)
+target_link_directories(${MODULE_NAME} PRIVATE ${WINPR_LINK_DIRS})
+target_compile_options(${MODULE_NAME} PRIVATE ${WINPR_COMPILE_OPTIONS})
+target_compile_definitions(${MODULE_NAME} PRIVATE ${WINPR_DEFINITIONS})
+
+target_link_libraries(${MODULE_NAME} PRIVATE ${WINPR_LIBS_PRIVATE} PUBLIC ${WINPR_LIBS_PUBLIC})
+install(TARGETS ${MODULE_NAME} COMPONENT libraries EXPORT WinPRTargets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
 if (WITH_DEBUG_SYMBOLS AND MSVC AND BUILD_SHARED_LIBS)
     get_target_property(OUTPUT_FILENAME ${MODULE_NAME} OUTPUT_NAME)
     install(FILES ${CMAKE_PDB_BINARY_DIR}/${OUTPUT_FILENAME}.pdb DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT symbols)

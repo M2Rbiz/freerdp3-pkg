@@ -1,7 +1,7 @@
 
 /*
 #define DEFINE_UNICODE		FALSE
-#define _PATH_SEPARATOR_CHR	'\\'
+#define CUR_PATH_SEPARATOR_CHR	'\\'
 #define PATH_CCH_ADD_EXTENSION	PathCchAddExtensionA
 */
 
@@ -9,7 +9,6 @@
 
 HRESULT PATH_CCH_ADD_EXTENSION(PWSTR pszPath, size_t cchPath, PCWSTR pszExt)
 {
-#ifdef _WIN32
 	LPWSTR pDot;
 	BOOL bExtDot;
 	LPWSTR pBackslash;
@@ -22,12 +21,12 @@ HRESULT PATH_CCH_ADD_EXTENSION(PWSTR pszPath, size_t cchPath, PCWSTR pszExt)
 	if (!pszExt)
 		return E_INVALIDARG;
 
-	pszExtLength = lstrlenW(pszExt);
-	pszPathLength = lstrlenW(pszPath);
+	pszExtLength = _wcslen(pszExt);
+	pszPathLength = _wcslen(pszPath);
 	bExtDot = (pszExt[0] == '.') ? TRUE : FALSE;
 
-	pDot = wcsrchr(pszPath, '.');
-	pBackslash = wcsrchr(pszPath, _PATH_SEPARATOR_CHR);
+	pDot = _wcsrchr(pszPath, '.');
+	pBackslash = _wcsrchr(pszPath, CUR_PATH_SEPARATOR_CHR);
 
 	if (pDot && pBackslash)
 	{
@@ -37,14 +36,17 @@ HRESULT PATH_CCH_ADD_EXTENSION(PWSTR pszPath, size_t cchPath, PCWSTR pszExt)
 
 	if (cchPath > pszPathLength + pszExtLength + ((bExtDot) ? 0 : 1))
 	{
-		if (bExtDot)
-			swprintf_s(&pszPath[pszPathLength], cchPath - pszPathLength, L"%s", pszExt);
-		else
-			swprintf_s(&pszPath[pszPathLength], cchPath - pszPathLength, L".%s", pszExt);
+		const WCHAR dot[] = { '.', '\0' };
+		WCHAR* ptr = &pszPath[pszPathLength];
+		*ptr = '\0';
+
+		if (!bExtDot)
+			_wcsncat(ptr, dot, _wcslen(dot));
+		_wcsncat(ptr, pszExt, pszExtLength);
 
 		return S_OK;
 	}
-#endif
+
 	return HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER);
 }
 
@@ -64,12 +66,12 @@ HRESULT PATH_CCH_ADD_EXTENSION(PSTR pszPath, size_t cchPath, PCSTR pszExt)
 	if (!pszExt)
 		return E_INVALIDARG;
 
-	pszExtLength = lstrlenA(pszExt);
-	pszPathLength = lstrlenA(pszPath);
+	pszExtLength = strlen(pszExt);
+	pszPathLength = strlen(pszPath);
 	bExtDot = (pszExt[0] == '.') ? TRUE : FALSE;
 
 	pDot = strrchr(pszPath, '.');
-	pBackslash = strrchr(pszPath, _PATH_SEPARATOR_CHR);
+	pBackslash = strrchr(pszPath, CUR_PATH_SEPARATOR_CHR);
 
 	if (pDot && pBackslash)
 	{
@@ -94,6 +96,6 @@ HRESULT PATH_CCH_ADD_EXTENSION(PSTR pszPath, size_t cchPath, PCSTR pszExt)
 
 /*
 #undef DEFINE_UNICODE
-#undef _PATH_SEPARATOR_CHR
+#undef CUR_PATH_SEPARATOR_CHR
 #undef PATH_CCH_ADD_EXTENSION
 */

@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <freerdp/types.h>
 #include <freerdp/primitives.h>
@@ -39,15 +37,15 @@ static primitives_t* generic = NULL;
 
 #ifdef WITH_SSE2
 /* ------------------------------------------------------------------------- */
-static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R_invert(const BYTE* pSrc, UINT32 srcStep, BYTE* pDst,
-                                                  UINT32 DstFormat, UINT32 dstStep, UINT32 width,
-                                                  UINT32 height, UINT8 shift, BOOL withAlpha)
+static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R_invert(const BYTE* WINPR_RESTRICT pSrc, UINT32 srcStep,
+                                                  BYTE* WINPR_RESTRICT pDst, UINT32 DstFormat,
+                                                  UINT32 dstStep, UINT32 width, UINT32 height,
+                                                  UINT8 shift, BOOL withAlpha)
 {
 	const BYTE* sptr = pSrc;
 	BYTE* dptr = (BYTE*)pDst;
 	int sRowBump = srcStep - width * sizeof(UINT32);
 	int dRowBump = dstStep - width * sizeof(UINT32);
-	UINT32 h;
 	/* Shift left by "shift" and divide by two is the same as shift
 	 * left by "shift-1".
 	 */
@@ -70,15 +68,15 @@ static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R_invert(const BYTE* pSrc, UINT32 srcSt
 		                                   shift, withAlpha);
 	}
 
-	for (h = 0; h < height; h++)
+	for (UINT32 h = 0; h < height; h++)
 	{
 		UINT32 w = width;
-		BOOL onStride;
+		BOOL onStride = 0;
 
 		/* Get to a 16-byte destination boundary. */
 		if ((ULONG_PTR)dptr & 0x0f)
 		{
-			pstatus_t status;
+			pstatus_t status = 0;
 			UINT32 startup = (16 - ((ULONG_PTR)dptr & 0x0f)) / 4;
 
 			if (startup > width)
@@ -100,22 +98,29 @@ static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R_invert(const BYTE* pSrc, UINT32 srcSt
 
 		while (w >= 8)
 		{
-			__m128i R0, R1, R2, R3, R4, R5, R6, R7;
+			__m128i R0;
+			__m128i R1;
+			__m128i R2;
+			__m128i R3;
+			__m128i R4;
+			__m128i R5;
+			__m128i R6;
+			__m128i R7;
 
 			if (onStride)
 			{
 				/* The faster path, 16-byte aligned load. */
-				R0 = _mm_load_si128((__m128i*)sptr);
+				R0 = _mm_load_si128((const __m128i*)sptr);
 				sptr += (128 / 8);
-				R1 = _mm_load_si128((__m128i*)sptr);
+				R1 = _mm_load_si128((const __m128i*)sptr);
 				sptr += (128 / 8);
 			}
 			else
 			{
 				/* Off-stride, slower LDDQU load. */
-				R0 = _mm_lddqu_si128((__m128i*)sptr);
+				R0 = _mm_lddqu_si128((const __m128i*)sptr);
 				sptr += (128 / 8);
-				R1 = _mm_lddqu_si128((__m128i*)sptr);
+				R1 = _mm_lddqu_si128((const __m128i*)sptr);
 				sptr += (128 / 8);
 			}
 
@@ -199,7 +204,7 @@ static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R_invert(const BYTE* pSrc, UINT32 srcSt
 		/* Handle any remainder pixels. */
 		if (w > 0)
 		{
-			pstatus_t status;
+			pstatus_t status = 0;
 			status = generic->YCoCgToRGB_8u_AC4R(sptr, srcStep, dptr, DstFormat, dstStep, w, 1,
 			                                     shift, withAlpha);
 
@@ -218,7 +223,8 @@ static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R_invert(const BYTE* pSrc, UINT32 srcSt
 }
 
 /* ------------------------------------------------------------------------- */
-static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R_no_invert(const BYTE* pSrc, UINT32 srcStep, BYTE* pDst,
+static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R_no_invert(const BYTE* WINPR_RESTRICT pSrc,
+                                                     UINT32 srcStep, BYTE* WINPR_RESTRICT pDst,
                                                      UINT32 DstFormat, UINT32 dstStep, UINT32 width,
                                                      UINT32 height, UINT8 shift, BOOL withAlpha)
 {
@@ -226,7 +232,6 @@ static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R_no_invert(const BYTE* pSrc, UINT32 sr
 	BYTE* dptr = (BYTE*)pDst;
 	int sRowBump = srcStep - width * sizeof(UINT32);
 	int dRowBump = dstStep - width * sizeof(UINT32);
-	UINT32 h;
 	/* Shift left by "shift" and divide by two is the same as shift
 	 * left by "shift-1".
 	 */
@@ -249,15 +254,15 @@ static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R_no_invert(const BYTE* pSrc, UINT32 sr
 		                                   shift, withAlpha);
 	}
 
-	for (h = 0; h < height; h++)
+	for (UINT32 h = 0; h < height; h++)
 	{
 		int w = width;
-		BOOL onStride;
+		BOOL onStride = 0;
 
 		/* Get to a 16-byte destination boundary. */
 		if ((ULONG_PTR)dptr & 0x0f)
 		{
-			pstatus_t status;
+			pstatus_t status = 0;
 			UINT32 startup = (16 - ((ULONG_PTR)dptr & 0x0f)) / 4;
 
 			if (startup > width)
@@ -275,26 +280,33 @@ static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R_no_invert(const BYTE* pSrc, UINT32 sr
 		}
 
 		/* Each loop handles eight pixels at a time. */
-		onStride = (((ULONG_PTR)sptr & 0x0f) == 0) ? TRUE : FALSE;
+		onStride = (((const ULONG_PTR)sptr & 0x0f) == 0) ? TRUE : FALSE;
 
 		while (w >= 8)
 		{
-			__m128i R0, R1, R2, R3, R4, R5, R6, R7;
+			__m128i R0;
+			__m128i R1;
+			__m128i R2;
+			__m128i R3;
+			__m128i R4;
+			__m128i R5;
+			__m128i R6;
+			__m128i R7;
 
 			if (onStride)
 			{
 				/* The faster path, 16-byte aligned load. */
-				R0 = _mm_load_si128((__m128i*)sptr);
+				R0 = _mm_load_si128((const __m128i*)sptr);
 				sptr += (128 / 8);
-				R1 = _mm_load_si128((__m128i*)sptr);
+				R1 = _mm_load_si128((const __m128i*)sptr);
 				sptr += (128 / 8);
 			}
 			else
 			{
 				/* Off-stride, slower LDDQU load. */
-				R0 = _mm_lddqu_si128((__m128i*)sptr);
+				R0 = _mm_lddqu_si128((const __m128i*)sptr);
 				sptr += (128 / 8);
-				R1 = _mm_lddqu_si128((__m128i*)sptr);
+				R1 = _mm_lddqu_si128((const __m128i*)sptr);
 				sptr += (128 / 8);
 			}
 
@@ -382,7 +394,7 @@ static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R_no_invert(const BYTE* pSrc, UINT32 sr
 		/* Handle any remainder pixels. */
 		if (w > 0)
 		{
-			pstatus_t status;
+			pstatus_t status = 0;
 			status = generic->YCoCgToRGB_8u_AC4R(sptr, srcStep, dptr, DstFormat, dstStep, w, 1,
 			                                     shift, withAlpha);
 
@@ -403,9 +415,10 @@ static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R_no_invert(const BYTE* pSrc, UINT32 sr
 
 #ifdef WITH_SSE2
 /* ------------------------------------------------------------------------- */
-static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R(const BYTE* pSrc, INT32 srcStep, BYTE* pDst,
-                                           UINT32 DstFormat, INT32 dstStep, UINT32 width,
-                                           UINT32 height, UINT8 shift, BOOL withAlpha)
+static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R(const BYTE* WINPR_RESTRICT pSrc, INT32 srcStep,
+                                           BYTE* WINPR_RESTRICT pDst, UINT32 DstFormat,
+                                           INT32 dstStep, UINT32 width, UINT32 height, UINT8 shift,
+                                           BOOL withAlpha)
 {
 	switch (DstFormat)
 	{
@@ -426,14 +439,14 @@ static pstatus_t ssse3_YCoCgRToRGB_8u_AC4R(const BYTE* pSrc, INT32 srcStep, BYTE
 }
 #elif defined(WITH_NEON)
 
-static pstatus_t neon_YCoCgToRGB_8u_X(const BYTE* pSrc, INT32 srcStep, BYTE* pDst, UINT32 DstFormat,
-                                      INT32 dstStep, UINT32 width, UINT32 height, UINT8 shift,
-                                      BYTE bPos, BYTE gPos, BYTE rPos, BYTE aPos, BOOL alpha)
+static pstatus_t neon_YCoCgToRGB_8u_X(const BYTE* WINPR_RESTRICT pSrc, INT32 srcStep,
+                                      BYTE* WINPR_RESTRICT pDst, UINT32 DstFormat, INT32 dstStep,
+                                      UINT32 width, UINT32 height, UINT8 shift, BYTE bPos,
+                                      BYTE gPos, BYTE rPos, BYTE aPos, BOOL alpha)
 {
-	UINT32 y;
 	BYTE* dptr = pDst;
 	const BYTE* sptr = pSrc;
-	const DWORD formatSize = GetBytesPerPixel(DstFormat);
+	const DWORD formatSize = FreeRDPGetBytesPerPixel(DstFormat);
 	const int8_t cll = shift - 1; /* -1 builds in the /2's */
 	const UINT32 srcPad = srcStep - (width * 4);
 	const UINT32 dstPad = dstStep - (width * formatSize);
@@ -441,11 +454,9 @@ static pstatus_t neon_YCoCgToRGB_8u_X(const BYTE* pSrc, INT32 srcStep, BYTE* pDs
 	const uint8x8_t aVal = vdup_n_u8(0xFF);
 	const int8x8_t cllv = vdup_n_s8(cll);
 
-	for (y = 0; y < height; y++)
+	for (UINT32 y = 0; y < height; y++)
 	{
-		UINT32 x;
-
-		for (x = 0; x < width - pad; x += 8)
+		for (UINT32 x = 0; x < width - pad; x += 8)
 		{
 			/* Note: shifts must be done before sign-conversion. */
 			const uint8x8x4_t raw = vld4_u8(sptr);
@@ -473,7 +484,7 @@ static pstatus_t neon_YCoCgToRGB_8u_X(const BYTE* pSrc, INT32 srcStep, BYTE* pDs
 			dptr += sizeof(bgrx);
 		}
 
-		for (x = 0; x < pad; x++)
+		for (UINT32 x = 0; x < pad; x++)
 		{
 			/* Note: shifts must be done before sign-conversion. */
 			const INT16 Cg = (INT16)((INT8)((*sptr++) << cll));
@@ -504,9 +515,10 @@ static pstatus_t neon_YCoCgToRGB_8u_X(const BYTE* pSrc, INT32 srcStep, BYTE* pDs
 
 	return PRIMITIVES_SUCCESS;
 }
-static pstatus_t neon_YCoCgToRGB_8u_AC4R(const BYTE* pSrc, INT32 srcStep, BYTE* pDst,
-                                         UINT32 DstFormat, INT32 dstStep, UINT32 width,
-                                         UINT32 height, UINT8 shift, BOOL withAlpha)
+
+static pstatus_t neon_YCoCgToRGB_8u_AC4R(const BYTE* WINPR_RESTRICT pSrc, INT32 srcStep,
+                                         BYTE* WINPR_RESTRICT pDst, UINT32 DstFormat, INT32 dstStep,
+                                         UINT32 width, UINT32 height, UINT8 shift, BOOL withAlpha)
 {
 	switch (DstFormat)
 	{
@@ -550,7 +562,7 @@ static pstatus_t neon_YCoCgToRGB_8u_AC4R(const BYTE* pSrc, INT32 srcStep, BYTE* 
 #endif /* WITH_SSE2 */
 
 /* ------------------------------------------------------------------------- */
-void primitives_init_YCoCg_opt(primitives_t* prims)
+void primitives_init_YCoCg_opt(primitives_t* WINPR_RESTRICT prims)
 {
 	generic = primitives_get_generic();
 	primitives_init_YCoCg(prims);

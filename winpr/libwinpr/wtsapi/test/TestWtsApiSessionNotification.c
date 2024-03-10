@@ -7,13 +7,16 @@
 int TestWtsApiSessionNotification(int argc, char* argv[])
 {
 	HWND hWnd = NULL;
-	BOOL bSuccess;
-	DWORD dwFlags;
+	BOOL bSuccess = 0;
+	DWORD dwFlags = 0;
+
+	WINPR_UNUSED(argc);
+	WINPR_UNUSED(argv);
 
 #ifndef _WIN32
 	if (!GetEnvironmentVariableA("WTSAPI_LIBRARY", NULL, 0))
 	{
-		printf("%s: No RDS environment detected, skipping test\n", __FUNCTION__);
+		printf("%s: No RDS environment detected, skipping test\n", __func__);
 		return 0;
 	}
 #else
@@ -22,8 +25,7 @@ int TestWtsApiSessionNotification(int argc, char* argv[])
 	                     NULL, NULL, NULL);
 	if (!hWnd)
 	{
-		printf("%s: error creating message-only window: %" PRIu32 "\n", __FUNCTION__,
-		       GetLastError());
+		printf("%s: error creating message-only window: %" PRIu32 "\n", __func__, GetLastError());
 		return -1;
 	}
 #endif
@@ -34,7 +36,7 @@ int TestWtsApiSessionNotification(int argc, char* argv[])
 
 	if (!bSuccess)
 	{
-		printf("%s: WTSRegisterSessionNotification failed: %" PRIu32 "\n", __FUNCTION__,
+		printf("%s: WTSRegisterSessionNotification failed: %" PRIu32 "\n", __func__,
 		       GetLastError());
 		return -1;
 	}
@@ -51,7 +53,7 @@ int TestWtsApiSessionNotification(int argc, char* argv[])
 
 	if (!bSuccess)
 	{
-		printf("%s: WTSUnRegisterSessionNotification failed: %" PRIu32 "\n", __FUNCTION__,
+		printf("%s: WTSUnRegisterSessionNotification failed: %" PRIu32 "\n", __func__,
 		       GetLastError());
 		return -1;
 	}

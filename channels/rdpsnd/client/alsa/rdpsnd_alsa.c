@@ -20,9 +20,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,9 +39,7 @@
 
 #include "rdpsnd_main.h"
 
-typedef struct rdpsnd_alsa_plugin rdpsndAlsaPlugin;
-
-struct rdpsnd_alsa_plugin
+typedef struct
 {
 	rdpsndDevicePlugin device;
 
@@ -59,20 +55,23 @@ struct rdpsnd_alsa_plugin
 
 	snd_pcm_uframes_t buffer_size;
 	snd_pcm_uframes_t period_size;
-};
+} rdpsndAlsaPlugin;
 
-#define SND_PCM_CHECK(_func, _status)              \
-	if (_status < 0)                               \
-	{                                              \
-		WLog_ERR(TAG, "%s: %d\n", _func, _status); \
-		return -1;                                 \
-	}
+#define SND_PCM_CHECK(_func, _status)                  \
+	do                                                 \
+	{                                                  \
+		if (_status < 0)                               \
+		{                                              \
+			WLog_ERR(TAG, "%s: %d\n", _func, _status); \
+			return -1;                                 \
+		}                                              \
+	} while (0)
 
 static int rdpsnd_alsa_set_hw_params(rdpsndAlsaPlugin* alsa)
 {
-	int status;
-	snd_pcm_hw_params_t* hw_params;
-	snd_pcm_uframes_t buffer_size_max;
+	int status = 0;
+	snd_pcm_hw_params_t* hw_params = NULL;
+	snd_pcm_uframes_t buffer_size_max = 0;
 	status = snd_pcm_hw_params_malloc(&hw_params);
 	SND_PCM_CHECK("snd_pcm_hw_params_malloc", status);
 	status = snd_pcm_hw_params_any(alsa->pcm_handle, hw_params);
@@ -140,8 +139,8 @@ static int rdpsnd_alsa_set_hw_params(rdpsndAlsaPlugin* alsa)
 
 static int rdpsnd_alsa_set_sw_params(rdpsndAlsaPlugin* alsa)
 {
-	int status;
-	snd_pcm_sw_params_t* sw_params;
+	int status = 0;
+	snd_pcm_sw_params_t* sw_params = NULL;
 	status = snd_pcm_sw_params_malloc(&sw_params);
 	SND_PCM_CHECK("snd_pcm_sw_params_malloc", status);
 	status = snd_pcm_sw_params_current(alsa->pcm_handle, sw_params);
@@ -162,9 +161,9 @@ static int rdpsnd_alsa_set_sw_params(rdpsndAlsaPlugin* alsa)
 
 static int rdpsnd_alsa_validate_params(rdpsndAlsaPlugin* alsa)
 {
-	int status;
-	snd_pcm_uframes_t buffer_size;
-	snd_pcm_uframes_t period_size;
+	int status = 0;
+	snd_pcm_uframes_t buffer_size = 0;
+	snd_pcm_uframes_t period_size = 0;
 	status = snd_pcm_get_params(alsa->pcm_handle, &buffer_size, &period_size);
 	SND_PCM_CHECK("snd_pcm_get_params", status);
 	return 0;
@@ -233,7 +232,7 @@ static void rdpsnd_alsa_close_mixer(rdpsndAlsaPlugin* alsa)
 
 static BOOL rdpsnd_alsa_open_mixer(rdpsndAlsaPlugin* alsa)
 {
-	int status;
+	int status = 0;
 
 	if (alsa->mixer_handle)
 		return TRUE;
@@ -288,8 +287,8 @@ static void rdpsnd_alsa_pcm_close(rdpsndAlsaPlugin* alsa)
 
 static BOOL rdpsnd_alsa_open(rdpsndDevicePlugin* device, const AUDIO_FORMAT* format, UINT32 latency)
 {
-	int mode;
-	int status;
+	int mode = 0;
+	int status = 0;
 	rdpsndAlsaPlugin* alsa = (rdpsndAlsaPlugin*)device;
 
 	if (alsa->pcm_handle)
@@ -347,14 +346,13 @@ static BOOL rdpsnd_alsa_format_supported(rdpsndDevicePlugin* device, const AUDIO
 
 static UINT32 rdpsnd_alsa_get_volume(rdpsndDevicePlugin* device)
 {
-	long volume_min;
-	long volume_max;
-	long volume_left;
-	long volume_right;
-	UINT32 dwVolume;
-	UINT16 dwVolumeLeft;
-	UINT16 dwVolumeRight;
-	snd_mixer_elem_t* elem;
+	long volume_min = 0;
+	long volume_max = 0;
+	long volume_left = 0;
+	long volume_right = 0;
+	UINT32 dwVolume = 0;
+	UINT16 dwVolumeLeft = 0;
+	UINT16 dwVolumeRight = 0;
 	rdpsndAlsaPlugin* alsa = (rdpsndAlsaPlugin*)device;
 	dwVolumeLeft = ((50 * 0xFFFF) / 100);  /* 50% */
 	dwVolumeRight = ((50 * 0xFFFF) / 100); /* 50% */
@@ -362,7 +360,8 @@ static UINT32 rdpsnd_alsa_get_volume(rdpsndDevicePlugin* device)
 	if (!rdpsnd_alsa_open_mixer(alsa))
 		return 0;
 
-	for (elem = snd_mixer_first_elem(alsa->mixer_handle); elem; elem = snd_mixer_elem_next(elem))
+	for (snd_mixer_elem_t* elem = snd_mixer_first_elem(alsa->mixer_handle); elem;
+	     elem = snd_mixer_elem_next(elem))
 	{
 		if (snd_mixer_selem_has_playback_volume(elem))
 		{
@@ -383,13 +382,12 @@ static UINT32 rdpsnd_alsa_get_volume(rdpsndDevicePlugin* device)
 
 static BOOL rdpsnd_alsa_set_volume(rdpsndDevicePlugin* device, UINT32 value)
 {
-	long left;
-	long right;
-	long volume_min;
-	long volume_max;
-	long volume_left;
-	long volume_right;
-	snd_mixer_elem_t* elem;
+	long left = 0;
+	long right = 0;
+	long volume_min = 0;
+	long volume_max = 0;
+	long volume_left = 0;
+	long volume_right = 0;
 	rdpsndAlsaPlugin* alsa = (rdpsndAlsaPlugin*)device;
 
 	if (!rdpsnd_alsa_open_mixer(alsa))
@@ -398,7 +396,8 @@ static BOOL rdpsnd_alsa_set_volume(rdpsndDevicePlugin* device, UINT32 value)
 	left = (value & 0xFFFF);
 	right = ((value >> 16) & 0xFFFF);
 
-	for (elem = snd_mixer_first_elem(alsa->mixer_handle); elem; elem = snd_mixer_elem_next(elem))
+	for (snd_mixer_elem_t* elem = snd_mixer_first_elem(alsa->mixer_handle); elem;
+	     elem = snd_mixer_elem_next(elem))
 	{
 		if (snd_mixer_selem_has_playback_volume(elem))
 		{
@@ -422,12 +421,15 @@ static BOOL rdpsnd_alsa_set_volume(rdpsndDevicePlugin* device, UINT32 value)
 
 static UINT rdpsnd_alsa_play(rdpsndDevicePlugin* device, const BYTE* data, size_t size)
 {
-	UINT latency;
-	size_t offset;
-	int frame_size;
+	UINT latency = 0;
+	size_t offset = 0;
+	int frame_size = 0;
 	rdpsndAlsaPlugin* alsa = (rdpsndAlsaPlugin*)device;
-	offset = 0;
+	WINPR_ASSERT(alsa);
+	WINPR_ASSERT(data || (size == 0));
 	frame_size = alsa->actual_channels * alsa->aformat.wBitsPerSample / 8;
+	if (frame_size <= 0)
+		return 0;
 
 	while (offset < size)
 	{
@@ -449,7 +451,8 @@ static UINT rdpsnd_alsa_play(rdpsndDevicePlugin* device, const BYTE* data, size_
 	}
 
 	{
-		snd_pcm_sframes_t available, delay;
+		snd_pcm_sframes_t available = 0;
+		snd_pcm_sframes_t delay = 0;
 		int rc = snd_pcm_avail_delay(alsa->pcm_handle, &available, &delay);
 
 		if (rc != 0)
@@ -468,11 +471,11 @@ static UINT rdpsnd_alsa_play(rdpsndDevicePlugin* device, const BYTE* data, size_
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-static UINT rdpsnd_alsa_parse_addin_args(rdpsndDevicePlugin* device, ADDIN_ARGV* args)
+static UINT rdpsnd_alsa_parse_addin_args(rdpsndDevicePlugin* device, const ADDIN_ARGV* args)
 {
-	int status;
-	DWORD flags;
-	COMMAND_LINE_ARGUMENT_A* arg;
+	int status = 0;
+	DWORD flags = 0;
+	const COMMAND_LINE_ARGUMENT_A* arg = NULL;
 	rdpsndAlsaPlugin* alsa = (rdpsndAlsaPlugin*)device;
 	COMMAND_LINE_ARGUMENT_A rdpsnd_alsa_args[] = { { "dev", COMMAND_LINE_VALUE_REQUIRED, "<device>",
 		                                             NULL, NULL, -1, NULL, "device" },
@@ -508,22 +511,17 @@ static UINT rdpsnd_alsa_parse_addin_args(rdpsndDevicePlugin* device, ADDIN_ARGV*
 	return CHANNEL_RC_OK;
 }
 
-#ifdef BUILTIN_CHANNELS
-#define freerdp_rdpsnd_client_subsystem_entry alsa_freerdp_rdpsnd_client_subsystem_entry
-#else
-#define freerdp_rdpsnd_client_subsystem_entry FREERDP_API freerdp_rdpsnd_client_subsystem_entry
-#endif
-
 /**
  * Function description
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-UINT freerdp_rdpsnd_client_subsystem_entry(PFREERDP_RDPSND_DEVICE_ENTRY_POINTS pEntryPoints)
+FREERDP_ENTRY_POINT(UINT alsa_freerdp_rdpsnd_client_subsystem_entry(
+    PFREERDP_RDPSND_DEVICE_ENTRY_POINTS pEntryPoints))
 {
-	ADDIN_ARGV* args;
-	rdpsndAlsaPlugin* alsa;
-	UINT error;
+	const ADDIN_ARGV* args = NULL;
+	rdpsndAlsaPlugin* alsa = NULL;
+	UINT error = 0;
 	alsa = (rdpsndAlsaPlugin*)calloc(1, sizeof(rdpsndAlsaPlugin));
 
 	if (!alsa)
@@ -543,7 +541,7 @@ UINT freerdp_rdpsnd_client_subsystem_entry(PFREERDP_RDPSND_DEVICE_ENTRY_POINTS p
 
 	if (args->argc > 1)
 	{
-		if ((error = rdpsnd_alsa_parse_addin_args((rdpsndDevicePlugin*)alsa, args)))
+		if ((error = rdpsnd_alsa_parse_addin_args(&alsa->device, args)))
 		{
 			WLog_ERR(TAG, "rdpsnd_alsa_parse_addin_args failed with error %" PRIu32 "", error);
 			goto error_parse_args;

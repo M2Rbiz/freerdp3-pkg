@@ -18,19 +18,30 @@
 set(MODULE_NAME "xfreerdp-cli")
 set(MODULE_PREFIX "FREERDP_CLIENT_X11")
 
-set(${MODULE_PREFIX}_SRCS
-	xfreerdp.c)
+set(SRCS
+	xfreerdp.c
+)
 
-add_executable(${MODULE_NAME} ${${MODULE_PREFIX}_SRCS})
-set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME "xfreerdp" RUNTIME_OUTPUT_DIRECTORY "..")
+add_executable(${MODULE_NAME} ${SRCS})
 
-set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} xfreerdp-client freerdp-client)
+if (WITH_BINARY_VERSIONING)
+	set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME "xfreerdp${PROJECT_VERSION_MAJOR}")
+else()
+	set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME "xfreerdp")
+endif()
+set_target_properties(${MODULE_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "..")
+
+list(APPEND LIBS
+    xfreerdp-client freerdp-client
+)
 
 if(OPENBSD)
-	target_link_libraries(${MODULE_NAME} ${${MODULE_PREFIX}_LIBS} ossaudio)
-else()
-	target_link_libraries(${MODULE_NAME} ${${MODULE_PREFIX}_LIBS})
+    list(APPEND LIBS
+        ossaudio
+    )
 endif()
+
+target_link_libraries(${MODULE_NAME} PRIVATE ${LIBS})
 
 install(TARGETS ${MODULE_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT client)
 

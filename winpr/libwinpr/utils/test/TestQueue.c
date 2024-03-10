@@ -5,33 +5,35 @@
 
 int TestQueue(int argc, char* argv[])
 {
-	int item;
-	int index;
-	int count;
-	wQueue* queue;
+	size_t item = 0;
+	size_t count = 0;
+	wQueue* queue = NULL;
+
+	WINPR_UNUSED(argc);
+	WINPR_UNUSED(argv);
 
 	queue = Queue_New(TRUE, -1, -1);
 	if (!queue)
 		return -1;
 
-	for (index = 1; index <= 10; index++)
+	for (size_t index = 1; index <= 10; index++)
 	{
 		Queue_Enqueue(queue, (void*)(size_t)index);
 	}
 
 	count = Queue_Count(queue);
-	printf("queue count: %d\n", count);
+	printf("queue count: %" PRIuz "\n", count);
 
-	for (index = 1; index <= 10; index++)
+	for (size_t index = 1; index <= 10; index++)
 	{
-		item = (int)(size_t)Queue_Dequeue(queue);
+		item = (size_t)Queue_Dequeue(queue);
 
 		if (item != index)
 			return -1;
 	}
 
 	count = Queue_Count(queue);
-	printf("queue count: %d\n", count);
+	printf("queue count: %" PRIuz "\n", count);
 
 	Queue_Enqueue(queue, (void*)(size_t)1);
 	Queue_Enqueue(queue, (void*)(size_t)2);

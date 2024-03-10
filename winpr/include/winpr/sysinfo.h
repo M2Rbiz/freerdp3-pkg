@@ -47,6 +47,7 @@ extern "C"
 #define PROCESSOR_ARCHITECTURE_NEUTRAL 11
 #define PROCESSOR_ARCHITECTURE_ARM64 12
 #define PROCESSOR_ARCHITECTURE_MIPS64 13
+#define PROCESSOR_ARCHITECTURE_E2K 14
 #define PROCESSOR_ARCHITECTURE_UNKNOWN 0xFFFF
 
 #define PROCESSOR_INTEL_386 386
@@ -73,9 +74,10 @@ extern "C"
 #define PROCESSOR_ARM_7TDMI 70001
 #define PROCESSOR_OPTIL 0x494F
 
-	typedef struct _SYSTEM_INFO
+	typedef struct
 	{
-		union {
+		union
+		{
 			DWORD dwOemId;
 
 			struct
@@ -99,7 +101,8 @@ extern "C"
 	WINPR_API void GetSystemInfo(LPSYSTEM_INFO lpSystemInfo);
 	WINPR_API void GetNativeSystemInfo(LPSYSTEM_INFO lpSystemInfo);
 
-	typedef struct _OSVERSIONINFOA
+#if defined(WITH_WINPR_DEPRECATED)
+	typedef struct
 	{
 		DWORD dwOSVersionInfoSize;
 		DWORD dwMajorVersion;
@@ -109,7 +112,7 @@ extern "C"
 		CHAR szCSDVersion[128];
 	} OSVERSIONINFOA, *POSVERSIONINFOA, *LPOSVERSIONINFOA;
 
-	typedef struct _OSVERSIONINFOW
+	typedef struct
 	{
 		DWORD dwOSVersionInfoSize;
 		DWORD dwMajorVersion;
@@ -119,7 +122,7 @@ extern "C"
 		WCHAR szCSDVersion[128];
 	} OSVERSIONINFOW, *POSVERSIONINFOW, *LPOSVERSIONINFOW;
 
-	typedef struct _OSVERSIONINFOEXA
+	typedef struct
 	{
 		DWORD dwOSVersionInfoSize;
 		DWORD dwMajorVersion;
@@ -134,7 +137,7 @@ extern "C"
 		BYTE wReserved;
 	} OSVERSIONINFOEXA, *POSVERSIONINFOEXA, *LPOSVERSIONINFOEXA;
 
-	typedef struct _OSVERSIONINFOEXW
+	typedef struct
 	{
 		DWORD dwOSVersionInfoSize;
 		DWORD dwMajorVersion;
@@ -180,6 +183,7 @@ extern "C"
 #define VER_SUITE_STORAGE_SERVER 0x00002000
 #define VER_SUITE_TERMINAL 0x00000010
 #define VER_SUITE_WH_SERVER 0x00008000
+#endif
 
 #define VER_NT_DOMAIN_CONTROLLER 0x0000002
 #define VER_NT_SERVER 0x0000003
@@ -261,6 +265,7 @@ extern "C"
 
 #if !defined(_WIN32) || defined(_UWP)
 
+#if defined(WITH_WINPR_DEPRECATED)
 	WINPR_API BOOL GetVersionExA(LPOSVERSIONINFOA lpVersionInformation);
 	WINPR_API BOOL GetVersionExW(LPOSVERSIONINFOW lpVersionInformation);
 
@@ -271,12 +276,13 @@ extern "C"
 #endif
 
 #endif
+#endif
 
 #if !defined(_WIN32) || defined(_UWP)
 
 	WINPR_API DWORD GetTickCount(void);
 
-	typedef enum _COMPUTER_NAME_FORMAT
+	typedef enum
 	{
 		ComputerNameNetBIOS,
 		ComputerNameDnsHostname,
@@ -336,6 +342,7 @@ extern "C"
 #define PF_EX_ARM_IDIVA 13
 #define PF_EX_ARM_IDIVT 14
 #define PF_EX_AVX_PCLMULQDQ 15
+#define PF_EX_AVX512F 16
 
 /*
  * some "aliases" for the standard defines

@@ -25,17 +25,16 @@
 
 #pragma pack(push, 1)
 
-struct _WINPR_BITMAP_FILE_HEADER
+typedef struct
 {
 	BYTE bfType[2];
 	UINT32 bfSize;
 	UINT16 bfReserved1;
 	UINT16 bfReserved2;
 	UINT32 bfOffBits;
-};
-typedef struct _WINPR_BITMAP_FILE_HEADER WINPR_BITMAP_FILE_HEADER;
+} WINPR_BITMAP_FILE_HEADER;
 
-struct _WINPR_BITMAP_INFO_HEADER
+typedef struct
 {
 	UINT32 biSize;
 	INT32 biWidth;
@@ -48,54 +47,72 @@ struct _WINPR_BITMAP_INFO_HEADER
 	INT32 biYPelsPerMeter;
 	UINT32 biClrUsed;
 	UINT32 biClrImportant;
-};
-typedef struct _WINPR_BITMAP_INFO_HEADER WINPR_BITMAP_INFO_HEADER;
+} WINPR_BITMAP_INFO_HEADER;
 
-struct _WINPR_BITMAP_CORE_HEADER
+typedef struct
 {
 	UINT32 bcSize;
 	UINT16 bcWidth;
 	UINT16 bcHeight;
 	UINT16 bcPlanes;
 	UINT16 bcBitCount;
-};
-typedef struct _WINPR_BITMAP_CORE_HEADER WINPR_BITMAP_CORE_HEADER;
+} WINPR_BITMAP_CORE_HEADER;
 
 #pragma pack(pop)
 
 #define WINPR_IMAGE_BITMAP 0
 #define WINPR_IMAGE_PNG 1
+#define WINPR_IMAGE_JPEG 2
+#define WINPR_IMAGE_WEBP 3
 
 #define WINPR_IMAGE_BMP_HEADER_LEN 54
 
-struct _wImage
+typedef struct
 {
 	int type;
-	int width;
-	int height;
+	UINT32 width;
+	UINT32 height;
 	BYTE* data;
-	int scanline;
-	int bitsPerPixel;
-	int bytesPerPixel;
-};
-typedef struct _wImage wImage;
+	UINT32 scanline;
+	UINT32 bitsPerPixel;
+	UINT32 bytesPerPixel;
+} wImage;
+
+typedef enum
+{
+	WINPR_IMAGE_CMP_NO_FLAGS = 0,
+	WINPR_IMAGE_CMP_IGNORE_DEPTH = 1,
+	WINPR_IMAGE_CMP_IGNORE_ALPHA = 2,
+	WINPR_IMAGE_CMP_FUZZY = 4
+} wImageFlags;
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-	WINPR_API int winpr_bitmap_write(const char* filename, const BYTE* data, int width, int height,
-	                                 int bpp);
-	WINPR_API BYTE* winpr_bitmap_construct_header(int width, int height, int bpp);
+	WINPR_API int winpr_bitmap_write(const char* filename, const BYTE* data, size_t width,
+	                                 size_t height, size_t bpp);
+	WINPR_API int winpr_bitmap_write_ex(const char* filename, const BYTE* data, size_t stride,
+	                                    size_t width, size_t height, size_t bpp);
+	WINPR_API BYTE* winpr_bitmap_construct_header(size_t width, size_t height, size_t bpp);
 
 	WINPR_API int winpr_image_write(wImage* image, const char* filename);
+	WINPR_API int winpr_image_write_ex(wImage* image, UINT32 format, const char* filename);
 	WINPR_API int winpr_image_read(wImage* image, const char* filename);
 
-	WINPR_API int winpr_image_read_buffer(wImage* image, const BYTE* buffer, int size);
+	WINPR_API void* winpr_image_write_buffer(wImage* image, UINT32 format, size_t* size);
+	WINPR_API int winpr_image_read_buffer(wImage* image, const BYTE* buffer, size_t size);
 
-	WINPR_API wImage* winpr_image_new();
 	WINPR_API void winpr_image_free(wImage* image, BOOL bFreeBuffer);
+
+	WINPR_ATTR_MALLOC(winpr_image_free, 1)
+	WINPR_API wImage* winpr_image_new(void);
+
+	WINPR_API BOOL winpr_image_format_is_supported(UINT32 format);
+	WINPR_API const char* winpr_image_format_extension(UINT32 format);
+	WINPR_API const char* winpr_image_format_mime(UINT32 format);
+	WINPR_API BOOL winpr_image_equal(const wImage* imageA, const wImage* imageB, UINT32 flags);
 
 #ifdef __cplusplus
 }

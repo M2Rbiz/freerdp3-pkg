@@ -16,9 +16,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include "shadow.h"
 
@@ -33,6 +31,7 @@ void shadow_subsystem_set_entry(pfnShadowSubsystemEntry pEntry)
 
 static int shadow_subsystem_load_entry_points(RDP_SHADOW_ENTRY_POINTS* pEntryPoints)
 {
+	WINPR_ASSERT(pEntryPoints);
 	ZeroMemory(pEntryPoints, sizeof(RDP_SHADOW_ENTRY_POINTS));
 
 	if (!pSubsystemEntry)
@@ -125,10 +124,16 @@ void shadow_subsystem_uninit(rdpShadowSubsystem* subsystem)
 
 	if (subsystem->MsgPipe)
 	{
+		wObject* obj1 = NULL;
+		wObject* obj2 = NULL;
 		/* Release resource in messages before free */
-		subsystem->MsgPipe->In->object.fnObjectFree = shadow_subsystem_free_queued_message;
+		obj1 = MessageQueue_Object(subsystem->MsgPipe->In);
+
+		obj1->fnObjectFree = shadow_subsystem_free_queued_message;
 		MessageQueue_Clear(subsystem->MsgPipe->In);
-		subsystem->MsgPipe->Out->object.fnObjectFree = shadow_subsystem_free_queued_message;
+
+		obj2 = MessageQueue_Object(subsystem->MsgPipe->Out);
+		obj2->fnObjectFree = shadow_subsystem_free_queued_message;
 		MessageQueue_Clear(subsystem->MsgPipe->Out);
 		MessagePipe_Free(subsystem->MsgPipe);
 		subsystem->MsgPipe = NULL;
@@ -143,7 +148,7 @@ void shadow_subsystem_uninit(rdpShadowSubsystem* subsystem)
 
 int shadow_subsystem_start(rdpShadowSubsystem* subsystem)
 {
-	int status;
+	int status = 0;
 
 	if (!subsystem || !subsystem->ep.Start)
 		return -1;
@@ -155,7 +160,7 @@ int shadow_subsystem_start(rdpShadowSubsystem* subsystem)
 
 int shadow_subsystem_stop(rdpShadowSubsystem* subsystem)
 {
-	int status;
+	int status = 0;
 
 	if (!subsystem || !subsystem->ep.Stop)
 		return -1;
@@ -171,7 +176,7 @@ UINT32 shadow_enum_monitors(MONITOR_DEF* monitors, UINT32 maxMonitors)
 	RDP_SHADOW_ENTRY_POINTS ep;
 
 	if (shadow_subsystem_load_entry_points(&ep) < 0)
-		return -1;
+		return 0;
 
 	numMonitors = ep.EnumMonitors(monitors, maxMonitors);
 
@@ -188,15 +193,17 @@ int shadow_subsystem_pointer_convert_alpha_pointer_data(
     BYTE* pixels, BOOL premultiplied, UINT32 width, UINT32 height,
     SHADOW_MSG_OUT_POINTER_ALPHA_UPDATE* pointerColor)
 {
-	UINT32 x, y;
-	BYTE* pSrc8;
-	BYTE* pDst8;
-	int xorStep;
-	int andStep;
-	UINT32 andBit;
-	BYTE* andBits;
-	UINT32 andPixel;
-	BYTE A, R, G, B;
+	BYTE* pSrc8 = NULL;
+	BYTE* pDst8 = NULL;
+	UINT32 xorStep = 0;
+	UINT32 andStep = 0;
+	UINT32 andBit = 0;
+	BYTE* andBits = NULL;
+	UINT32 andPixel = 0;
+	BYTE A = 0;
+	BYTE R = 0;
+	BYTE G = 0;
+	BYTE B = 0;
 
 	xorStep = (width * 3);
 	xorStep += (xorStep % 2);
@@ -220,7 +227,7 @@ int shadow_subsystem_pointer_convert_alpha_pointer_data(
 		return -1;
 	}
 
-	for (y = 0; y < height; y++)
+	for (UINT32 y = 0; y < height; y++)
 	{
 		pSrc8 = &pixels[(width * 4) * (height - 1 - y)];
 		pDst8 = &(pointerColor->xorMaskData[y * xorStep]);
@@ -228,7 +235,7 @@ int shadow_subsystem_pointer_convert_alpha_pointer_data(
 		andBit = 0x80;
 		andBits = &(pointerColor->andMaskData[andStep * y]);
 
-		for (x = 0; x < width; x++)
+		for (UINT32 x = 0; x < width; x++)
 		{
 			B = *pSrc8++;
 			G = *pSrc8++;

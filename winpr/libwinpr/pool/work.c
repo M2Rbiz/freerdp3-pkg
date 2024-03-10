@@ -17,10 +17,9 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
+#include <winpr/assert.h>
 #include <winpr/crt.h>
 #include <winpr/pool.h>
 #include <winpr/library.h>
@@ -66,7 +65,6 @@ static TP_CALLBACK_ENVIRON DEFAULT_CALLBACK_ENVIRONMENT = {
 	NULL, /* CleanupGroup */
 	NULL, /* CleanupGroupCancelCallback */
 	NULL, /* RaceDll */
-	NULL, /* ActivationContext */
 	NULL, /* FinalizationCallback */
 	{ 0 } /* Flags */
 };
@@ -97,7 +95,7 @@ PTP_WORK winpr_CreateThreadpoolWork(PTP_WORK_CALLBACK pfnwk, PVOID pv, PTP_CALLB
 #ifndef _WIN32
 
 		if (pcbe->CleanupGroup)
-			ArrayList_Add(pcbe->CleanupGroup->groups, work);
+			ArrayList_Append(pcbe->CleanupGroup->groups, work);
 
 #endif
 	}
@@ -118,6 +116,8 @@ VOID winpr_CloseThreadpoolWork(PTP_WORK pwk)
 
 #else
 
+	WINPR_ASSERT(pwk);
+	WINPR_ASSERT(pwk->CallbackEnvironment);
 	if (pwk->CallbackEnvironment->CleanupGroup)
 		ArrayList_Remove(pwk->CallbackEnvironment->CleanupGroup->groups, pwk);
 
@@ -127,8 +127,8 @@ VOID winpr_CloseThreadpoolWork(PTP_WORK pwk)
 
 VOID winpr_SubmitThreadpoolWork(PTP_WORK pwk)
 {
-	PTP_POOL pool;
-	PTP_CALLBACK_INSTANCE callbackInstance;
+	PTP_POOL pool = NULL;
+	PTP_CALLBACK_INSTANCE callbackInstance = NULL;
 #ifdef _WIN32
 	InitOnceExecuteOnce(&init_once_module, init_module, NULL, NULL);
 
@@ -139,6 +139,9 @@ VOID winpr_SubmitThreadpoolWork(PTP_WORK pwk)
 	}
 
 #endif
+
+	WINPR_ASSERT(pwk);
+	WINPR_ASSERT(pwk->CallbackEnvironment);
 	pool = pwk->CallbackEnvironment->Pool;
 	callbackInstance = (PTP_CALLBACK_INSTANCE)calloc(1, sizeof(TP_CALLBACK_INSTANCE));
 
@@ -146,8 +149,10 @@ VOID winpr_SubmitThreadpoolWork(PTP_WORK pwk)
 	{
 		callbackInstance->Work = pwk;
 		CountdownEvent_AddCount(pool->WorkComplete, 1);
-		Queue_Enqueue(pool->PendingQueue, callbackInstance);
+		if (!Queue_Enqueue(pool->PendingQueue, callbackInstance))
+			free(callbackInstance);
 	}
+	// NOLINTNEXTLINE(clang-analyzer-unix.Malloc): Queue_Enqueue takes ownership of callbackInstance
 }
 
 BOOL winpr_TrySubmitThreadpoolCallback(PTP_SIMPLE_CALLBACK pfns, PVOID pv,
@@ -166,8 +171,9 @@ BOOL winpr_TrySubmitThreadpoolCallback(PTP_SIMPLE_CALLBACK pfns, PVOID pv,
 
 VOID winpr_WaitForThreadpoolWorkCallbacks(PTP_WORK pwk, BOOL fCancelPendingCallbacks)
 {
-	HANDLE event;
-	PTP_POOL pool;
+	HANDLE event = NULL;
+	PTP_POOL pool = NULL;
+
 #ifdef _WIN32
 	InitOnceExecuteOnce(&init_once_module, init_module, NULL, NULL);
 
@@ -178,7 +184,12 @@ VOID winpr_WaitForThreadpoolWorkCallbacks(PTP_WORK pwk, BOOL fCancelPendingCallb
 	}
 
 #endif
+	WINPR_ASSERT(pwk);
+	WINPR_ASSERT(pwk->CallbackEnvironment);
+
 	pool = pwk->CallbackEnvironment->Pool;
+	WINPR_ASSERT(pool);
+
 	event = CountdownEvent_WaitHandle(pool->WorkComplete);
 
 	if (WaitForSingleObject(event, INFINITE) != WAIT_OBJECT_0)

@@ -19,11 +19,9 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
-#include <assert.h>
+#include <winpr/assert.h>
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -32,15 +30,9 @@
 #include <unistd.h>
 
 #include <winpr/string.h>
+#include <winpr/platform.h>
 
-#if __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wparentheses-equality"
-#endif /* __clang__ */
 #include <gst/gst.h>
-#if __clang__
-#pragma clang diagnostic pop
-#endif /* __clang__ */
 
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
@@ -48,10 +40,6 @@
 #include "tsmf_constants.h"
 #include "tsmf_decoder.h"
 #include "tsmf_platform.h"
-
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif
 
 /* 1 second = 10,000,000 100ns units*/
 #define SEEK_TOLERANCE 10 * 1000 * 1000
@@ -1015,13 +1003,7 @@ static BOOL tsmf_gstreamer_sync(ITSMFDecoder* decoder, void (*cb)(void*), void* 
 	return TRUE;
 }
 
-#ifdef BUILTIN_CHANNELS
-#define freerdp_tsmf_client_subsystem_entry gstreamer_freerdp_tsmf_client_decoder_subsystem_entry
-#else
-#define freerdp_tsmf_client_subsystem_entry FREERDP_API freerdp_tsmf_client_decoder_subsystem_entry
-#endif
-
-ITSMFDecoder* freerdp_tsmf_client_subsystem_entry(void)
+FREERDP_ENTRY_POINT(ITSMFDecoder* gstreamer_freerdp_tsmf_client_decoder_subsystem_entry(void))
 {
 	TSMFGstreamerDecoder* decoder;
 

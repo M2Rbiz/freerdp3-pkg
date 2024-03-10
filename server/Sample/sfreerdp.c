@@ -19,27 +19,35 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <errno.h>
 #include <signal.h>
 
+#include <winpr/winpr.h>
 #include <winpr/crt.h>
+#include <winpr/assert.h>
 #include <winpr/ssl.h>
 #include <winpr/synch.h>
 #include <winpr/file.h>
 #include <winpr/string.h>
 #include <winpr/path.h>
+#include <winpr/image.h>
 #include <winpr/winsock.h>
+
+#include <freerdp/streamdump.h>
+#include <freerdp/transport_io.h>
 
 #include <freerdp/channels/wtsvc.h>
 #include <freerdp/channels/channels.h>
+#include <freerdp/channels/drdynvc.h>
 
+#include <freerdp/freerdp.h>
 #include <freerdp/constants.h>
 #include <freerdp/server/rdpsnd.h>
+#include <freerdp/settings.h>
 
+#include "sf_ainput.h"
 #include "sf_audin.h"
 #include "sf_rdpsnd.h"
 #include "sf_encomsp.h"
@@ -53,69 +61,33 @@
 #define SAMPLE_SERVER_DEFAULT_WIDTH 1024
 #define SAMPLE_SERVER_DEFAULT_HEIGHT 768
 
-static char* test_pcap_file = NULL;
-static BOOL test_dump_rfx_realtime = TRUE;
-
-static BOOL test_peer_context_new(freerdp_peer* client, rdpContext* ctx)
+struct server_info
 {
-	testPeerContext* context = (testPeerContext*)ctx;
-	if (!(context->rfx_context = rfx_context_new(TRUE)))
-		goto fail_rfx_context;
-
-	if (!rfx_context_reset(context->rfx_context, SAMPLE_SERVER_DEFAULT_WIDTH,
-	                       SAMPLE_SERVER_DEFAULT_HEIGHT))
-		goto fail_rfx_context;
-
-	context->rfx_context->mode = RLGR3;
-	rfx_context_set_pixel_format(context->rfx_context, PIXEL_FORMAT_RGB24);
-
-	if (!(context->nsc_context = nsc_context_new()))
-		goto fail_nsc_context;
-
-	if (!nsc_context_set_parameters(context->nsc_context, NSC_COLOR_FORMAT, PIXEL_FORMAT_RGB24))
-		goto fail_stream_new;
-
-	if (!(context->s = Stream_New(NULL, 65536)))
-		goto fail_stream_new;
-
-	context->icon_x = -1;
-	context->icon_y = -1;
-	context->vcm = WTSOpenServerA((LPSTR)client->context);
-
-	if (!context->vcm || context->vcm == INVALID_HANDLE_VALUE)
-		goto fail_open_server;
-
-	return TRUE;
-fail_open_server:
-	context->vcm = NULL;
-	Stream_Free(context->s, TRUE);
-	context->s = NULL;
-fail_stream_new:
-	nsc_context_free(context->nsc_context);
-	context->nsc_context = NULL;
-fail_nsc_context:
-	rfx_context_free(context->rfx_context);
-	context->rfx_context = NULL;
-fail_rfx_context:
-	return FALSE;
-}
+	BOOL test_dump_rfx_realtime;
+	const char* test_pcap_file;
+	const char* replay_dump;
+	const char* cert;
+	const char* key;
+};
 
 static void test_peer_context_free(freerdp_peer* client, rdpContext* ctx)
 {
 	testPeerContext* context = (testPeerContext*)ctx;
+
 	WINPR_UNUSED(client);
 
 	if (context)
 	{
+		winpr_image_free(context->image, TRUE);
 		if (context->debug_channel_thread)
 		{
+			WINPR_ASSERT(context->stopEvent);
 			SetEvent(context->stopEvent);
 			WaitForSingleObject(context->debug_channel_thread, INFINITE);
 			CloseHandle(context->debug_channel_thread);
 		}
 
 		Stream_Free(context->s, TRUE);
-		free(context->icon_data);
 		free(context->bg_data);
 		rfx_context_free(context->rfx_context);
 		nsc_context_free(context->nsc_context);
@@ -125,18 +97,61 @@ static void test_peer_context_free(freerdp_peer* client, rdpContext* ctx)
 
 		sf_peer_audin_uninit(context);
 
-		if (context->rdpsnd)
-			rdpsnd_server_context_free(context->rdpsnd);
+#if defined(CHANNEL_AINPUT_SERVER)
+		sf_peer_ainput_uninit(context);
+#endif
 
-		if (context->encomsp)
-			encomsp_server_context_free(context->encomsp);
+		rdpsnd_server_context_free(context->rdpsnd);
+		encomsp_server_context_free(context->encomsp);
 
 		WTSCloseServer((HANDLE)context->vcm);
 	}
 }
 
+static BOOL test_peer_context_new(freerdp_peer* client, rdpContext* ctx)
+{
+	testPeerContext* context = (testPeerContext*)ctx;
+
+	WINPR_ASSERT(client);
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(ctx->settings);
+
+	context->image = winpr_image_new();
+	if (!context->image)
+		goto fail;
+	if (!(context->rfx_context = rfx_context_new_ex(
+	          TRUE, freerdp_settings_get_uint32(ctx->settings, FreeRDP_ThreadingFlags))))
+		goto fail;
+
+	if (!rfx_context_reset(context->rfx_context, SAMPLE_SERVER_DEFAULT_WIDTH,
+	                       SAMPLE_SERVER_DEFAULT_HEIGHT))
+		goto fail;
+
+	rfx_context_set_mode(context->rfx_context, RLGR3);
+
+	if (!(context->nsc_context = nsc_context_new()))
+		goto fail;
+
+	if (!(context->s = Stream_New(NULL, 65536)))
+		goto fail;
+
+	context->icon_x = UINT32_MAX;
+	context->icon_y = UINT32_MAX;
+	context->vcm = WTSOpenServerA((LPSTR)client->context);
+
+	if (!context->vcm || context->vcm == INVALID_HANDLE_VALUE)
+		goto fail;
+
+	return TRUE;
+fail:
+	test_peer_context_free(client, ctx);
+	return FALSE;
+}
+
 static BOOL test_peer_init(freerdp_peer* client)
 {
+	WINPR_ASSERT(client);
+
 	client->ContextSize = sizeof(testPeerContext);
 	client->ContextNew = test_peer_context_new;
 	client->ContextFree = test_peer_context_free;
@@ -145,6 +160,9 @@ static BOOL test_peer_init(freerdp_peer* client)
 
 static wStream* test_peer_stream_init(testPeerContext* context)
 {
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(context->s);
+
 	Stream_Clear(context->s);
 	Stream_SetPosition(context->s, 0);
 	return context->s;
@@ -152,45 +170,83 @@ static wStream* test_peer_stream_init(testPeerContext* context)
 
 static void test_peer_begin_frame(freerdp_peer* client)
 {
-	rdpUpdate* update = client->update;
+	rdpUpdate* update = NULL;
 	SURFACE_FRAME_MARKER fm = { 0 };
-	testPeerContext* context = (testPeerContext*)client->context;
+	testPeerContext* context = NULL;
+
+	WINPR_ASSERT(client);
+	WINPR_ASSERT(client->context);
+
+	update = client->context->update;
+	WINPR_ASSERT(update);
+
+	context = (testPeerContext*)client->context;
+	WINPR_ASSERT(context);
+
 	fm.frameAction = SURFACECMD_FRAMEACTION_BEGIN;
 	fm.frameId = context->frame_id;
+	WINPR_ASSERT(update->SurfaceFrameMarker);
 	update->SurfaceFrameMarker(update->context, &fm);
 }
 
 static void test_peer_end_frame(freerdp_peer* client)
 {
-	rdpUpdate* update = client->update;
+	rdpUpdate* update = NULL;
 	SURFACE_FRAME_MARKER fm = { 0 };
-	testPeerContext* context = (testPeerContext*)client->context;
+	testPeerContext* context = NULL;
+
+	WINPR_ASSERT(client);
+
+	context = (testPeerContext*)client->context;
+	WINPR_ASSERT(context);
+
+	update = client->context->update;
+	WINPR_ASSERT(update);
+
 	fm.frameAction = SURFACECMD_FRAMEACTION_END;
 	fm.frameId = context->frame_id;
+	WINPR_ASSERT(update->SurfaceFrameMarker);
 	update->SurfaceFrameMarker(update->context, &fm);
 	context->frame_id++;
 }
 
 static BOOL test_peer_draw_background(freerdp_peer* client)
 {
-	int size;
-	wStream* s;
+	size_t size = 0;
+	wStream* s = NULL;
 	RFX_RECT rect;
-	BYTE* rgb_data;
-	rdpUpdate* update = client->update;
+	BYTE* rgb_data = NULL;
+	const rdpSettings* settings = NULL;
+	rdpUpdate* update = NULL;
 	SURFACE_BITS_COMMAND cmd = { 0 };
-	testPeerContext* context = (testPeerContext*)client->context;
+	testPeerContext* context = NULL;
 	BOOL ret = FALSE;
+	const UINT32 colorFormat = PIXEL_FORMAT_RGB24;
+	const size_t bpp = FreeRDPGetBytesPerPixel(colorFormat);
 
-	if (!client->settings->RemoteFxCodec && !client->settings->NSCodec)
+	WINPR_ASSERT(client);
+	context = (testPeerContext*)client->context;
+	WINPR_ASSERT(context);
+
+	settings = client->context->settings;
+	WINPR_ASSERT(settings);
+
+	update = client->context->update;
+	WINPR_ASSERT(update);
+
+	const BOOL RemoteFxCodec = freerdp_settings_get_bool(settings, FreeRDP_RemoteFxCodec);
+	if (!RemoteFxCodec && !freerdp_settings_get_bool(settings, FreeRDP_NSCodec))
 		return FALSE;
+
+	WINPR_ASSERT(freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth) <= UINT16_MAX);
+	WINPR_ASSERT(freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight) <= UINT16_MAX);
 
 	s = test_peer_stream_init(context);
 	rect.x = 0;
 	rect.y = 0;
-	rect.width = client->settings->DesktopWidth;
-	rect.height = client->settings->DesktopHeight;
-	size = rect.width * rect.height * 3;
+	rect.width = (UINT16)freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
+	rect.height = (UINT16)freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
+	size = bpp * rect.width * rect.height;
 
 	if (!(rgb_data = malloc(size)))
 	{
@@ -200,24 +256,31 @@ static BOOL test_peer_draw_background(freerdp_peer* client)
 
 	memset(rgb_data, 0xA0, size);
 
-	if (client->settings->RemoteFxCodec)
+	if (RemoteFxCodec)
 	{
 		WLog_DBG(TAG, "Using RemoteFX codec");
+		rfx_context_set_pixel_format(context->rfx_context, colorFormat);
 		if (!rfx_compose_message(context->rfx_context, s, &rect, 1, rgb_data, rect.width,
-		                         rect.height, rect.width * 3))
+		                         rect.height, rect.width * bpp))
 		{
 			goto out;
 		}
 
-		cmd.bmp.codecID = client->settings->RemoteFxCodecId;
+		const UINT32 RemoteFxCodecId =
+		    freerdp_settings_get_uint32(settings, FreeRDP_RemoteFxCodecId);
+		WINPR_ASSERT(RemoteFxCodecId <= UINT16_MAX);
+		cmd.bmp.codecID = (UINT16)RemoteFxCodecId;
 		cmd.cmdType = CMDTYPE_STREAM_SURFACE_BITS;
 	}
 	else
 	{
 		WLog_DBG(TAG, "Using NSCodec");
+		nsc_context_set_parameters(context->nsc_context, NSC_COLOR_FORMAT, colorFormat);
 		nsc_compose_message(context->nsc_context, s, rgb_data, rect.width, rect.height,
-		                    rect.width * 3);
-		cmd.bmp.codecID = client->settings->NSCodecId;
+		                    rect.width * bpp);
+		const UINT32 NSCodecId = freerdp_settings_get_uint32(settings, FreeRDP_NSCodecId);
+		WINPR_ASSERT(NSCodecId <= UINT16_MAX);
+		cmd.bmp.codecID = (UINT16)NSCodecId;
 		cmd.cmdType = CMDTYPE_SET_SURFACE_BITS;
 	}
 
@@ -229,7 +292,8 @@ static BOOL test_peer_draw_background(freerdp_peer* client)
 	cmd.bmp.flags = 0;
 	cmd.bmp.width = rect.width;
 	cmd.bmp.height = rect.height;
-	cmd.bmp.bitmapDataLength = Stream_GetPosition(s);
+	WINPR_ASSERT(Stream_GetPosition(s) <= UINT32_MAX);
+	cmd.bmp.bitmapDataLength = (UINT32)Stream_GetPosition(s);
 	cmd.bmp.bitmapData = Stream_Buffer(s);
 	test_peer_begin_frame(client);
 	update->SurfaceBits(update->context, &cmd);
@@ -240,145 +304,189 @@ out:
 	return ret;
 }
 
+static int open_icon(wImage* img)
+{
+	char* paths[] = { SAMPLE_RESOURCE_ROOT, "." };
+	const char* names[] = { "test_icon.webp", "test_icon.png", "test_icon.jpg", "test_icon.bmp" };
+
+	for (size_t x = 0; x < ARRAYSIZE(paths); x++)
+	{
+		const char* path = paths[x];
+		if (!winpr_PathFileExists(path))
+			continue;
+
+		for (size_t y = 0; y < ARRAYSIZE(names); y++)
+		{
+			const char* name = names[y];
+			char* file = GetCombinedPath(path, name);
+			int rc = winpr_image_read(img, file);
+			free(file);
+			if (rc > 0)
+				return rc;
+		}
+	}
+	WLog_ERR(TAG, "Unable to open test icon");
+	return -1;
+}
+
 static BOOL test_peer_load_icon(freerdp_peer* client)
 {
-	testPeerContext* context = (testPeerContext*)client->context;
-	FILE* fp;
-	int i;
-	char line[50];
-	BYTE* rgb_data = NULL;
-	int c;
+	testPeerContext* context = NULL;
+	rdpSettings* settings = NULL;
 
-	if (!client->settings->RemoteFxCodec && !client->settings->NSCodec)
+	WINPR_ASSERT(client);
+
+	context = (testPeerContext*)client->context;
+	WINPR_ASSERT(context);
+
+	settings = client->context->settings;
+	WINPR_ASSERT(settings);
+
+	if (!freerdp_settings_get_bool(settings, FreeRDP_RemoteFxCodec) &&
+	    !freerdp_settings_get_bool(settings, FreeRDP_NSCodec))
 	{
 		WLog_ERR(TAG, "Client doesn't support RemoteFX or NSCodec");
 		return FALSE;
 	}
 
-	if ((fp = winpr_fopen("test_icon.ppm", "r")) == NULL)
-	{
-		WLog_ERR(TAG, "Unable to open test icon");
-		return FALSE;
-	}
-
-	/* P3 */
-	fgets(line, sizeof(line), fp);
-	/* Creater comment */
-	fgets(line, sizeof(line), fp);
-	/* width height */
-	fgets(line, sizeof(line), fp);
-
-	if (sscanf(line, "%d %d", &context->icon_width, &context->icon_height) < 2)
-	{
-		WLog_ERR(TAG, "Problem while extracting width/height from the icon file");
+	int rc = open_icon(context->image);
+	if (rc <= 0)
 		goto out_fail;
-	}
-
-	/* Max */
-	fgets(line, sizeof(line), fp);
-
-	if (!(rgb_data = calloc(context->icon_height, context->icon_width * 3)))
-		goto out_fail;
-
-	for (i = 0; i < context->icon_width * context->icon_height * 3; i++)
-	{
-		if (!fgets(line, sizeof(line), fp) || (sscanf(line, "%d", &c) != 1))
-			goto out_fail;
-
-		rgb_data[i] = (BYTE)c;
-	}
 
 	/* background with same size, which will be used to erase the icon from old position */
-	if (!(context->bg_data = calloc(context->icon_height, context->icon_width * 3)))
+	if (!(context->bg_data = calloc(context->image->height, context->image->width * 3)))
 		goto out_fail;
 
-	memset(context->bg_data, 0xA0, context->icon_width * context->icon_height * 3);
-	context->icon_data = rgb_data;
-	fclose(fp);
+	memset(context->bg_data, 0xA0, context->image->height * context->image->width * 3ull);
 	return TRUE;
 out_fail:
-	free(rgb_data);
 	context->bg_data = NULL;
-	fclose(fp);
 	return FALSE;
 }
 
-static void test_peer_draw_icon(freerdp_peer* client, int x, int y)
+static void test_peer_draw_icon(freerdp_peer* client, UINT32 x, UINT32 y)
 {
-	wStream* s;
+	wStream* s = NULL;
 	RFX_RECT rect;
-	rdpUpdate* update = client->update;
+	rdpUpdate* update = NULL;
+	rdpSettings* settings = NULL;
 	SURFACE_BITS_COMMAND cmd = { 0 };
-	testPeerContext* context = (testPeerContext*)client->context;
+	testPeerContext* context = NULL;
 
-	if (client->update->dump_rfx)
+	WINPR_ASSERT(client);
+
+	context = (testPeerContext*)client->context;
+	WINPR_ASSERT(context);
+
+	update = client->context->update;
+	WINPR_ASSERT(update);
+
+	settings = client->context->settings;
+	WINPR_ASSERT(settings);
+
+	if (freerdp_settings_get_bool(settings, FreeRDP_DumpRemoteFx))
 		return;
 
-	if (!context)
+	if (context->image->width < 1 || !context->activated)
 		return;
 
-	if (context->icon_width < 1 || !context->activated)
+	rect.x = 0;
+	rect.y = 0;
+	rect.width = context->image->width;
+	rect.height = context->image->height;
+
+	const UINT32 w = freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
+	const UINT32 h = freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
+	if (context->icon_x + context->image->width > w)
+		return;
+	if (context->icon_y + context->image->height > h)
+		return;
+	if (x + context->image->width > w)
+		return;
+	if (y + context->image->height > h)
 		return;
 
 	test_peer_begin_frame(client);
-	rect.x = 0;
-	rect.y = 0;
-	rect.width = context->icon_width;
-	rect.height = context->icon_height;
-
-	if (client->settings->RemoteFxCodec)
+	const BOOL RemoteFxCodec = freerdp_settings_get_bool(settings, FreeRDP_RemoteFxCodec);
+	if (RemoteFxCodec)
 	{
-		cmd.bmp.codecID = client->settings->RemoteFxCodecId;
+		const UINT32 RemoteFxCodecId =
+		    freerdp_settings_get_uint32(settings, FreeRDP_RemoteFxCodecId);
+		WINPR_ASSERT(RemoteFxCodecId <= UINT16_MAX);
+		cmd.bmp.codecID = (UINT16)RemoteFxCodecId;
 		cmd.cmdType = CMDTYPE_STREAM_SURFACE_BITS;
 	}
 	else
 	{
-		cmd.bmp.codecID = client->settings->NSCodecId;
+		const UINT32 NSCodecId = freerdp_settings_get_uint32(settings, FreeRDP_NSCodecId);
+		WINPR_ASSERT(NSCodecId <= UINT16_MAX);
+		cmd.bmp.codecID = (UINT16)NSCodecId;
 		cmd.cmdType = CMDTYPE_SET_SURFACE_BITS;
 	}
 
-	if (context->icon_x >= 0)
+	if (context->icon_x != UINT32_MAX)
 	{
+		const UINT32 colorFormat = PIXEL_FORMAT_RGB24;
+		const UINT32 bpp = FreeRDPGetBytesPerPixel(colorFormat);
 		s = test_peer_stream_init(context);
 
-		if (client->settings->RemoteFxCodec)
+		if (RemoteFxCodec)
+		{
+			rfx_context_set_pixel_format(context->rfx_context, colorFormat);
 			rfx_compose_message(context->rfx_context, s, &rect, 1, context->bg_data, rect.width,
-			                    rect.height, rect.width * 3);
+			                    rect.height, rect.width * bpp);
+		}
 		else
+		{
+			nsc_context_set_parameters(context->nsc_context, NSC_COLOR_FORMAT, colorFormat);
 			nsc_compose_message(context->nsc_context, s, context->bg_data, rect.width, rect.height,
-			                    rect.width * 3);
+			                    rect.width * bpp);
+		}
 
 		cmd.destLeft = context->icon_x;
 		cmd.destTop = context->icon_y;
-		cmd.destRight = context->icon_x + context->icon_width;
-		cmd.destBottom = context->icon_y + context->icon_height;
+		cmd.destRight = context->icon_x + rect.width;
+		cmd.destBottom = context->icon_y + rect.height;
 		cmd.bmp.bpp = 32;
 		cmd.bmp.flags = 0;
-		cmd.bmp.width = context->icon_width;
-		cmd.bmp.height = context->icon_height;
-		cmd.bmp.bitmapDataLength = Stream_GetPosition(s);
+		cmd.bmp.width = rect.width;
+		cmd.bmp.height = rect.height;
+		cmd.bmp.bitmapDataLength = (UINT32)Stream_GetPosition(s);
 		cmd.bmp.bitmapData = Stream_Buffer(s);
+		WINPR_ASSERT(update->SurfaceBits);
 		update->SurfaceBits(update->context, &cmd);
 	}
 
 	s = test_peer_stream_init(context);
 
-	if (client->settings->RemoteFxCodec)
-		rfx_compose_message(context->rfx_context, s, &rect, 1, context->icon_data, rect.width,
-		                    rect.height, rect.width * 3);
-	else
-		nsc_compose_message(context->nsc_context, s, context->icon_data, rect.width, rect.height,
-		                    rect.width * 3);
+	{
+		const UINT32 colorFormat =
+		    context->image->bitsPerPixel > 24 ? PIXEL_FORMAT_BGRA32 : PIXEL_FORMAT_BGR24;
+
+		if (RemoteFxCodec)
+		{
+			rfx_context_set_pixel_format(context->rfx_context, colorFormat);
+			rfx_compose_message(context->rfx_context, s, &rect, 1, context->image->data, rect.width,
+			                    rect.height, context->image->scanline);
+		}
+		else
+		{
+			nsc_context_set_parameters(context->nsc_context, NSC_COLOR_FORMAT, colorFormat);
+			nsc_compose_message(context->nsc_context, s, context->image->data, rect.width,
+			                    rect.height, context->image->scanline);
+		}
+	}
 
 	cmd.destLeft = x;
 	cmd.destTop = y;
-	cmd.destRight = x + context->icon_width;
-	cmd.destBottom = y + context->icon_height;
+	cmd.destRight = x + rect.width;
+	cmd.destBottom = y + rect.height;
 	cmd.bmp.bpp = 32;
-	cmd.bmp.width = context->icon_width;
-	cmd.bmp.height = context->icon_height;
-	cmd.bmp.bitmapDataLength = Stream_GetPosition(s);
+	cmd.bmp.width = rect.width;
+	cmd.bmp.height = rect.height;
+	cmd.bmp.bitmapDataLength = (UINT32)Stream_GetPosition(s);
 	cmd.bmp.bitmapData = Stream_Buffer(s);
+	WINPR_ASSERT(update->SurfaceBits);
 	update->SurfaceBits(update->context, &cmd);
 	context->icon_x = x;
 	context->icon_y = y;
@@ -387,7 +495,11 @@ static void test_peer_draw_icon(freerdp_peer* client, int x, int y)
 
 static BOOL test_sleep_tsdiff(UINT32* old_sec, UINT32* old_usec, UINT32 new_sec, UINT32 new_usec)
 {
-	INT32 sec, usec;
+	INT64 sec = 0;
+	INT64 usec = 0;
+
+	WINPR_ASSERT(old_sec);
+	WINPR_ASSERT(old_usec);
 
 	if ((*old_sec == 0) && (*old_usec == 0))
 	{
@@ -415,30 +527,39 @@ static BOOL test_sleep_tsdiff(UINT32* old_sec, UINT32* old_usec, UINT32 new_sec,
 	}
 
 	if (sec > 0)
-		Sleep(sec * 1000);
+		Sleep((DWORD)sec * 1000);
 
 	if (usec > 0)
-		USleep(usec);
+		USleep((DWORD)usec);
 
 	return TRUE;
 }
 
-BOOL tf_peer_dump_rfx(freerdp_peer* client)
+static BOOL tf_peer_dump_rfx(freerdp_peer* client)
 {
-	wStream* s;
-	UINT32 prev_seconds;
-	UINT32 prev_useconds;
-	rdpUpdate* update;
-	rdpPcap* pcap_rfx;
-	pcap_record record;
+	wStream* s = NULL;
+	UINT32 prev_seconds = 0;
+	UINT32 prev_useconds = 0;
+	rdpUpdate* update = NULL;
+	rdpPcap* pcap_rfx = NULL;
+	pcap_record record = { 0 };
+	struct server_info* info = NULL;
+
+	WINPR_ASSERT(client);
+	WINPR_ASSERT(client->context);
+
+	info = client->ContextExtra;
+	WINPR_ASSERT(info);
+
 	s = Stream_New(NULL, 512);
 
 	if (!s)
 		return FALSE;
 
-	update = client->update;
+	update = client->context->update;
+	WINPR_ASSERT(update);
 
-	if (!(pcap_rfx = pcap_open(test_pcap_file, FALSE)))
+	if (!(pcap_rfx = pcap_open(info->test_pcap_file, FALSE)))
 		return FALSE;
 
 	prev_seconds = prev_useconds = 0;
@@ -453,15 +574,17 @@ BOOL tf_peer_dump_rfx(freerdp_peer* client)
 
 		record.data = Stream_Buffer(s);
 		pcap_get_next_record_content(pcap_rfx, &record);
-		Stream_SetPointer(s, Stream_Buffer(s) + Stream_Capacity(s));
+		Stream_SetPosition(s, Stream_Capacity(s));
 
-		if (test_dump_rfx_realtime &&
+		if (info->test_dump_rfx_realtime &&
 		    test_sleep_tsdiff(&prev_seconds, &prev_useconds, record.header.ts_sec,
 		                      record.header.ts_usec) == FALSE)
 			break;
 
+		WINPR_ASSERT(update->SurfaceCommand);
 		update->SurfaceCommand(update->context, s);
 
+		WINPR_ASSERT(client->CheckFileDescriptor);
 		if (client->CheckFileDescriptor(client) != TRUE)
 			break;
 	}
@@ -473,13 +596,14 @@ BOOL tf_peer_dump_rfx(freerdp_peer* client)
 
 static DWORD WINAPI tf_debug_channel_thread_func(LPVOID arg)
 {
-	void* fd;
-	wStream* s;
-	void* buffer;
+	void* fd = NULL;
+	wStream* s = NULL;
+	void* buffer = NULL;
 	DWORD BytesReturned = 0;
-	ULONG written;
+	ULONG written = 0;
 	testPeerContext* context = (testPeerContext*)arg;
 
+	WINPR_ASSERT(context);
 	if (WTSVirtualChannelQuery(context->debug_channel, WTSVirtualFileHandle, &buffer,
 	                           &BytesReturned) == TRUE)
 	{
@@ -495,15 +619,26 @@ static DWORD WINAPI tf_debug_channel_thread_func(LPVOID arg)
 
 	while (1)
 	{
-		WaitForSingleObject(context->event, INFINITE);
+		DWORD status = 0;
+		DWORD nCount = 0;
+		HANDLE handles[MAXIMUM_WAIT_OBJECTS] = { 0 };
 
-		if (WaitForSingleObject(context->stopEvent, 0) == WAIT_OBJECT_0)
-			break;
+		handles[nCount++] = context->event;
+		handles[nCount++] = freerdp_abort_event(&context->_p);
+		handles[nCount++] = context->stopEvent;
+		status = WaitForMultipleObjects(nCount, handles, FALSE, INFINITE);
+		switch (status)
+		{
+			case WAIT_OBJECT_0:
+				break;
+			default:
+				goto fail;
+		}
 
 		Stream_SetPosition(s, 0);
 
 		if (WTSVirtualChannelRead(context->debug_channel, 0, (PCHAR)Stream_Buffer(s),
-		                          Stream_Capacity(s), &BytesReturned) == FALSE)
+		                          (ULONG)Stream_Capacity(s), &BytesReturned) == FALSE)
 		{
 			if (BytesReturned == 0)
 				break;
@@ -511,7 +646,7 @@ static DWORD WINAPI tf_debug_channel_thread_func(LPVOID arg)
 			Stream_EnsureRemainingCapacity(s, BytesReturned);
 
 			if (WTSVirtualChannelRead(context->debug_channel, 0, (PCHAR)Stream_Buffer(s),
-			                          Stream_Capacity(s), &BytesReturned) == FALSE)
+			                          (ULONG)Stream_Capacity(s), &BytesReturned) == FALSE)
 			{
 				/* should not happen */
 				break;
@@ -521,14 +656,24 @@ static DWORD WINAPI tf_debug_channel_thread_func(LPVOID arg)
 		Stream_SetPosition(s, BytesReturned);
 		WLog_DBG(TAG, "got %" PRIu32 " bytes", BytesReturned);
 	}
-
+fail:
 	Stream_Free(s, TRUE);
 	return 0;
 }
 
-BOOL tf_peer_post_connect(freerdp_peer* client)
+static BOOL tf_peer_post_connect(freerdp_peer* client)
 {
-	testPeerContext* context = (testPeerContext*)client->context;
+	testPeerContext* context = NULL;
+	rdpSettings* settings = NULL;
+
+	WINPR_ASSERT(client);
+
+	context = (testPeerContext*)client->context;
+	WINPR_ASSERT(context);
+
+	settings = client->context->settings;
+	WINPR_ASSERT(settings);
+
 	/**
 	 * This callback is called when the entire connection sequence is done, i.e. we've received the
 	 * Font List PDU from the client and sent out the Font Map PDU.
@@ -536,33 +681,40 @@ BOOL tf_peer_post_connect(freerdp_peer* client)
 	 * callback returns.
 	 */
 	WLog_DBG(TAG, "Client %s is activated (osMajorType %" PRIu32 " osMinorType %" PRIu32 ")",
-	         client->local ? "(local)" : client->hostname, client->settings->OsMajorType,
-	         client->settings->OsMinorType);
+	         client->local ? "(local)" : client->hostname,
+	         freerdp_settings_get_uint32(settings, FreeRDP_OsMajorType),
+	         freerdp_settings_get_uint32(settings, FreeRDP_OsMinorType));
 
-	if (client->settings->AutoLogonEnabled)
+	if (freerdp_settings_get_bool(settings, FreeRDP_AutoLogonEnabled))
 	{
-		WLog_DBG(TAG, " and wants to login automatically as %s\\%s",
-		         client->settings->Domain ? client->settings->Domain : "",
-		         client->settings->Username);
+		const char* Username = freerdp_settings_get_string(settings, FreeRDP_Username);
+		const char* Domain = freerdp_settings_get_string(settings, FreeRDP_Domain);
+		WLog_DBG(TAG, " and wants to login automatically as %s\\%s", Domain ? Domain : "",
+		         Username);
 		/* A real server may perform OS login here if NLA is not executed previously. */
 	}
 
 	WLog_DBG(TAG, "");
 	WLog_DBG(TAG, "Client requested desktop: %" PRIu32 "x%" PRIu32 "x%" PRIu32 "",
-	         client->settings->DesktopWidth, client->settings->DesktopHeight,
-	         client->settings->ColorDepth);
+	         freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth),
+	         freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight),
+	         freerdp_settings_get_uint32(settings, FreeRDP_ColorDepth));
 #if (SAMPLE_SERVER_USE_CLIENT_RESOLUTION == 1)
 
-	if (!rfx_context_reset(context->rfx_context, client->settings->DesktopWidth,
-	                       client->settings->DesktopHeight))
+	if (!rfx_context_reset(context->rfx_context,
+	                       freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth),
+	                       freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight)))
 		return FALSE;
 
 	WLog_DBG(TAG, "Using resolution requested by client.");
 #else
-	client->settings->DesktopWidth = context->rfx_context->width;
-	client->settings->DesktopHeight = context->rfx_context->height;
-	WLog_DBG(TAG, "Resizing client to %" PRIu32 "x%" PRIu32 "", client->settings->DesktopWidth,
-	         client->settings->DesktopHeight);
+	client->freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth) =
+	    context->rfx_context->width;
+	client->freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight) =
+	    context->rfx_context->height;
+	WLog_DBG(TAG, "Resizing client to %" PRIu32 "x%" PRIu32 "",
+	         client->freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth),
+	         client->freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight));
 	client->update->DesktopResize(client->update->context);
 #endif
 
@@ -599,7 +751,7 @@ BOOL tf_peer_post_connect(freerdp_peer* client)
 		}
 	}
 
-	if (WTSVirtualChannelManagerIsChannelJoined(context->vcm, "rdpsnd"))
+	if (WTSVirtualChannelManagerIsChannelJoined(context->vcm, RDPSND_CHANNEL_NAME))
 	{
 		sf_peer_rdpsnd_init(context); /* Audio Output */
 	}
@@ -611,22 +763,43 @@ BOOL tf_peer_post_connect(freerdp_peer* client)
 
 	/* Dynamic Virtual Channels */
 	sf_peer_audin_init(context); /* Audio Input */
+
+#if defined(CHANNEL_AINPUT_SERVER)
+	sf_peer_ainput_init(context);
+#endif
+
 	/* Return FALSE here would stop the execution of the peer main loop. */
 	return TRUE;
 }
 
-BOOL tf_peer_activate(freerdp_peer* client)
+static BOOL tf_peer_activate(freerdp_peer* client)
 {
-	testPeerContext* context = (testPeerContext*)client->context;
-	context->activated = TRUE;
-	// client->settings->CompressionLevel = PACKET_COMPR_TYPE_8K;
-	// client->settings->CompressionLevel = PACKET_COMPR_TYPE_64K;
-	// client->settings->CompressionLevel = PACKET_COMPR_TYPE_RDP6;
-	client->settings->CompressionLevel = PACKET_COMPR_TYPE_RDP61;
+	testPeerContext* context = NULL;
+	struct server_info* info = NULL;
+	rdpSettings* settings = NULL;
 
-	if (test_pcap_file != NULL)
+	WINPR_ASSERT(client);
+
+	context = (testPeerContext*)client->context;
+	WINPR_ASSERT(context);
+
+	settings = client->context->settings;
+	WINPR_ASSERT(settings);
+
+	info = client->ContextExtra;
+	WINPR_ASSERT(info);
+
+	context->activated = TRUE;
+	// PACKET_COMPR_TYPE_8K;
+	// PACKET_COMPR_TYPE_64K;
+	// PACKET_COMPR_TYPE_RDP6;
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_CompressionLevel, PACKET_COMPR_TYPE_RDP8))
+		return FALSE;
+
+	if (info->test_pcap_file != NULL)
 	{
-		client->update->dump_rfx = TRUE;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_DumpRemoteFx, TRUE))
+			return FALSE;
 
 		if (!tf_peer_dump_rfx(client))
 			return FALSE;
@@ -637,85 +810,129 @@ BOOL tf_peer_activate(freerdp_peer* client)
 	return TRUE;
 }
 
-BOOL tf_peer_synchronize_event(rdpInput* input, UINT32 flags)
+static BOOL tf_peer_synchronize_event(rdpInput* input, UINT32 flags)
 {
 	WINPR_UNUSED(input);
+	WINPR_ASSERT(input);
 	WLog_DBG(TAG, "Client sent a synchronize event (flags:0x%" PRIX32 ")", flags);
 	return TRUE;
 }
 
-BOOL tf_peer_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code)
+static BOOL tf_peer_keyboard_event(rdpInput* input, UINT16 flags, UINT8 code)
 {
-	freerdp_peer* client = input->context->peer;
-	rdpUpdate* update = client->update;
-	testPeerContext* context = (testPeerContext*)input->context;
-	WLog_DBG(TAG, "Client sent a keyboard event (flags:0x%04" PRIX16 " code:0x%04" PRIX16 ")",
-	         flags, code);
+	freerdp_peer* client = NULL;
+	rdpUpdate* update = NULL;
+	rdpContext* context = NULL;
+	testPeerContext* tcontext = NULL;
+	rdpSettings* settings = NULL;
 
-	if ((flags & 0x4000) && code == 0x22) /* 'g' key */
+	WINPR_ASSERT(input);
+
+	context = input->context;
+	WINPR_ASSERT(context);
+
+	client = context->peer;
+	WINPR_ASSERT(client);
+
+	settings = context->settings;
+	WINPR_ASSERT(settings);
+
+	update = context->update;
+	WINPR_ASSERT(update);
+
+	tcontext = (testPeerContext*)context;
+	WINPR_ASSERT(tcontext);
+
+	WLog_DBG(TAG, "Client sent a keyboard event (flags:0x%04" PRIX16 " code:0x%04" PRIX8 ")", flags,
+	         code);
+
+	if (((flags & KBD_FLAGS_RELEASE) == 0) && (code == RDP_SCANCODE_KEY_G)) /* 'g' key */
 	{
-		if (client->settings->DesktopWidth != 800)
+		if (freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth) != 800)
 		{
-			client->settings->DesktopWidth = 800;
-			client->settings->DesktopHeight = 600;
+			if (!freerdp_settings_set_uint32(settings, FreeRDP_DesktopWidth, 800))
+				return FALSE;
+			if (!freerdp_settings_set_uint32(settings, FreeRDP_DesktopHeight, 600))
+				return FALSE;
 		}
 		else
 		{
-			client->settings->DesktopWidth = SAMPLE_SERVER_DEFAULT_WIDTH;
-			client->settings->DesktopHeight = SAMPLE_SERVER_DEFAULT_HEIGHT;
+			if (!freerdp_settings_set_uint32(settings, FreeRDP_DesktopWidth,
+			                                 SAMPLE_SERVER_DEFAULT_WIDTH))
+				return FALSE;
+			if (!freerdp_settings_set_uint32(settings, FreeRDP_DesktopHeight,
+			                                 SAMPLE_SERVER_DEFAULT_HEIGHT))
+				return FALSE;
 		}
 
-		if (!rfx_context_reset(context->rfx_context, client->settings->DesktopWidth,
-		                       client->settings->DesktopHeight))
+		if (!rfx_context_reset(tcontext->rfx_context,
+		                       freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth),
+		                       freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight)))
 			return FALSE;
 
+		WINPR_ASSERT(update->DesktopResize);
 		update->DesktopResize(update->context);
-		context->activated = FALSE;
+		tcontext->activated = FALSE;
 	}
-	else if ((flags & 0x4000) && code == 0x2E) /* 'c' key */
+	else if (((flags & KBD_FLAGS_RELEASE) == 0) && code == RDP_SCANCODE_KEY_C) /* 'c' key */
 	{
-		if (context->debug_channel)
+		if (tcontext->debug_channel)
 		{
-			ULONG written;
-			WTSVirtualChannelWrite(context->debug_channel, (PCHAR) "test2", 5, &written);
+			ULONG written = 0;
+			WTSVirtualChannelWrite(tcontext->debug_channel, (PCHAR) "test2", 5, &written);
 		}
 	}
-	else if ((flags & 0x4000) && code == 0x2D) /* 'x' key */
+	else if (((flags & KBD_FLAGS_RELEASE) == 0) && code == RDP_SCANCODE_KEY_X) /* 'x' key */
 	{
+		WINPR_ASSERT(client->Close);
 		client->Close(client);
 	}
-	else if ((flags & 0x4000) && code == 0x13) /* 'r' key */
+	else if (((flags & KBD_FLAGS_RELEASE) == 0) && code == RDP_SCANCODE_KEY_R) /* 'r' key */
 	{
-		context->audin_open = !context->audin_open;
+		tcontext->audin_open = !tcontext->audin_open;
 	}
-	else if ((flags & 0x4000) && code == 0x1F) /* 's' key */
+#if defined(CHANNEL_AINPUT_SERVER)
+	else if (((flags & KBD_FLAGS_RELEASE) == 0) && code == RDP_SCANCODE_KEY_I) /* 'i' key */
+	{
+		tcontext->ainput_open = !tcontext->ainput_open;
+	}
+#endif
+	else if (((flags & KBD_FLAGS_RELEASE) == 0) && code == RDP_SCANCODE_KEY_S) /* 's' key */
 	{
 	}
 
 	return TRUE;
 }
 
-BOOL tf_peer_unicode_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code)
+static BOOL tf_peer_unicode_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code)
 {
 	WINPR_UNUSED(input);
+	WINPR_ASSERT(input);
+
 	WLog_DBG(TAG,
 	         "Client sent a unicode keyboard event (flags:0x%04" PRIX16 " code:0x%04" PRIX16 ")",
 	         flags, code);
 	return TRUE;
 }
 
-BOOL tf_peer_mouse_event(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y)
+static BOOL tf_peer_mouse_event(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y)
 {
 	WINPR_UNUSED(flags);
+	WINPR_ASSERT(input);
+	WINPR_ASSERT(input->context);
+
 	// WLog_DBG(TAG, "Client sent a mouse event (flags:0x%04"PRIX16" pos:%"PRIu16",%"PRIu16")",
 	// flags, x, y);
 	test_peer_draw_icon(input->context->peer, x + 10, y);
 	return TRUE;
 }
 
-BOOL tf_peer_extended_mouse_event(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y)
+static BOOL tf_peer_extended_mouse_event(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y)
 {
 	WINPR_UNUSED(flags);
+	WINPR_ASSERT(input);
+	WINPR_ASSERT(input->context);
+
 	// WLog_DBG(TAG, "Client sent an extended mouse event (flags:0x%04"PRIX16"
 	// pos:%"PRIu16",%"PRIu16")", flags, x, y);
 	test_peer_draw_icon(input->context->peer, x + 10, y);
@@ -724,11 +941,13 @@ BOOL tf_peer_extended_mouse_event(rdpInput* input, UINT16 flags, UINT16 x, UINT1
 
 static BOOL tf_peer_refresh_rect(rdpContext* context, BYTE count, const RECTANGLE_16* areas)
 {
-	BYTE i;
 	WINPR_UNUSED(context);
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(areas || (count == 0));
+
 	WLog_DBG(TAG, "Client requested to refresh:");
 
-	for (i = 0; i < count; i++)
+	for (BYTE i = 0; i < count; i++)
 	{
 		WLog_DBG(TAG, "  (%" PRIu16 ", %" PRIu16 ") (%" PRIu16 ", %" PRIu16 ")", areas[i].left,
 		         areas[i].top, areas[i].right, areas[i].bottom);
@@ -743,6 +962,7 @@ static BOOL tf_peer_suppress_output(rdpContext* context, BYTE allow, const RECTA
 
 	if (allow > 0)
 	{
+		WINPR_ASSERT(area);
 		WLog_DBG(TAG,
 		         "Client restore output (%" PRIu16 ", %" PRIu16 ") (%" PRIu16 ", %" PRIu16 ").",
 		         area->left, area->top, area->right, area->bottom);
@@ -755,14 +975,89 @@ static BOOL tf_peer_suppress_output(rdpContext* context, BYTE allow, const RECTA
 	return TRUE;
 }
 
+static int hook_peer_write_pdu(rdpTransport* transport, wStream* s)
+{
+	UINT64 ts = 0;
+	wStream* ls = NULL;
+	UINT64 last_ts = 0;
+	const struct server_info* info = NULL;
+	freerdp_peer* client = NULL;
+	testPeerContext* peerCtx = NULL;
+	size_t offset = 0;
+	UINT32 flags = 0;
+	rdpContext* context = transport_get_context(transport);
+
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(s);
+
+	client = context->peer;
+	WINPR_ASSERT(client);
+
+	peerCtx = (testPeerContext*)client->context;
+	WINPR_ASSERT(peerCtx);
+	WINPR_ASSERT(peerCtx->io.WritePdu);
+
+	info = client->ContextExtra;
+	WINPR_ASSERT(info);
+
+	/* Let the client authenticate.
+	 * After that is done, we stop the normal operation and send
+	 * a previously recorded session PDU by PDU to the client.
+	 *
+	 * This is fragile and the connecting client needs to use the same
+	 * configuration as the one that recorded the session!
+	 */
+	WINPR_ASSERT(info);
+	CONNECTION_STATE state = freerdp_get_state(context);
+	if (state < CONNECTION_STATE_NEGO)
+		return peerCtx->io.WritePdu(transport, s);
+
+	ls = Stream_New(NULL, 4096);
+	if (!ls)
+		goto fail;
+
+	while (stream_dump_get(context, &flags, ls, &offset, &ts) > 0)
+	{
+		int rc = 0;
+		/* Skip messages from client. */
+		if (flags & STREAM_MSG_SRV_TX)
+		{
+			if ((last_ts > 0) && (ts > last_ts))
+			{
+				UINT64 diff = ts - last_ts;
+				Sleep(diff);
+			}
+			last_ts = ts;
+			rc = peerCtx->io.WritePdu(transport, ls);
+			if (rc < 0)
+				goto fail;
+		}
+		Stream_SetPosition(ls, 0);
+	}
+
+fail:
+	Stream_Free(ls, TRUE);
+	return -1;
+}
+
 static DWORD WINAPI test_peer_mainloop(LPVOID arg)
 {
+	BOOL rc = 0;
 	DWORD error = CHANNEL_RC_OK;
-	HANDLE handles[32];
-	DWORD count;
-	DWORD status;
-	testPeerContext* context;
+	HANDLE handles[MAXIMUM_WAIT_OBJECTS] = { 0 };
+	DWORD count = 0;
+	DWORD status = 0;
+	testPeerContext* context = NULL;
+	struct server_info* info = NULL;
+	rdpSettings* settings = NULL;
+	rdpInput* input = NULL;
+	rdpUpdate* update = NULL;
 	freerdp_peer* client = (freerdp_peer*)arg;
+
+	WINPR_ASSERT(client);
+
+	info = client->ContextExtra;
+	WINPR_ASSERT(info);
 
 	if (!test_peer_init(client))
 	{
@@ -771,48 +1066,99 @@ static DWORD WINAPI test_peer_mainloop(LPVOID arg)
 	}
 
 	/* Initialize the real server settings here */
-	client->settings->CertificateFile = _strdup("server.crt");
-	client->settings->PrivateKeyFile = _strdup("server.key");
-	client->settings->RdpKeyFile = _strdup("server.key");
-
-	if (!client->settings->CertificateFile || !client->settings->PrivateKeyFile ||
-	    !client->settings->RdpKeyFile)
+	WINPR_ASSERT(client->context);
+	settings = client->context->settings;
+	WINPR_ASSERT(settings);
+	if (info->replay_dump)
 	{
-		WLog_ERR(TAG, "Memory allocation failed (strdup)");
-		freerdp_peer_free(client);
-		return 0;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_TransportDumpReplay, TRUE) ||
+		    !freerdp_settings_set_string(settings, FreeRDP_TransportDumpFile, info->replay_dump))
+			goto fail;
 	}
 
-	client->settings->RdpSecurity = TRUE;
-	client->settings->TlsSecurity = TRUE;
-	client->settings->NlaSecurity = FALSE;
-	client->settings->EncryptionLevel = ENCRYPTION_LEVEL_CLIENT_COMPATIBLE;
-	/* client->settings->EncryptionLevel = ENCRYPTION_LEVEL_HIGH; */
-	/* client->settings->EncryptionLevel = ENCRYPTION_LEVEL_LOW; */
-	/* client->settings->EncryptionLevel = ENCRYPTION_LEVEL_FIPS; */
-	client->settings->RemoteFxCodec = TRUE;
-	client->settings->NSCodec = TRUE;
-	client->settings->ColorDepth = 32;
-	client->settings->SuppressOutput = TRUE;
-	client->settings->RefreshRect = TRUE;
+	rdpPrivateKey* key = freerdp_key_new_from_file(info->key);
+	if (!key)
+		goto fail;
+	if (!freerdp_settings_set_pointer_len(settings, FreeRDP_RdpServerRsaKey, key, 1))
+		goto fail;
+	rdpCertificate* cert = freerdp_certificate_new_from_file(info->cert);
+	if (!cert)
+		goto fail;
+	if (!freerdp_settings_set_pointer_len(settings, FreeRDP_RdpServerCertificate, cert, 1))
+		goto fail;
+
+	if (!freerdp_settings_set_bool(settings, FreeRDP_RdpSecurity, TRUE))
+		goto fail;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_TlsSecurity, TRUE))
+		goto fail;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_NlaSecurity, FALSE))
+		goto fail;
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_EncryptionLevel,
+	                                 ENCRYPTION_LEVEL_CLIENT_COMPATIBLE))
+		goto fail;
+	/*  ENCRYPTION_LEVEL_HIGH; */
+	/*  ENCRYPTION_LEVEL_LOW; */
+	/*  ENCRYPTION_LEVEL_FIPS; */
+	if (!freerdp_settings_set_bool(settings, FreeRDP_RemoteFxCodec, TRUE))
+		goto fail;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_NSCodec, TRUE) ||
+	    !freerdp_settings_set_uint32(settings, FreeRDP_ColorDepth, 32))
+		goto fail;
+
+	if (!freerdp_settings_set_bool(settings, FreeRDP_SuppressOutput, TRUE))
+		goto fail;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_RefreshRect, TRUE))
+		goto fail;
+
 	client->PostConnect = tf_peer_post_connect;
 	client->Activate = tf_peer_activate;
-	client->input->SynchronizeEvent = tf_peer_synchronize_event;
-	client->input->KeyboardEvent = tf_peer_keyboard_event;
-	client->input->UnicodeKeyboardEvent = tf_peer_unicode_keyboard_event;
-	client->input->MouseEvent = tf_peer_mouse_event;
-	client->input->ExtendedMouseEvent = tf_peer_extended_mouse_event;
-	client->update->RefreshRect = tf_peer_refresh_rect;
-	client->update->SuppressOutput = tf_peer_suppress_output;
-	client->settings->MultifragMaxRequestSize = 0xFFFFFF; /* FIXME */
-	client->Initialize(client);
+
+	WINPR_ASSERT(client->context);
+	input = client->context->input;
+	WINPR_ASSERT(input);
+
+	input->SynchronizeEvent = tf_peer_synchronize_event;
+	input->KeyboardEvent = tf_peer_keyboard_event;
+	input->UnicodeKeyboardEvent = tf_peer_unicode_keyboard_event;
+	input->MouseEvent = tf_peer_mouse_event;
+	input->ExtendedMouseEvent = tf_peer_extended_mouse_event;
+
+	update = client->context->update;
+	WINPR_ASSERT(update);
+
+	update->RefreshRect = tf_peer_refresh_rect;
+	update->SuppressOutput = tf_peer_suppress_output;
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_MultifragMaxRequestSize,
+	                                 0xFFFFFF /* FIXME */))
+		goto fail;
+
+	WINPR_ASSERT(client->Initialize);
+	rc = client->Initialize(client);
+	if (!rc)
+		goto fail;
+
 	context = (testPeerContext*)client->context;
+	WINPR_ASSERT(context);
+
+	if (info->replay_dump)
+	{
+		const rdpTransportIo* cb = freerdp_get_io_callbacks(client->context);
+		rdpTransportIo replay;
+
+		WINPR_ASSERT(cb);
+		replay = *cb;
+		context->io = *cb;
+		replay.WritePdu = hook_peer_write_pdu;
+		freerdp_set_io_callbacks(client->context, &replay);
+	}
+
 	WLog_INFO(TAG, "We've got a client %s", client->local ? "(local)" : client->hostname);
 
 	while (error == CHANNEL_RC_OK)
 	{
 		count = 0;
 		{
+			WINPR_ASSERT(client->GetEventHandles);
 			DWORD tmp = client->GetEventHandles(client, &handles[count], 32 - count);
 
 			if (tmp == 0)
@@ -823,7 +1169,9 @@ static DWORD WINAPI test_peer_mainloop(LPVOID arg)
 
 			count += tmp;
 		}
-		handles[count++] = WTSVirtualChannelManagerGetEventHandle(context->vcm);
+
+		HANDLE channelHandle = WTSVirtualChannelManagerGetEventHandle(context->vcm);
+		handles[count++] = channelHandle;
 		status = WaitForMultipleObjects(count, handles, FALSE, INFINITE);
 
 		if (status == WAIT_FAILED)
@@ -832,14 +1180,18 @@ static DWORD WINAPI test_peer_mainloop(LPVOID arg)
 			break;
 		}
 
+		WINPR_ASSERT(client->CheckFileDescriptor);
 		if (client->CheckFileDescriptor(client) != TRUE)
 			break;
+
+		if (WaitForSingleObject(channelHandle, 0) != WAIT_OBJECT_0)
+			continue;
 
 		if (WTSVirtualChannelManagerCheckFileDescriptor(context->vcm) != TRUE)
 			break;
 
 		/* Handle dynamic virtual channel intializations */
-		if (WTSVirtualChannelManagerIsChannelJoined(context->vcm, "drdynvc"))
+		if (WTSVirtualChannelManagerIsChannelJoined(context->vcm, DRDYNVC_SVC_CHANNEL_NAME))
 		{
 			switch (WTSVirtualChannelManagerGetDrdynvcState(context->vcm))
 			{
@@ -860,6 +1212,16 @@ static DWORD WINAPI test_peer_mainloop(LPVOID arg)
 							sf_peer_audin_stop(context);
 					}
 
+#if defined(CHANNEL_AINPUT_SERVER)
+					if (sf_peer_ainput_running(context) != context->ainput_open)
+					{
+						if (!sf_peer_ainput_running(context))
+							sf_peer_ainput_start(context);
+						else
+							sf_peer_ainput_stop(context);
+					}
+#endif
+
 					break;
 
 				case DRDYNVC_STATE_FAILED:
@@ -870,7 +1232,10 @@ static DWORD WINAPI test_peer_mainloop(LPVOID arg)
 	}
 
 	WLog_INFO(TAG, "Client %s disconnected.", client->local ? "(local)" : client->hostname);
+
+	WINPR_ASSERT(client->Disconnect);
 	client->Disconnect(client);
+fail:
 	freerdp_peer_context_free(client);
 	freerdp_peer_free(client);
 	return error;
@@ -878,8 +1243,16 @@ static DWORD WINAPI test_peer_mainloop(LPVOID arg)
 
 static BOOL test_peer_accepted(freerdp_listener* instance, freerdp_peer* client)
 {
-	HANDLE hThread;
+	HANDLE hThread = NULL;
+	struct server_info* info = NULL;
+
 	WINPR_UNUSED(instance);
+
+	WINPR_ASSERT(instance);
+	WINPR_ASSERT(client);
+
+	info = instance->info;
+	client->ContextExtra = info;
 
 	if (!(hThread = CreateThread(NULL, 0, test_peer_mainloop, (void*)client, 0, NULL)))
 		return FALSE;
@@ -890,12 +1263,14 @@ static BOOL test_peer_accepted(freerdp_listener* instance, freerdp_peer* client)
 
 static void test_server_mainloop(freerdp_listener* instance)
 {
-	HANDLE handles[32];
-	DWORD count;
-	DWORD status;
+	HANDLE handles[32] = { 0 };
+	DWORD count = 0;
+	DWORD status = 0;
 
+	WINPR_ASSERT(instance);
 	while (1)
 	{
+		WINPR_ASSERT(instance->GetEventHandles);
 		count = instance->GetEventHandles(instance, handles, 32);
 
 		if (0 == count)
@@ -912,6 +1287,7 @@ static void test_server_mainloop(freerdp_listener* instance)
 			break;
 		}
 
+		WINPR_ASSERT(instance->CheckFileDescriptor);
 		if (instance->CheckFileDescriptor(instance) != TRUE)
 		{
 			WLog_ERR(TAG, "Failed to check FreeRDP file descriptor");
@@ -919,45 +1295,97 @@ static void test_server_mainloop(freerdp_listener* instance)
 		}
 	}
 
+	WINPR_ASSERT(instance->Close);
 	instance->Close(instance);
+}
+
+static const struct
+{
+	const char spcap[7];
+	const char sfast[7];
+	const char sport[7];
+	const char slocal_only[13];
+	const char scert[7];
+	const char skey[6];
+} options = { "--pcap=", "--fast", "--port=", "--local-only", "--cert=", "--key=" };
+
+WINPR_ATTR_FORMAT_ARG(2, 0)
+static void print_entry(FILE* fp, WINPR_FORMAT_ARG const char* fmt, const char* what, size_t size)
+{
+	char buffer[32] = { 0 };
+	strncpy(buffer, what, MIN(size, sizeof(buffer) - 1));
+	fprintf(fp, fmt, buffer);
+}
+
+static WINPR_NORETURN(void usage(const char* app, const char* invalid))
+{
+	FILE* fp = stdout;
+
+	fprintf(fp, "Invalid argument '%s'\n", invalid);
+	fprintf(fp, "Usage: %s <arg>[ <arg> ...]\n", app);
+	fprintf(fp, "Arguments:\n");
+	print_entry(fp, "\t%s<pcap file>\n", options.spcap, sizeof(options.spcap));
+	print_entry(fp, "\t%s<cert file>\n", options.scert, sizeof(options.scert));
+	print_entry(fp, "\t%s<key file>\n", options.skey, sizeof(options.skey));
+	print_entry(fp, "\t%s\n", options.sfast, sizeof(options.sfast));
+	print_entry(fp, "\t%s<port>\n", options.sport, sizeof(options.sport));
+	print_entry(fp, "\t%s\n", options.slocal_only, sizeof(options.slocal_only));
+	exit(-1);
 }
 
 int main(int argc, char* argv[])
 {
-	const char spcap[] = "--";
-	const char sfast[] = "--fast";
-	const char sport[] = "--port=";
-	const char slocal_only[] = "--local_only";
-	WSADATA wsaData;
-	freerdp_listener* instance;
-	char* file;
-	char name[MAX_PATH];
-	long port = 3389, i;
+	int rc = -1;
+	BOOL started = FALSE;
+	WSADATA wsaData = { 0 };
+	freerdp_listener* instance = NULL;
+	char* file = NULL;
+	char name[MAX_PATH] = { 0 };
+	long port = 3389;
 	BOOL localOnly = FALSE;
+	struct server_info info = { 0 };
+	const char* app = argv[0];
+
+	info.test_dump_rfx_realtime = TRUE;
+
 	errno = 0;
 
-	for (i = 1; i < argc; i++)
+	for (int i = 1; i < argc; i++)
 	{
 		char* arg = argv[i];
 
-		if (strncmp(arg, sfast, sizeof(sfast)) == 0)
-			test_dump_rfx_realtime = FALSE;
-		else if (strncmp(arg, sport, sizeof(sport) - 1) == 0)
+		if (strncmp(arg, options.sfast, sizeof(options.sfast)) == 0)
+			info.test_dump_rfx_realtime = FALSE;
+		else if (strncmp(arg, options.sport, sizeof(options.sport)) == 0)
 		{
-			StrSep(&arg, "=");
+			const char* sport = &arg[sizeof(options.sport)];
+			port = strtol(sport, NULL, 10);
 
-			if (!arg)
-				return -1;
-
-			port = strtol(arg, NULL, 10);
-
-			if ((port < 1) || (port > 0xFFFF) || (errno != 0))
-				return -1;
+			if ((port < 1) || (port > UINT16_MAX) || (errno != 0))
+				usage(app, arg);
 		}
-		else if (strncmp(arg, slocal_only, sizeof(slocal_only)) == 0)
+		else if (strncmp(arg, options.slocal_only, sizeof(options.slocal_only)) == 0)
 			localOnly = TRUE;
-		else if (strncmp(arg, spcap, sizeof(spcap)) == 0)
-			test_pcap_file = arg;
+		else if (strncmp(arg, options.spcap, sizeof(options.spcap)) == 0)
+		{
+			info.test_pcap_file = &arg[sizeof(options.spcap)];
+			if (!winpr_PathFileExists(info.test_pcap_file))
+				usage(app, arg);
+		}
+		else if (strncmp(arg, options.scert, sizeof(options.scert)) == 0)
+		{
+			info.cert = &arg[sizeof(options.scert)];
+			if (!winpr_PathFileExists(info.cert))
+				usage(app, arg);
+		}
+		else if (strncmp(arg, options.skey, sizeof(options.skey)) == 0)
+		{
+			info.key = &arg[sizeof(options.skey)];
+			if (!winpr_PathFileExists(info.key))
+				usage(app, arg);
+		}
+		else
+			usage(app, arg);
 	}
 
 	WTSRegisterWtsApiFunctionTable(FreeRDP_InitWtsApi());
@@ -967,34 +1395,46 @@ int main(int argc, char* argv[])
 	if (!instance)
 		return -1;
 
+	if (!info.cert)
+		info.cert = "server.crt";
+	if (!info.key)
+		info.key = "server.key";
+
+	instance->info = (void*)&info;
 	instance->PeerAccepted = test_peer_accepted;
 
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
-	{
-		freerdp_listener_free(instance);
-		return -1;
-	}
+		goto fail;
 
 	/* Open the server socket and start listening. */
 	sprintf_s(name, sizeof(name), "tfreerdp-server.%ld", port);
 	file = GetKnownSubPath(KNOWN_PATH_TEMP, name);
 
 	if (!file)
+		goto fail;
+
+	if (localOnly)
 	{
-		freerdp_listener_free(instance);
-		WSACleanup();
-		return -1;
+		WINPR_ASSERT(instance->OpenLocal);
+		started = instance->OpenLocal(instance, file);
+	}
+	else
+	{
+		WINPR_ASSERT(instance->Open);
+		started = instance->Open(instance, NULL, (UINT16)port);
 	}
 
-	if ((localOnly || instance->Open(instance, NULL, port)) && instance->OpenLocal(instance, file))
+	if (started)
 	{
 		/* Entering the server main loop. In a real server the listener can be run in its own
 		 * thread. */
 		test_server_mainloop(instance);
 	}
 
+	rc = 0;
+fail:
 	free(file);
 	freerdp_listener_free(instance);
 	WSACleanup();
-	return 0;
+	return rc;
 }

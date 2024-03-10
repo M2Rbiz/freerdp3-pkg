@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,7 +25,7 @@
 #include <freerdp/utils/stopwatch.h>
 
 #ifdef _WIN32
-LARGE_INTEGER stopwatch_freq = { 0, 0 };
+LARGE_INTEGER stopwatch_freq = { 0 };
 #else
 #include <sys/time.h>
 #endif
@@ -47,7 +45,7 @@ static void stopwatch_set_time(UINT64* usecs)
 
 STOPWATCH* stopwatch_create(void)
 {
-	STOPWATCH* sw;
+	STOPWATCH* sw = NULL;
 #ifdef _WIN32
 	if (stopwatch_freq.QuadPart == 0)
 	{

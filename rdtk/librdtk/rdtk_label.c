@@ -16,26 +16,27 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/assert.h>
+
+#include <rdtk/config.h>
 
 #include "rdtk_font.h"
 
 #include "rdtk_label.h"
 
-int rdtk_label_draw(rdtkSurface* surface, int nXDst, int nYDst, int nWidth, int nHeight,
-                    rdtkLabel* label, const char* text, int hAlign, int vAlign)
+int rdtk_label_draw(rdtkSurface* surface, uint16_t nXDst, uint16_t nYDst, uint16_t nWidth,
+                    uint16_t nHeight, rdtkLabel* label, const char* text, uint16_t hAlign,
+                    uint16_t vAlign)
 {
-	int offsetX;
-	int offsetY;
-	int textWidth;
-	int textHeight;
-	rdtkFont* font;
-	rdtkEngine* engine;
+	uint16_t offsetX = 0;
+	uint16_t offsetY = 0;
+	uint16_t textWidth = 0;
+	uint16_t textHeight = 0;
 
-	engine = surface->engine;
-	font = engine->font;
+	WINPR_ASSERT(surface);
+
+	rdtkEngine* engine = surface->engine;
+	rdtkFont* font = engine->font;
 
 	rdtk_font_text_draw_size(font, &textWidth, &textHeight, text);
 
@@ -58,9 +59,8 @@ int rdtk_label_draw(rdtkSurface* surface, int nXDst, int nYDst, int nWidth, int 
 
 rdtkLabel* rdtk_label_new(rdtkEngine* engine)
 {
-	rdtkLabel* label;
-
-	label = (rdtkLabel*)calloc(1, sizeof(rdtkLabel));
+	WINPR_ASSERT(engine);
+	rdtkLabel* label = (rdtkLabel*)calloc(1, sizeof(rdtkLabel));
 
 	if (!label)
 		return NULL;
@@ -77,6 +77,7 @@ void rdtk_label_free(rdtkLabel* label)
 
 int rdtk_label_engine_init(rdtkEngine* engine)
 {
+	WINPR_ASSERT(engine);
 	if (!engine->label)
 	{
 		engine->label = rdtk_label_new(engine);
@@ -87,6 +88,7 @@ int rdtk_label_engine_init(rdtkEngine* engine)
 
 int rdtk_label_engine_uninit(rdtkEngine* engine)
 {
+	WINPR_ASSERT(engine);
 	if (engine->label)
 	{
 		rdtk_label_free(engine->label);

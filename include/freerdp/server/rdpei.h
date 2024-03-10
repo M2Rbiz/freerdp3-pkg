@@ -26,53 +26,51 @@
 #include <freerdp/channels/wtsvc.h>
 #include <freerdp/channels/rdpei.h>
 
-typedef struct _rdpei_server_context RdpeiServerContext;
-typedef struct _rdpei_server_private RdpeiServerPrivate;
-
-struct _rdpei_server_context
-{
-	HANDLE vcm;
-
-	RdpeiServerPrivate* priv;
-
-	UINT32 clientVersion;
-	UINT16 maxTouchPoints;
-	UINT32 protocolFlags;
-
-	/** callbacks that can be set by the user */
-	UINT (*onClientReady)(RdpeiServerContext* context);
-	UINT (*onTouchEvent)(RdpeiServerContext* context, const RDPINPUT_TOUCH_EVENT* touchEvent);
-	UINT (*onTouchReleased)(RdpeiServerContext* context, BYTE contactId);
-
-	void* user_data; /* user data, useful for callbacks */
-
-	UINT (*onPenEvent)(RdpeiServerContext* context, const RDPINPUT_PEN_EVENT* penEvent);
-
-	/**
-	 * Callback, when the channel got its id assigned.
-	 */
-	BOOL (*onChannelIdAssigned)(RdpeiServerContext* context, UINT32 channelId);
-};
-
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-	FREERDP_API RdpeiServerContext* rdpei_server_context_new(HANDLE vcm);
-	FREERDP_API void rdpei_server_context_reset(RdpeiServerContext* context);
+	typedef struct s_rdpei_server_context RdpeiServerContext;
+	typedef struct s_rdpei_server_private RdpeiServerPrivate;
+
+	struct s_rdpei_server_context
+	{
+		HANDLE vcm;
+
+		RdpeiServerPrivate* priv;
+
+		UINT32 clientVersion;
+		UINT16 maxTouchPoints;
+		UINT32 protocolFlags;
+
+		/** callbacks that can be set by the user */
+		UINT (*onClientReady)(RdpeiServerContext* context);
+		UINT (*onTouchEvent)(RdpeiServerContext* context, const RDPINPUT_TOUCH_EVENT* touchEvent);
+		UINT (*onPenEvent)(RdpeiServerContext* context, const RDPINPUT_PEN_EVENT* penEvent);
+		UINT (*onTouchReleased)(RdpeiServerContext* context, BYTE contactId);
+
+		void* user_data; /* user data, useful for callbacks */
+
+		/**
+		 * Callback, when the channel got its id assigned.
+		 */
+		BOOL (*onChannelIdAssigned)(RdpeiServerContext* context, UINT32 channelId);
+	};
+
 	FREERDP_API void rdpei_server_context_free(RdpeiServerContext* context);
+
+	WINPR_ATTR_MALLOC(rdpei_server_context_free, 1)
+	FREERDP_API RdpeiServerContext* rdpei_server_context_new(HANDLE vcm);
+
+	FREERDP_API void rdpei_server_context_reset(RdpeiServerContext* context);
+
 	FREERDP_API HANDLE rdpei_server_get_event_handle(RdpeiServerContext* context);
 	FREERDP_API UINT rdpei_server_init(RdpeiServerContext* context);
 	FREERDP_API UINT rdpei_server_handle_messages(RdpeiServerContext* context);
 
-#if !defined(DEFINE_NO_DEPRECATED)
-	FREERDP_API WINPR_DEPRECATED(UINT rdpei_server_send_sc_ready(RdpeiServerContext* context,
-	                                                             UINT32 version));
-#endif
-
-	FREERDP_API UINT rdpei_server_send_sc_ready_ex(RdpeiServerContext* context, UINT32 version,
-	                                               UINT32 features);
+	FREERDP_API UINT rdpei_server_send_sc_ready(RdpeiServerContext* context, UINT32 version,
+	                                            UINT32 features);
 	FREERDP_API UINT rdpei_server_suspend(RdpeiServerContext* context);
 	FREERDP_API UINT rdpei_server_resume(RdpeiServerContext* context);
 

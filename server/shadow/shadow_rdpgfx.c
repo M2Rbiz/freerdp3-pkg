@@ -16,9 +16,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <freerdp/log.h>
 #include "shadow.h"
@@ -29,8 +27,9 @@
 
 int shadow_client_rdpgfx_init(rdpShadowClient* client)
 {
-	RdpgfxServerContext* rdpgfx;
-	rdpgfx = client->rdpgfx = rdpgfx_server_context_new(client->vcm);
+	WINPR_ASSERT(client);
+
+	RdpgfxServerContext* rdpgfx = client->rdpgfx = rdpgfx_server_context_new(client->vcm);
 	if (!rdpgfx)
 	{
 		return 0;
@@ -39,6 +38,9 @@ int shadow_client_rdpgfx_init(rdpShadowClient* client)
 	rdpgfx->rdpcontext = &client->context;
 
 	rdpgfx->custom = client;
+
+	if (!IFCALLRESULT(CHANNEL_RC_OK, rdpgfx->Initialize, rdpgfx, TRUE))
+		return -1;
 
 	return 1;
 }

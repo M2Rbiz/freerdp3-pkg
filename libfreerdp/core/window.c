@@ -18,11 +18,12 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
+
+#include "settings.h"
 
 #include <winpr/crt.h>
+#include <winpr/assert.h>
 
 #include <freerdp/log.h>
 
@@ -34,15 +35,15 @@ static void update_free_window_icon_info(ICON_INFO* iconInfo);
 
 BOOL rail_read_unicode_string(wStream* s, RAIL_UNICODE_STRING* unicode_string)
 {
-	UINT16 new_len;
-	BYTE* new_str;
+	UINT16 new_len = 0;
+	BYTE* new_str = NULL;
 
-	if (Stream_GetRemainingLength(s) < 2)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 2))
 		return FALSE;
 
 	Stream_Read_UINT16(s, new_len); /* cbString (2 bytes) */
 
-	if (Stream_GetRemainingLength(s) < new_len)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, new_len))
 		return FALSE;
 
 	if (!new_len)
@@ -71,7 +72,7 @@ BOOL rail_read_unicode_string(wStream* s, RAIL_UNICODE_STRING* unicode_string)
 BOOL utf8_string_to_rail_string(const char* string, RAIL_UNICODE_STRING* unicode_string)
 {
 	WCHAR* buffer = NULL;
-	int length = 0;
+	size_t len = 0;
 	free(unicode_string->string);
 	unicode_string->string = NULL;
 	unicode_string->length = 0;
@@ -79,16 +80,16 @@ BOOL utf8_string_to_rail_string(const char* string, RAIL_UNICODE_STRING* unicode
 	if (!string || strlen(string) < 1)
 		return TRUE;
 
-	length = ConvertToUnicode(CP_UTF8, 0, string, -1, &buffer, 0);
+	buffer = ConvertUtf8ToWCharAlloc(string, &len);
 
-	if ((length < 0) || ((size_t)length * sizeof(WCHAR) > UINT16_MAX))
+	if (!buffer || (len * sizeof(WCHAR) > UINT16_MAX))
 	{
 		free(buffer);
 		return FALSE;
 	}
 
 	unicode_string->string = (BYTE*)buffer;
-	unicode_string->length = (UINT16)length * sizeof(WCHAR);
+	unicode_string->length = (UINT16)len * sizeof(WCHAR);
 	return TRUE;
 }
 
@@ -97,7 +98,7 @@ static BOOL update_read_icon_info(wStream* s, ICON_INFO* iconInfo)
 {
 	BYTE* newBitMask = NULL;
 
-	if (Stream_GetRemainingLength(s) < 8)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 		return FALSE;
 
 	Stream_Read_UINT16(s, iconInfo->cacheEntry); /* cacheEntry (2 bytes) */
@@ -119,7 +120,7 @@ static BOOL update_read_icon_info(wStream* s, ICON_INFO* iconInfo)
 		case 1:
 		case 4:
 		case 8:
-			if (Stream_GetRemainingLength(s) < 2)
+			if (!Stream_CheckAndLogRequiredLength(TAG, s, 2))
 				return FALSE;
 
 			Stream_Read_UINT16(s, iconInfo->cbColorTable); /* cbColorTable (2 bytes) */
@@ -130,7 +131,7 @@ static BOOL update_read_icon_info(wStream* s, ICON_INFO* iconInfo)
 			break;
 	}
 
-	if (Stream_GetRemainingLength(s) < 4)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
 		return FALSE;
 
 	Stream_Read_UINT16(s, iconInfo->cbBitsMask);  /* cbBitsMask (2 bytes) */
@@ -149,7 +150,7 @@ static BOOL update_read_icon_info(wStream* s, ICON_INFO* iconInfo)
 		}
 
 		iconInfo->bitsMask = newBitMask;
-		if (Stream_GetRemainingLength(s) < iconInfo->cbBitsMask)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, iconInfo->cbBitsMask))
 			return FALSE;
 		Stream_Read(s, iconInfo->bitsMask, iconInfo->cbBitsMask);
 	}
@@ -163,7 +164,7 @@ static BOOL update_read_icon_info(wStream* s, ICON_INFO* iconInfo)
 	/* colorTable */
 	if (iconInfo->cbColorTable > 0)
 	{
-		BYTE* new_tab;
+		BYTE* new_tab = NULL;
 		new_tab = (BYTE*)realloc(iconInfo->colorTable, iconInfo->cbColorTable);
 
 		if (!new_tab)
@@ -183,7 +184,7 @@ static BOOL update_read_icon_info(wStream* s, ICON_INFO* iconInfo)
 
 	if (iconInfo->colorTable)
 	{
-		if (Stream_GetRemainingLength(s) < iconInfo->cbColorTable)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, iconInfo->cbColorTable))
 			return FALSE;
 		Stream_Read(s, iconInfo->colorTable, iconInfo->cbColorTable);
 	}
@@ -201,7 +202,7 @@ static BOOL update_read_icon_info(wStream* s, ICON_INFO* iconInfo)
 		}
 
 		iconInfo->bitsColor = newBitMask;
-		if (Stream_GetRemainingLength(s) < iconInfo->cbBitsColor)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, iconInfo->cbBitsColor))
 			return FALSE;
 		Stream_Read(s, iconInfo->bitsColor, iconInfo->cbBitsColor);
 	}
@@ -216,7 +217,7 @@ static BOOL update_read_icon_info(wStream* s, ICON_INFO* iconInfo)
 
 static BOOL update_read_cached_icon_info(wStream* s, CACHED_ICON_INFO* cachedIconInfo)
 {
-	if (Stream_GetRemainingLength(s) < 3)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 3))
 		return FALSE;
 
 	Stream_Read_UINT16(s, cachedIconInfo->cacheEntry); /* cacheEntry (2 bytes) */
@@ -226,7 +227,7 @@ static BOOL update_read_cached_icon_info(wStream* s, CACHED_ICON_INFO* cachedIco
 
 static BOOL update_read_notify_icon_infotip(wStream* s, NOTIFY_ICON_INFOTIP* notifyIconInfoTip)
 {
-	if (Stream_GetRemainingLength(s) < 8)
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 		return FALSE;
 
 	Stream_Read_UINT32(s, notifyIconInfoTip->timeout);              /* timeout (4 bytes) */
@@ -238,13 +239,12 @@ static BOOL update_read_notify_icon_infotip(wStream* s, NOTIFY_ICON_INFOTIP* not
 static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderInfo,
                                            WINDOW_STATE_ORDER* windowState)
 {
-	UINT32 i;
-	size_t size;
-	RECTANGLE_16* newRect;
+	size_t size = 0;
+	RECTANGLE_16* newRect = NULL;
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_OWNER)
 	{
-		if (Stream_GetRemainingLength(s) < 4)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
 			return FALSE;
 
 		Stream_Read_UINT32(s, windowState->ownerWindowId); /* ownerWindowId (4 bytes) */
@@ -252,7 +252,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_STYLE)
 	{
-		if (Stream_GetRemainingLength(s) < 8)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 			return FALSE;
 
 		Stream_Read_UINT32(s, windowState->style);         /* style (4 bytes) */
@@ -261,7 +261,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_SHOW)
 	{
-		if (Stream_GetRemainingLength(s) < 1)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 1))
 			return FALSE;
 
 		Stream_Read_UINT8(s, windowState->showState); /* showState (1 byte) */
@@ -275,7 +275,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_CLIENT_AREA_OFFSET)
 	{
-		if (Stream_GetRemainingLength(s) < 8)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 			return FALSE;
 
 		Stream_Read_INT32(s, windowState->clientOffsetX); /* clientOffsetX (4 bytes) */
@@ -284,7 +284,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_CLIENT_AREA_SIZE)
 	{
-		if (Stream_GetRemainingLength(s) < 8)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 			return FALSE;
 
 		Stream_Read_UINT32(s, windowState->clientAreaWidth);  /* clientAreaWidth (4 bytes) */
@@ -293,7 +293,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_RESIZE_MARGIN_X)
 	{
-		if (Stream_GetRemainingLength(s) < 8)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 			return FALSE;
 
 		Stream_Read_UINT32(s, windowState->resizeMarginLeft);
@@ -302,7 +302,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_RESIZE_MARGIN_Y)
 	{
-		if (Stream_GetRemainingLength(s) < 8)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 			return FALSE;
 
 		Stream_Read_UINT32(s, windowState->resizeMarginTop);
@@ -311,7 +311,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_RP_CONTENT)
 	{
-		if (Stream_GetRemainingLength(s) < 1)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 1))
 			return FALSE;
 
 		Stream_Read_UINT8(s, windowState->RPContent); /* RPContent (1 byte) */
@@ -319,7 +319,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_ROOT_PARENT)
 	{
-		if (Stream_GetRemainingLength(s) < 4)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
 			return FALSE;
 
 		Stream_Read_UINT32(s, windowState->rootParentHandle); /* rootParentHandle (4 bytes) */
@@ -327,7 +327,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_WND_OFFSET)
 	{
-		if (Stream_GetRemainingLength(s) < 8)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 			return FALSE;
 
 		Stream_Read_INT32(s, windowState->windowOffsetX); /* windowOffsetX (4 bytes) */
@@ -336,7 +336,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_WND_CLIENT_DELTA)
 	{
-		if (Stream_GetRemainingLength(s) < 8)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 			return FALSE;
 
 		Stream_Read_INT32(s, windowState->windowClientDeltaX); /* windowClientDeltaX (4 bytes) */
@@ -345,7 +345,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_WND_SIZE)
 	{
-		if (Stream_GetRemainingLength(s) < 8)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 			return FALSE;
 
 		Stream_Read_UINT32(s, windowState->windowWidth);  /* windowWidth (4 bytes) */
@@ -354,7 +354,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_WND_RECTS)
 	{
-		if (Stream_GetRemainingLength(s) < 2)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 2))
 			return FALSE;
 
 		Stream_Read_UINT16(s, windowState->numWindowRects); /* numWindowRects (2 bytes) */
@@ -373,11 +373,11 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 			windowState->windowRects = newRect;
 
-			if (Stream_GetRemainingLength(s) < 8 * windowState->numWindowRects)
+			if (!Stream_CheckAndLogRequiredLengthOfSize(TAG, s, windowState->numWindowRects, 8ull))
 				return FALSE;
 
 			/* windowRects */
-			for (i = 0; i < windowState->numWindowRects; i++)
+			for (UINT32 i = 0; i < windowState->numWindowRects; i++)
 			{
 				Stream_Read_UINT16(s, windowState->windowRects[i].left);   /* left (2 bytes) */
 				Stream_Read_UINT16(s, windowState->windowRects[i].top);    /* top (2 bytes) */
@@ -389,7 +389,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_VIS_OFFSET)
 	{
-		if (Stream_GetRemainingLength(s) < 8)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 			return FALSE;
 
 		Stream_Read_UINT32(s, windowState->visibleOffsetX); /* visibleOffsetX (4 bytes) */
@@ -398,7 +398,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_VISIBILITY)
 	{
-		if (Stream_GetRemainingLength(s) < 2)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 2))
 			return FALSE;
 
 		Stream_Read_UINT16(s, windowState->numVisibilityRects); /* numVisibilityRects (2 bytes) */
@@ -417,11 +417,12 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 			windowState->visibilityRects = newRect;
 
-			if (Stream_GetRemainingLength(s) < windowState->numVisibilityRects * 8)
+			if (!Stream_CheckAndLogRequiredLengthOfSize(TAG, s, windowState->numVisibilityRects,
+			                                            8ull))
 				return FALSE;
 
 			/* visibilityRects */
-			for (i = 0; i < windowState->numVisibilityRects; i++)
+			for (UINT32 i = 0; i < windowState->numVisibilityRects; i++)
 			{
 				Stream_Read_UINT16(s, windowState->visibilityRects[i].left);  /* left (2 bytes) */
 				Stream_Read_UINT16(s, windowState->visibilityRects[i].top);   /* top (2 bytes) */
@@ -445,7 +446,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_TASKBAR_BUTTON)
 	{
-		if (Stream_GetRemainingLength(s) < 1)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 1))
 			return FALSE;
 
 		Stream_Read_UINT8(s, windowState->TaskbarButton);
@@ -453,7 +454,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_ENFORCE_SERVER_ZORDER)
 	{
-		if (Stream_GetRemainingLength(s) < 1)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 1))
 			return FALSE;
 
 		Stream_Read_UINT8(s, windowState->EnforceServerZOrder);
@@ -461,7 +462,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_APPBAR_STATE)
 	{
-		if (Stream_GetRemainingLength(s) < 1)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 1))
 			return FALSE;
 
 		Stream_Read_UINT8(s, windowState->AppBarState);
@@ -469,7 +470,7 @@ static BOOL update_read_window_state_order(wStream* s, WINDOW_ORDER_INFO* orderI
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_APPBAR_EDGE)
 	{
-		if (Stream_GetRemainingLength(s) < 1)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 1))
 			return FALSE;
 
 		Stream_Read_UINT8(s, windowState->AppBarEdge);
@@ -507,7 +508,7 @@ static BOOL window_order_supported(const rdpSettings* settings, UINT32 fieldFlag
 {
 	const UINT32 mask = (WINDOW_ORDER_FIELD_CLIENT_AREA_SIZE | WINDOW_ORDER_FIELD_RP_CONTENT |
 	                     WINDOW_ORDER_FIELD_ROOT_PARENT);
-	BOOL dresult;
+	BOOL dresult = 0;
 
 	if (!settings)
 		return FALSE;
@@ -577,7 +578,7 @@ static void dump_window_state_order(wLog* log, const char* msg, const WINDOW_ORD
 
 	if (order->fieldFlags & WINDOW_ORDER_FIELD_SHOW)
 	{
-		const char* showStr;
+		const char* showStr = NULL;
 		switch (state->showState)
 		{
 			case 0:
@@ -631,9 +632,8 @@ static void dump_window_state_order(wLog* log, const char* msg, const WINDOW_ORD
 
 	if (order->fieldFlags & WINDOW_ORDER_FIELD_WND_RECTS)
 	{
-		UINT32 i;
 		DUMP_APPEND(buffer, bufferSize, " windowRects=(");
-		for (i = 0; i < state->numWindowRects; i++)
+		for (UINT32 i = 0; i < state->numWindowRects; i++)
 		{
 			DUMP_APPEND(buffer, bufferSize, "(%" PRIu16 ",%" PRIu16 ",%" PRIu16 ",%" PRIu16 ")",
 			            state->windowRects[i].left, state->windowRects[i].top,
@@ -648,9 +648,8 @@ static void dump_window_state_order(wLog* log, const char* msg, const WINDOW_ORD
 
 	if (order->fieldFlags & WINDOW_ORDER_FIELD_VISIBILITY)
 	{
-		UINT32 i;
 		DUMP_APPEND(buffer, bufferSize, " visibilityRects=(");
-		for (i = 0; i < state->numVisibilityRects; i++)
+		for (UINT32 i = 0; i < state->numVisibilityRects; i++)
 		{
 			DUMP_APPEND(buffer, bufferSize, "(%" PRIu16 ",%" PRIu16 ",%" PRIu16 ",%" PRIu16 ")",
 			            state->visibilityRects[i].left, state->visibilityRects[i].top,
@@ -675,7 +674,7 @@ static void dump_window_state_order(wLog* log, const char* msg, const WINDOW_ORD
 		DUMP_APPEND(buffer, bufferSize, " appBarState=0x%" PRIx8 "", state->AppBarState);
 	if (order->fieldFlags & WINDOW_ORDER_FIELD_APPBAR_EDGE)
 	{
-		const char* appBarEdgeStr;
+		const char* appBarEdgeStr = NULL;
 		switch (state->AppBarEdge)
 		{
 			case 0:
@@ -703,11 +702,18 @@ static void dump_window_state_order(wLog* log, const char* msg, const WINDOW_ORD
 static BOOL update_recv_window_info_order(rdpUpdate* update, wStream* s,
                                           WINDOW_ORDER_INFO* orderInfo)
 {
+	rdp_update_internal* up = update_cast(update);
 	rdpContext* context = update->context;
 	rdpWindowUpdate* window = update->window;
+
 	BOOL result = TRUE;
 
-	if (Stream_GetRemainingLength(s) < 4)
+	WINPR_ASSERT(s);
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(window);
+	WINPR_ASSERT(orderInfo);
+
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
 		return FALSE;
 
 	Stream_Read_UINT32(s, orderInfo->windowId); /* windowId (4 bytes) */
@@ -719,7 +725,7 @@ static BOOL update_recv_window_info_order(rdpUpdate* update, wStream* s,
 
 		if (result)
 		{
-			WLog_Print(update->log, WLOG_DEBUG, "WindowIcon windowId=0x%" PRIx32 "",
+			WLog_Print(up->log, WLOG_DEBUG, "WindowIcon windowId=0x%" PRIx32 "",
 			           orderInfo->windowId);
 			IFCALLRET(window->WindowIcon, result, context, orderInfo, &window_icon);
 		}
@@ -734,7 +740,7 @@ static BOOL update_recv_window_info_order(rdpUpdate* update, wStream* s,
 
 		if (result)
 		{
-			WLog_Print(update->log, WLOG_DEBUG, "WindowCachedIcon windowId=0x%" PRIx32 "",
+			WLog_Print(up->log, WLOG_DEBUG, "WindowCachedIcon windowId=0x%" PRIx32 "",
 			           orderInfo->windowId);
 			IFCALLRET(window->WindowCachedIcon, result, context, orderInfo, &window_cached_icon);
 		}
@@ -742,8 +748,7 @@ static BOOL update_recv_window_info_order(rdpUpdate* update, wStream* s,
 	else if (orderInfo->fieldFlags & WINDOW_ORDER_STATE_DELETED)
 	{
 		update_read_window_delete_order(s, orderInfo);
-		WLog_Print(update->log, WLOG_DEBUG, "WindowDelete windowId=0x%" PRIx32 "",
-		           orderInfo->windowId);
+		WLog_Print(up->log, WLOG_DEBUG, "WindowDelete windowId=0x%" PRIx32 "", orderInfo->windowId);
 		IFCALLRET(window->WindowDelete, result, context, orderInfo);
 	}
 	else
@@ -755,12 +760,12 @@ static BOOL update_recv_window_info_order(rdpUpdate* update, wStream* s,
 		{
 			if (orderInfo->fieldFlags & WINDOW_ORDER_STATE_NEW)
 			{
-				dump_window_state_order(update->log, "WindowCreate", orderInfo, &windowState);
+				dump_window_state_order(up->log, "WindowCreate", orderInfo, &windowState);
 				IFCALLRET(window->WindowCreate, result, context, orderInfo, &windowState);
 			}
 			else
 			{
-				dump_window_state_order(update->log, "WindowUpdate", orderInfo, &windowState);
+				dump_window_state_order(up->log, "WindowUpdate", orderInfo, &windowState);
 				IFCALLRET(window->WindowUpdate, result, context, orderInfo, &windowState);
 			}
 
@@ -785,7 +790,7 @@ static BOOL update_read_notification_icon_state_order(wStream* s, WINDOW_ORDER_I
 {
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_NOTIFY_VERSION)
 	{
-		if (Stream_GetRemainingLength(s) < 4)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
 			return FALSE;
 
 		Stream_Read_UINT32(s, notify_icon_state->version); /* version (4 bytes) */
@@ -807,7 +812,7 @@ static BOOL update_read_notification_icon_state_order(wStream* s, WINDOW_ORDER_I
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_NOTIFY_STATE)
 	{
-		if (Stream_GetRemainingLength(s) < 4)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
 			return FALSE;
 
 		Stream_Read_UINT32(s, notify_icon_state->state); /* state (4 bytes) */
@@ -837,11 +842,17 @@ static void update_read_notification_icon_delete_order(wStream* s, WINDOW_ORDER_
 static BOOL update_recv_notification_icon_info_order(rdpUpdate* update, wStream* s,
                                                      WINDOW_ORDER_INFO* orderInfo)
 {
+	rdp_update_internal* up = update_cast(update);
 	rdpContext* context = update->context;
 	rdpWindowUpdate* window = update->window;
 	BOOL result = TRUE;
 
-	if (Stream_GetRemainingLength(s) < 8)
+	WINPR_ASSERT(s);
+	WINPR_ASSERT(orderInfo);
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(window);
+
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 8))
 		return FALSE;
 
 	Stream_Read_UINT32(s, orderInfo->windowId);     /* windowId (4 bytes) */
@@ -850,7 +861,7 @@ static BOOL update_recv_notification_icon_info_order(rdpUpdate* update, wStream*
 	if (orderInfo->fieldFlags & WINDOW_ORDER_STATE_DELETED)
 	{
 		update_read_notification_icon_delete_order(s, orderInfo);
-		WLog_Print(update->log, WLOG_DEBUG, "NotifyIconDelete");
+		WLog_Print(up->log, WLOG_DEBUG, "NotifyIconDelete");
 		IFCALLRET(window->NotifyIconDelete, result, context, orderInfo);
 	}
 	else
@@ -863,12 +874,12 @@ static BOOL update_recv_notification_icon_info_order(rdpUpdate* update, wStream*
 
 		if (orderInfo->fieldFlags & WINDOW_ORDER_STATE_NEW)
 		{
-			WLog_Print(update->log, WLOG_DEBUG, "NotifyIconCreate");
+			WLog_Print(up->log, WLOG_DEBUG, "NotifyIconCreate");
 			IFCALLRET(window->NotifyIconCreate, result, context, orderInfo, &notify_icon_state);
 		}
 		else
 		{
-			WLog_Print(update->log, WLOG_DEBUG, "NotifyIconUpdate");
+			WLog_Print(up->log, WLOG_DEBUG, "NotifyIconUpdate");
 			IFCALLRET(window->NotifyIconUpdate, result, context, orderInfo, &notify_icon_state);
 		}
 	fail:
@@ -881,12 +892,11 @@ static BOOL update_recv_notification_icon_info_order(rdpUpdate* update, wStream*
 static BOOL update_read_desktop_actively_monitored_order(wStream* s, WINDOW_ORDER_INFO* orderInfo,
                                                          MONITORED_DESKTOP_ORDER* monitored_desktop)
 {
-	int i;
-	int size;
+	int size = 0;
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_DESKTOP_ACTIVE_WND)
 	{
-		if (Stream_GetRemainingLength(s) < 4)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
 			return FALSE;
 
 		Stream_Read_UINT32(s, monitored_desktop->activeWindowId); /* activeWindowId (4 bytes) */
@@ -894,14 +904,14 @@ static BOOL update_read_desktop_actively_monitored_order(wStream* s, WINDOW_ORDE
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_DESKTOP_ZORDER)
 	{
-		UINT32* newid;
+		UINT32* newid = NULL;
 
-		if (Stream_GetRemainingLength(s) < 1)
+		if (!Stream_CheckAndLogRequiredLength(TAG, s, 1))
 			return FALSE;
 
 		Stream_Read_UINT8(s, monitored_desktop->numWindowIds); /* numWindowIds (1 byte) */
 
-		if (Stream_GetRemainingLength(s) < 4 * monitored_desktop->numWindowIds)
+		if (!Stream_CheckAndLogRequiredLengthOfSize(TAG, s, monitored_desktop->numWindowIds, 4ull))
 			return FALSE;
 
 		if (monitored_desktop->numWindowIds > 0)
@@ -919,7 +929,7 @@ static BOOL update_read_desktop_actively_monitored_order(wStream* s, WINDOW_ORDE
 			monitored_desktop->windowIds = newid;
 
 			/* windowIds */
-			for (i = 0; i < (int)monitored_desktop->numWindowIds; i++)
+			for (UINT32 i = 0; i < (int)monitored_desktop->numWindowIds; i++)
 			{
 				Stream_Read_UINT32(s, monitored_desktop->windowIds[i]);
 			}
@@ -947,10 +957,8 @@ static void dump_monitored_desktop(wLog* log, const char* msg, const WINDOW_ORDE
 
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_DESKTOP_ZORDER)
 	{
-		UINT32 i;
-
 		DUMP_APPEND(buffer, bufferSize, " windows=(");
-		for (i = 0; i < monitored->numWindowIds; i++)
+		for (UINT32 i = 0; i < monitored->numWindowIds; i++)
 		{
 			DUMP_APPEND(buffer, bufferSize, "0x%" PRIx32 ",", monitored->windowIds[i]);
 		}
@@ -962,14 +970,20 @@ static void dump_monitored_desktop(wLog* log, const char* msg, const WINDOW_ORDE
 static BOOL update_recv_desktop_info_order(rdpUpdate* update, wStream* s,
                                            WINDOW_ORDER_INFO* orderInfo)
 {
+	rdp_update_internal* up = update_cast(update);
 	rdpContext* context = update->context;
 	rdpWindowUpdate* window = update->window;
 	BOOL result = TRUE;
 
+	WINPR_ASSERT(s);
+	WINPR_ASSERT(orderInfo);
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(window);
+
 	if (orderInfo->fieldFlags & WINDOW_ORDER_FIELD_DESKTOP_NONE)
 	{
 		update_read_desktop_non_monitored_order(s, orderInfo);
-		WLog_Print(update->log, WLOG_DEBUG, "NonMonitoredDesktop, windowId=0x%" PRIx32 "",
+		WLog_Print(up->log, WLOG_DEBUG, "NonMonitoredDesktop, windowId=0x%" PRIx32 "",
 		           orderInfo->windowId);
 		IFCALLRET(window->NonMonitoredDesktop, result, context, orderInfo);
 	}
@@ -980,7 +994,7 @@ static BOOL update_recv_desktop_info_order(rdpUpdate* update, wStream* s,
 
 		if (result)
 		{
-			dump_monitored_desktop(update->log, "ActivelyMonitoredDesktop", orderInfo,
+			dump_monitored_desktop(up->log, "ActivelyMonitoredDesktop", orderInfo,
 			                       &monitored_desktop);
 			IFCALLRET(window->MonitoredDesktop, result, context, orderInfo, &monitored_desktop);
 		}
@@ -1007,23 +1021,22 @@ void update_free_window_icon_info(ICON_INFO* iconInfo)
 BOOL update_recv_altsec_window_order(rdpUpdate* update, wStream* s)
 {
 	BOOL rc = TRUE;
-	size_t remaining;
-	UINT16 orderSize;
+	size_t remaining = 0;
+	UINT16 orderSize = 0;
 	WINDOW_ORDER_INFO orderInfo = { 0 };
+	rdp_update_internal* up = update_cast(update);
+
 	remaining = Stream_GetRemainingLength(s);
 
-	if (remaining < 6)
-	{
-		WLog_Print(update->log, WLOG_ERROR, "Stream short");
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 6))
 		return FALSE;
-	}
 
 	Stream_Read_UINT16(s, orderSize);            /* orderSize (2 bytes) */
 	Stream_Read_UINT32(s, orderInfo.fieldFlags); /* FieldsPresentFlags (4 bytes) */
 
 	if (remaining + 1 < orderSize)
 	{
-		WLog_Print(update->log, WLOG_ERROR, "Stream short orderSize");
+		WLog_Print(up->log, WLOG_ERROR, "Stream short orderSize");
 		return FALSE;
 	}
 
@@ -1041,7 +1054,7 @@ BOOL update_recv_altsec_window_order(rdpUpdate* update, wStream* s)
 		rc = update_recv_desktop_info_order(update, s, &orderInfo);
 
 	if (!rc)
-		WLog_Print(update->log, WLOG_ERROR, "windoworder flags %08" PRIx32 " failed",
+		WLog_Print(up->log, WLOG_ERROR, "windoworder flags %08" PRIx32 " failed",
 		           orderInfo.fieldFlags);
 
 	return rc;

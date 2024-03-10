@@ -22,12 +22,13 @@
 
 #if defined __linux__ && !defined ANDROID
 
-#include <assert.h>
+#include <winpr/assert.h>
 #include <termios.h>
 
 #include <winpr/wlog.h>
 
 #include "comm_serial_sys.h"
+#include "comm_sercx_sys.h"
 
 static BOOL _set_handflow(WINPR_COMM* pComm, const SERIAL_HANDFLOW* pHandflow)
 {
@@ -122,7 +123,7 @@ static BOOL _set_handflow(WINPR_COMM* pComm, const SERIAL_HANDFLOW* pHandflow)
 
 static BOOL _get_handflow(WINPR_COMM* pComm, SERIAL_HANDFLOW* pHandflow)
 {
-	BOOL result;
+	BOOL result = 0;
 	SERIAL_DRIVER* pSerialSys = SerialSys_s();
 
 	result = pSerialSys->get_handflow(pComm, pHandflow);
@@ -154,7 +155,7 @@ static const ULONG _SERCX_SYS_SUPPORTED_EV_MASK = SERIAL_EV_RXCHAR |
 
 static BOOL _set_wait_mask(WINPR_COMM* pComm, const ULONG* pWaitMask)
 {
-	ULONG possibleMask;
+	ULONG possibleMask = 0;
 	SERIAL_DRIVER* pSerialSys = SerialSys_s();
 
 	possibleMask = *pWaitMask & _SERCX_SYS_SUPPORTED_EV_MASK;
@@ -211,10 +212,12 @@ static SERIAL_DRIVER _SerCxSys = {
 	.reset_device = NULL, /* not supported by SerCx.sys */
 };
 
-SERIAL_DRIVER* SerCxSys_s()
+SERIAL_DRIVER* SerCxSys_s(void)
 {
 	/* _SerCxSys completed with inherited functions from SerialSys */
 	SERIAL_DRIVER* pSerialSys = SerialSys_s();
+	if (!pSerialSys)
+		return NULL;
 
 	_SerCxSys.set_baud_rate = pSerialSys->set_baud_rate;
 	_SerCxSys.get_baud_rate = pSerialSys->get_baud_rate;

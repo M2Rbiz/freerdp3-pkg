@@ -16,9 +16,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <winpr/crt.h>
 #include <winpr/print.h>
@@ -480,9 +478,9 @@ int win_shadow_wds_wnd_init(winShadowSubsystem* subsystem)
 {
 	HMODULE hModule;
 	HINSTANCE hInstance;
-	WNDCLASSEX wndClassEx;
+	WNDCLASSEX wndClassEx = { 0 };
 	hModule = GetModuleHandle(NULL);
-	ZeroMemory(&wndClassEx, sizeof(WNDCLASSEX));
+
 	wndClassEx.cbSize = sizeof(WNDCLASSEX);
 	wndClassEx.style = 0;
 	wndClassEx.lpfnWndProc = ShadowWndProc;
@@ -734,7 +732,7 @@ int win_shadow_wds_init(winShadowSubsystem* subsystem)
 	}
 
 	{
-		int status1 = -1, status2 = -1;
+		int status2 = -1;
 		char* ConnectionString2;
 		BSTR bstrConnectionString;
 		hr = subsystem->pInvitation->lpVtbl->get_ConnectionString(subsystem->pInvitation,
@@ -746,14 +744,12 @@ int win_shadow_wds_init(winShadowSubsystem* subsystem)
 			return -1;
 		}
 
-		status1 = ConvertFromUnicode(CP_UTF8, 0, (WCHAR*)bstrConnectionString,
-		                             ((UINT32*)bstrConnectionString)[-1], &(ConnectionString2), 0,
-		                             NULL, NULL);
+		ConnectionString2 = ConvertWCharToUtf8Alloc(bstrConnectionString, NULL);
 		SysFreeString(bstrConnectionString);
 		status2 = freerdp_assistance_set_connection_string2(file, ConnectionString2, "Shadow123!");
 		free(ConnectionString2);
 
-		if ((status1 < 1) || (status2 < 1))
+		if ((!ConnectionString2) || (status2 < 1))
 		{
 			WLog_ERR(TAG, "failed to convert connection string");
 			return -1;
@@ -771,11 +767,11 @@ int win_shadow_wds_init(winShadowSubsystem* subsystem)
 
 	settings = subsystem->shw->settings;
 	status = freerdp_assistance_populate_settings_from_assistance_file(file, settings);
-	freerdp_set_param_string(settings, FreeRDP_Domain, "RDP");
-	freerdp_set_param_string(settings, FreeRDP_Username, "Shadow");
-	freerdp_set_param_bool(settings, FreeRDP_AutoLogonEnabled, TRUE);
-	freerdp_set_param_uint32(settings, FreeRDP_DesktopWidth, width);
-	freerdp_set_param_uint32(settings, FreeRDP_DesktopHeight, height);
+	freerdp_settings_set_string(settings, FreeRDP_Domain, "RDP");
+	freerdp_settings_set_string(settings, FreeRDP_Username, "Shadow");
+	freerdp_settings_set_bool(settings, FreeRDP_AutoLogonEnabled, TRUE);
+	freerdp_settings_set_uint32(settings, FreeRDP_DesktopWidth, width);
+	freerdp_settings_set_uint32(settings, FreeRDP_DesktopHeight, height);
 	status = win_shadow_rdp_start(subsystem);
 
 	if (status < 0)

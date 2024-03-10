@@ -17,35 +17,38 @@
  * limitations under the License.
  */
 
+#include <winpr/platform.h>
 #include <freerdp/svc.h>
 
-struct _STATIC_ENTRY
+/* The 'entry' function pointers have variable arguments. */
+WINPR_PRAGMA_DIAG_PUSH
+WINPR_PRAGMA_DIAG_IGNORED_STRICT_PROTOTYPES
+
+typedef struct
 {
 	const char* name;
 	UINT (*entry)();
-};
-typedef struct _STATIC_ENTRY STATIC_ENTRY;
+} STATIC_ENTRY;
 
-struct _STATIC_ENTRY_TABLE
+typedef struct
 {
 	const char* name;
 	const STATIC_ENTRY* table;
-};
-typedef struct _STATIC_ENTRY_TABLE STATIC_ENTRY_TABLE;
+} STATIC_ENTRY_TABLE;
 
-struct _STATIC_SUBSYSTEM_ENTRY
+typedef struct
 {
 	const char* name;
 	const char* type;
 	UINT (*entry)();
-};
-typedef struct _STATIC_SUBSYSTEM_ENTRY STATIC_SUBSYSTEM_ENTRY;
+} STATIC_SUBSYSTEM_ENTRY;
 
-struct _STATIC_ADDIN_TABLE
+typedef struct
 {
 	const char* name;
 	const char* type;
 	UINT (*entry)();
 	const STATIC_SUBSYSTEM_ENTRY* table;
-};
-typedef struct _STATIC_ADDIN_TABLE STATIC_ADDIN_TABLE;
+} STATIC_ADDIN_TABLE;
+
+WINPR_PRAGMA_DIAG_POP

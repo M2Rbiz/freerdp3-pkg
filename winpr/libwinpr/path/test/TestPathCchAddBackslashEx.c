@@ -10,10 +10,13 @@ static const TCHAR testPathNoBackslash[] = _T("C:\\Program Files");
 
 int TestPathCchAddBackslashEx(int argc, char* argv[])
 {
-	HRESULT status;
-	LPTSTR pszEnd;
-	size_t cchRemaining;
+	HRESULT status = 0;
+	LPTSTR pszEnd = NULL;
+	size_t cchRemaining = 0;
 	TCHAR Path[PATHCCH_MAX_CCH];
+
+	WINPR_UNUSED(argc);
+	WINPR_UNUSED(argv);
 
 	/**
 	 * PathCchAddBackslashEx returns S_OK if the function was successful,

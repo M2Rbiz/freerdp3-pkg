@@ -25,9 +25,9 @@
 #include <winpr/error.h>
 #include <winpr/wtypes.h>
 
-//#define HAVE_PATHCCH_H	1
+//#define WINPR_HAVE_PATHCCH_H	1
 
-#ifdef HAVE_PATHCCH_H
+#ifdef WINPR_HAVE_PATHCCH_H
 
 #include <Pathcch.h>
 
@@ -305,6 +305,7 @@ extern "C"
 {
 #endif
 
+	WINPR_API const char* GetKnownPathIdString(int id);
 	WINPR_API char* GetKnownPath(int id);
 	WINPR_API char* GetKnownSubPath(int id, const char* path);
 	WINPR_API char* GetEnvironmentPath(char* name);
@@ -312,6 +313,7 @@ extern "C"
 	WINPR_API char* GetCombinedPath(const char* basePath, const char* subPath);
 
 	WINPR_API BOOL PathMakePathA(LPCSTR path, LPSECURITY_ATTRIBUTES lpAttributes);
+	WINPR_API BOOL PathMakePathW(LPCWSTR path, LPSECURITY_ATTRIBUTES lpAttributes);
 
 #if !defined(_WIN32) || defined(_UWP)
 
@@ -334,11 +336,14 @@ extern "C"
 
 #endif
 
-WINPR_API BOOL winpr_MoveFile(LPCSTR lpExistingFileName, LPCSTR lpNewFileName);
-WINPR_API BOOL winpr_DeleteFile(const char* lpFileName);
-WINPR_API BOOL winpr_RemoveDirectory(LPCSTR lpPathName);
-WINPR_API BOOL winpr_PathFileExists(const char* pszPath);
-WINPR_API BOOL winpr_PathMakePath(const char* path, LPSECURITY_ATTRIBUTES lpAttributes);
+	WINPR_API BOOL winpr_MoveFile(LPCSTR lpExistingFileName, LPCSTR lpNewFileName);
+	WINPR_API BOOL winpr_MoveFileEx(LPCSTR lpExistingFileName, LPCSTR lpNewFileName, DWORD dwFlags);
+	WINPR_API BOOL winpr_DeleteFile(const char* lpFileName);
+	WINPR_API BOOL winpr_RemoveDirectory(LPCSTR lpPathName);
+	WINPR_API BOOL winpr_RemoveDirectory_RecursiveA(LPCSTR lpPathName);
+	WINPR_API BOOL winpr_RemoveDirectory_RecursiveW(LPCWSTR lpPathName);
+	WINPR_API BOOL winpr_PathFileExists(const char* pszPath);
+	WINPR_API BOOL winpr_PathMakePath(const char* path, LPSECURITY_ATTRIBUTES lpAttributes);
 
 #ifdef __cplusplus
 }

@@ -17,9 +17,7 @@
  * permissions and limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <freerdp/types.h>
 #include <freerdp/primitives.h>
@@ -54,12 +52,12 @@ static primitives_t* generic = NULL;
 
 #ifdef DO_PREFETCH
 /*---------------------------------------------------------------------------*/
-static inline void GNU_INLINE _mm_prefetch_buffer(char* buffer, int num_bytes)
+static inline void GNU_INLINE _mm_prefetch_buffer(char* WINPR_RESTRICT buffer, int num_bytes)
 {
 	__m128i* buf = (__m128i*)buffer;
-	unsigned int i;
 
-	for (i = 0; i < (num_bytes / sizeof(__m128i)); i += (CACHE_LINE_BYTES / sizeof(__m128i)))
+	for (unsigned int i = 0; i < (num_bytes / sizeof(__m128i));
+	     i += (CACHE_LINE_BYTES / sizeof(__m128i)))
 	{
 		_mm_prefetch((char*)(&buf[i]), _MM_HINT_NTA);
 	}
@@ -67,14 +65,27 @@ static inline void GNU_INLINE _mm_prefetch_buffer(char* buffer, int num_bytes)
 #endif /* DO_PREFETCH */
 
 /*---------------------------------------------------------------------------*/
-static pstatus_t sse2_yCbCrToRGB_16s16s_P3P3(const INT16* const pSrc[3], int srcStep,
-                                             INT16* pDst[3], int dstStep,
-                                             const prim_size_t* roi) /* region of interest */
+static pstatus_t
+sse2_yCbCrToRGB_16s16s_P3P3(const INT16* const WINPR_RESTRICT pSrc[3], int srcStep,
+                            INT16* WINPR_RESTRICT pDst[3], int dstStep,
+                            const prim_size_t* WINPR_RESTRICT roi) /* region of interest */
 {
-	__m128i zero, max, r_cr, g_cb, g_cr, b_cb, c4096;
-	__m128i *y_buf, *cb_buf, *cr_buf, *r_buf, *g_buf, *b_buf;
-	UINT32 yp;
-	int srcbump, dstbump, imax;
+	__m128i zero;
+	__m128i max;
+	__m128i r_cr;
+	__m128i g_cb;
+	__m128i g_cr;
+	__m128i b_cb;
+	__m128i c4096;
+	const __m128i* y_buf = NULL;
+	const __m128i* cb_buf = NULL;
+	const __m128i* cr_buf = NULL;
+	__m128i* r_buf = NULL;
+	__m128i* g_buf = NULL;
+	__m128i* b_buf = NULL;
+	int srcbump = 0;
+	int dstbump = 0;
+	int imax = 0;
 
 	if (((ULONG_PTR)(pSrc[0]) & 0x0f) || ((ULONG_PTR)(pSrc[1]) & 0x0f) ||
 	    ((ULONG_PTR)(pSrc[2]) & 0x0f) || ((ULONG_PTR)(pDst[0]) & 0x0f) ||
@@ -87,9 +98,9 @@ static pstatus_t sse2_yCbCrToRGB_16s16s_P3P3(const INT16* const pSrc[3], int src
 
 	zero = _mm_setzero_si128();
 	max = _mm_set1_epi16(255);
-	y_buf = (__m128i*)(pSrc[0]);
-	cb_buf = (__m128i*)(pSrc[1]);
-	cr_buf = (__m128i*)(pSrc[2]);
+	y_buf = (const __m128i*)(pSrc[0]);
+	cb_buf = (const __m128i*)(pSrc[1]);
+	cr_buf = (const __m128i*)(pSrc[2]);
 	r_buf = (__m128i*)(pDst[0]);
 	g_buf = (__m128i*)(pDst[1]);
 	b_buf = (__m128i*)(pDst[2]);
@@ -103,11 +114,9 @@ static pstatus_t sse2_yCbCrToRGB_16s16s_P3P3(const INT16* const pSrc[3], int src
 #ifdef DO_PREFETCH
 
 	/* Prefetch Y's, Cb's, and Cr's. */
-	for (yp = 0; yp < roi->height; yp++)
+	for (UINT32 yp = 0; yp < roi->height; yp++)
 	{
-		int i;
-
-		for (i = 0; i < roi->width * sizeof(INT16) / sizeof(__m128i);
+		for (int i = 0; i < roi->width * sizeof(INT16) / sizeof(__m128i);
 		     i += (CACHE_LINE_BYTES / sizeof(__m128i)))
 		{
 			_mm_prefetch((char*)(&y_buf[i]), _MM_HINT_NTA);
@@ -126,11 +135,9 @@ static pstatus_t sse2_yCbCrToRGB_16s16s_P3P3(const INT16* const pSrc[3], int src
 #endif /* DO_PREFETCH */
 	imax = roi->width * sizeof(INT16) / sizeof(__m128i);
 
-	for (yp = 0; yp < roi->height; ++yp)
+	for (UINT32 yp = 0; yp < roi->height; ++yp)
 	{
-		int i;
-
-		for (i = 0; i < imax; i++)
+		for (int i = 0; i < imax; i++)
 		{
 			/* In order to use SSE2 signed 16-bit integer multiplication
 			 * we need to convert the floating point factors to signed int
@@ -152,7 +159,12 @@ static pstatus_t sse2_yCbCrToRGB_16s16s_P3P3(const INT16* const pSrc[3], int src
 			 * r = ((y+4096)>>2 + HIWORD(cr*22986)) >> 3
 			 */
 			/* y = (y_r_buf[i] + 4096) >> 2 */
-			__m128i y, cb, cr, r, g, b;
+			__m128i y;
+			__m128i cb;
+			__m128i cr;
+			__m128i r;
+			__m128i g;
+			__m128i b;
 			y = _mm_load_si128(y_buf + i);
 			y = _mm_add_epi16(y, c4096);
 			y = _mm_srai_epi16(y, 2);
@@ -193,9 +205,10 @@ static pstatus_t sse2_yCbCrToRGB_16s16s_P3P3(const INT16* const pSrc[3], int src
 }
 
 /*---------------------------------------------------------------------------*/
-static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_BGRX(const INT16* const pSrc[3], UINT32 srcStep,
-                                                   BYTE* pDst, UINT32 dstStep,
-                                                   const prim_size_t* roi) /* region of interest */
+static pstatus_t
+sse2_yCbCrToRGB_16s8u_P3AC4R_BGRX(const INT16* const WINPR_RESTRICT pSrc[3], UINT32 srcStep,
+                                  BYTE* WINPR_RESTRICT pDst, UINT32 dstStep,
+                                  const prim_size_t* WINPR_RESTRICT roi) /* region of interest */
 {
 	const __m128i zero = _mm_setzero_si128();
 	const __m128i max = _mm_set1_epi16(255);
@@ -204,23 +217,20 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_BGRX(const INT16* const pSrc[3], U
 	const __m128i g_cr = _mm_set1_epi16(-11698); /* -0.714 << 14 */
 	const __m128i b_cb = _mm_set1_epi16(28999);  /*  1.770 << 14 */
 	const __m128i c4096 = _mm_set1_epi16(4096);
-	const INT16* y_buf = (INT16*)pSrc[0];
-	const INT16* cb_buf = (INT16*)pSrc[1];
-	const INT16* cr_buf = (INT16*)pSrc[2];
+	const INT16* y_buf = (const INT16*)pSrc[0];
+	const INT16* cb_buf = (const INT16*)pSrc[1];
+	const INT16* cr_buf = (const INT16*)pSrc[2];
 	const UINT32 pad = roi->width % 16;
 	const UINT32 step = sizeof(__m128i) / sizeof(INT16);
 	const UINT32 imax = (roi->width - pad) * sizeof(INT16) / sizeof(__m128i);
 	BYTE* d_buf = pDst;
-	UINT32 yp;
 	const size_t dstPad = (dstStep - roi->width * 4);
 #ifdef DO_PREFETCH
 
 	/* Prefetch Y's, Cb's, and Cr's. */
-	for (yp = 0; yp < roi->height; yp++)
+	for (UINT32 yp = 0; yp < roi->height; yp++)
 	{
-		int i;
-
-		for (i = 0; i < imax; i += (CACHE_LINE_BYTES / sizeof(__m128i)))
+		for (int i = 0; i < imax; i += (CACHE_LINE_BYTES / sizeof(__m128i)))
 		{
 			_mm_prefetch((char*)(&((__m128i*)y_buf)[i]), _MM_HINT_NTA);
 			_mm_prefetch((char*)(&((__m128i*)cb_buf)[i]), _MM_HINT_NTA);
@@ -237,11 +247,9 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_BGRX(const INT16* const pSrc[3], U
 	cr_buf = (INT16*)pSrc[2];
 #endif /* DO_PREFETCH */
 
-	for (yp = 0; yp < roi->height; ++yp)
+	for (UINT32 yp = 0; yp < roi->height; ++yp)
 	{
-		UINT32 i;
-
-		for (i = 0; i < imax; i += 2)
+		for (UINT32 i = 0; i < imax; i += 2)
 		{
 			/* In order to use SSE2 signed 16-bit integer multiplication
 			 * we need to convert the floating point factors to signed int
@@ -263,16 +271,27 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_BGRX(const INT16* const pSrc[3], U
 			 * r = ((y+4096)>>2 + HIWORD(cr*22986)) >> 3
 			 */
 			/* y = (y_r_buf[i] + 4096) >> 2 */
-			__m128i y1, y2, cb1, cb2, cr1, cr2, r1, r2, g1, g2, b1, b2;
-			y1 = _mm_load_si128((__m128i*)y_buf);
+			__m128i y1;
+			__m128i y2;
+			__m128i cb1;
+			__m128i cb2;
+			__m128i cr1;
+			__m128i cr2;
+			__m128i r1;
+			__m128i r2;
+			__m128i g1;
+			__m128i g2;
+			__m128i b1;
+			__m128i b2;
+			y1 = _mm_load_si128((const __m128i*)y_buf);
 			y_buf += step;
 			y1 = _mm_add_epi16(y1, c4096);
 			y1 = _mm_srai_epi16(y1, 2);
 			/* cb = cb_g_buf[i]; */
-			cb1 = _mm_load_si128((__m128i*)cb_buf);
+			cb1 = _mm_load_si128((const __m128i*)cb_buf);
 			cb_buf += step;
 			/* cr = cr_b_buf[i]; */
-			cr1 = _mm_load_si128((__m128i*)cr_buf);
+			cr1 = _mm_load_si128((const __m128i*)cr_buf);
 			cr_buf += step;
 			/* (y + HIWORD(cr*22986)) >> 3 */
 			r1 = _mm_add_epi16(y1, _mm_mulhi_epi16(cr1, r_cr));
@@ -290,15 +309,15 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_BGRX(const INT16* const pSrc[3], U
 			b1 = _mm_srai_epi16(b1, 3);
 			/* b_buf[i] = CLIP(b); */
 			_mm_between_epi16(b1, zero, max);
-			y2 = _mm_load_si128((__m128i*)y_buf);
+			y2 = _mm_load_si128((const __m128i*)y_buf);
 			y_buf += step;
 			y2 = _mm_add_epi16(y2, c4096);
 			y2 = _mm_srai_epi16(y2, 2);
 			/* cb = cb_g_buf[i]; */
-			cb2 = _mm_load_si128((__m128i*)cb_buf);
+			cb2 = _mm_load_si128((const __m128i*)cb_buf);
 			cb_buf += step;
 			/* cr = cr_b_buf[i]; */
-			cr2 = _mm_load_si128((__m128i*)cr_buf);
+			cr2 = _mm_load_si128((const __m128i*)cr_buf);
 			cr_buf += step;
 			/* (y + HIWORD(cr*22986)) >> 3 */
 			r2 = _mm_add_epi16(y2, _mm_mulhi_epi16(cr2, r_cr));
@@ -317,7 +336,11 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_BGRX(const INT16* const pSrc[3], U
 			/* b_buf[i] = CLIP(b); */
 			_mm_between_epi16(b2, zero, max);
 			{
-				__m128i R0, R1, R2, R3, R4;
+				__m128i R0;
+				__m128i R1;
+				__m128i R2;
+				__m128i R3;
+				__m128i R4;
 				/* The comments below pretend these are 8-byte registers
 				 * rather than 16-byte, for readability.
 				 */
@@ -354,7 +377,7 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_BGRX(const INT16* const pSrc[3], U
 			}
 		}
 
-		for (i = 0; i < pad; i++)
+		for (UINT32 i = 0; i < pad; i++)
 		{
 			const INT32 divisor = 16;
 			const INT32 Y = ((*y_buf++) + 4096) << divisor;
@@ -380,9 +403,10 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_BGRX(const INT16* const pSrc[3], U
 }
 
 /*---------------------------------------------------------------------------*/
-static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_RGBX(const INT16* const pSrc[3], UINT32 srcStep,
-                                                   BYTE* pDst, UINT32 dstStep,
-                                                   const prim_size_t* roi) /* region of interest */
+static pstatus_t
+sse2_yCbCrToRGB_16s8u_P3AC4R_RGBX(const INT16* const WINPR_RESTRICT pSrc[3], UINT32 srcStep,
+                                  BYTE* WINPR_RESTRICT pDst, UINT32 dstStep,
+                                  const prim_size_t* WINPR_RESTRICT roi) /* region of interest */
 {
 	const __m128i zero = _mm_setzero_si128();
 	const __m128i max = _mm_set1_epi16(255);
@@ -391,23 +415,20 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_RGBX(const INT16* const pSrc[3], U
 	const __m128i g_cr = _mm_set1_epi16(-11698); /* -0.714 << 14 */
 	const __m128i b_cb = _mm_set1_epi16(28999);  /*  1.770 << 14 */
 	const __m128i c4096 = _mm_set1_epi16(4096);
-	const INT16* y_buf = (INT16*)pSrc[0];
-	const INT16* cb_buf = (INT16*)pSrc[1];
-	const INT16* cr_buf = (INT16*)pSrc[2];
+	const INT16* y_buf = (const INT16*)pSrc[0];
+	const INT16* cb_buf = (const INT16*)pSrc[1];
+	const INT16* cr_buf = (const INT16*)pSrc[2];
 	const UINT32 pad = roi->width % 16;
 	const UINT32 step = sizeof(__m128i) / sizeof(INT16);
 	const UINT32 imax = (roi->width - pad) * sizeof(INT16) / sizeof(__m128i);
 	BYTE* d_buf = pDst;
-	UINT32 yp;
 	const size_t dstPad = (dstStep - roi->width * 4);
 #ifdef DO_PREFETCH
 
 	/* Prefetch Y's, Cb's, and Cr's. */
-	for (yp = 0; yp < roi->height; yp++)
+	for (UINT32 yp = 0; yp < roi->height; yp++)
 	{
-		int i;
-
-		for (i = 0; i < imax; i += (CACHE_LINE_BYTES / sizeof(__m128i)))
+		for (int i = 0; i < imax; i += (CACHE_LINE_BYTES / sizeof(__m128i)))
 		{
 			_mm_prefetch((char*)(&((__m128i*)y_buf)[i]), _MM_HINT_NTA);
 			_mm_prefetch((char*)(&((__m128i*)cb_buf)[i]), _MM_HINT_NTA);
@@ -424,11 +445,9 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_RGBX(const INT16* const pSrc[3], U
 	cr_buf = (INT16*)(pSrc[2]);
 #endif /* DO_PREFETCH */
 
-	for (yp = 0; yp < roi->height; ++yp)
+	for (UINT32 yp = 0; yp < roi->height; ++yp)
 	{
-		UINT32 i;
-
-		for (i = 0; i < imax; i += 2)
+		for (UINT32 i = 0; i < imax; i += 2)
 		{
 			/* In order to use SSE2 signed 16-bit integer multiplication
 			 * we need to convert the floating point factors to signed int
@@ -450,16 +469,27 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_RGBX(const INT16* const pSrc[3], U
 			 * r = ((y+4096)>>2 + HIWORD(cr*22986)) >> 3
 			 */
 			/* y = (y_r_buf[i] + 4096) >> 2 */
-			__m128i y1, y2, cb1, cb2, cr1, cr2, r1, r2, g1, g2, b1, b2;
-			y1 = _mm_load_si128((__m128i*)y_buf);
+			__m128i y1;
+			__m128i y2;
+			__m128i cb1;
+			__m128i cb2;
+			__m128i cr1;
+			__m128i cr2;
+			__m128i r1;
+			__m128i r2;
+			__m128i g1;
+			__m128i g2;
+			__m128i b1;
+			__m128i b2;
+			y1 = _mm_load_si128((const __m128i*)y_buf);
 			y_buf += step;
 			y1 = _mm_add_epi16(y1, c4096);
 			y1 = _mm_srai_epi16(y1, 2);
 			/* cb = cb_g_buf[i]; */
-			cb1 = _mm_load_si128((__m128i*)cb_buf);
+			cb1 = _mm_load_si128((const __m128i*)cb_buf);
 			cb_buf += step;
 			/* cr = cr_b_buf[i]; */
-			cr1 = _mm_load_si128((__m128i*)cr_buf);
+			cr1 = _mm_load_si128((const __m128i*)cr_buf);
 			cr_buf += step;
 			/* (y + HIWORD(cr*22986)) >> 3 */
 			r1 = _mm_add_epi16(y1, _mm_mulhi_epi16(cr1, r_cr));
@@ -477,15 +507,15 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_RGBX(const INT16* const pSrc[3], U
 			b1 = _mm_srai_epi16(b1, 3);
 			/* b_buf[i] = CLIP(b); */
 			_mm_between_epi16(b1, zero, max);
-			y2 = _mm_load_si128((__m128i*)y_buf);
+			y2 = _mm_load_si128((const __m128i*)y_buf);
 			y_buf += step;
 			y2 = _mm_add_epi16(y2, c4096);
 			y2 = _mm_srai_epi16(y2, 2);
 			/* cb = cb_g_buf[i]; */
-			cb2 = _mm_load_si128((__m128i*)cb_buf);
+			cb2 = _mm_load_si128((const __m128i*)cb_buf);
 			cb_buf += step;
 			/* cr = cr_b_buf[i]; */
-			cr2 = _mm_load_si128((__m128i*)cr_buf);
+			cr2 = _mm_load_si128((const __m128i*)cr_buf);
 			cr_buf += step;
 			/* (y + HIWORD(cr*22986)) >> 3 */
 			r2 = _mm_add_epi16(y2, _mm_mulhi_epi16(cr2, r_cr));
@@ -504,7 +534,11 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_RGBX(const INT16* const pSrc[3], U
 			/* b_buf[i] = CLIP(b); */
 			_mm_between_epi16(b2, zero, max);
 			{
-				__m128i R0, R1, R2, R3, R4;
+				__m128i R0;
+				__m128i R1;
+				__m128i R2;
+				__m128i R3;
+				__m128i R4;
 				/* The comments below pretend these are 8-byte registers
 				 * rather than 16-byte, for readability.
 				 */
@@ -541,7 +575,7 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_RGBX(const INT16* const pSrc[3], U
 			}
 		}
 
-		for (i = 0; i < pad; i++)
+		for (UINT32 i = 0; i < pad; i++)
 		{
 			const INT32 divisor = 16;
 			const INT32 Y = ((*y_buf++) + 4096) << divisor;
@@ -566,9 +600,10 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R_RGBX(const INT16* const pSrc[3], U
 	return PRIMITIVES_SUCCESS;
 }
 
-static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R(const INT16* const pSrc[3], UINT32 srcStep,
-                                              BYTE* pDst, UINT32 dstStep, UINT32 DstFormat,
-                                              const prim_size_t* roi) /* region of interest */
+static pstatus_t
+sse2_yCbCrToRGB_16s8u_P3AC4R(const INT16* const WINPR_RESTRICT pSrc[3], UINT32 srcStep,
+                             BYTE* WINPR_RESTRICT pDst, UINT32 dstStep, UINT32 DstFormat,
+                             const prim_size_t* WINPR_RESTRICT roi) /* region of interest */
 {
 	if (((ULONG_PTR)(pSrc[0]) & 0x0f) || ((ULONG_PTR)(pSrc[1]) & 0x0f) ||
 	    ((ULONG_PTR)(pSrc[2]) & 0x0f) || ((ULONG_PTR)(pDst)&0x0f) || (srcStep & 0x0f) ||
@@ -595,14 +630,31 @@ static pstatus_t sse2_yCbCrToRGB_16s8u_P3AC4R(const INT16* const pSrc[3], UINT32
 /* The encodec YCbCr coeffectients are represented as 11.5 fixed-point
  * numbers. See the general code above.
  */
-static pstatus_t sse2_RGBToYCbCr_16s16s_P3P3(const INT16* const pSrc[3], int srcStep,
-                                             INT16* pDst[3], int dstStep,
-                                             const prim_size_t* roi) /* region of interest */
+static pstatus_t
+sse2_RGBToYCbCr_16s16s_P3P3(const INT16* const WINPR_RESTRICT pSrc[3], int srcStep,
+                            INT16* WINPR_RESTRICT pDst[3], int dstStep,
+                            const prim_size_t* WINPR_RESTRICT roi) /* region of interest */
 {
-	__m128i min, max, y_r, y_g, y_b, cb_r, cb_g, cb_b, cr_r, cr_g, cr_b;
-	__m128i *r_buf, *g_buf, *b_buf, *y_buf, *cb_buf, *cr_buf;
-	UINT32 yp;
-	int srcbump, dstbump, imax;
+	__m128i min;
+	__m128i max;
+	__m128i y_r;
+	__m128i y_g;
+	__m128i y_b;
+	__m128i cb_r;
+	__m128i cb_g;
+	__m128i cb_b;
+	__m128i cr_r;
+	__m128i cr_g;
+	__m128i cr_b;
+	const __m128i* r_buf = (const __m128i*)(pSrc[0]);
+	const __m128i* g_buf = (const __m128i*)(pSrc[1]);
+	const __m128i* b_buf = (const __m128i*)(pSrc[2]);
+	__m128i* y_buf = (__m128i*)(pDst[0]);
+	__m128i* cb_buf = (__m128i*)(pDst[1]);
+	__m128i* cr_buf = (__m128i*)(pDst[2]);
+	int srcbump = 0;
+	int dstbump = 0;
+	int imax = 0;
 
 	if (((ULONG_PTR)(pSrc[0]) & 0x0f) || ((ULONG_PTR)(pSrc[1]) & 0x0f) ||
 	    ((ULONG_PTR)(pSrc[2]) & 0x0f) || ((ULONG_PTR)(pDst[0]) & 0x0f) ||
@@ -615,12 +667,7 @@ static pstatus_t sse2_RGBToYCbCr_16s16s_P3P3(const INT16* const pSrc[3], int src
 
 	min = _mm_set1_epi16(-128 * 32);
 	max = _mm_set1_epi16(127 * 32);
-	r_buf = (__m128i*)(pSrc[0]);
-	g_buf = (__m128i*)(pSrc[1]);
-	b_buf = (__m128i*)(pSrc[2]);
-	y_buf = (__m128i*)(pDst[0]);
-	cb_buf = (__m128i*)(pDst[1]);
-	cr_buf = (__m128i*)(pDst[2]);
+
 	y_r = _mm_set1_epi16(9798);    /*  0.299000 << 15 */
 	y_g = _mm_set1_epi16(19235);   /*  0.587000 << 15 */
 	y_b = _mm_set1_epi16(3735);    /*  0.114000 << 15 */
@@ -635,11 +682,9 @@ static pstatus_t sse2_RGBToYCbCr_16s16s_P3P3(const INT16* const pSrc[3], int src
 #ifdef DO_PREFETCH
 
 	/* Prefetch RGB's. */
-	for (yp = 0; yp < roi->height; yp++)
+	for (UINT32 yp = 0; yp < roi->height; yp++)
 	{
-		int i;
-
-		for (i = 0; i < roi->width * sizeof(INT16) / sizeof(__m128i);
+		for (int i = 0; i < roi->width * sizeof(INT16) / sizeof(__m128i);
 		     i += (CACHE_LINE_BYTES / sizeof(__m128i)))
 		{
 			_mm_prefetch((char*)(&r_buf[i]), _MM_HINT_NTA);
@@ -658,11 +703,9 @@ static pstatus_t sse2_RGBToYCbCr_16s16s_P3P3(const INT16* const pSrc[3], int src
 #endif /* DO_PREFETCH */
 	imax = roi->width * sizeof(INT16) / sizeof(__m128i);
 
-	for (yp = 0; yp < roi->height; ++yp)
+	for (UINT32 yp = 0; yp < roi->height; ++yp)
 	{
-		int i;
-
-		for (i = 0; i < imax; i++)
+		for (int i = 0; i < imax; i++)
 		{
 			/* In order to use SSE2 signed 16-bit integer multiplication we
 			 * need to convert the floating point factors to signed int
@@ -675,8 +718,13 @@ static pstatus_t sse2_RGBToYCbCr_16s16s_P3P3(const INT16* const pSrc[3], int src
 			 * within the upper 16 bits we will also have to scale the RGB
 			 * values used in the multiplication by << 5+(16-n).
 			 */
-			__m128i r, g, b, y, cb, cr;
-			r = _mm_load_si128(y_buf + i);
+			__m128i r;
+			__m128i g;
+			__m128i b;
+			__m128i y;
+			__m128i cb;
+			__m128i cr;
+			r = _mm_load_si128(r_buf + i);
 			g = _mm_load_si128(g_buf + i);
 			b = _mm_load_si128(b_buf + i);
 			/* r<<6; g<<6; b<<6 */
@@ -719,60 +767,67 @@ static pstatus_t sse2_RGBToYCbCr_16s16s_P3P3(const INT16* const pSrc[3], int src
 }
 
 /*---------------------------------------------------------------------------*/
-static pstatus_t
-sse2_RGBToRGB_16s8u_P3AC4R_BGRX(const INT16* const pSrc[3], /* 16-bit R,G, and B arrays */
-                                UINT32 srcStep,             /* bytes between rows in source data */
-                                BYTE* pDst,             /* 32-bit interleaved ARGB (ABGR?) data */
-                                UINT32 dstStep,         /* bytes between rows in dest data */
-                                const prim_size_t* roi) /* region of interest */
+static pstatus_t sse2_RGBToRGB_16s8u_P3AC4R_BGRX(
+    const INT16* const WINPR_RESTRICT pSrc[3], /* 16-bit R,G, and B arrays */
+    UINT32 srcStep,                            /* bytes between rows in source data */
+    BYTE* WINPR_RESTRICT pDst,                 /* 32-bit interleaved ARGB (ABGR?) data */
+    UINT32 dstStep,                            /* bytes between rows in dest data */
+    const prim_size_t* WINPR_RESTRICT roi)     /* region of interest */
 {
 	const UINT16* pr = (const UINT16*)(pSrc[0]);
 	const UINT16* pg = (const UINT16*)(pSrc[1]);
 	const UINT16* pb = (const UINT16*)(pSrc[2]);
 	const UINT32 pad = roi->width % 16;
 	const __m128i a = _mm_set1_epi32(0xFFFFFFFFU);
-	BYTE* out;
-	UINT32 srcbump, dstbump, y;
+	BYTE* out = NULL;
+	UINT32 srcbump = 0;
+	UINT32 dstbump = 0;
 	out = (BYTE*)pDst;
 	srcbump = (srcStep - (roi->width * sizeof(UINT16))) / sizeof(UINT16);
 	dstbump = (dstStep - (roi->width * sizeof(UINT32)));
 
-	for (y = 0; y < roi->height; ++y)
+	for (UINT32 y = 0; y < roi->height; ++y)
 	{
-		UINT32 x;
-
-		for (x = 0; x < roi->width - pad; x += 16)
+		for (UINT32 x = 0; x < roi->width - pad; x += 16)
 		{
-			__m128i r, g, b;
+			__m128i r;
+			__m128i g;
+			__m128i b;
 			/* The comments below pretend these are 8-byte registers
 			 * rather than 16-byte, for readability.
 			 */
 			{
-				__m128i R0, R1;
-				R0 = _mm_load_si128((__m128i*)pb);
+				__m128i R0;
+				__m128i R1;
+				R0 = _mm_load_si128((const __m128i*)pb);
 				pb += 8; /* R0 = 00B300B200B100B0 */
-				R1 = _mm_load_si128((__m128i*)pb);
+				R1 = _mm_load_si128((const __m128i*)pb);
 				pb += 8;                      /* R1 = 00B700B600B500B4 */
 				b = _mm_packus_epi16(R0, R1); /* b = B7B6B5B4B3B2B1B0 */
 			}
 			{
-				__m128i R0, R1;
-				R0 = _mm_load_si128((__m128i*)pg);
+				__m128i R0;
+				__m128i R1;
+				R0 = _mm_load_si128((const __m128i*)pg);
 				pg += 8; /* R1 = 00G300G200G100G0 */
-				R1 = _mm_load_si128((__m128i*)pg);
+				R1 = _mm_load_si128((const __m128i*)pg);
 				pg += 8;                      /* R2 = 00G700G600G500G4 */
 				g = _mm_packus_epi16(R0, R1); /* g = G7G6G5G4G3G2G1G0 */
 			}
 			{
-				__m128i R0, R1;
-				R0 = _mm_load_si128((__m128i*)pr);
+				__m128i R0;
+				__m128i R1;
+				R0 = _mm_load_si128((const __m128i*)pr);
 				pr += 8; /* R0 = 00R300R200R100R0 */
-				R1 = _mm_load_si128((__m128i*)pr);
+				R1 = _mm_load_si128((const __m128i*)pr);
 				pr += 8;                      /* R3 = 00R700R600R500R4 */
 				r = _mm_packus_epi16(R0, R1); /* r = R7R6R5R4R3R2R1R0 */
 			}
 			{
-				__m128i gbHi, gbLo, arHi, arLo;
+				__m128i gbHi;
+				__m128i gbLo;
+				__m128i arHi;
+				__m128i arLo;
 				{
 					gbLo = _mm_unpacklo_epi8(b, g); /* R0 = G7G6G5G4G3G2G1G0 */
 					gbHi = _mm_unpackhi_epi8(b, g); /* R1 = G7B7G6B7G5B5G4B4 */
@@ -802,7 +857,7 @@ sse2_RGBToRGB_16s8u_P3AC4R_BGRX(const INT16* const pSrc[3], /* 16-bit R,G, and B
 			}
 		}
 
-		for (x = 0; x < pad; x++)
+		for (UINT32 x = 0; x < pad; x++)
 		{
 			const BYTE R = CLIP(*pr++);
 			const BYTE G = CLIP(*pg++);
@@ -823,60 +878,67 @@ sse2_RGBToRGB_16s8u_P3AC4R_BGRX(const INT16* const pSrc[3], /* 16-bit R,G, and B
 	return PRIMITIVES_SUCCESS;
 }
 
-static pstatus_t
-sse2_RGBToRGB_16s8u_P3AC4R_RGBX(const INT16* const pSrc[3], /* 16-bit R,G, and B arrays */
-                                UINT32 srcStep,             /* bytes between rows in source data */
-                                BYTE* pDst,             /* 32-bit interleaved ARGB (ABGR?) data */
-                                UINT32 dstStep,         /* bytes between rows in dest data */
-                                const prim_size_t* roi) /* region of interest */
+static pstatus_t sse2_RGBToRGB_16s8u_P3AC4R_RGBX(
+    const INT16* const WINPR_RESTRICT pSrc[3], /* 16-bit R,G, and B arrays */
+    UINT32 srcStep,                            /* bytes between rows in source data */
+    BYTE* WINPR_RESTRICT pDst,                 /* 32-bit interleaved ARGB (ABGR?) data */
+    UINT32 dstStep,                            /* bytes between rows in dest data */
+    const prim_size_t* WINPR_RESTRICT roi)     /* region of interest */
 {
 	const UINT16* pr = (const UINT16*)(pSrc[0]);
 	const UINT16* pg = (const UINT16*)(pSrc[1]);
 	const UINT16* pb = (const UINT16*)(pSrc[2]);
 	const UINT32 pad = roi->width % 16;
 	const __m128i a = _mm_set1_epi32(0xFFFFFFFFU);
-	BYTE* out;
-	UINT32 srcbump, dstbump, y;
+	BYTE* out = NULL;
+	UINT32 srcbump = 0;
+	UINT32 dstbump = 0;
 	out = (BYTE*)pDst;
 	srcbump = (srcStep - (roi->width * sizeof(UINT16))) / sizeof(UINT16);
 	dstbump = (dstStep - (roi->width * sizeof(UINT32)));
 
-	for (y = 0; y < roi->height; ++y)
+	for (UINT32 y = 0; y < roi->height; ++y)
 	{
-		UINT32 x;
-
-		for (x = 0; x < roi->width - pad; x += 16)
+		for (UINT32 x = 0; x < roi->width - pad; x += 16)
 		{
-			__m128i r, g, b;
+			__m128i r;
+			__m128i g;
+			__m128i b;
 			/* The comments below pretend these are 8-byte registers
 			 * rather than 16-byte, for readability.
 			 */
 			{
-				__m128i R0, R1;
-				R0 = _mm_load_si128((__m128i*)pb);
+				__m128i R0;
+				__m128i R1;
+				R0 = _mm_load_si128((const __m128i*)pb);
 				pb += 8; /* R0 = 00B300B200B100B0 */
-				R1 = _mm_load_si128((__m128i*)pb);
+				R1 = _mm_load_si128((const __m128i*)pb);
 				pb += 8;                      /* R1 = 00B700B600B500B4 */
 				b = _mm_packus_epi16(R0, R1); /* b = B7B6B5B4B3B2B1B0 */
 			}
 			{
-				__m128i R0, R1;
-				R0 = _mm_load_si128((__m128i*)pg);
+				__m128i R0;
+				__m128i R1;
+				R0 = _mm_load_si128((const __m128i*)pg);
 				pg += 8; /* R1 = 00G300G200G100G0 */
-				R1 = _mm_load_si128((__m128i*)pg);
+				R1 = _mm_load_si128((const __m128i*)pg);
 				pg += 8;                      /* R2 = 00G700G600G500G4 */
 				g = _mm_packus_epi16(R0, R1); /* g = G7G6G5G4G3G2G1G0 */
 			}
 			{
-				__m128i R0, R1;
-				R0 = _mm_load_si128((__m128i*)pr);
+				__m128i R0;
+				__m128i R1;
+				R0 = _mm_load_si128((const __m128i*)pr);
 				pr += 8; /* R0 = 00R300R200R100R0 */
-				R1 = _mm_load_si128((__m128i*)pr);
+				R1 = _mm_load_si128((const __m128i*)pr);
 				pr += 8;                      /* R3 = 00R700R600R500R4 */
 				r = _mm_packus_epi16(R0, R1); /* r = R7R6R5R4R3R2R1R0 */
 			}
 			{
-				__m128i gbHi, gbLo, arHi, arLo;
+				__m128i gbHi;
+				__m128i gbLo;
+				__m128i arHi;
+				__m128i arLo;
 				{
 					gbLo = _mm_unpacklo_epi8(r, g); /* R0 = G7G6G5G4G3G2G1G0 */
 					gbHi = _mm_unpackhi_epi8(r, g); /* R1 = G7B7G6B7G5B5G4B4 */
@@ -906,7 +968,7 @@ sse2_RGBToRGB_16s8u_P3AC4R_RGBX(const INT16* const pSrc[3], /* 16-bit R,G, and B
 			}
 		}
 
-		for (x = 0; x < pad; x++)
+		for (UINT32 x = 0; x < pad; x++)
 		{
 			const BYTE R = CLIP(*pr++);
 			const BYTE G = CLIP(*pg++);
@@ -927,60 +989,67 @@ sse2_RGBToRGB_16s8u_P3AC4R_RGBX(const INT16* const pSrc[3], /* 16-bit R,G, and B
 	return PRIMITIVES_SUCCESS;
 }
 
-static pstatus_t
-sse2_RGBToRGB_16s8u_P3AC4R_XBGR(const INT16* const pSrc[3], /* 16-bit R,G, and B arrays */
-                                UINT32 srcStep,             /* bytes between rows in source data */
-                                BYTE* pDst,             /* 32-bit interleaved ARGB (ABGR?) data */
-                                UINT32 dstStep,         /* bytes between rows in dest data */
-                                const prim_size_t* roi) /* region of interest */
+static pstatus_t sse2_RGBToRGB_16s8u_P3AC4R_XBGR(
+    const INT16* const WINPR_RESTRICT pSrc[3], /* 16-bit R,G, and B arrays */
+    UINT32 srcStep,                            /* bytes between rows in source data */
+    BYTE* WINPR_RESTRICT pDst,                 /* 32-bit interleaved ARGB (ABGR?) data */
+    UINT32 dstStep,                            /* bytes between rows in dest data */
+    const prim_size_t* WINPR_RESTRICT roi)     /* region of interest */
 {
 	const UINT16* pr = (const UINT16*)(pSrc[0]);
 	const UINT16* pg = (const UINT16*)(pSrc[1]);
 	const UINT16* pb = (const UINT16*)(pSrc[2]);
 	const UINT32 pad = roi->width % 16;
 	const __m128i a = _mm_set1_epi32(0xFFFFFFFFU);
-	BYTE* out;
-	UINT32 srcbump, dstbump, y;
+	BYTE* out = NULL;
+	UINT32 srcbump = 0;
+	UINT32 dstbump = 0;
 	out = (BYTE*)pDst;
 	srcbump = (srcStep - (roi->width * sizeof(UINT16))) / sizeof(UINT16);
 	dstbump = (dstStep - (roi->width * sizeof(UINT32)));
 
-	for (y = 0; y < roi->height; ++y)
+	for (UINT32 y = 0; y < roi->height; ++y)
 	{
-		UINT32 x;
-
-		for (x = 0; x < roi->width - pad; x += 16)
+		for (UINT32 x = 0; x < roi->width - pad; x += 16)
 		{
-			__m128i r, g, b;
+			__m128i r;
+			__m128i g;
+			__m128i b;
 			/* The comments below pretend these are 8-byte registers
 			 * rather than 16-byte, for readability.
 			 */
 			{
-				__m128i R0, R1;
-				R0 = _mm_load_si128((__m128i*)pb);
+				__m128i R0;
+				__m128i R1;
+				R0 = _mm_load_si128((const __m128i*)pb);
 				pb += 8; /* R0 = 00B300B200B100B0 */
-				R1 = _mm_load_si128((__m128i*)pb);
+				R1 = _mm_load_si128((const __m128i*)pb);
 				pb += 8;                      /* R1 = 00B700B600B500B4 */
 				b = _mm_packus_epi16(R0, R1); /* b = B7B6B5B4B3B2B1B0 */
 			}
 			{
-				__m128i R0, R1;
-				R0 = _mm_load_si128((__m128i*)pg);
+				__m128i R0;
+				__m128i R1;
+				R0 = _mm_load_si128((const __m128i*)pg);
 				pg += 8; /* R1 = 00G300G200G100G0 */
-				R1 = _mm_load_si128((__m128i*)pg);
+				R1 = _mm_load_si128((const __m128i*)pg);
 				pg += 8;                      /* R2 = 00G700G600G500G4 */
 				g = _mm_packus_epi16(R0, R1); /* g = G7G6G5G4G3G2G1G0 */
 			}
 			{
-				__m128i R0, R1;
-				R0 = _mm_load_si128((__m128i*)pr);
+				__m128i R0;
+				__m128i R1;
+				R0 = _mm_load_si128((const __m128i*)pr);
 				pr += 8; /* R0 = 00R300R200R100R0 */
-				R1 = _mm_load_si128((__m128i*)pr);
+				R1 = _mm_load_si128((const __m128i*)pr);
 				pr += 8;                      /* R3 = 00R700R600R500R4 */
 				r = _mm_packus_epi16(R0, R1); /* r = R7R6R5R4R3R2R1R0 */
 			}
 			{
-				__m128i gbHi, gbLo, arHi, arLo;
+				__m128i gbHi;
+				__m128i gbLo;
+				__m128i arHi;
+				__m128i arLo;
 				{
 					gbLo = _mm_unpacklo_epi8(a, b); /* R0 = G7G6G5G4G3G2G1G0 */
 					gbHi = _mm_unpackhi_epi8(a, b); /* R1 = G7B7G6B7G5B5G4B4 */
@@ -1010,7 +1079,7 @@ sse2_RGBToRGB_16s8u_P3AC4R_XBGR(const INT16* const pSrc[3], /* 16-bit R,G, and B
 			}
 		}
 
-		for (x = 0; x < pad; x++)
+		for (UINT32 x = 0; x < pad; x++)
 		{
 			const BYTE R = CLIP(*pr++);
 			const BYTE G = CLIP(*pg++);
@@ -1031,60 +1100,67 @@ sse2_RGBToRGB_16s8u_P3AC4R_XBGR(const INT16* const pSrc[3], /* 16-bit R,G, and B
 	return PRIMITIVES_SUCCESS;
 }
 
-static pstatus_t
-sse2_RGBToRGB_16s8u_P3AC4R_XRGB(const INT16* const pSrc[3], /* 16-bit R,G, and B arrays */
-                                UINT32 srcStep,             /* bytes between rows in source data */
-                                BYTE* pDst,             /* 32-bit interleaved ARGB (ABGR?) data */
-                                UINT32 dstStep,         /* bytes between rows in dest data */
-                                const prim_size_t* roi) /* region of interest */
+static pstatus_t sse2_RGBToRGB_16s8u_P3AC4R_XRGB(
+    const INT16* const WINPR_RESTRICT pSrc[3], /* 16-bit R,G, and B arrays */
+    UINT32 srcStep,                            /* bytes between rows in source data */
+    BYTE* WINPR_RESTRICT pDst,                 /* 32-bit interleaved ARGB (ABGR?) data */
+    UINT32 dstStep,                            /* bytes between rows in dest data */
+    const prim_size_t* WINPR_RESTRICT roi)     /* region of interest */
 {
 	const UINT16* pr = (const UINT16*)(pSrc[0]);
 	const UINT16* pg = (const UINT16*)(pSrc[1]);
 	const UINT16* pb = (const UINT16*)(pSrc[2]);
 	const __m128i a = _mm_set1_epi32(0xFFFFFFFFU);
 	const UINT32 pad = roi->width % 16;
-	BYTE* out;
-	UINT32 srcbump, dstbump, y;
+	BYTE* out = NULL;
+	UINT32 srcbump = 0;
+	UINT32 dstbump = 0;
 	out = (BYTE*)pDst;
 	srcbump = (srcStep - (roi->width * sizeof(UINT16))) / sizeof(UINT16);
 	dstbump = (dstStep - (roi->width * sizeof(UINT32)));
 
-	for (y = 0; y < roi->height; ++y)
+	for (UINT32 y = 0; y < roi->height; ++y)
 	{
-		UINT32 x;
-
-		for (x = 0; x < roi->width - pad; x += 16)
+		for (UINT32 x = 0; x < roi->width - pad; x += 16)
 		{
-			__m128i r, g, b;
+			__m128i r;
+			__m128i g;
+			__m128i b;
 			/* The comments below pretend these are 8-byte registers
 			 * rather than 16-byte, for readability.
 			 */
 			{
-				__m128i R0, R1;
-				R0 = _mm_load_si128((__m128i*)pb);
+				__m128i R0;
+				__m128i R1;
+				R0 = _mm_load_si128((const __m128i*)pb);
 				pb += 8; /* R0 = 00B300B200B100B0 */
-				R1 = _mm_load_si128((__m128i*)pb);
+				R1 = _mm_load_si128((const __m128i*)pb);
 				pb += 8;                      /* R1 = 00B700B600B500B4 */
 				b = _mm_packus_epi16(R0, R1); /* b = B7B6B5B4B3B2B1B0 */
 			}
 			{
-				__m128i R0, R1;
-				R0 = _mm_load_si128((__m128i*)pg);
+				__m128i R0;
+				__m128i R1;
+				R0 = _mm_load_si128((const __m128i*)pg);
 				pg += 8; /* R1 = 00G300G200G100G0 */
-				R1 = _mm_load_si128((__m128i*)pg);
+				R1 = _mm_load_si128((const __m128i*)pg);
 				pg += 8;                      /* R2 = 00G700G600G500G4 */
 				g = _mm_packus_epi16(R0, R1); /* g = G7G6G5G4G3G2G1G0 */
 			}
 			{
-				__m128i R0, R1;
-				R0 = _mm_load_si128((__m128i*)pr);
+				__m128i R0;
+				__m128i R1;
+				R0 = _mm_load_si128((const __m128i*)pr);
 				pr += 8; /* R0 = 00R300R200R100R0 */
-				R1 = _mm_load_si128((__m128i*)pr);
+				R1 = _mm_load_si128((const __m128i*)pr);
 				pr += 8;                      /* R3 = 00R700R600R500R4 */
 				r = _mm_packus_epi16(R0, R1); /* r = R7R6R5R4R3R2R1R0 */
 			}
 			{
-				__m128i gbHi, gbLo, arHi, arLo;
+				__m128i gbHi;
+				__m128i gbLo;
+				__m128i arHi;
+				__m128i arLo;
 				{
 					gbLo = _mm_unpacklo_epi8(a, r); /* R0 = G7G6G5G4G3G2G1G0 */
 					gbHi = _mm_unpackhi_epi8(a, r); /* R1 = G7B7G6B7G5B5G4B4 */
@@ -1114,7 +1190,7 @@ sse2_RGBToRGB_16s8u_P3AC4R_XRGB(const INT16* const pSrc[3], /* 16-bit R,G, and B
 			}
 		}
 
-		for (x = 0; x < pad; x++)
+		for (UINT32 x = 0; x < pad; x++)
 		{
 			const BYTE R = CLIP(*pr++);
 			const BYTE G = CLIP(*pg++);
@@ -1136,11 +1212,11 @@ sse2_RGBToRGB_16s8u_P3AC4R_XRGB(const INT16* const pSrc[3], /* 16-bit R,G, and B
 }
 
 static pstatus_t
-sse2_RGBToRGB_16s8u_P3AC4R(const INT16* const pSrc[3], /* 16-bit R,G, and B arrays */
-                           UINT32 srcStep,             /* bytes between rows in source data */
-                           BYTE* pDst,                 /* 32-bit interleaved ARGB (ABGR?) data */
-                           UINT32 dstStep,             /* bytes between rows in dest data */
-                           UINT32 DstFormat, const prim_size_t* roi)
+sse2_RGBToRGB_16s8u_P3AC4R(const INT16* const WINPR_RESTRICT pSrc[3], /* 16-bit R,G, and B arrays */
+                           UINT32 srcStep,            /* bytes between rows in source data */
+                           BYTE* WINPR_RESTRICT pDst, /* 32-bit interleaved ARGB (ABGR?) data */
+                           UINT32 dstStep,            /* bytes between rows in dest data */
+                           UINT32 DstFormat, const prim_size_t* WINPR_RESTRICT roi)
 {
 	if (((ULONG_PTR)pSrc[0] & 0x0f) || ((ULONG_PTR)pSrc[1] & 0x0f) || ((ULONG_PTR)pSrc[2] & 0x0f) ||
 	    (srcStep & 0x0f) || ((ULONG_PTR)pDst & 0x0f) || (dstStep & 0x0f))
@@ -1172,9 +1248,10 @@ sse2_RGBToRGB_16s8u_P3AC4R(const INT16* const pSrc[3], /* 16-bit R,G, and B arra
 
 /*---------------------------------------------------------------------------*/
 #ifdef WITH_NEON
-static pstatus_t neon_yCbCrToRGB_16s16s_P3P3(const INT16* const pSrc[3], INT32 srcStep,
-                                             INT16* pDst[3], INT32 dstStep,
-                                             const prim_size_t* roi) /* region of interest */
+static pstatus_t
+neon_yCbCrToRGB_16s16s_P3P3(const INT16* const WINPR_RESTRICT pSrc[3], INT32 srcStep,
+                            INT16* WINPR_RESTRICT pDst[3], INT32 dstStep,
+                            const prim_size_t* WINPR_RESTRICT roi) /* region of interest */
 {
 	/* TODO: If necessary, check alignments and call the general version. */
 	int16x8_t zero = vdupq_n_s16(0);
@@ -1192,14 +1269,11 @@ static pstatus_t neon_yCbCrToRGB_16s16s_P3P3(const INT16* const pSrc[3], INT32 s
 	int16x8_t* b_buf = (int16x8_t*)pDst[2];
 	int srcbump = srcStep / sizeof(int16x8_t);
 	int dstbump = dstStep / sizeof(int16x8_t);
-	int yp;
 	int imax = roi->width * sizeof(INT16) / sizeof(int16x8_t);
 
-	for (yp = 0; yp < roi->height; ++yp)
+	for (int yp = 0; yp < roi->height; ++yp)
 	{
-		int i;
-
-		for (i = 0; i < imax; i++)
+		for (int i = 0; i < imax; i++)
 		{
 			/*
 			    In order to use NEON signed 16-bit integer multiplication we need to convert
@@ -1258,12 +1332,12 @@ static pstatus_t neon_yCbCrToRGB_16s16s_P3P3(const INT16* const pSrc[3], INT32 s
 	return PRIMITIVES_SUCCESS;
 }
 
-static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R_X(const INT16* const pSrc[3], UINT32 srcStep,
-                                                BYTE* pDst, UINT32 dstStep, const prim_size_t* roi,
-                                                uint8_t rPos, uint8_t gPos, uint8_t bPos,
-                                                uint8_t aPos)
+static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R_X(const INT16* const WINPR_RESTRICT pSrc[3],
+                                                UINT32 srcStep, BYTE* WINPR_RESTRICT pDst,
+                                                UINT32 dstStep,
+                                                const prim_size_t* WINPR_RESTRICT roi, uint8_t rPos,
+                                                uint8_t gPos, uint8_t bPos, uint8_t aPos)
 {
-	UINT32 x, y;
 	BYTE* pRGB = pDst;
 	const INT16* pY = pSrc[0];
 	const INT16* pCb = pSrc[1];
@@ -1273,9 +1347,9 @@ static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R_X(const INT16* const pSrc[3], UINT
 	const size_t pad = roi->width % 8;
 	const int16x4_t c4096 = vdup_n_s16(4096);
 
-	for (y = 0; y < roi->height; y++)
+	for (UINT32 y = 0; y < roi->height; y++)
 	{
-		for (x = 0; x < roi->width - pad; x += 8)
+		for (UINT32 x = 0; x < roi->width - pad; x += 8)
 		{
 			const int16x8_t Y = vld1q_s16(pY);
 			const int16x4_t Yh = vget_high_s16(Y);
@@ -1341,7 +1415,7 @@ static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R_X(const INT16* const pSrc[3], UINT
 			pRGB += 32;
 		}
 
-		for (x = 0; x < pad; x++)
+		for (UINT32 x = 0; x < pad; x++)
 		{
 			const INT32 divisor = 16;
 			const INT32 Y = ((*pY++) + 4096) << divisor;
@@ -1374,9 +1448,10 @@ static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R_X(const INT16* const pSrc[3], UINT
 	return PRIMITIVES_SUCCESS;
 }
 
-static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R(const INT16* const pSrc[3], UINT32 srcStep,
-                                              BYTE* pDst, UINT32 dstStep, UINT32 DstFormat,
-                                              const prim_size_t* roi)
+static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R(const INT16* const WINPR_RESTRICT pSrc[3],
+                                              UINT32 srcStep, BYTE* WINPR_RESTRICT pDst,
+                                              UINT32 dstStep, UINT32 DstFormat,
+                                              const prim_size_t* WINPR_RESTRICT roi)
 {
 	switch (DstFormat)
 	{
@@ -1401,25 +1476,24 @@ static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R(const INT16* const pSrc[3], UINT32
 	}
 }
 
-static pstatus_t
-neon_RGBToRGB_16s8u_P3AC4R_X(const INT16* const pSrc[3], /* 16-bit R,G, and B arrays */
-                             UINT32 srcStep,             /* bytes between rows in source data */
-                             BYTE* pDst,                 /* 32-bit interleaved ARGB (ABGR?) data */
-                             UINT32 dstStep,             /* bytes between rows in dest data */
-                             const prim_size_t* roi,     /* region of interest */
-                             uint8_t rPos, uint8_t gPos, uint8_t bPos, uint8_t aPos)
+static pstatus_t neon_RGBToRGB_16s8u_P3AC4R_X(
+    const INT16* const WINPR_RESTRICT pSrc[3], /* 16-bit R,G, and B arrays */
+    UINT32 srcStep,                            /* bytes between rows in source data */
+    BYTE* WINPR_RESTRICT pDst,                 /* 32-bit interleaved ARGB (ABGR?) data */
+    UINT32 dstStep,                            /* bytes between rows in dest data */
+    const prim_size_t* WINPR_RESTRICT roi,     /* region of interest */
+    uint8_t rPos, uint8_t gPos, uint8_t bPos, uint8_t aPos)
 {
-	UINT32 x, y;
 	UINT32 pad = roi->width % 8;
 
-	for (y = 0; y < roi->height; y++)
+	for (UINT32 y = 0; y < roi->height; y++)
 	{
 		const INT16* pr = (INT16*)(((BYTE*)pSrc[0]) + y * srcStep);
 		const INT16* pg = (INT16*)(((BYTE*)pSrc[1]) + y * srcStep);
 		const INT16* pb = (INT16*)(((BYTE*)pSrc[2]) + y * srcStep);
 		BYTE* dst = pDst + y * dstStep;
 
-		for (x = 0; x < roi->width - pad; x += 8)
+		for (UINT32 x = 0; x < roi->width - pad; x += 8)
 		{
 			int16x8_t r = vld1q_s16(pr);
 			int16x8_t g = vld1q_s16(pg);
@@ -1436,7 +1510,7 @@ neon_RGBToRGB_16s8u_P3AC4R_X(const INT16* const pSrc[3], /* 16-bit R,G, and B ar
 			dst += 32;
 		}
 
-		for (x = 0; x < pad; x++)
+		for (UINT32 x = 0; x < pad; x++)
 		{
 			BYTE bgrx[4];
 			bgrx[bPos] = *pb++;
@@ -1454,11 +1528,12 @@ neon_RGBToRGB_16s8u_P3AC4R_X(const INT16* const pSrc[3], /* 16-bit R,G, and B ar
 }
 
 static pstatus_t
-neon_RGBToRGB_16s8u_P3AC4R(const INT16* const pSrc[3], /* 16-bit R,G, and B arrays */
-                           UINT32 srcStep,             /* bytes between rows in source data */
-                           BYTE* pDst,                 /* 32-bit interleaved ARGB (ABGR?) data */
-                           UINT32 dstStep,             /* bytes between rows in dest data */
-                           UINT32 DstFormat, const prim_size_t* roi) /* region of interest */
+neon_RGBToRGB_16s8u_P3AC4R(const INT16* const WINPR_RESTRICT pSrc[3], /* 16-bit R,G, and B arrays */
+                           UINT32 srcStep,            /* bytes between rows in source data */
+                           BYTE* WINPR_RESTRICT pDst, /* 32-bit interleaved ARGB (ABGR?) data */
+                           UINT32 dstStep,            /* bytes between rows in dest data */
+                           UINT32 DstFormat,
+                           const prim_size_t* WINPR_RESTRICT roi) /* region of interest */
 {
 	switch (DstFormat)
 	{

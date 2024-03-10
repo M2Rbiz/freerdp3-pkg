@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <freerdp/codec/bitmap.h>
 #include <freerdp/codec/planar.h>
@@ -448,6 +446,7 @@ static INLINE UINT16 out_from_count_3(UINT16 in_count, wStream* in_s, const char
 	 ((!bicolor_spin && (pixel == bicolor1) && (last_pixel == bicolor2)) || \
 	  (bicolor_spin && (pixel == bicolor2) && (last_pixel == bicolor1))))
 #define RESET_COUNTS          \
+	do                        \
 	{                         \
 		bicolor_count = 0;    \
 		fill_count = 0;       \
@@ -456,7 +455,7 @@ static INLINE UINT16 out_from_count_3(UINT16 in_count, wStream* in_s, const char
 		fom_count = 0;        \
 		fom_mask_len = 0;     \
 		bicolor_spin = FALSE; \
-	}
+	} while (0)
 
 static SSIZE_T freerdp_bitmap_compress_24(const void* srcData, UINT32 width, UINT32 height,
                                           wStream* s, UINT32 byte_limit, UINT32 start_line,
@@ -485,7 +484,6 @@ static SSIZE_T freerdp_bitmap_compress_24(const void* srcData, UINT32 width, UIN
 
 	while ((line >= start) && (out_count < 32768))
 	{
-		UINT32 j;
 		size_t i = Stream_GetPosition(s) + count * 3U;
 
 		if ((i - (color_count * 3) >= byte_limit) && (i - (bicolor_count * 3) >= byte_limit) &&
@@ -497,7 +495,7 @@ static SSIZE_T freerdp_bitmap_compress_24(const void* srcData, UINT32 width, UIN
 
 		out_count += end * 3;
 
-		for (j = 0; j < end; j++)
+		for (UINT32 j = 0; j < end; j++)
 		{
 			/* read next pixel */
 			const UINT32 pixel = IN_PIXEL32(line, j, 0, width, last_pixel);
@@ -791,7 +789,6 @@ static SSIZE_T freerdp_bitmap_compress_16(const void* srcData, UINT32 width, UIN
 
 	while ((line >= start) && (out_count < 32768))
 	{
-		UINT32 j;
 		size_t i = Stream_GetPosition(s) + count * 2;
 
 		if ((i - (color_count * 2) >= byte_limit) && (i - (bicolor_count * 2) >= byte_limit) &&
@@ -803,7 +800,7 @@ static SSIZE_T freerdp_bitmap_compress_16(const void* srcData, UINT32 width, UIN
 
 		out_count += end * 2;
 
-		for (j = 0; j < end; j++)
+		for (UINT32 j = 0; j < end; j++)
 		{
 			/* read next pixel */
 			const UINT16 pixel = IN_PIXEL16(line, j, 0, width, last_pixel);

@@ -19,32 +19,33 @@
 
 #include <errno.h>
 
+#include <winpr/assert.h>
 #include <winpr/crt.h>
 #include <winpr/path.h>
 #include <winpr/file.h>
 #include <winpr/cmdline.h>
 #include <winpr/sysinfo.h>
 #include <winpr/crypto.h>
-#include <winpr/file.h>
 
 #ifdef WITH_OPENSSL
 #include <openssl/crypto.h>
 #include <openssl/conf.h>
 #include <openssl/pem.h>
+#include <openssl/err.h>
 #include <openssl/rsa.h>
 #include <openssl/pkcs12.h>
 #include <openssl/x509v3.h>
+#include <openssl/bn.h>
 #endif
 
 #include <winpr/tools/makecert.h>
 
-struct _MAKECERT_CONTEXT
+struct S_MAKECERT_CONTEXT
 {
 	int argc;
 	char** argv;
 
 #ifdef WITH_OPENSSL
-	RSA* rsa;
 	X509* x509;
 	EVP_PKEY* pkey;
 	PKCS12* pkcs12;
@@ -77,14 +78,22 @@ static char* makecert_read_str(BIO* bio, size_t* pOffset)
 
 	while (offset >= length)
 	{
-		size_t new_len;
-		char* new_str;
+		size_t new_len = 0;
+		size_t readBytes = 0;
+		char* new_str = NULL;
 		new_len = length * 2;
 		if (new_len == 0)
 			new_len = 2048;
+
+		if (new_len > INT_MAX)
+		{
+			status = -1;
+			break;
+		}
+
 		new_str = (char*)realloc(x509_str, new_len);
 
-		if (!new_str || (new_len > INT_MAX))
+		if (!new_str)
 		{
 			status = -1;
 			break;
@@ -92,12 +101,17 @@ static char* makecert_read_str(BIO* bio, size_t* pOffset)
 
 		length = new_len;
 		x509_str = new_str;
-		status = BIO_read(bio, &x509_str[offset], (int)length - 1);
-
-		if (status < 0)
+		ERR_clear_error();
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
+		status = BIO_read_ex(bio, &x509_str[offset], length - offset, &readBytes);
+#else
+		status = BIO_read(bio, &x509_str[offset], length - offset);
+		readBytes = status;
+#endif
+		if (status <= 0)
 			break;
 
-		offset += (size_t)status;
+		offset += (size_t)readBytes;
 	}
 
 	if (status < 0)
@@ -116,8 +130,8 @@ static char* makecert_read_str(BIO* bio, size_t* pOffset)
 
 static int makecert_print_command_line_help(COMMAND_LINE_ARGUMENT_A* args, int argc, char** argv)
 {
-	char* str;
-	COMMAND_LINE_ARGUMENT_A* arg;
+	char* str = NULL;
+	const COMMAND_LINE_ARGUMENT_A* arg = NULL;
 
 	if (!argv || (argc < 1))
 		return -1;
@@ -167,7 +181,7 @@ static int makecert_print_command_line_help(COMMAND_LINE_ARGUMENT_A* args, int a
 static int x509_add_ext(X509* cert, int nid, char* value)
 {
 	X509V3_CTX ctx;
-	X509_EXTENSION* ext;
+	X509_EXTENSION* ext = NULL;
 
 	if (!cert || !value)
 		return 0;
@@ -186,8 +200,8 @@ static int x509_add_ext(X509* cert, int nid, char* value)
 
 static char* x509_name_parse(char* name, char* txt, size_t* length)
 {
-	char* p;
-	char* entry;
+	char* p = NULL;
+	char* entry = NULL;
 
 	if (!name || !txt || !length)
 		return NULL;
@@ -271,9 +285,9 @@ static int command_line_pre_filter(MAKECERT_CONTEXT* context, int index, int arg
 static int makecert_context_parse_arguments(MAKECERT_CONTEXT* context,
                                             COMMAND_LINE_ARGUMENT_A* args, int argc, char** argv)
 {
-	int status;
-	DWORD flags;
-	COMMAND_LINE_ARGUMENT_A* arg;
+	int status = 0;
+	DWORD flags = 0;
+	const COMMAND_LINE_ARGUMENT_A* arg = NULL;
 
 	if (!context || !argv || (argc < 0))
 		return -1;
@@ -370,7 +384,7 @@ static int makecert_context_parse_arguments(MAKECERT_CONTEXT* context,
 		}
 		CommandLineSwitchCase(arg, "y")
 		{
-			long val;
+			long val = 0;
 
 			if (!(arg->Flags & COMMAND_LINE_ARGUMENT_PRESENT))
 				continue;
@@ -384,7 +398,7 @@ static int makecert_context_parse_arguments(MAKECERT_CONTEXT* context,
 		}
 		CommandLineSwitchCase(arg, "m")
 		{
-			long val;
+			long val = 0;
 
 			if (!(arg->Flags & COMMAND_LINE_ARGUMENT_PRESENT))
 				continue;
@@ -405,7 +419,7 @@ static int makecert_context_parse_arguments(MAKECERT_CONTEXT* context,
 	return 1;
 }
 
-int makecert_context_set_output_file_name(MAKECERT_CONTEXT* context, char* name)
+int makecert_context_set_output_file_name(MAKECERT_CONTEXT* context, const char* name)
 {
 	if (!context)
 		return -1;
@@ -422,16 +436,16 @@ int makecert_context_set_output_file_name(MAKECERT_CONTEXT* context, char* name)
 	return 1;
 }
 
-int makecert_context_output_certificate_file(MAKECERT_CONTEXT* context, char* path)
+int makecert_context_output_certificate_file(MAKECERT_CONTEXT* context, const char* path)
 {
 #ifdef WITH_OPENSSL
 	FILE* fp = NULL;
-	int status;
-	size_t length;
-	size_t offset;
+	int status = 0;
+	size_t length = 0;
+	size_t offset = 0;
 	char* filename = NULL;
 	char* fullpath = NULL;
-	char* ext;
+	char* ext = NULL;
 	int ret = -1;
 	BIO* bio = NULL;
 	char* x509_str = NULL;
@@ -587,16 +601,17 @@ out_fail:
 	free(fullpath);
 	return ret;
 #else
-	return 1;
+	WLog_ERR(TAG, "%s only supported with OpenSSL", __func__);
+	return -1;
 #endif
 }
 
-int makecert_context_output_private_key_file(MAKECERT_CONTEXT* context, char* path)
+int makecert_context_output_private_key_file(MAKECERT_CONTEXT* context, const char* path)
 {
 #ifdef WITH_OPENSSL
 	FILE* fp = NULL;
-	size_t length;
-	size_t offset;
+	size_t length = 0;
+	size_t offset = 0;
 	char* filename = NULL;
 	char* fullpath = NULL;
 	int ret = -1;
@@ -668,9 +683,77 @@ out_fail:
 	free(fullpath);
 	return ret;
 #else
-	return 1;
+	WLog_ERR(TAG, "%s only supported with OpenSSL", __func__);
+	return -1;
 #endif
 }
+
+#ifdef WITH_OPENSSL
+static BOOL makecert_create_rsa(EVP_PKEY** ppkey, size_t key_length)
+{
+	BOOL rc = FALSE;
+
+	WINPR_ASSERT(ppkey);
+
+#if !defined(OPENSSL_VERSION_MAJOR) || (OPENSSL_VERSION_MAJOR < 3)
+	RSA* rsa = NULL;
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
+	rsa = RSA_generate_key(key_length, RSA_F4, NULL, NULL);
+#else
+	{
+		BIGNUM* bn = BN_secure_new();
+
+		if (!bn)
+			return FALSE;
+
+		rsa = RSA_new();
+
+		if (!rsa)
+		{
+			BN_clear_free(bn);
+			return FALSE;
+		}
+
+		BN_set_word(bn, RSA_F4);
+		const int res = RSA_generate_key_ex(rsa, key_length, bn, NULL);
+		BN_clear_free(bn);
+
+		if (res != 1)
+			return FALSE;
+	}
+#endif
+
+	if (!EVP_PKEY_assign_RSA(*ppkey, rsa))
+	{
+		RSA_free(rsa);
+		return FALSE;
+	}
+	rc = TRUE;
+#else
+	EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
+	if (!pctx)
+		return FALSE;
+
+	if (EVP_PKEY_keygen_init(pctx) != 1)
+		goto fail;
+
+	WINPR_ASSERT(key_length <= UINT_MAX);
+	unsigned int keylen = (unsigned int)key_length;
+	const OSSL_PARAM params[] = { OSSL_PARAM_construct_uint("bits", &keylen),
+		                          OSSL_PARAM_construct_end() };
+	if (EVP_PKEY_CTX_set_params(pctx, params) != 1)
+		goto fail;
+
+	if (EVP_PKEY_generate(pctx, ppkey) != 1)
+		goto fail;
+
+	rc = TRUE;
+fail:
+	EVP_PKEY_CTX_free(pctx);
+#endif
+	return rc;
+}
+#endif
 
 int makecert_context_process(MAKECERT_CONTEXT* context, int argc, char** argv)
 {
@@ -825,14 +908,14 @@ int makecert_context_process(MAKECERT_CONTEXT* context, int argc, char** argv)
 		{ NULL, 0, NULL, NULL, NULL, -1, NULL, NULL }
 	};
 #ifdef WITH_OPENSSL
-	size_t length;
-	char* entry;
-	int key_length;
+	size_t length = 0;
+	char* entry = NULL;
+	int key_length = 0;
 	long serial = 0;
 	X509_NAME* name = NULL;
 	const EVP_MD* md = NULL;
-	COMMAND_LINE_ARGUMENT_A* arg;
-	int ret;
+	const COMMAND_LINE_ARGUMENT_A* arg = NULL;
+	int ret = 0;
 	ret = makecert_context_parse_arguments(context, args, argc, argv);
 
 	if (ret < 1)
@@ -887,37 +970,9 @@ int makecert_context_process(MAKECERT_CONTEXT* context, int argc, char** argv)
 		key_length = (int)val;
 	}
 
-#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
-	context->rsa = RSA_generate_key(key_length, RSA_F4, NULL, NULL);
-#else
-	{
-		BIGNUM* rsa = BN_secure_new();
-		int rc;
-
-		if (!rsa)
-			return -1;
-
-		context->rsa = RSA_new();
-
-		if (!context->rsa)
-		{
-			BN_clear_free(rsa);
-			return -1;
-		}
-
-		BN_set_word(rsa, RSA_F4);
-		rc = RSA_generate_key_ex(context->rsa, key_length, rsa, NULL);
-		BN_clear_free(rsa);
-
-		if (rc != 1)
-			return -1;
-	}
-#endif
-
-	if (!EVP_PKEY_assign_RSA(context->pkey, context->rsa))
+	if (!makecert_create_rsa(&context->pkey, key_length))
 		return -1;
 
-	context->rsa = NULL;
 	X509_set_version(context->x509, 2);
 	arg = CommandLineFindArgumentA(args, "#");
 
@@ -933,8 +988,8 @@ int makecert_context_process(MAKECERT_CONTEXT* context, int argc, char** argv)
 
 	ASN1_INTEGER_set(X509_get_serialNumber(context->x509), serial);
 	{
-		ASN1_TIME* before;
-		ASN1_TIME* after;
+		ASN1_TIME* before = NULL;
+		ASN1_TIME* after = NULL;
 #if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
 		before = X509_get_notBefore(context->x509);
 		after = X509_get_notAfter(context->x509);
@@ -1019,9 +1074,9 @@ int makecert_context_process(MAKECERT_CONTEXT* context, int argc, char** argv)
 
 	if (!context->silent)
 	{
-		BIO* bio;
-		int status;
-		char* x509_str;
+		BIO* bio = NULL;
+		int status = 0;
+		char* x509_str = NULL;
 		bio = BIO_new(BIO_s_mem());
 
 		if (!bio)
@@ -1069,8 +1124,11 @@ int makecert_context_process(MAKECERT_CONTEXT* context, int argc, char** argv)
 		}
 	}
 
-#endif
 	return 0;
+#else
+	WLog_ERR(TAG, "%s only supported with OpenSSL", __func__);
+	return -1;
+#endif
 }
 
 MAKECERT_CONTEXT* makecert_context_new(void)

@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdlib.h>
 
@@ -195,8 +193,7 @@ wfInfo* wf_info_get_instance()
 
 BOOL wf_info_peer_register(wfInfo* wfi, wfPeerContext* context)
 {
-	int i;
-	int peerId;
+	int peerId = 0;
 
 	if (!wfi || !context)
 		return FALSE;
@@ -229,7 +226,7 @@ BOOL wf_info_peer_register(wfInfo* wfi, wfPeerContext* context)
 #endif
 
 	// look through the array of peers until an empty slot
-	for (i = 0; i < FREERDP_SERVER_WIN_INFO_MAXPEERS; ++i)
+	for (int i = 0; i < FREERDP_SERVER_WIN_INFO_MAXPEERS; ++i)
 	{
 		// empty index will be our peer id
 		if (wfi->peers[i] == NULL)
@@ -310,11 +307,10 @@ void wf_info_find_invalid_region(wfInfo* wfi)
 #ifdef WITH_DXGI_1_2
 	wf_dxgi_getInvalidRegion(&wfi->invalid);
 #else
-	int i;
 	GETCHANGESBUF* buf;
 	buf = (GETCHANGESBUF*)wfi->changeBuffer;
 
-	for (i = wfi->lastUpdate; i != wfi->nextUpdate; i = (i + 1) % MAXCHANGES_BUF)
+	for (ULONG i = wfi->lastUpdate; i != wfi->nextUpdate; i = (i + 1) % MAXCHANGES_BUF)
 	{
 		LPRECT lpR = &buf->buffer->pointrect[i].rect;
 

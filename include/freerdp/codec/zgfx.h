@@ -32,12 +32,12 @@
 
 #define ZGFX_SEGMENTED_MAXSIZE 65535
 
-typedef struct _ZGFX_CONTEXT ZGFX_CONTEXT;
-
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+	typedef struct S_ZGFX_CONTEXT ZGFX_CONTEXT;
 
 	FREERDP_API int zgfx_decompress(ZGFX_CONTEXT* zgfx, const BYTE* pSrcData, UINT32 SrcSize,
 	                                BYTE** ppDstData, UINT32* pDstSize, UINT32 flags);
@@ -49,8 +49,10 @@ extern "C"
 
 	FREERDP_API void zgfx_context_reset(ZGFX_CONTEXT* zgfx, BOOL flush);
 
-	FREERDP_API ZGFX_CONTEXT* zgfx_context_new(BOOL Compressor);
 	FREERDP_API void zgfx_context_free(ZGFX_CONTEXT* zgfx);
+
+	WINPR_ATTR_MALLOC(zgfx_context_free, 1)
+	FREERDP_API ZGFX_CONTEXT* zgfx_context_new(BOOL Compressor);
 
 #ifdef __cplusplus
 }

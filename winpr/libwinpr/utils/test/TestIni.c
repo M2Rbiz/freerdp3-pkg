@@ -2,51 +2,54 @@
 #include <winpr/crt.h>
 #include <winpr/ini.h>
 
-const char TEST_INI_01[] = "; This is a sample .ini config file\n"
-                           "\n"
-                           "[first_section]\n"
-                           "one = 1\n"
-                           "five = 5\n"
-                           "animal = BIRD\n"
-                           "\n"
-                           "[second_section]\n"
-                           "path = \"/usr/local/bin\"\n"
-                           "URL = \"http://www.example.com/~username\"\n"
-                           "\n";
+static const char TEST_INI_01[] = "; This is a sample .ini config file\n"
+                                  "\n"
+                                  "[first_section]\n"
+                                  "one = 1\n"
+                                  "five = 5\n"
+                                  "animal = BIRD\n"
+                                  "\n"
+                                  "[second_section]\n"
+                                  "path = \"/usr/local/bin\"\n"
+                                  "URL = \"http://www.example.com/~username\"\n"
+                                  "\n";
 
-const char TEST_INI_02[] = "[FreeRDS]\n"
-                           "prefix=\"/usr/local\"\n"
-                           "bindir=\"bin\"\n"
-                           "sbindir=\"sbin\"\n"
-                           "libdir=\"lib\"\n"
-                           "datarootdir=\"share\"\n"
-                           "localstatedir=\"var\"\n"
-                           "sysconfdir=\"etc\"\n"
-                           "\n";
+static const char TEST_INI_02[] = "[FreeRDS]\n"
+                                  "prefix=\"/usr/local\"\n"
+                                  "bindir=\"bin\"\n"
+                                  "sbindir=\"sbin\"\n"
+                                  "libdir=\"lib\"\n"
+                                  "datarootdir=\"share\"\n"
+                                  "localstatedir=\"var\"\n"
+                                  "sysconfdir=\"etc\"\n"
+                                  "\n";
 
-const char TEST_INI_03[] = "[FreeRDS]\n"
-                           "prefix=\"/usr/local\"\n"
-                           "bindir=\"bin\"\n"
-                           "# some illegal string\n"
-                           "sbindir=\"sbin\"\n"
-                           "libdir=\"lib\"\n"
-                           "invalid key-value pair\n"
-                           "datarootdir=\"share\"\n"
-                           "localstatedir=\"var\"\n"
-                           "sysconfdir=\"etc\"\n"
-                           "\n";
+static const char TEST_INI_03[] = "[FreeRDS]\n"
+                                  "prefix=\"/usr/local\"\n"
+                                  "bindir=\"bin\"\n"
+                                  "# some illegal string\n"
+                                  "sbindir=\"sbin\"\n"
+                                  "libdir=\"lib\"\n"
+                                  "invalid key-value pair\n"
+                                  "datarootdir=\"share\"\n"
+                                  "localstatedir=\"var\"\n"
+                                  "sysconfdir=\"etc\"\n"
+                                  "\n";
 
 int TestIni(int argc, char* argv[])
 {
 	int rc = -1;
-	int i, j;
-	int nKeys;
-	int nSections;
-	UINT32 iValue;
+	size_t nKeys = 0;
+	size_t nSections = 0;
+	UINT32 iValue = 0;
 	wIniFile* ini = NULL;
-	const char* sValue;
+	const char* sValue = NULL;
 	char** keyNames = NULL;
 	char** sectionNames = NULL;
+
+	WINPR_UNUSED(argc);
+	WINPR_UNUSED(argv);
+
 	/* First Sample */
 	ini = IniFile_New();
 	if (!ini)
@@ -60,14 +63,14 @@ int TestIni(int argc, char* argv[])
 	if (!sectionNames && (nSections > 0))
 		goto fail;
 
-	for (i = 0; i < nSections; i++)
+	for (size_t i = 0; i < nSections; i++)
 	{
 		free(keyNames);
 		keyNames = IniFile_GetSectionKeyNames(ini, sectionNames[i], &nKeys);
 		printf("[%s]\n", sectionNames[i]);
 		if (!keyNames && (nKeys > 0))
 			goto fail;
-		for (j = 0; j < nKeys; j++)
+		for (size_t j = 0; j < nKeys; j++)
 		{
 			sValue = IniFile_GetKeyValueString(ini, sectionNames[i], keyNames[j]);
 			printf("%s = %s\n", keyNames[j], sValue);
@@ -126,7 +129,7 @@ int TestIni(int argc, char* argv[])
 	if (!sectionNames && (nSections > 0))
 		goto fail;
 
-	for (i = 0; i < nSections; i++)
+	for (size_t i = 0; i < nSections; i++)
 	{
 		free(keyNames);
 		keyNames = IniFile_GetSectionKeyNames(ini, sectionNames[i], &nKeys);
@@ -134,7 +137,7 @@ int TestIni(int argc, char* argv[])
 
 		if (!keyNames && (nKeys > 0))
 			goto fail;
-		for (j = 0; j < nKeys; j++)
+		for (size_t j = 0; j < nKeys; j++)
 		{
 			sValue = IniFile_GetKeyValueString(ini, sectionNames[i], keyNames[j]);
 			printf("%s = %s\n", keyNames[j], sValue);
@@ -153,5 +156,5 @@ fail:
 	free(keyNames);
 	free(sectionNames);
 	IniFile_Free(ini);
-	return 0;
+	return rc;
 }

@@ -25,7 +25,7 @@
 #include "xf_client.h"
 #include "xfreerdp.h"
 
-struct _XF_MODIFIER_KEYS
+typedef struct
 {
 	BOOL Shift;
 	BOOL LeftShift;
@@ -39,17 +39,17 @@ struct _XF_MODIFIER_KEYS
 	BOOL Super;
 	BOOL LeftSuper;
 	BOOL RightSuper;
-};
-typedef struct _XF_MODIFIER_KEYS XF_MODIFIER_KEYS;
+} XF_MODIFIER_KEYS;
 
 BOOL xf_keyboard_init(xfContext* xfc);
 void xf_keyboard_free(xfContext* xfc);
 
-void xf_keyboard_key_press(xfContext* xfc, BYTE keycode, KeySym keysym);
-void xf_keyboard_key_release(xfContext* xfc, BYTE keycode, KeySym keysym);
+void xf_keyboard_key_press(xfContext* xfc, const XKeyEvent* event, KeySym keysym);
+void xf_keyboard_key_release(xfContext* xfc, const XKeyEvent* event, KeySym keysym);
+
 void xf_keyboard_release_all_keypress(xfContext* xfc);
 BOOL xf_keyboard_key_pressed(xfContext* xfc, KeySym keysym);
-void xf_keyboard_send_key(xfContext* xfc, BOOL down, BYTE keycode);
+
 int xf_keyboard_read_keyboard_state(xfContext* xfc);
 BOOL xf_keyboard_get_key_state(xfContext* xfc, int state, int keysym);
 UINT32 xf_keyboard_get_toggle_keys_state(xfContext* xfc);
@@ -59,5 +59,7 @@ void xf_keyboard_handle_special_keys_release(xfContext* xfc, KeySym keysym);
 BOOL xf_keyboard_set_indicators(rdpContext* context, UINT16 led_flags);
 BOOL xf_keyboard_set_ime_status(rdpContext* context, UINT16 imeId, UINT32 imeState,
                                 UINT32 imeConvMode);
+
+BOOL xf_ungrab(xfContext* xfc);
 
 #endif /* FREERDP_CLIENT_X11_XF_KEYBOARD_H */

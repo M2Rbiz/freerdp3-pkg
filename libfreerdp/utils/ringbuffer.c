@@ -17,15 +17,13 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <freerdp/utils/ringbuffer.h>
 
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
+#include <winpr/assert.h>
 
 #include <winpr/crt.h>
 #include <freerdp/log.h>
@@ -73,7 +71,7 @@ void ringbuffer_destroy(RingBuffer* rb)
 
 static BOOL ringbuffer_realloc(RingBuffer* rb, size_t targetSize)
 {
-	BYTE* newData;
+	BYTE* newData = NULL;
 	DEBUG_RINGBUFFER("ringbuffer_realloc(%p): targetSize: %" PRIdz "", (void*)rb, targetSize);
 
 	if (rb->writePtr == rb->readPtr)
@@ -152,16 +150,18 @@ static BOOL ringbuffer_realloc(RingBuffer* rb, size_t targetSize)
 }
 
 /**
+ * Write to a ringbuffer
  *
- * @param rb
- * @param ptr
- * @param sz
- * @return
+ * @param rb A pointer to the ringbuffer
+ * @param ptr A pointer to the data to write
+ * @param sz The number of bytes to write
+ *
+ * @return \b TRUE for success, \b FALSE for failure
  */
 BOOL ringbuffer_write(RingBuffer* rb, const BYTE* ptr, size_t sz)
 {
-	size_t toWrite;
-	size_t remaining;
+	size_t toWrite = 0;
+	size_t remaining = 0;
 	DEBUG_RINGBUFFER("ringbuffer_write(%p): sz: %" PRIdz "", (void*)rb, sz);
 
 	if ((rb->freeSize <= sz) && !ringbuffer_realloc(rb, rb->size + sz))
@@ -243,7 +243,7 @@ BOOL ringbuffer_commit_written_bytes(RingBuffer* rb, size_t sz)
 int ringbuffer_peek(const RingBuffer* rb, DataChunk chunks[2], size_t sz)
 {
 	size_t remaining = sz;
-	size_t toRead;
+	size_t toRead = 0;
 	int chunkIndex = 0;
 	int status = 0;
 	DEBUG_RINGBUFFER("ringbuffer_peek(%p): sz: %" PRIdz "", (void*)rb, sz);
@@ -285,7 +285,7 @@ void ringbuffer_commit_read_bytes(RingBuffer* rb, size_t sz)
 	if (sz < 1)
 		return;
 
-	assert(rb->size - rb->freeSize >= sz);
+	WINPR_ASSERT(rb->size - rb->freeSize >= sz);
 	rb->readPtr = (rb->readPtr + sz) % rb->size;
 	rb->freeSize += sz;
 

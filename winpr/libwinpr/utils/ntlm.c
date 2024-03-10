@@ -17,11 +17,10 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #include <winpr/ntlm.h>
+#include <winpr/assert.h>
 
 #include <winpr/crt.h>
 #include <winpr/crypto.h>
@@ -48,15 +47,16 @@ BOOL NTOWFv1A(LPSTR Password, UINT32 PasswordLength, BYTE* NtHash)
 {
 	LPWSTR PasswordW = NULL;
 	BOOL result = FALSE;
-	int PasswordLengthW = 0;
+	size_t pwdCharLength = 0;
 
 	if (!NtHash)
 		return FALSE;
 
-	PasswordLengthW = ConvertToUnicode(CP_ACP, 0, Password, PasswordLength, &PasswordW, 0);
-	if (PasswordLengthW < 0)
-		goto out_fail;
-	if (!NTOWFv1W(PasswordW, PasswordLengthW * sizeof(WCHAR), NtHash))
+	PasswordW = ConvertUtf8NToWCharAlloc(Password, PasswordLength, &pwdCharLength);
+	if (!PasswordW)
+		return FALSE;
+
+	if (!NTOWFv1W(PasswordW, (UINT32)pwdCharLength * sizeof(WCHAR), NtHash))
 		goto out_fail;
 
 	result = TRUE;
@@ -93,26 +93,23 @@ BOOL NTOWFv2A(LPSTR Password, UINT32 PasswordLength, LPSTR User, UINT32 UserLeng
 	LPWSTR DomainW = NULL;
 	LPWSTR PasswordW = NULL;
 	BOOL result = FALSE;
-	int UserLengthW = 0;
-	int DomainLengthW = 0;
-	int PasswordLengthW = 0;
+	size_t userCharLength = 0;
+	size_t domainCharLength = 0;
+	size_t pwdCharLength = 0;
 
 	if (!NtHash)
 		return FALSE;
 
-	UserLengthW = ConvertToUnicode(CP_ACP, 0, User, UserLength, &UserW, 0);
-	DomainLengthW = ConvertToUnicode(CP_ACP, 0, Domain, DomainLength, &DomainW, 0);
-	PasswordLengthW = ConvertToUnicode(CP_ACP, 0, Password, PasswordLength, &PasswordW, 0);
+	UserW = ConvertUtf8NToWCharAlloc(User, UserLength, &userCharLength);
+	DomainW = ConvertUtf8NToWCharAlloc(Domain, DomainLength, &domainCharLength);
+	PasswordW = ConvertUtf8NToWCharAlloc(Password, PasswordLength, &pwdCharLength);
 
-	if (UserLengthW < 0)
-		goto out_fail;
-	if (DomainLengthW < 0)
-		goto out_fail;
-	if (PasswordLengthW < 0)
+	if (!UserW || !DomainW || !PasswordW)
 		goto out_fail;
 
-	if (!NTOWFv2W(PasswordW, PasswordLengthW * sizeof(WCHAR), UserW, UserLengthW * sizeof(WCHAR),
-	              DomainW, DomainLengthW * sizeof(WCHAR), NtHash))
+	if (!NTOWFv2W(PasswordW, (UINT32)pwdCharLength * sizeof(WCHAR), UserW,
+	              (UINT32)userCharLength * sizeof(WCHAR), DomainW,
+	              (UINT32)domainCharLength * sizeof(WCHAR), NtHash))
 		goto out_fail;
 
 	result = TRUE;
@@ -126,7 +123,7 @@ out_fail:
 BOOL NTOWFv2FromHashW(BYTE* NtHashV1, LPWSTR User, UINT32 UserLength, LPWSTR Domain,
                       UINT32 DomainLength, BYTE* NtHash)
 {
-	BYTE* buffer;
+	BYTE* buffer = NULL;
 	BYTE result = FALSE;
 
 	if (!User || !NtHash)
@@ -162,21 +159,19 @@ BOOL NTOWFv2FromHashA(BYTE* NtHashV1, LPSTR User, UINT32 UserLength, LPSTR Domai
 	LPWSTR UserW = NULL;
 	LPWSTR DomainW = NULL;
 	BOOL result = FALSE;
-	int UserLengthW = 0;
-	int DomainLengthW = 0;
-
+	size_t userCharLength = 0;
+	size_t domainCharLength = 0;
 	if (!NtHash)
 		return FALSE;
 
-	UserLengthW = ConvertToUnicode(CP_ACP, 0, User, UserLength, &UserW, 0);
-	DomainLengthW = ConvertToUnicode(CP_ACP, 0, Domain, DomainLength, &DomainW, 0);
-	if (UserLengthW < 0)
-		goto out_fail;
-	if (DomainLengthW < 0)
+	UserW = ConvertUtf8NToWCharAlloc(User, UserLength, &userCharLength);
+	DomainW = ConvertUtf8NToWCharAlloc(Domain, DomainLength, &domainCharLength);
+
+	if (!UserW || !DomainW)
 		goto out_fail;
 
-	if (!NTOWFv2FromHashW(NtHashV1, UserW, UserLength * sizeof(WCHAR), DomainW,
-	                      DomainLength * sizeof(WCHAR), NtHash))
+	if (!NTOWFv2FromHashW(NtHashV1, UserW, (UINT32)userCharLength * sizeof(WCHAR), DomainW,
+	                      (UINT32)domainCharLength * sizeof(WCHAR), NtHash))
 		goto out_fail;
 
 	result = TRUE;

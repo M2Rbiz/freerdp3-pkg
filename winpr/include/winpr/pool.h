@@ -30,33 +30,33 @@
 
 typedef DWORD TP_VERSION, *PTP_VERSION;
 
-typedef struct _TP_CALLBACK_INSTANCE TP_CALLBACK_INSTANCE, *PTP_CALLBACK_INSTANCE;
+typedef struct S_TP_CALLBACK_INSTANCE TP_CALLBACK_INSTANCE, *PTP_CALLBACK_INSTANCE;
 
 typedef VOID (*PTP_SIMPLE_CALLBACK)(PTP_CALLBACK_INSTANCE Instance, PVOID Context);
 
-typedef struct _TP_POOL TP_POOL, *PTP_POOL;
+typedef struct S_TP_POOL TP_POOL, *PTP_POOL;
 
-typedef struct _TP_POOL_STACK_INFORMATION
+typedef struct
 {
 	SIZE_T StackReserve;
 	SIZE_T StackCommit;
 } TP_POOL_STACK_INFORMATION, *PTP_POOL_STACK_INFORMATION;
 
-typedef struct _TP_CLEANUP_GROUP TP_CLEANUP_GROUP, *PTP_CLEANUP_GROUP;
+typedef struct S_TP_CLEANUP_GROUP TP_CLEANUP_GROUP, *PTP_CLEANUP_GROUP;
 
 typedef VOID (*PTP_CLEANUP_GROUP_CANCEL_CALLBACK)(PVOID ObjectContext, PVOID CleanupContext);
 
-typedef struct _TP_CALLBACK_ENVIRON_V1
+typedef struct
 {
 	TP_VERSION Version;
 	PTP_POOL Pool;
 	PTP_CLEANUP_GROUP CleanupGroup;
 	PTP_CLEANUP_GROUP_CANCEL_CALLBACK CleanupGroupCancelCallback;
 	PVOID RaceDll;
-	struct _ACTIVATION_CONTEXT* ActivationContext;
 	PTP_SIMPLE_CALLBACK FinalizationCallback;
 
-	union {
+	union
+	{
 		DWORD Flags;
 		struct
 		{
@@ -69,24 +69,20 @@ typedef struct _TP_CALLBACK_ENVIRON_V1
 
 typedef TP_CALLBACK_ENVIRON_V1 TP_CALLBACK_ENVIRON, *PTP_CALLBACK_ENVIRON;
 
-#endif /* _WIN32 not defined */
-
-typedef struct _TP_WORK TP_WORK, *PTP_WORK;
-typedef struct _TP_TIMER TP_TIMER, *PTP_TIMER;
+typedef struct S_TP_WORK TP_WORK, *PTP_WORK;
+typedef struct S_TP_TIMER TP_TIMER, *PTP_TIMER;
 
 typedef DWORD TP_WAIT_RESULT;
-typedef struct _TP_WAIT TP_WAIT, *PTP_WAIT;
+typedef struct S_TP_WAIT TP_WAIT, *PTP_WAIT;
 
-typedef struct _TP_IO TP_IO, *PTP_IO;
-
-#ifndef _WIN32
+typedef struct S_TP_IO TP_IO, *PTP_IO;
 
 typedef VOID (*PTP_WORK_CALLBACK)(PTP_CALLBACK_INSTANCE Instance, PVOID Context, PTP_WORK Work);
 typedef VOID (*PTP_TIMER_CALLBACK)(PTP_CALLBACK_INSTANCE Instance, PVOID Context, PTP_TIMER Timer);
 typedef VOID (*PTP_WAIT_CALLBACK)(PTP_CALLBACK_INSTANCE Instance, PVOID Context, PTP_WAIT Wait,
                                   TP_WAIT_RESULT WaitResult);
 
-#endif
+#endif /* _WIN32 not defined */
 
 /*
 There is a bug in the Win8 header that defines the IO
@@ -97,7 +93,7 @@ logic tries to fix that.
 #ifdef _THREADPOOLAPISET_H_
 #define PTP_WIN32_IO_CALLBACK_DEFINED 1
 #else
-#if (_WIN32_WINNT >= 0x0600)
+#if defined(_WIN32_WINNT) && (_WIN32_WINNT >= 0x0600)
 #define PTP_WIN32_IO_CALLBACK_DEFINED 1
 #endif
 #endif
@@ -110,7 +106,11 @@ typedef VOID (*PTP_WIN32_IO_CALLBACK)(PTP_CALLBACK_INSTANCE Instance, PVOID Cont
 
 #endif
 
-#if (!defined(_WIN32) || ((defined(_WIN32) && (_WIN32_WINNT < 0x0600))))
+#if !defined(_WIN32)
+#define WINPR_THREAD_POOL 1
+#elif defined(_WIN32) && (_WIN32_WINNT < 0x0600)
+#define WINPR_THREAD_POOL 1
+#elif defined(__MINGW32__) && (__MINGW64_VERSION_MAJOR < 8)
 #define WINPR_THREAD_POOL 1
 #endif
 
@@ -210,40 +210,6 @@ extern "C"
 #define SetThreadpoolThreadMinimum winpr_SetThreadpoolThreadMinimum
 #define SetThreadpoolThreadMaximum winpr_SetThreadpoolThreadMaximum
 
-	/* Callback Environment */
-
-	static INLINE VOID InitializeThreadpoolEnvironment(PTP_CALLBACK_ENVIRON pcbe)
-	{
-		pcbe->Version = 1;
-		pcbe->Pool = NULL;
-		pcbe->CleanupGroup = NULL;
-		pcbe->CleanupGroupCancelCallback = NULL;
-		pcbe->RaceDll = NULL;
-		pcbe->ActivationContext = NULL;
-		pcbe->FinalizationCallback = NULL;
-		pcbe->u.Flags = 0;
-	}
-
-	static INLINE VOID DestroyThreadpoolEnvironment(PTP_CALLBACK_ENVIRON pcbe)
-	{
-		/* no actions, this may change in a future release. */
-	}
-
-	static INLINE VOID SetThreadpoolCallbackPool(PTP_CALLBACK_ENVIRON pcbe, PTP_POOL ptpp)
-	{
-		pcbe->Pool = ptpp;
-	}
-
-	static INLINE VOID SetThreadpoolCallbackRunsLong(PTP_CALLBACK_ENVIRON pcbe)
-	{
-		pcbe->u.s.LongFunction = 1;
-	}
-
-	static INLINE VOID SetThreadpoolCallbackLibrary(PTP_CALLBACK_ENVIRON pcbe, PVOID mod)
-	{
-		pcbe->RaceDll = mod;
-	}
-
 	/* Callback */
 
 	WINPR_API BOOL winpr_CallbackMayRunLong(PTP_CALLBACK_INSTANCE pci);
@@ -266,6 +232,47 @@ extern "C"
 #define FreeLibraryWhenCallbackReturns winpr_FreeLibraryWhenCallbackReturns
 #define DisassociateCurrentThreadFromCallback winpr_DisassociateCurrentThreadFromCallback
 
+#endif /* WINPR_THREAD_POOL */
+
+#if !defined(_WIN32)
+#define WINPR_CALLBACK_ENVIRON 1
+#elif defined(_WIN32) && (_WIN32_WINNT < 0x0600)
+#define WINPR_CALLBACK_ENVIRON 1
+#elif defined(__MINGW32__) && (__MINGW64_VERSION_MAJOR < 9)
+#define WINPR_CALLBACK_ENVIRON 1
+#endif
+
+#ifdef WINPR_CALLBACK_ENVIRON
+	/* some version of mingw are missing Callback Environment functions */
+
+	/* Callback Environment */
+
+	static INLINE VOID InitializeThreadpoolEnvironment(PTP_CALLBACK_ENVIRON pcbe)
+	{
+		const TP_CALLBACK_ENVIRON empty = { 0 };
+		*pcbe = empty;
+		pcbe->Version = 1;
+	}
+
+	static INLINE VOID DestroyThreadpoolEnvironment(PTP_CALLBACK_ENVIRON pcbe)
+	{
+		/* no actions, this may change in a future release. */
+	}
+
+	static INLINE VOID SetThreadpoolCallbackPool(PTP_CALLBACK_ENVIRON pcbe, PTP_POOL ptpp)
+	{
+		pcbe->Pool = ptpp;
+	}
+
+	static INLINE VOID SetThreadpoolCallbackRunsLong(PTP_CALLBACK_ENVIRON pcbe)
+	{
+		pcbe->u.s.LongFunction = 1;
+	}
+
+	static INLINE VOID SetThreadpoolCallbackLibrary(PTP_CALLBACK_ENVIRON pcbe, PVOID mod)
+	{
+		pcbe->RaceDll = mod;
+	}
 #endif
 
 #ifdef __cplusplus

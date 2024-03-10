@@ -16,9 +16,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <winpr/crt.h>
 #include <winpr/print.h>
@@ -33,7 +31,8 @@
 
 int shadow_capture_align_clip_rect(RECTANGLE_16* rect, RECTANGLE_16* clip)
 {
-	int dx, dy;
+	int dx = 0;
+	int dy = 0;
 	dx = (rect->left % 16);
 
 	if (dx != 0)
@@ -82,16 +81,21 @@ int shadow_capture_align_clip_rect(RECTANGLE_16* rect, RECTANGLE_16* clip)
 int shadow_capture_compare(BYTE* pData1, UINT32 nStep1, UINT32 nWidth, UINT32 nHeight, BYTE* pData2,
                            UINT32 nStep2, RECTANGLE_16* rect)
 {
-	BOOL equal;
-	BOOL allEqual;
-	UINT32 tw, th;
-	UINT32 tx, ty, k;
-	UINT32 nrow, ncol;
-	UINT32 l, t, r, b;
-	BYTE *p1, *p2;
+	BOOL equal = 0;
+	BOOL allEqual = 0;
+	UINT32 tw = 0;
+	UINT32 th = 0;
+	UINT32 nrow = 0;
+	UINT32 ncol = 0;
+	UINT32 l = 0;
+	UINT32 t = 0;
+	UINT32 r = 0;
+	UINT32 b = 0;
+	BYTE* p1 = NULL;
+	BYTE* p2 = NULL;
 	BOOL rows[1024];
 #ifdef WITH_DEBUG_SHADOW_CAPTURE
-	BOOL cols[1024];
+	BOOL cols[1024] = { FALSE };
 #endif
 	allEqual = TRUE;
 	ZeroMemory(rect, sizeof(RECTANGLE_16));
@@ -106,14 +110,14 @@ int shadow_capture_compare(BYTE* pData1, UINT32 nStep1, UINT32 nWidth, UINT32 nH
 	t = nrow + 1;
 	b = 0;
 
-	for (ty = 0; ty < nrow; ty++)
+	for (UINT32 ty = 0; ty < nrow; ty++)
 	{
 		th = ((ty + 1) == nrow) ? (nHeight % 16) : 16;
 
 		if (!th)
 			th = 16;
 
-		for (tx = 0; tx < ncol; tx++)
+		for (UINT32 tx = 0; tx < ncol; tx++)
 		{
 			equal = TRUE;
 			tw = ((tx + 1) == ncol) ? (nWidth % 16) : 16;
@@ -124,7 +128,7 @@ int shadow_capture_compare(BYTE* pData1, UINT32 nStep1, UINT32 nWidth, UINT32 nH
 			p1 = &pData1[(ty * 16 * nStep1) + (tx * 16 * 4)];
 			p2 = &pData2[(ty * 16 * nStep2) + (tx * 16 * 4)];
 
-			for (k = 0; k < th; k++)
+			for (UINT32 k = 0; k < th; k++)
 			{
 				if (memcmp(p1, p2, tw * 4) != 0)
 				{
@@ -166,16 +170,22 @@ int shadow_capture_compare(BYTE* pData1, UINT32 nStep1, UINT32 nWidth, UINT32 nH
 	if (allEqual)
 		return 0;
 
-	rect->left = l * 16;
-	rect->top = t * 16;
-	rect->right = (r + 1) * 16;
-	rect->bottom = (b + 1) * 16;
+	WINPR_ASSERT(l * 16 <= UINT16_MAX);
+	WINPR_ASSERT(t * 16 <= UINT16_MAX);
+	WINPR_ASSERT((r + 1) * 16 <= UINT16_MAX);
+	WINPR_ASSERT((b + 1) * 16 <= UINT16_MAX);
+	rect->left = (UINT16)l * 16;
+	rect->top = (UINT16)t * 16;
+	rect->right = (UINT16)(r + 1) * 16;
+	rect->bottom = (UINT16)(b + 1) * 16;
 
+	WINPR_ASSERT(nWidth <= UINT16_MAX);
 	if (rect->right > nWidth)
-		rect->right = nWidth;
+		rect->right = (UINT16)nWidth;
 
+	WINPR_ASSERT(nHeight <= UINT16_MAX);
 	if (rect->bottom > nHeight)
-		rect->bottom = nHeight;
+		rect->bottom = (UINT16)nHeight;
 
 #ifdef WITH_DEBUG_SHADOW_CAPTURE
 	size_t size = ncol + 1;
@@ -187,32 +197,34 @@ int shadow_capture_compare(BYTE* pData1, UINT32 nStep1, UINT32 nWidth, UINT32 nH
 		return 1;
 	}
 
-	for (tx = 0; tx < ncol; tx++)
+	for (UINT32 tx = 0; tx < ncol; tx++)
 		sprintf_s(&col_str[tx], size - tx, "-");
 
 	WLog_INFO(TAG, "%s", col_str);
 
-	for (tx = 0; tx < ncol; tx++)
+	for (UINT32 tx = 0; tx < ncol; tx++)
 		sprintf_s(&col_str[tx], size - tx, "%c", cols[tx] ? 'O' : 'X');
 
 	WLog_INFO(TAG, "%s", col_str);
 
-	for (tx = 0; tx < ncol; tx++)
+	for (UINT32 tx = 0; tx < ncol; tx++)
 		sprintf_s(&col_str[tx], size - tx, "-");
 
 	WLog_INFO(TAG, "%s", col_str);
 
-	for (ty = 0; ty < nrow; ty++)
+	for (UINT32 ty = 0; ty < nrow; ty++)
 	{
-		for (tx = 0; tx < ncol; tx++)
+		for (UINT32 tx = 0; tx < ncol; tx++)
 			sprintf_s(&col_str[tx], size - tx, "%c", cols[tx] ? 'O' : 'X');
 
 		WLog_INFO(TAG, "%s", col_str);
 		WLog_INFO(TAG, "|%s|", rows[ty] ? "O" : "X");
 	}
 
-	WLog_INFO(TAG, "left: %d top: %d right: %d bottom: %d ncol: %d nrow: %d", l, t, r, b, ncol,
-	          nrow);
+	WLog_INFO(TAG,
+	          "left: %" PRIu32 " top: %" PRIu32 " right: %" PRIu32 " bottom: %" PRIu32
+	          " ncol: %" PRIu32 " nrow: %" PRIu32,
+	          l, t, r, b, ncol, nrow);
 	free(col_str);
 #endif
 	return 1;
@@ -220,8 +232,9 @@ int shadow_capture_compare(BYTE* pData1, UINT32 nStep1, UINT32 nWidth, UINT32 nH
 
 rdpShadowCapture* shadow_capture_new(rdpShadowServer* server)
 {
-	rdpShadowCapture* capture;
-	capture = (rdpShadowCapture*)calloc(1, sizeof(rdpShadowCapture));
+	WINPR_ASSERT(server);
+
+	rdpShadowCapture* capture = (rdpShadowCapture*)calloc(1, sizeof(rdpShadowCapture));
 
 	if (!capture)
 		return NULL;
@@ -230,7 +243,10 @@ rdpShadowCapture* shadow_capture_new(rdpShadowServer* server)
 
 	if (!InitializeCriticalSectionAndSpinCount(&(capture->lock), 4000))
 	{
-		free(capture);
+		WINPR_PRAGMA_DIAG_PUSH
+		WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
+		shadow_capture_free(capture);
+		WINPR_PRAGMA_DIAG_POP
 		return NULL;
 	}
 

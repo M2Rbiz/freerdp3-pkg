@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,8 +27,8 @@
 
 static ITSMFAudioDevice* tsmf_load_audio_device_by_name(const char* name, const char* device)
 {
-	ITSMFAudioDevice* audio;
-	TSMF_AUDIO_DEVICE_ENTRY entry;
+	ITSMFAudioDevice* audio = NULL;
+	TSMF_AUDIO_DEVICE_ENTRY entry = NULL;
 
 	entry =
 	    (TSMF_AUDIO_DEVICE_ENTRY)(void*)freerdp_load_channel_addin_entry("tsmf", name, "audio", 0);

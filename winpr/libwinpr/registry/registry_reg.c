@@ -17,9 +17,7 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -90,8 +88,8 @@ static char* reg_data_type_string(DWORD type)
 
 static BOOL reg_load_start(Reg* reg)
 {
-	char* buffer;
-	INT64 file_size;
+	char* buffer = NULL;
+	INT64 file_size = 0;
 
 	WINPR_ASSERT(reg);
 	WINPR_ASSERT(reg->fp);
@@ -132,14 +130,13 @@ static void reg_load_finish(Reg* reg)
 	}
 }
 
-static RegVal* reg_load_value(Reg* reg, RegKey* key)
+static RegVal* reg_load_value(const Reg* reg, RegKey* key)
 {
-	size_t index;
-	char* p[5] = { 0 };
-	size_t length;
+	const char* p[5] = { 0 };
+	size_t length = 0;
 	char* name = NULL;
-	char* type;
-	char* data;
+	const char* type = NULL;
+	const char* data = NULL;
 	RegVal* value = NULL;
 
 	WINPR_ASSERT(reg);
@@ -181,7 +178,7 @@ static RegVal* reg_load_value(Reg* reg, RegKey* key)
 	value->name = name;
 	value->type = REG_NONE;
 
-	for (index = 0; index < ARRAYSIZE(REG_DATA_TYPE_TABLE); index++)
+	for (size_t index = 0; index < ARRAYSIZE(REG_DATA_TYPE_TABLE); index++)
 	{
 		const struct reg_data_type* current = &REG_DATA_TYPE_TABLE[index];
 		WINPR_ASSERT(current->tag);
@@ -199,20 +196,38 @@ static RegVal* reg_load_value(Reg* reg, RegKey* key)
 	{
 		case REG_DWORD:
 		{
-			unsigned long val;
+			unsigned long val = 0;
 			errno = 0;
-			val = strtoul(data, NULL, 16);
+			val = strtoul(data, NULL, 0);
 
 			if ((errno != 0) || (val > UINT32_MAX))
+			{
+				WLog_WARN(TAG, "%s::%s value %s invalid", key->name, value->name, data);
 				goto fail;
-
+			}
 			value->data.dword = (DWORD)val;
+		}
+		break;
+		case REG_QWORD:
+		{
+			unsigned long long val = 0;
+			errno = 0;
+			val = strtoull(data, NULL, 0);
+
+			if ((errno != 0) || (val > UINT64_MAX))
+			{
+				WLog_WARN(TAG, "%s::%s value %s invalid", key->name, value->name, data);
+				goto fail;
+			}
+
+			value->data.qword = (UINT64)val;
 		}
 		break;
 		case REG_SZ:
 		{
-			size_t len, cmp;
-			char* end;
+			size_t len = 0;
+			size_t cmp = 0;
+			char* end = NULL;
 			char* start = strchr(data, '"');
 			if (!start)
 				goto fail;
@@ -236,7 +251,8 @@ static RegVal* reg_load_value(Reg* reg, RegKey* key)
 		}
 		break;
 		default:
-			WLog_ERR(TAG, "unimplemented format: %s", reg_data_type_string(value->type));
+			WLog_ERR(TAG, "[%s] %s unimplemented format: %s", key->name, value->name,
+			         reg_data_type_string(value->type));
 			break;
 	}
 
@@ -332,8 +348,8 @@ static void reg_insert_key(Reg* reg, RegKey* key, RegKey* subkey)
 static RegKey* reg_load_key(Reg* reg, RegKey* key)
 {
 	char* p[2];
-	size_t length;
-	RegKey* subkey;
+	size_t length = 0;
+	RegKey* subkey = NULL;
 
 	WINPR_ASSERT(reg);
 	WINPR_ASSERT(key);
@@ -434,7 +450,7 @@ static void reg_unload_value(Reg* reg, RegVal* value)
 
 static void reg_unload_key(Reg* reg, RegKey* key)
 {
-	RegVal* pValue;
+	RegVal* pValue = NULL;
 
 	WINPR_ASSERT(reg);
 	WINPR_ASSERT(key);
@@ -454,12 +470,10 @@ static void reg_unload_key(Reg* reg, RegKey* key)
 
 static void reg_unload(Reg* reg)
 {
-	RegKey* pKey;
-
 	WINPR_ASSERT(reg);
 	if (reg->root_key)
 	{
-		pKey = reg->root_key->subkeys;
+		RegKey* pKey = reg->root_key->subkeys;
 
 		while (pKey != NULL)
 		{
@@ -519,5 +533,38 @@ void reg_close(Reg* reg)
 		if (reg->fp)
 			fclose(reg->fp);
 		free(reg);
+	}
+}
+
+const char* reg_type_string(DWORD type)
+{
+	switch (type)
+	{
+		case REG_NONE:
+			return "REG_NONE";
+		case REG_SZ:
+			return "REG_SZ";
+		case REG_EXPAND_SZ:
+			return "REG_EXPAND_SZ";
+		case REG_BINARY:
+			return "REG_BINARY";
+		case REG_DWORD:
+			return "REG_DWORD";
+		case REG_DWORD_BIG_ENDIAN:
+			return "REG_DWORD_BIG_ENDIAN";
+		case REG_LINK:
+			return "REG_LINK";
+		case REG_MULTI_SZ:
+			return "REG_MULTI_SZ";
+		case REG_RESOURCE_LIST:
+			return "REG_RESOURCE_LIST";
+		case REG_FULL_RESOURCE_DESCRIPTOR:
+			return "REG_FULL_RESOURCE_DESCRIPTOR";
+		case REG_RESOURCE_REQUIREMENTS_LIST:
+			return "REG_RESOURCE_REQUIREMENTS_LIST";
+		case REG_QWORD:
+			return "REG_QWORD";
+		default:
+			return "REG_UNKNOWN";
 	}
 }

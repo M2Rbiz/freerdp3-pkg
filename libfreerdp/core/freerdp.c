@@ -19,9 +19,13 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
+
+#include "settings.h"
+
+#include <string.h>
+#include <stdarg.h>
+#include <time.h>
 
 #include "rdp.h"
 #include "input.h"
@@ -30,10 +34,10 @@
 #include "transport.h"
 #include "connection.h"
 #include "message.h"
-#include "buildflags.h"
+#include <freerdp/buildflags.h>
 #include "gateway/rpc_fault.h"
 
-#include <assert.h>
+#include <winpr/assert.h>
 
 #include <winpr/crt.h>
 #include <winpr/string.h>
@@ -43,101 +47,27 @@
 #include <winpr/debug.h>
 
 #include <freerdp/freerdp.h>
+#include <freerdp/streamdump.h>
 #include <freerdp/error.h>
 #include <freerdp/event.h>
 #include <freerdp/locale/keyboard.h>
 #include <freerdp/channels/channels.h>
 #include <freerdp/version.h>
 #include <freerdp/log.h>
-#include <freerdp/cache/pointer.h>
+#include <freerdp/utils/signal.h>
 
-#include "settings.h"
+#include "../cache/pointer.h"
 #include "utils.h"
 
 #define TAG FREERDP_TAG("core")
 
-/* connectErrorCode is 'extern' in error.h. See comment there.*/
-
-UINT freerdp_channel_add_init_handle_data(rdpChannelHandles* handles, void* pInitHandle,
-                                          void* pUserData)
+static void sig_abort_connect(int signum, const char* signame, void* ctx)
 {
-	if (!handles->init)
-		handles->init = ListDictionary_New(TRUE);
+	rdpContext* context = (rdpContext*)ctx;
 
-	if (!handles->init)
-	{
-		WLog_ERR(TAG, "ListDictionary_New failed!");
-		return ERROR_NOT_ENOUGH_MEMORY;
-	}
-
-	if (!ListDictionary_Add(handles->init, pInitHandle, pUserData))
-	{
-		WLog_ERR(TAG, "ListDictionary_Add failed!");
-		return ERROR_INTERNAL_ERROR;
-	}
-
-	return CHANNEL_RC_OK;
-}
-
-void* freerdp_channel_get_init_handle_data(rdpChannelHandles* handles, void* pInitHandle)
-{
-	void* pUserData = NULL;
-	pUserData = ListDictionary_GetItemValue(handles->init, pInitHandle);
-	return pUserData;
-}
-
-void freerdp_channel_remove_init_handle_data(rdpChannelHandles* handles, void* pInitHandle)
-{
-	ListDictionary_Remove(handles->init, pInitHandle);
-
-	if (ListDictionary_Count(handles->init) < 1)
-	{
-		ListDictionary_Free(handles->init);
-		handles->init = NULL;
-	}
-}
-
-UINT freerdp_channel_add_open_handle_data(rdpChannelHandles* handles, DWORD openHandle,
-                                          void* pUserData)
-{
-	void* pOpenHandle = (void*)(size_t)openHandle;
-
-	if (!handles->open)
-		handles->open = ListDictionary_New(TRUE);
-
-	if (!handles->open)
-	{
-		WLog_ERR(TAG, "ListDictionary_New failed!");
-		return ERROR_NOT_ENOUGH_MEMORY;
-	}
-
-	if (!ListDictionary_Add(handles->open, pOpenHandle, pUserData))
-	{
-		WLog_ERR(TAG, "ListDictionary_Add failed!");
-		return ERROR_INTERNAL_ERROR;
-	}
-
-	return CHANNEL_RC_OK;
-}
-
-void* freerdp_channel_get_open_handle_data(rdpChannelHandles* handles, DWORD openHandle)
-{
-	void* pUserData = NULL;
-	void* pOpenHandle = (void*)(size_t)openHandle;
-	pUserData = ListDictionary_GetItemValue(handles->open, pOpenHandle);
-	return pUserData;
-}
-
-void freerdp_channel_remove_open_handle_data(rdpChannelHandles* handles, DWORD openHandle)
-{
-	void* pOpenHandle = (void*)(size_t)openHandle;
-	ListDictionary_Remove(handles->open, pOpenHandle);
-
-	if (ListDictionary_Count(handles->open) < 1)
-	{
-		ListDictionary_Free(handles->open);
-		handles->open = NULL;
-	}
+	WLog_INFO(TAG, "Signal %s [%d], terminating session %p", signame, signum, context);
+	if (context)
+		freerdp_abort_connect_context(context);
 }
 
 /** Creates a new connection based on the settings found in the "instance" parameter
@@ -151,76 +81,139 @@ void freerdp_channel_remove_open_handle_data(rdpChannelHandles* handles, DWORD o
  *  @return TRUE if successful. FALSE otherwise.
  *
  */
-BOOL freerdp_connect(freerdp* instance)
+static int freerdp_connect_begin(freerdp* instance)
 {
+	BOOL rc = 0;
 	UINT status2 = CHANNEL_RC_OK;
-	rdpRdp* rdp;
+	rdpRdp* rdp = NULL;
 	BOOL status = TRUE;
-	rdpSettings* settings;
-	ConnectionResultEventArgs e;
+	rdpSettings* settings = NULL;
+	UINT32 KeyboardLayout = 0;
 
 	if (!instance)
-		return FALSE;
+		return -1;
+
+	WINPR_ASSERT(instance->context);
 
 	/* We always set the return code to 0 before we start the connect sequence*/
 	instance->ConnectionCallbackState = CLIENT_STATE_INITIAL;
-#if !defined(DEFINE_NO_DEPRECATED)
-	connectErrorCode = 0;
-#endif
 	freerdp_set_last_error_log(instance->context, FREERDP_ERROR_SUCCESS);
 	clearChannelError(instance->context);
-	if (!utils_reset_abort(instance->context))
-		return FALSE;
+	if (!utils_reset_abort(instance->context->rdp))
+		return -1;
 
 	rdp = instance->context->rdp;
-	settings = instance->settings;
+	WINPR_ASSERT(rdp);
+
+	settings = instance->context->settings;
+	WINPR_ASSERT(settings);
+
+	freerdp_channels_register_instance(instance->context->channels, instance);
 
 	if (!freerdp_settings_set_default_order_support(settings))
-		return FALSE;
+		return -1;
+
+	freerdp_add_signal_cleanup_handler(instance->context, sig_abort_connect);
 
 	IFCALLRET(instance->PreConnect, status, instance);
 	instance->ConnectionCallbackState = CLIENT_STATE_PRECONNECT_PASSED;
 
-	if (status)
-		status2 = freerdp_channels_pre_connect(instance->context->channels, instance);
+	freerdp_settings_print_warnings(settings);
 
-	if (settings->KeyboardLayout == KBD_JAPANESE ||
-	    settings->KeyboardLayout == KBD_JAPANESE_INPUT_SYSTEM_MS_IME2002)
+	if (status)
 	{
-		settings->KeyboardType = 7;
-		settings->KeyboardSubType = 2;
-		settings->KeyboardFunctionKey = 12;
+		if (!rdp_set_backup_settings(rdp))
+			return 0;
+
+		WINPR_ASSERT(instance->LoadChannels);
+		if (!instance->LoadChannels(instance))
+			return 0;
+
+		status2 = freerdp_channels_pre_connect(instance->context->channels, instance);
+	}
+
+	KeyboardLayout = freerdp_settings_get_uint32(settings, FreeRDP_KeyboardLayout);
+	switch (KeyboardLayout)
+	{
+		case KBD_JAPANESE:
+		case KBD_JAPANESE_INPUT_SYSTEM_MS_IME2002:
+		{
+			if (!freerdp_settings_set_uint32(settings, FreeRDP_KeyboardType,
+			                                 WINPR_KBD_TYPE_JAPANESE))
+				return -1;
+			if (!freerdp_settings_set_uint32(settings, FreeRDP_KeyboardSubType, 2))
+				return -1;
+			if (!freerdp_settings_set_uint32(settings, FreeRDP_KeyboardFunctionKey, 12))
+				return -1;
+		}
+		break;
+		default:
+			break;
 	}
 
 	if (!status || (status2 != CHANNEL_RC_OK))
 	{
-		freerdp_set_last_error_if_not(instance->context, FREERDP_ERROR_PRE_CONNECT_FAILED);
+		rdpContext* context = instance->context;
+		WINPR_ASSERT(context);
+		freerdp_set_last_error_if_not(context, FREERDP_ERROR_PRE_CONNECT_FAILED);
 
-		WLog_ERR(TAG, "freerdp_pre_connect failed");
-		goto freerdp_connect_finally;
+		WLog_Print(context->log, WLOG_ERROR, "freerdp_pre_connect failed");
+		return 0;
 	}
 
-	status = rdp_client_connect(rdp);
+	rc = rdp_client_connect(rdp);
 
 	/* --authonly tests the connection without a UI */
-	if (instance->settings->AuthenticationOnly)
+	if (freerdp_settings_get_bool(rdp->settings, FreeRDP_AuthenticationOnly))
 	{
-		WLog_ERR(TAG, "Authentication only, exit status %" PRId32 "", !status);
+		rdpContext* context = rdp->context;
+		WINPR_ASSERT(context);
+		WLog_Print(context->log, WLOG_ERROR, "Authentication only, exit status %" PRId32 "", rc);
+		return 0;
+	}
+
+	return rc ? 1 : 0;
+}
+
+BOOL freerdp_connect(freerdp* instance)
+{
+	BOOL status = FALSE;
+	ConnectionResultEventArgs e = { 0 };
+	const int rc = freerdp_connect_begin(instance);
+	rdpRdp* rdp = NULL;
+	UINT status2 = ERROR_INTERNAL_ERROR;
+
+	WINPR_ASSERT(instance);
+	WINPR_ASSERT(instance->context);
+
+	rdp = instance->context->rdp;
+	WINPR_ASSERT(rdp);
+	WINPR_ASSERT(rdp->settings);
+
+	if (rc < 0)
+		return FALSE;
+
+	if (rc == 0)
 		goto freerdp_connect_finally;
-	}
 
-	if (instance->settings->DumpRemoteFx)
+	/* Pointers might have changed inbetween */
 	{
-		instance->update->pcap_rfx = pcap_open(instance->settings->DumpRemoteFxFile, TRUE);
+		rdp_update_internal* up = update_cast(rdp->update);
 
-		if (instance->update->pcap_rfx)
-			instance->update->dump_rfx = TRUE;
+		if (freerdp_settings_get_bool(rdp->settings, FreeRDP_DumpRemoteFx))
+		{
+			up->pcap_rfx = pcap_open(
+			    freerdp_settings_get_string(rdp->settings, FreeRDP_DumpRemoteFxFile), TRUE);
+
+			if (up->pcap_rfx)
+				up->dump_rfx = TRUE;
+		}
 	}
 
-	if (status)
+	if (rc > 0)
 	{
 		pointer_cache_register_callbacks(instance->context->update);
-		IFCALLRET(instance->PostConnect, status, instance);
+		status = IFCALLRESULT(TRUE, instance->PostConnect, instance);
 		instance->ConnectionCallbackState = CLIENT_STATE_POSTCONNECT_PASSED;
 
 		if (status)
@@ -228,29 +221,33 @@ BOOL freerdp_connect(freerdp* instance)
 	}
 	else
 	{
+		status2 = CHANNEL_RC_OK;
 		if (freerdp_get_last_error(instance->context) == FREERDP_ERROR_CONNECT_TRANSPORT_FAILED)
 			status = freerdp_reconnect(instance);
 		else
 			goto freerdp_connect_finally;
 	}
 
-	if (!status || (status2 != CHANNEL_RC_OK) || !update_post_connect(instance->update))
+	if (!status || (status2 != CHANNEL_RC_OK) || !update_post_connect(instance->context->update))
 	{
-		WLog_ERR(TAG, "freerdp_post_connect failed");
+		rdpContext* context = instance->context;
+		WINPR_ASSERT(context);
+		WLog_Print(context->log, WLOG_ERROR, "freerdp_post_connect failed");
 
-		freerdp_set_last_error_if_not(instance->context, FREERDP_ERROR_POST_CONNECT_FAILED);
+		freerdp_set_last_error_if_not(context, FREERDP_ERROR_POST_CONNECT_FAILED);
 
 		status = FALSE;
 		goto freerdp_connect_finally;
 	}
 
-	if (instance->settings->PlayRemoteFx)
+	if (rdp->settings->PlayRemoteFx)
 	{
-		wStream* s;
-		rdpUpdate* update;
-		pcap_record record;
-		update = instance->update;
-		update->pcap_rfx = pcap_open(settings->PlayRemoteFxFile, FALSE);
+		wStream* s = NULL;
+		rdp_update_internal* update = update_cast(instance->context->update);
+		pcap_record record = { 0 };
+
+		WINPR_ASSERT(update);
+		update->pcap_rfx = pcap_open(rdp->settings->PlayRemoteFxFile, FALSE);
 		status = FALSE;
 
 		if (!update->pcap_rfx)
@@ -264,7 +261,8 @@ BOOL freerdp_connect(freerdp* instance)
 		{
 			pcap_get_next_record_header(update->pcap_rfx, &record);
 
-			if (!(s = StreamPool_Take(rdp->transport->ReceivePool, record.length)))
+			s = transport_take_from_pool(rdp->transport, record.length);
+			if (!s)
 				break;
 
 			record.data = Stream_Buffer(s);
@@ -272,14 +270,14 @@ BOOL freerdp_connect(freerdp* instance)
 			Stream_SetLength(s, record.length);
 			Stream_SetPosition(s, 0);
 
-			if (!update_begin_paint(update))
+			if (!update_begin_paint(&update->common))
 				status = FALSE;
 			else
 			{
-				if (update_recv_surfcmds(update, s) < 0)
+				if (update_recv_surfcmds(&update->common, s) < 0)
 					status = FALSE;
 
-				if (!update_end_paint(update))
+				if (!update_end_paint(&update->common))
 					status = FALSE;
 			}
 
@@ -294,11 +292,12 @@ BOOL freerdp_connect(freerdp* instance)
 	if (rdp->errorInfo == ERRINFO_SERVER_INSUFFICIENT_PRIVILEGES)
 		freerdp_set_last_error_log(instance->context, FREERDP_ERROR_INSUFFICIENT_PRIVILEGES);
 
-	SetEvent(rdp->transport->connectedEvent);
+	transport_set_connected_event(rdp->transport);
+
 freerdp_connect_finally:
 	EventArgsInit(&e, "freerdp");
 	e.result = status ? 0 : -1;
-	PubSub_OnConnectionResult(instance->context->pubSub, instance->context, &e);
+	PubSub_OnConnectionResult(rdp->pubSub, instance->context, &e);
 
 	if (!status)
 		freerdp_disconnect(instance);
@@ -308,24 +307,42 @@ freerdp_connect_finally:
 
 BOOL freerdp_abort_connect(freerdp* instance)
 {
-	if (!instance || !instance->context)
+	if (!instance)
 		return FALSE;
 
-	freerdp_set_last_error_if_not(instance->context, FREERDP_ERROR_CONNECT_CANCELLED);
-	return utils_abort_connect(instance->context);
+	return freerdp_abort_connect_context(instance->context);
 }
 
+BOOL freerdp_abort_connect_context(rdpContext* context)
+{
+	if (!context)
+		return FALSE;
+
+	freerdp_set_last_error_if_not(context, FREERDP_ERROR_CONNECT_CANCELLED);
+
+	return utils_abort_connect(context->rdp);
+}
+
+#if defined(WITH_FREERDP_DEPRECATED)
 BOOL freerdp_get_fds(freerdp* instance, void** rfds, int* rcount, void** wfds, int* wcount)
 {
-	rdpRdp* rdp = instance->context->rdp;
+	rdpRdp* rdp = NULL;
+
+	WINPR_ASSERT(instance);
+	WINPR_ASSERT(instance->context);
+
+	rdp = instance->context->rdp;
+	WINPR_ASSERT(rdp);
+
 	transport_get_fds(rdp->transport, rfds, rcount);
 	return TRUE;
 }
+#endif
 
 BOOL freerdp_check_fds(freerdp* instance)
 {
-	int status;
-	rdpRdp* rdp;
+	int status = 0;
+	rdpRdp* rdp = NULL;
 
 	if (!instance)
 		return FALSE;
@@ -343,10 +360,12 @@ BOOL freerdp_check_fds(freerdp* instance)
 	{
 		TerminateEventArgs e;
 		rdpContext* context = instance->context;
-		WLog_DBG(TAG, "rdp_check_fds() - %i", status);
+		WINPR_ASSERT(context);
+
+		WLog_Print(context->log, WLOG_DEBUG, "rdp_check_fds() - %i", status);
 		EventArgsInit(&e, "freerdp");
 		e.code = 0;
-		PubSub_OnTerminate(context->pubSub, context, &e);
+		PubSub_OnTerminate(rdp->pubSub, context, &e);
 		return FALSE;
 	}
 
@@ -356,6 +375,11 @@ BOOL freerdp_check_fds(freerdp* instance)
 DWORD freerdp_get_event_handles(rdpContext* context, HANDLE* events, DWORD count)
 {
 	DWORD nCount = 0;
+
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(context->rdp);
+	WINPR_ASSERT(events || (count == 0));
+
 	nCount += transport_get_event_handles(context->rdp->transport, events, count);
 
 	if (nCount == 0)
@@ -365,32 +389,63 @@ DWORD freerdp_get_event_handles(rdpContext* context, HANDLE* events, DWORD count
 	{
 		events[nCount++] = freerdp_channels_get_event_handle(context->instance);
 		events[nCount++] = getChannelErrorEventHandle(context);
-		events[nCount++] = context->abortEvent;
+		events[nCount++] = utils_get_abort_event(context->rdp);
 	}
 	else
 		return 0;
 
-	if (context->settings->AsyncInput)
-	{
-		if (nCount >= count)
-			return 0;
+	return nCount;
+}
 
-		events[nCount++] =
-		    freerdp_get_message_queue_event_handle(context->instance, FREERDP_INPUT_MESSAGE_QUEUE);
+/* Resend mouse cursor position to prevent session lock in prevent-session-lock mode */
+static BOOL freerdp_prevent_session_lock(rdpContext* context)
+{
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(context->input);
+
+	rdp_input_internal* in = input_cast(context->input);
+
+	UINT32 FakeMouseMotionInterval =
+	    freerdp_settings_get_uint32(context->settings, FreeRDP_FakeMouseMotionInterval);
+	if (FakeMouseMotionInterval && in->lastInputTimestamp)
+	{
+		const time_t now = time(NULL);
+		if (now - in->lastInputTimestamp > FakeMouseMotionInterval)
+		{
+			WLog_Print(context->log, WLOG_DEBUG,
+			           "fake mouse move: x=%d y=%d lastInputTimestamp=%d "
+			           "FakeMouseMotionInterval=%d",
+			           in->lastX, in->lastY, in->lastInputTimestamp, FakeMouseMotionInterval);
+
+			BOOL status = freerdp_input_send_mouse_event(context->input, PTR_FLAGS_MOVE, in->lastX,
+			                                             in->lastY);
+			if (!status)
+			{
+				if (freerdp_get_last_error(context) == FREERDP_ERROR_SUCCESS)
+					WLog_Print(context->log, WLOG_ERROR,
+					           "freerdp_prevent_session_lock() failed - %" PRIi32 "", status);
+
+				return FALSE;
+			}
+
+			return status;
+		}
 	}
 
-	return nCount;
+	return TRUE;
 }
 
 BOOL freerdp_check_event_handles(rdpContext* context)
 {
-	BOOL status;
-	status = freerdp_check_fds(context->instance);
+	WINPR_ASSERT(context);
+
+	BOOL status = freerdp_check_fds(context->instance);
 
 	if (!status)
 	{
 		if (freerdp_get_last_error(context) == FREERDP_ERROR_SUCCESS)
-			WLog_ERR(TAG, "freerdp_check_fds() failed - %" PRIi32 "", status);
+			WLog_Print(context->log, WLOG_ERROR, "freerdp_check_fds() failed - %" PRIi32 "",
+			           status);
 
 		return FALSE;
 	}
@@ -400,7 +455,8 @@ BOOL freerdp_check_event_handles(rdpContext* context)
 	if (!status)
 	{
 		if (freerdp_get_last_error(context) == FREERDP_ERROR_SUCCESS)
-			WLog_ERR(TAG, "freerdp_channels_check_fds() failed - %" PRIi32 "", status);
+			WLog_Print(context->log, WLOG_ERROR,
+			           "freerdp_channels_check_fds() failed - %" PRIi32 "", status);
 
 		return FALSE;
 	}
@@ -410,21 +466,13 @@ BOOL freerdp_check_event_handles(rdpContext* context)
 	if (!status)
 	{
 		if (freerdp_get_last_error(context) == FREERDP_ERROR_SUCCESS)
-			WLog_ERR(TAG, "checkChannelErrorEvent() failed - %" PRIi32 "", status);
+			WLog_Print(context->log, WLOG_ERROR, "checkChannelErrorEvent() failed - %" PRIi32 "",
+			           status);
 
 		return FALSE;
 	}
 
-	if (context->settings->AsyncInput)
-	{
-		int rc = freerdp_message_queue_process_pending_messages(context->instance,
-		                                                        FREERDP_INPUT_MESSAGE_QUEUE);
-
-		if (rc < 0)
-			return FALSE;
-		else
-			status = TRUE;
-	}
+	status = freerdp_prevent_session_lock(context);
 
 	return status;
 }
@@ -433,15 +481,26 @@ wMessageQueue* freerdp_get_message_queue(freerdp* instance, DWORD id)
 {
 	wMessageQueue* queue = NULL;
 
+	WINPR_ASSERT(instance);
+
+	rdpContext* context = instance->context;
+	WINPR_ASSERT(context);
+
 	switch (id)
 	{
 		case FREERDP_UPDATE_MESSAGE_QUEUE:
-			queue = instance->update->queue;
-			break;
+		{
+			rdp_update_internal* update = update_cast(context->update);
+			queue = update->queue;
+		}
+		break;
 
 		case FREERDP_INPUT_MESSAGE_QUEUE:
-			queue = instance->input->queue;
-			break;
+		{
+			rdp_input_internal* input = input_cast(context->input);
+			queue = input->queue;
+		}
+		break;
 	}
 
 	return queue;
@@ -450,8 +509,7 @@ wMessageQueue* freerdp_get_message_queue(freerdp* instance, DWORD id)
 HANDLE freerdp_get_message_queue_event_handle(freerdp* instance, DWORD id)
 {
 	HANDLE event = NULL;
-	wMessageQueue* queue = NULL;
-	queue = freerdp_get_message_queue(instance, id);
+	wMessageQueue* queue = freerdp_get_message_queue(instance, id);
 
 	if (queue)
 		event = MessageQueue_Event(queue);
@@ -462,15 +520,21 @@ HANDLE freerdp_get_message_queue_event_handle(freerdp* instance, DWORD id)
 int freerdp_message_queue_process_message(freerdp* instance, DWORD id, wMessage* message)
 {
 	int status = -1;
+	rdpContext* context = NULL;
+
+	WINPR_ASSERT(instance);
+
+	context = instance->context;
+	WINPR_ASSERT(context);
 
 	switch (id)
 	{
 		case FREERDP_UPDATE_MESSAGE_QUEUE:
-			status = update_message_queue_process_message(instance->update, message);
+			status = update_message_queue_process_message(context->update, message);
 			break;
 
 		case FREERDP_INPUT_MESSAGE_QUEUE:
-			status = input_message_queue_process_message(instance->input, message);
+			status = input_message_queue_process_message(context->input, message);
 			break;
 	}
 
@@ -480,15 +544,21 @@ int freerdp_message_queue_process_message(freerdp* instance, DWORD id, wMessage*
 int freerdp_message_queue_process_pending_messages(freerdp* instance, DWORD id)
 {
 	int status = -1;
+	rdpContext* context = NULL;
+
+	WINPR_ASSERT(instance);
+
+	context = instance->context;
+	WINPR_ASSERT(context);
 
 	switch (id)
 	{
 		case FREERDP_UPDATE_MESSAGE_QUEUE:
-			status = update_message_queue_process_pending_messages(instance->update);
+			status = update_message_queue_process_pending_messages(context->update);
 			break;
 
 		case FREERDP_INPUT_MESSAGE_QUEUE:
-			status = input_message_queue_process_pending_messages(instance->input);
+			status = input_message_queue_process_pending_messages(context->input);
 			break;
 	}
 
@@ -498,80 +568,117 @@ int freerdp_message_queue_process_pending_messages(freerdp* instance, DWORD id)
 static BOOL freerdp_send_channel_data(freerdp* instance, UINT16 channelId, const BYTE* data,
                                       size_t size)
 {
+	WINPR_ASSERT(instance);
+	WINPR_ASSERT(instance->context);
+	WINPR_ASSERT(instance->context->rdp);
 	return rdp_send_channel_data(instance->context->rdp, channelId, data, size);
+}
+
+static BOOL freerdp_send_channel_packet(freerdp* instance, UINT16 channelId, size_t totalSize,
+                                        UINT32 flags, const BYTE* data, size_t chunkSize)
+{
+	WINPR_ASSERT(instance);
+	WINPR_ASSERT(instance->context);
+	WINPR_ASSERT(instance->context->rdp);
+	return rdp_channel_send_packet(instance->context->rdp, channelId, totalSize, flags, data,
+	                               chunkSize);
 }
 
 BOOL freerdp_disconnect(freerdp* instance)
 {
 	BOOL rc = TRUE;
-	rdpRdp* rdp;
+	rdpRdp* rdp = NULL;
+	rdp_update_internal* up = NULL;
 
-	if (!instance || !instance->context || !instance->context->rdp)
+	if (!instance || !instance->context)
 		return FALSE;
 
 	rdp = instance->context->rdp;
+	utils_abort_connect(rdp);
 
 	if (!rdp_client_disconnect(rdp))
 		rc = FALSE;
 
-	update_post_disconnect(instance->update);
+	up = update_cast(rdp->update);
 
-	if (instance->settings->AsyncInput)
-	{
-		wMessageQueue* inputQueue =
-		    freerdp_get_message_queue(instance, FREERDP_INPUT_MESSAGE_QUEUE);
-		MessageQueue_PostQuit(inputQueue, 0);
-	}
+	update_post_disconnect(rdp->update);
 
 	IFCALL(instance->PostDisconnect, instance);
 
-	if (instance->update->pcap_rfx)
+	if (up->pcap_rfx)
 	{
-		instance->update->dump_rfx = FALSE;
-		pcap_close(instance->update->pcap_rfx);
-		instance->update->pcap_rfx = NULL;
+		up->dump_rfx = FALSE;
+		pcap_close(up->pcap_rfx);
+		up->pcap_rfx = NULL;
 	}
 
 	freerdp_channels_close(instance->context->channels, instance);
+
+	IFCALL(instance->PostFinalDisconnect, instance);
+
+	freerdp_del_signal_cleanup_handler(instance->context, sig_abort_connect);
 	return rc;
 }
 
 BOOL freerdp_disconnect_before_reconnect(freerdp* instance)
 {
-	rdpRdp* rdp = instance->context->rdp;
+	WINPR_ASSERT(instance);
+	return freerdp_disconnect_before_reconnect_context(instance->context);
+}
+
+BOOL freerdp_disconnect_before_reconnect_context(rdpContext* context)
+{
+	rdpRdp* rdp = NULL;
+
+	WINPR_ASSERT(context);
+
+	rdp = context->rdp;
 	return rdp_client_disconnect_and_clear(rdp);
 }
 
 BOOL freerdp_reconnect(freerdp* instance)
 {
-	rdpRdp* rdp;
+	rdpRdp* rdp = NULL;
+
+	WINPR_ASSERT(instance);
+	WINPR_ASSERT(instance->context);
 
 	if (freerdp_get_last_error(instance->context) == FREERDP_ERROR_CONNECT_CANCELLED)
 		return FALSE;
 
 	rdp = instance->context->rdp;
 
-	if (!utils_reset_abort(instance->context))
+	if (!utils_reset_abort(instance->context->rdp))
 		return FALSE;
 	return rdp_client_reconnect(rdp);
 }
 
 BOOL freerdp_shall_disconnect(freerdp* instance)
 {
-	if (!instance || !instance->context)
+	if (!instance)
 		return FALSE;
 
-	if (WaitForSingleObject(instance->context->abortEvent, 0) != WAIT_OBJECT_0)
+	return freerdp_shall_disconnect_context(instance->context);
+}
+
+BOOL freerdp_shall_disconnect_context(rdpContext* context)
+{
+	if (!context)
 		return FALSE;
 
-	return TRUE;
+	return utils_abort_event_is_set(context->rdp);
 }
 
 BOOL freerdp_focus_required(freerdp* instance)
 {
-	rdpRdp* rdp;
+	rdpRdp* rdp = NULL;
 	BOOL bRetCode = FALSE;
+
+	WINPR_ASSERT(instance);
+	WINPR_ASSERT(instance->context);
+
 	rdp = instance->context->rdp;
+	WINPR_ASSERT(rdp);
 
 	if (rdp->resendFocus)
 	{
@@ -584,8 +691,14 @@ BOOL freerdp_focus_required(freerdp* instance)
 
 void freerdp_set_focus(freerdp* instance)
 {
-	rdpRdp* rdp;
+	rdpRdp* rdp = NULL;
+
+	WINPR_ASSERT(instance);
+	WINPR_ASSERT(instance->context);
+
 	rdp = instance->context->rdp;
+	WINPR_ASSERT(rdp);
+
 	rdp->resendFocus = TRUE;
 }
 
@@ -606,37 +719,31 @@ const char* freerdp_get_version_string(void)
 	return FREERDP_VERSION_FULL;
 }
 
-const char* freerdp_get_build_date(void)
-{
-	static char build_date[] = __DATE__ " " __TIME__;
-	return build_date;
-}
-
 const char* freerdp_get_build_config(void)
 {
 	static const char build_config[] =
-	    "Build configuration: " BUILD_CONFIG "\n"
-	    "Build type:          " BUILD_TYPE "\n"
-	    "CFLAGS:              " CFLAGS "\n"
-	    "Compiler:            " COMPILER_ID ", " COMPILER_VERSION "\n"
-	    "Target architecture: " TARGET_ARCH "\n";
+	    "Build configuration: " FREERDP_BUILD_CONFIG "\n"
+	    "Build type:          " FREERDP_BUILD_TYPE "\n"
+	    "CFLAGS:              " FREERDP_CFLAGS "\n"
+	    "Compiler:            " FREERDP_COMPILER_ID ", " FREERDP_COMPILER_VERSION "\n"
+	    "Target architecture: " FREERDP_TARGET_ARCH "\n";
 	return build_config;
 }
 
 const char* freerdp_get_build_revision(void)
 {
-	return GIT_REVISION;
+	return FREERDP_GIT_REVISION;
 }
 
 static wEventType FreeRDP_Events[] = {
-	DEFINE_EVENT_ENTRY(WindowStateChange) DEFINE_EVENT_ENTRY(ResizeWindow)
-	    DEFINE_EVENT_ENTRY(LocalResizeWindow) DEFINE_EVENT_ENTRY(EmbedWindow)
-	        DEFINE_EVENT_ENTRY(PanningChange) DEFINE_EVENT_ENTRY(ZoomingChange)
-	            DEFINE_EVENT_ENTRY(ErrorInfo) DEFINE_EVENT_ENTRY(Terminate)
-	                DEFINE_EVENT_ENTRY(ConnectionResult) DEFINE_EVENT_ENTRY(ChannelConnected)
-	                    DEFINE_EVENT_ENTRY(ChannelDisconnected) DEFINE_EVENT_ENTRY(MouseEvent)
-	                        DEFINE_EVENT_ENTRY(Activated) DEFINE_EVENT_ENTRY(Timer)
-	                            DEFINE_EVENT_ENTRY(GraphicsReset)
+	DEFINE_EVENT_ENTRY(WindowStateChange),   DEFINE_EVENT_ENTRY(ResizeWindow),
+	DEFINE_EVENT_ENTRY(LocalResizeWindow),   DEFINE_EVENT_ENTRY(EmbedWindow),
+	DEFINE_EVENT_ENTRY(PanningChange),       DEFINE_EVENT_ENTRY(ZoomingChange),
+	DEFINE_EVENT_ENTRY(ErrorInfo),           DEFINE_EVENT_ENTRY(Terminate),
+	DEFINE_EVENT_ENTRY(ConnectionResult),    DEFINE_EVENT_ENTRY(ChannelConnected),
+	DEFINE_EVENT_ENTRY(ChannelDisconnected), DEFINE_EVENT_ENTRY(MouseEvent),
+	DEFINE_EVENT_ENTRY(Activated),           DEFINE_EVENT_ENTRY(Timer),
+	DEFINE_EVENT_ENTRY(GraphicsReset)
 };
 
 /** Allocator function for a rdp context.
@@ -651,25 +758,32 @@ static wEventType FreeRDP_Events[] = {
  */
 BOOL freerdp_context_new(freerdp* instance)
 {
-	rdpRdp* rdp;
-	rdpContext* context;
-	BOOL ret = TRUE;
-	instance->context = (rdpContext*)calloc(1, instance->ContextSize);
+	return freerdp_context_new_ex(instance, NULL);
+}
 
-	if (!instance->context)
+BOOL freerdp_context_new_ex(freerdp* instance, rdpSettings* settings)
+{
+	rdpRdp* rdp = NULL;
+	rdpContext* context = NULL;
+	BOOL ret = TRUE;
+
+	WINPR_ASSERT(instance);
+
+	instance->context = context = (rdpContext*)calloc(1, instance->ContextSize);
+
+	if (!context)
 		return FALSE;
 
-	context = instance->context;
-	context->instance = instance;
-	context->ServerMode = FALSE;
-	context->settings = instance->settings;
-	context->disconnectUltimatum = 0;
-	context->pubSub = PubSub_New(TRUE);
-
-	if (!context->pubSub)
+	context->log = WLog_Get(TAG);
+	if (!context->log)
 		goto fail;
 
-	PubSub_AddEventTypes(context->pubSub, FreeRDP_Events, ARRAYSIZE(FreeRDP_Events));
+	/* Set to external settings, prevents rdp_new from creating its own instance */
+	context->settings = settings;
+	context->instance = instance;
+	context->ServerMode = FALSE;
+	context->disconnectUltimatum = 0;
+
 	context->metrics = metrics_new(context);
 
 	if (!context->metrics)
@@ -680,51 +794,55 @@ BOOL freerdp_context_new(freerdp* instance)
 	if (!rdp)
 		goto fail;
 
+	rdp_log_build_warnings(rdp);
+	context->rdp = rdp;
+	context->pubSub = rdp->pubSub;
+
+	if (!context->pubSub)
+		goto fail;
+
+	PubSub_AddEventTypes(rdp->pubSub, FreeRDP_Events, ARRAYSIZE(FreeRDP_Events));
+
+#if defined(WITH_FREERDP_DEPRECATED)
 	instance->input = rdp->input;
 	instance->update = rdp->update;
 	instance->settings = rdp->settings;
 	instance->autodetect = rdp->autodetect;
+#endif
+
 	instance->heartbeat = rdp->heartbeat;
 	context->graphics = graphics_new(context);
 
 	if (!context->graphics)
 		goto fail;
 
-	context->rdp = rdp;
-	context->input = instance->input;
-	context->update = instance->update;
-	context->settings = instance->settings;
-	context->autodetect = instance->autodetect;
-	instance->update->context = instance->context;
-	instance->update->pointer->context = instance->context;
-	instance->update->primary->context = instance->context;
-	instance->update->secondary->context = instance->context;
-	instance->update->altsec->context = instance->context;
-	instance->input->context = context;
-	instance->autodetect->context = context;
+	context->input = rdp->input;
+	context->update = rdp->update;
+	context->settings = rdp->settings;
+	context->autodetect = rdp->autodetect;
 
 	if (!(context->errorDescription = calloc(1, 500)))
 	{
-		WLog_ERR(TAG, "calloc failed!");
+		WLog_Print(context->log, WLOG_ERROR, "calloc failed!");
 		goto fail;
 	}
 
 	if (!(context->channelErrorEvent = CreateEvent(NULL, TRUE, FALSE, NULL)))
 	{
-		WLog_ERR(TAG, "CreateEvent failed!");
+		WLog_Print(context->log, WLOG_ERROR, "CreateEvent failed!");
 		goto fail;
 	}
 
 	update_register_client_callbacks(rdp->update);
-	instance->context->abortEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-
-	if (!instance->context->abortEvent)
-		goto fail;
 
 	if (!(context->channels = freerdp_channels_new(instance)))
 		goto fail;
 
-	IFCALLRET(instance->ContextNew, ret, instance, instance->context);
+	context->dump = stream_dump_new();
+	if (!context->dump)
+		goto fail;
+
+	IFCALLRET(instance->ContextNew, ret, instance, context);
 
 	if (ret)
 		return TRUE;
@@ -732,6 +850,17 @@ BOOL freerdp_context_new(freerdp* instance)
 fail:
 	freerdp_context_free(instance);
 	return FALSE;
+}
+
+BOOL freerdp_context_reset(freerdp* instance)
+{
+	if (!instance)
+		return FALSE;
+
+	WINPR_ASSERT(instance->context);
+	rdpRdp* rdp = instance->context->rdp;
+
+	return rdp_reset_runtime_settings(rdp);
 }
 
 /** Deallocator function for a rdp context.
@@ -744,35 +873,70 @@ fail:
  */
 void freerdp_context_free(freerdp* instance)
 {
+	rdpContext* ctx = NULL;
+
 	if (!instance)
 		return;
 
 	if (!instance->context)
 		return;
 
-	IFCALL(instance->ContextFree, instance, instance->context);
-	rdp_free(instance->context->rdp);
-	instance->context->rdp = NULL;
-	graphics_free(instance->context->graphics);
-	instance->context->graphics = NULL;
-	PubSub_Free(instance->context->pubSub);
-	metrics_free(instance->context->metrics);
-	CloseHandle(instance->context->channelErrorEvent);
-	free(instance->context->errorDescription);
-	CloseHandle(instance->context->abortEvent);
-	instance->context->abortEvent = NULL;
-	freerdp_channels_free(instance->context->channels);
-	free(instance->context);
+	ctx = instance->context;
+
+	IFCALL(instance->ContextFree, instance, ctx);
+	rdp_free(ctx->rdp);
+	ctx->rdp = NULL;
+	ctx->settings = NULL; /* owned by rdpRdp */
+
+	graphics_free(ctx->graphics);
+	ctx->graphics = NULL;
+
+	metrics_free(ctx->metrics);
+	ctx->metrics = NULL;
+
+	if (ctx->channelErrorEvent)
+		CloseHandle(ctx->channelErrorEvent);
+	ctx->channelErrorEvent = NULL;
+
+	free(ctx->errorDescription);
+	ctx->errorDescription = NULL;
+
+	freerdp_channels_free(ctx->channels);
+	ctx->channels = NULL;
+
+	codecs_free(ctx->codecs);
+	ctx->codecs = NULL;
+
+	stream_dump_free(ctx->dump);
+	ctx->dump = NULL;
+
+	ctx->input = NULL;      /* owned by rdpRdp */
+	ctx->update = NULL;     /* owned by rdpRdp */
+	ctx->settings = NULL;   /* owned by rdpRdp */
+	ctx->autodetect = NULL; /* owned by rdpRdp */
+
+	free(ctx);
 	instance->context = NULL;
+#if defined(WITH_FREERDP_DEPRECATED)
+	instance->input = NULL;      /* owned by rdpRdp */
+	instance->update = NULL;     /* owned by rdpRdp */
+	instance->settings = NULL;   /* owned by rdpRdp */
+	instance->autodetect = NULL; /* owned by rdpRdp */
+#endif
+	instance->heartbeat = NULL; /* owned by rdpRdp */
 }
 
 int freerdp_get_disconnect_ultimatum(rdpContext* context)
 {
+	WINPR_ASSERT(context);
 	return context->disconnectUltimatum;
 }
 
 UINT32 freerdp_error_info(freerdp* instance)
 {
+	WINPR_ASSERT(instance);
+	WINPR_ASSERT(instance->context);
+	WINPR_ASSERT(instance->context->rdp);
 	return instance->context->rdp->errorInfo;
 }
 
@@ -794,6 +958,7 @@ BOOL freerdp_send_error_info(rdpRdp* rdp)
 
 UINT32 freerdp_get_last_error(rdpContext* context)
 {
+	WINPR_ASSERT(context);
 	return context->LastError;
 }
 
@@ -881,87 +1046,45 @@ const char* freerdp_get_last_error_category(UINT32 code)
 	return string;
 }
 
-void freerdp_set_last_error(rdpContext* context, UINT32 lastError)
-{
-	freerdp_set_last_error_ex(context, lastError, NULL, NULL, -1);
-}
-
 void freerdp_set_last_error_ex(rdpContext* context, UINT32 lastError, const char* fkt,
                                const char* file, int line)
 {
+	WINPR_ASSERT(context);
+
 	if (lastError)
-		WLog_ERR(TAG, "%s:%s %s [0x%08" PRIX32 "]", fkt, __FUNCTION__,
-		         freerdp_get_last_error_name(lastError), lastError);
+	{
+		if (WLog_IsLevelActive(context->log, WLOG_ERROR))
+		{
+			WLog_PrintMessage(context->log, WLOG_MESSAGE_TEXT, WLOG_ERROR, line, file, fkt,
+			                  "%s [0x%08" PRIX32 "]", freerdp_get_last_error_name(lastError),
+			                  lastError);
+		}
+	}
 
 	if (lastError == FREERDP_ERROR_SUCCESS)
 	{
-		WLog_DBG(TAG, "%s:%s resetting error state", fkt, __FUNCTION__);
+		if (WLog_IsLevelActive(context->log, WLOG_DEBUG))
+			WLog_PrintMessage(context->log, WLOG_MESSAGE_TEXT, WLOG_DEBUG, line, file, fkt,
+			                  "resetting error state");
 	}
 	else if (context->LastError != FREERDP_ERROR_SUCCESS)
 	{
-		WLog_ERR(TAG, "%s: TODO: Trying to set error code %s, but %s already set!", fkt,
-		         freerdp_get_last_error_name(lastError),
-		         freerdp_get_last_error_name(context->LastError));
+		if (WLog_IsLevelActive(context->log, WLOG_ERROR))
+		{
+			WLog_PrintMessage(context->log, WLOG_MESSAGE_TEXT, WLOG_ERROR, line, file, fkt,
+			                  "TODO: Trying to set error code %s, but %s already set!",
+			                  freerdp_get_last_error_name(lastError),
+			                  freerdp_get_last_error_name(context->LastError));
+		}
 	}
-
 	context->LastError = lastError;
+}
 
-#if !defined(DEFINE_NO_DEPRECATED)
-	switch (lastError)
-	{
-		case FREERDP_ERROR_PRE_CONNECT_FAILED:
-			connectErrorCode = PREECONNECTERROR;
-			break;
-
-		case FREERDP_ERROR_CONNECT_UNDEFINED:
-			connectErrorCode = UNDEFINEDCONNECTERROR;
-			break;
-
-		case FREERDP_ERROR_POST_CONNECT_FAILED:
-			connectErrorCode = POSTCONNECTERROR;
-			break;
-
-		case FREERDP_ERROR_DNS_ERROR:
-			connectErrorCode = DNSERROR;
-			break;
-
-		case FREERDP_ERROR_DNS_NAME_NOT_FOUND:
-			connectErrorCode = DNSNAMENOTFOUND;
-			break;
-
-		case FREERDP_ERROR_CONNECT_FAILED:
-			connectErrorCode = CONNECTERROR;
-			break;
-
-		case FREERDP_ERROR_MCS_CONNECT_INITIAL_ERROR:
-			connectErrorCode = MCSCONNECTINITIALERROR;
-			break;
-
-		case FREERDP_ERROR_TLS_CONNECT_FAILED:
-			connectErrorCode = TLSCONNECTERROR;
-			break;
-
-		case FREERDP_ERROR_AUTHENTICATION_FAILED:
-			connectErrorCode = AUTHENTICATIONERROR;
-			break;
-
-		case FREERDP_ERROR_INSUFFICIENT_PRIVILEGES:
-			connectErrorCode = INSUFFICIENTPRIVILEGESERROR;
-			break;
-
-		case FREERDP_ERROR_CONNECT_CANCELLED:
-			connectErrorCode = CANCELEDBYUSER;
-			break;
-
-		case FREERDP_ERROR_SECURITY_NEGO_CONNECT_FAILED:
-			connectErrorCode = CONNECTERROR;
-			break;
-
-		case FREERDP_ERROR_CONNECT_TRANSPORT_FAILED:
-			connectErrorCode = CONNECTERROR;
-			break;
-	}
-#endif
+const char* freerdp_get_logon_error_info_type_ex(UINT32 type, char* buffer, size_t size)
+{
+	const char* str = freerdp_get_logon_error_info_type(type);
+	_snprintf(buffer, size, "%s(0x%04" PRIx32 ")", str, type);
+	return buffer;
 }
 
 const char* freerdp_get_logon_error_info_type(UINT32 type)
@@ -1012,12 +1135,19 @@ const char* freerdp_get_logon_error_info_data(UINT32 data)
 	}
 }
 
+const char* freerdp_get_logon_error_info_data_ex(UINT32 data, char* buffer, size_t size)
+{
+	const char* str = freerdp_get_logon_error_info_data(data);
+	_snprintf(buffer, size, "%s(0x%04" PRIx32 ")", str, data);
+	return buffer;
+}
+
 /** Allocator function for the rdp_freerdp structure.
  *  @return an allocated structure filled with 0s. Need to be deallocated using freerdp_free()
  */
 freerdp* freerdp_new(void)
 {
-	freerdp* instance;
+	freerdp* instance = NULL;
 	instance = (freerdp*)calloc(1, sizeof(freerdp));
 
 	if (!instance)
@@ -1025,6 +1155,7 @@ freerdp* freerdp_new(void)
 
 	instance->ContextSize = sizeof(rdpContext);
 	instance->SendChannelData = freerdp_send_channel_data;
+	instance->SendChannelPacket = freerdp_send_channel_packet;
 	instance->ReceiveChannelData = freerdp_channels_data;
 	return instance;
 }
@@ -1040,17 +1171,14 @@ void freerdp_free(freerdp* instance)
 
 ULONG freerdp_get_transport_sent(rdpContext* context, BOOL resetCount)
 {
-	ULONG written = context->rdp->transport->written;
-
-	if (resetCount)
-		context->rdp->transport->written = 0;
-
-	return written;
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(context->rdp);
+	return transport_get_bytes_sent(context->rdp->transport, resetCount);
 }
 
 BOOL freerdp_nla_impersonate(rdpContext* context)
 {
-	rdpNla* nla;
+	rdpNla* nla = NULL;
 
 	if (!context)
 		return FALSE;
@@ -1061,13 +1189,13 @@ BOOL freerdp_nla_impersonate(rdpContext* context)
 	if (!context->rdp->transport)
 		return FALSE;
 
-	nla = context->rdp->transport->nla;
+	nla = transport_get_nla(context->rdp->transport);
 	return nla_impersonate(nla);
 }
 
 BOOL freerdp_nla_revert_to_self(rdpContext* context)
 {
-	rdpNla* nla;
+	rdpNla* nla = NULL;
 
 	if (!context)
 		return FALSE;
@@ -1078,21 +1206,37 @@ BOOL freerdp_nla_revert_to_self(rdpContext* context)
 	if (!context->rdp->transport)
 		return FALSE;
 
-	nla = context->rdp->transport->nla;
+	nla = transport_get_nla(context->rdp->transport);
 	return nla_revert_to_self(nla);
+}
+
+UINT32 freerdp_get_nla_sspi_error(rdpContext* context)
+{
+	rdpNla* nla = NULL;
+
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(context->rdp);
+	WINPR_ASSERT(context->rdp->transport);
+
+	nla = transport_get_nla(context->rdp->transport);
+
+	return nla_get_sspi_error(nla);
 }
 
 HANDLE getChannelErrorEventHandle(rdpContext* context)
 {
+	WINPR_ASSERT(context);
 	return context->channelErrorEvent;
 }
 
 BOOL checkChannelErrorEvent(rdpContext* context)
 {
+	WINPR_ASSERT(context);
+
 	if (WaitForSingleObject(context->channelErrorEvent, 0) == WAIT_OBJECT_0)
 	{
-		WLog_ERR(TAG, "%s. Error was %" PRIu32 "", context->errorDescription,
-		         context->channelErrorNum);
+		WLog_Print(context->log, WLOG_ERROR, "%s. Error was %" PRIu32 "", context->errorDescription,
+		           context->channelErrorNum);
 		return FALSE;
 	}
 
@@ -1106,25 +1250,35 @@ BOOL checkChannelErrorEvent(rdpContext* context)
  */
 UINT getChannelError(rdpContext* context)
 {
+	WINPR_ASSERT(context);
 	return context->channelErrorNum;
 }
 
 const char* getChannelErrorDescription(rdpContext* context)
 {
+	WINPR_ASSERT(context);
 	return context->errorDescription;
 }
 
 void clearChannelError(rdpContext* context)
 {
+	WINPR_ASSERT(context);
 	context->channelErrorNum = 0;
 	memset(context->errorDescription, 0, 500);
 	ResetEvent(context->channelErrorEvent);
 }
 
-void setChannelError(rdpContext* context, UINT errorNum, char* description)
+WINPR_ATTR_FORMAT_ARG(3, 4)
+void setChannelError(rdpContext* context, UINT errorNum, WINPR_FORMAT_ARG const char* format, ...)
 {
+	va_list ap;
+	va_start(ap, format);
+
+	WINPR_ASSERT(context);
+
 	context->channelErrorNum = errorNum;
-	strncpy(context->errorDescription, description, 499);
+	vsnprintf(context->errorDescription, 499, format, ap);
+	va_end(ap);
 	SetEvent(context->channelErrorEvent);
 }
 
@@ -1136,7 +1290,37 @@ const char* freerdp_nego_get_routing_token(rdpContext* context, DWORD* length)
 	return (const char*)nego_get_routing_token(context->rdp->nego, length);
 }
 
-CONNECTION_STATE freerdp_get_state(rdpContext* context)
+BOOL freerdp_io_callback_set_event(rdpContext* context, BOOL set)
+{
+	WINPR_ASSERT(context);
+	return rdp_io_callback_set_event(context->rdp, set);
+}
+
+const rdpTransportIo* freerdp_get_io_callbacks(rdpContext* context)
+{
+	WINPR_ASSERT(context);
+	return rdp_get_io_callbacks(context->rdp);
+}
+
+BOOL freerdp_set_io_callbacks(rdpContext* context, const rdpTransportIo* io_callbacks)
+{
+	WINPR_ASSERT(context);
+	return rdp_set_io_callbacks(context->rdp, io_callbacks);
+}
+
+BOOL freerdp_set_io_callback_context(rdpContext* context, void* usercontext)
+{
+	WINPR_ASSERT(context);
+	return rdp_set_io_callback_context(context->rdp, usercontext);
+}
+
+void* freerdp_get_io_callback_context(rdpContext* context)
+{
+	WINPR_ASSERT(context);
+	return rdp_get_io_callback_context(context->rdp);
+}
+
+CONNECTION_STATE freerdp_get_state(const rdpContext* context)
 {
 	WINPR_ASSERT(context);
 	return rdp_get_state(context->rdp);
@@ -1145,4 +1329,101 @@ CONNECTION_STATE freerdp_get_state(rdpContext* context)
 const char* freerdp_state_string(CONNECTION_STATE state)
 {
 	return rdp_state_string(state);
+}
+
+BOOL freerdp_is_active_state(const rdpContext* context)
+{
+	WINPR_ASSERT(context);
+	return rdp_is_active_state(context->rdp);
+}
+
+BOOL freerdp_channels_from_mcs(rdpSettings* settings, const rdpContext* context)
+{
+	WINPR_ASSERT(context);
+	return rdp_channels_from_mcs(settings, context->rdp);
+}
+
+HANDLE freerdp_abort_event(rdpContext* context)
+{
+	WINPR_ASSERT(context);
+	return utils_get_abort_event(context->rdp);
+}
+
+static void test_mcs_free(rdpMcs* mcs)
+{
+	if (!mcs)
+		return;
+
+	rdpTransport* transport = mcs->transport;
+	rdpContext* context = transport_get_context(transport);
+	if (context)
+	{
+		rdpSettings* settings = context->settings;
+		freerdp_settings_free(settings);
+	}
+	free(context);
+	transport_free(transport);
+
+	mcs_free(mcs);
+}
+
+static rdpMcs* test_mcs_new(void)
+{
+	rdpTransport* transport = NULL;
+	rdpSettings* settings = freerdp_settings_new(0);
+	rdpContext* context = calloc(1, sizeof(rdpContext));
+
+	if (!settings)
+		goto fail;
+	if (!freerdp_settings_set_bool(settings, FreeRDP_TransportDumpReplay, TRUE))
+		goto fail;
+
+	if (!context)
+		goto fail;
+	context->settings = settings;
+	transport = transport_new(context);
+	if (!transport)
+		goto fail;
+	return mcs_new(transport);
+
+fail:
+	transport_free(transport);
+	free(context);
+	freerdp_settings_free(settings);
+
+	return NULL;
+}
+
+BOOL freerdp_is_valid_mcs_create_request(const BYTE* data, size_t size)
+{
+
+	wStream sbuffer = { 0 };
+	wStream* s = Stream_StaticConstInit(&sbuffer, data, size);
+
+	WINPR_ASSERT(data || (size == 0));
+	WINPR_ASSERT(s);
+
+	rdpMcs* mcs = test_mcs_new();
+	WINPR_ASSERT(mcs);
+
+	BOOL result = mcs_recv_connect_initial(mcs, s);
+	test_mcs_free(mcs);
+	return result;
+}
+
+BOOL freerdp_is_valid_mcs_create_response(const BYTE* data, size_t size)
+{
+
+	wStream sbuffer = { 0 };
+	wStream* s = Stream_StaticConstInit(&sbuffer, data, size);
+
+	WINPR_ASSERT(data || (size == 0));
+	WINPR_ASSERT(s);
+
+	rdpMcs* mcs = test_mcs_new();
+	WINPR_ASSERT(mcs);
+
+	BOOL result = mcs_recv_connect_response(mcs, s);
+	test_mcs_free(mcs);
+	return result;
 }

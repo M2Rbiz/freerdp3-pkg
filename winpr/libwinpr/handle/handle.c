@@ -18,15 +18,12 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #include <winpr/handle.h>
 
 #ifndef _WIN32
 
-#include <assert.h>
 #include <pthread.h>
 
 #include "../synch/synch.h"
@@ -35,18 +32,18 @@
 #include "../comm/comm.h"
 #include "../security/security.h"
 
-#ifdef HAVE_UNISTD_H
+#ifdef WINPR_HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
-#include <assert.h>
+#include <winpr/assert.h>
 
 #include "../handle/handle.h"
 
 BOOL CloseHandle(HANDLE hObject)
 {
-	ULONG Type;
-	WINPR_HANDLE* Object;
+	ULONG Type = 0;
+	WINPR_HANDLE* Object = NULL;
 
 	if (!winpr_Handle_GetInfo(hObject, &Type, &Object))
 		return FALSE;

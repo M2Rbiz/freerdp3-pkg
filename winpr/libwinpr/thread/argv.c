@@ -17,17 +17,14 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <winpr/config.h>
 
 #include <winpr/crt.h>
-#include <winpr/heap.h>
 #include <winpr/handle.h>
 
 #include <winpr/thread.h>
 
-#ifdef HAVE_UNISTD_H
+#ifdef WINPR_HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
@@ -91,19 +88,19 @@
 
 LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 {
-	char* p;
-	size_t length;
-	char* pBeg;
-	char* pEnd;
-	char* buffer;
-	char* pOutput;
+	const char* p = NULL;
+	size_t length = 0;
+	const char* pBeg = NULL;
+	const char* pEnd = NULL;
+	char* buffer = NULL;
+	char* pOutput = NULL;
 	int numArgs = 0;
-	LPSTR* pArgs;
-	size_t maxNumArgs;
-	size_t maxBufferSize;
-	size_t cmdLineLength;
-	BOOL* lpEscapedChars;
-	LPSTR lpEscapedCmdLine;
+	LPSTR* pArgs = NULL;
+	size_t maxNumArgs = 0;
+	size_t maxBufferSize = 0;
+	size_t cmdLineLength = 0;
+	BOOL* lpEscapedChars = NULL;
+	LPSTR lpEscapedCmdLine = NULL;
 
 	if (!lpCmdLine)
 		return NULL;
@@ -121,9 +118,8 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 
 	if (strstr(lpCmdLine, "\\\""))
 	{
-		size_t i;
-		size_t n;
-		char* pLastEnd = NULL;
+		size_t n = 0;
+		const char* pLastEnd = NULL;
 		lpEscapedCmdLine = (char*)calloc(cmdLineLength + 1, sizeof(char));
 
 		if (!lpEscapedCmdLine)
@@ -132,8 +128,8 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 			return NULL;
 		}
 
-		p = (char*)lpCmdLine;
-		pLastEnd = (char*)lpCmdLine;
+		p = (const char*)lpCmdLine;
+		pLastEnd = (const char*)lpCmdLine;
 		pOutput = (char*)lpEscapedCmdLine;
 
 		while (p < &lpCmdLine[cmdLineLength])
@@ -167,7 +163,7 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 			pOutput += length;
 			p += length;
 
-			for (i = 0; i < (n / 2); i++)
+			for (size_t i = 0; i < (n / 2); i++)
 				*pOutput++ = '\\';
 
 			p += n + 1;
@@ -185,7 +181,7 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 	}
 
 	maxNumArgs = 2;
-	p = (char*)lpCmdLine;
+	p = (const char*)lpCmdLine;
 
 	while (p < lpCmdLine + cmdLineLength)
 	{
@@ -195,7 +191,7 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 	}
 
 	maxBufferSize = (maxNumArgs * (sizeof(char*))) + (cmdLineLength + 1);
-	buffer = (char*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, maxBufferSize);
+	buffer = calloc(maxBufferSize, sizeof(char));
 
 	if (!buffer)
 	{
@@ -206,7 +202,7 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 
 	pArgs = (LPSTR*)buffer;
 	pOutput = (char*)&buffer[maxNumArgs * (sizeof(char*))];
-	p = (char*)lpCmdLine;
+	p = (const char*)lpCmdLine;
 
 	while (p < lpCmdLine + cmdLineLength)
 	{

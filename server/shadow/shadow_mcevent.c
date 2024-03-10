@@ -16,11 +16,9 @@
  * limitations under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <freerdp/config.h>
 
-#include <assert.h>
+#include <winpr/assert.h>
 #include <freerdp/log.h>
 #include "shadow.h"
 
@@ -110,17 +108,16 @@ void shadow_multiclient_free(rdpShadowMultiClientEvent* event)
 
 static void _Publish(rdpShadowMultiClientEvent* event)
 {
-	wArrayList* subscribers;
+	wArrayList* subscribers = NULL;
 	struct rdp_shadow_multiclient_subscriber* subscriber = NULL;
-	int i;
 
 	subscribers = event->subscribers;
 
-	assert(event->consuming == 0);
+	WINPR_ASSERT(event->consuming == 0);
 
 	/* Count subscribing clients */
 	ArrayList_Lock(subscribers);
-	for (i = 0; i < ArrayList_Count(subscribers); i++)
+	for (size_t i = 0; i < ArrayList_Count(subscribers); i++)
 	{
 		subscriber = (struct rdp_shadow_multiclient_subscriber*)ArrayList_GetItem(subscribers, i);
 		/* Set flag to subscriber: I acknowledge and please handle */
@@ -153,7 +150,7 @@ static void _WaitForSubscribers(rdpShadowMultiClientEvent* event)
 	}
 
 	/* Last subscriber should have already reset the event */
-	assert(WaitForSingleObject(event->event, 0) != WAIT_OBJECT_0);
+	WINPR_ASSERT(WaitForSingleObject(event->event, 0) != WAIT_OBJECT_0);
 
 	return;
 }
@@ -205,7 +202,7 @@ static BOOL _Consume(struct rdp_shadow_multiclient_subscriber* subscriber, BOOL 
 		ret = TRUE;
 	}
 
-	assert(event->consuming >= 0);
+	WINPR_ASSERT(event->consuming >= 0);
 
 	if (event->consuming == 0)
 	{
@@ -255,7 +252,7 @@ static BOOL _Consume(struct rdp_shadow_multiclient_subscriber* subscriber, BOOL 
 
 void* shadow_multiclient_get_subscriber(rdpShadowMultiClientEvent* event)
 {
-	struct rdp_shadow_multiclient_subscriber* subscriber;
+	struct rdp_shadow_multiclient_subscriber* subscriber = NULL;
 
 	if (!event)
 		return NULL;
@@ -270,7 +267,7 @@ void* shadow_multiclient_get_subscriber(rdpShadowMultiClientEvent* event)
 	subscriber->ref = event;
 	subscriber->pleaseHandle = FALSE;
 
-	if (ArrayList_Add(event->subscribers, subscriber) < 0)
+	if (!ArrayList_Append(event->subscribers, subscriber))
 		goto out_free;
 
 	WLog_VRB(TAG, "Get subscriber %p. Wait event %d. %d clients.\n", (void*)subscriber,
@@ -298,8 +295,8 @@ out_error:
  */
 void shadow_multiclient_release_subscriber(void* subscriber)
 {
-	struct rdp_shadow_multiclient_subscriber* s;
-	rdpShadowMultiClientEvent* event;
+	struct rdp_shadow_multiclient_subscriber* s = NULL;
+	rdpShadowMultiClientEvent* event = NULL;
 
 	if (!subscriber)
 		return;
@@ -326,8 +323,8 @@ void shadow_multiclient_release_subscriber(void* subscriber)
 
 BOOL shadow_multiclient_consume(void* subscriber)
 {
-	struct rdp_shadow_multiclient_subscriber* s;
-	rdpShadowMultiClientEvent* event;
+	struct rdp_shadow_multiclient_subscriber* s = NULL;
+	rdpShadowMultiClientEvent* event = NULL;
 	BOOL ret = FALSE;
 
 	if (!subscriber)
