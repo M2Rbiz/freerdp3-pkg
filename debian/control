@@ -195,6 +195,8 @@ Depends:
  libfreerdp-shadow3-3 (= ${binary:Version}),
  libfreerdp3-3 (= ${binary:Version}),
  libwinpr3-dev (= ${binary:Version}),
+ libcjson-dev,
+ libfuse3-dev,
  winpr3-utils (= ${binary:Version}),
  ${misc:Depends},
 Description: Free Remote Desktop Protocol library (development files)
