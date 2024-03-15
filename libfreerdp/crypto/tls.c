@@ -985,6 +985,7 @@ static int pollAndHandshake(rdpTls* tls)
 			case WAIT_OBJECT_0:
 				break;
 			case WAIT_TIMEOUT:
+			case WAIT_IO_COMPLETION:
 				continue;
 			default:
 				WLog_ERR(TAG, "error during WaitForSingleObject(): 0x%08" PRIX32 "", status);
@@ -1107,7 +1108,7 @@ TlsHandshakeResult freerdp_tls_accept_ex(rdpTls* tls, BIO* underlying, rdpSettin
 	 * Disable SSL client site renegotiation.
 	 */
 
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L) && (OPENSSL_VERSION_NUMBER < 0x30000000L) && \
+#if (OPENSSL_VERSION_NUMBER >= 0x10101000L) && (OPENSSL_VERSION_NUMBER < 0x30000000L) && \
     !defined(LIBRESSL_VERSION_NUMBER)
 	options |= SSL_OP_NO_RENEGOTIATION;
 #endif
