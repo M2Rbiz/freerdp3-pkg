@@ -1,3 +1,10 @@
+freerdp3 (3.4.0+dfsg1-1) UNRELEASED; urgency=medium
+
+  * Team upload
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 15 Mar 2024 06:36:44 -0400
+
 freerdp3 (3.3.0+dfsg1-1) experimental; urgency=medium
 
   * Team upload
