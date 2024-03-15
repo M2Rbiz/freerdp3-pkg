@@ -463,8 +463,8 @@ static int x11_shadow_pointer_alpha_update(x11ShadowSubsystem* subsystem)
 	msg->width = subsystem->cursorWidth;
 	msg->height = subsystem->cursorHeight;
 
-	if (shadow_subsystem_pointer_convert_alpha_pointer_data(subsystem->cursorPixels, TRUE,
-	                                                        msg->width, msg->height, msg) < 0)
+	if (shadow_subsystem_pointer_convert_alpha_pointer_data_to_format(
+	        subsystem->cursorPixels, subsystem->format, TRUE, msg->width, msg->height, msg) < 0)
 	{
 		free(msg);
 		return -1;
@@ -796,9 +796,10 @@ static int x11_shadow_screen_grab(x11ShadowSubsystem* subsystem)
 		          subsystem->xshm_gc, 0, 0, subsystem->width, subsystem->height, 0, 0);
 
 		EnterCriticalSection(&surface->lock);
-		status = shadow_capture_compare(surface->data, surface->scanline, surface->width,
-		                                surface->height, (BYTE*)&(image->data[surface->width * 4]),
-		                                image->bytes_per_line, &invalidRect);
+		status = shadow_capture_compare_with_format(
+		    surface->data, surface->format, surface->scanline, surface->width, surface->height,
+		    (BYTE*)&(image->data[surface->width * 4ull]), subsystem->format, image->bytes_per_line,
+		    &invalidRect);
 		LeaveCriticalSection(&surface->lock);
 	}
 	else
@@ -810,9 +811,9 @@ static int x11_shadow_screen_grab(x11ShadowSubsystem* subsystem)
 
 		if (image)
 		{
-			status = shadow_capture_compare(surface->data, surface->scanline, surface->width,
-			                                surface->height, (BYTE*)image->data,
-			                                image->bytes_per_line, &invalidRect);
+			status = shadow_capture_compare_with_format(
+			    surface->data, surface->format, surface->scanline, surface->width, surface->height,
+			    (BYTE*)image->data, subsystem->format, image->bytes_per_line, &invalidRect);
 		}
 		LeaveCriticalSection(&surface->lock);
 		if (!image)
@@ -854,7 +855,7 @@ static int x11_shadow_screen_grab(x11ShadowSubsystem* subsystem)
 			WINPR_ASSERT(height >= 0);
 			success = freerdp_image_copy(surface->data, surface->format, surface->scanline, x, y,
 			                             (UINT32)width, (UINT32)height, (BYTE*)image->data,
-			                             PIXEL_FORMAT_BGRX32, (UINT32)image->bytes_per_line, x, y,
+			                             subsystem->format, (UINT32)image->bytes_per_line, x, y,
 			                             NULL, FREERDP_FLIP_NONE);
 			LeaveCriticalSection(&surface->lock);
 			if (!success)
@@ -1036,7 +1037,10 @@ static int x11_shadow_xinerama_init(x11ShadowSubsystem* subsystem)
 #ifdef WITH_XINERAMA
 	int xinerama_event = 0;
 	int xinerama_error = 0;
-	x11_shadow_subsystem_base_init(subsystem);
+
+	const int rc = x11_shadow_subsystem_base_init(subsystem);
+	if (rc < 0)
+		return rc;
 
 	if (!XineramaQueryExtension(subsystem->display, &xinerama_event, &xinerama_error))
 		return -1;
@@ -1270,7 +1274,12 @@ static int x11_shadow_subsystem_init(rdpShadowSubsystem* sub)
 		return -1;
 
 	subsystem->common.numMonitors = x11_shadow_enum_monitors(subsystem->common.monitors, 16);
-	x11_shadow_subsystem_base_init(subsystem);
+	const int rc = x11_shadow_subsystem_base_init(subsystem);
+	if (rc < 0)
+		return rc;
+
+	subsystem->format = (ImageByteOrder(subsystem->display) == LSBFirst) ? PIXEL_FORMAT_BGRA32
+	                                                                     : PIXEL_FORMAT_ARGB32;
 
 	if ((subsystem->depth != 24) && (subsystem->depth != 32))
 	{
@@ -1392,6 +1401,7 @@ static int x11_shadow_subsystem_init(rdpShadowSubsystem* sub)
 		          subsystem->use_xfixes, subsystem->use_xinerama, subsystem->use_xdamage,
 		          subsystem->use_xshm);
 	}
+
 	return 1;
 }
 

@@ -58,7 +58,6 @@ endif()
 
 # Include our extra modules
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/)
-include(CommonConfigOptions)
 
 if((CMAKE_SYSTEM_NAME MATCHES "WindowsStore") AND (CMAKE_SYSTEM_VERSION MATCHES "10.0"))
 	set(UWP 1)
@@ -99,7 +98,7 @@ if ($ENV{BUILD_NUMBER})
 endif()
 
 set(VERSION_REGEX "^(.*)([0-9]+)\\.([0-9]+)\\.([0-9]+)-?(.*)")
-set(RAW_VERSION_STRING "3.3.0")
+set(RAW_VERSION_STRING "3.4.0")
 if(EXISTS "${PROJECT_SOURCE_DIR}/.source_tag")
 	file(READ ${PROJECT_SOURCE_DIR}/.source_tag RAW_VERSION_STRING)
 elseif(USE_VERSION_FROM_GIT_TAG)
@@ -727,10 +726,6 @@ else()
 	set(FREERDP_PROXY_PLUGINDIR "${PROXY_PLUGINDIR}")
 endif()
 
-if (BUILD_SHARED_LIBS)
-	set(CMAKE_MACOSX_RPATH ON)
-endif()
-
 # Android profiling
 if(ANDROID)
 	if(WITH_GPROF)
@@ -754,6 +749,8 @@ if(BUILD_TESTING)
 		set(TESTING_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/Testing")
 	endif()
 endif()
+
+include(CommonConfigOptions)
 
 # WinPR
 # We want to control the winpr assert for the whole project
