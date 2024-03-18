@@ -23,9 +23,9 @@ DEB_CMAKE_EXTRA_FLAGS = \
     -DWITH_DEBUG_ALL=OFF \
     -DBUILD_TESTING=OFF \
     -DWITH_CHANNELS=ON \
-    -DBUILTIN_CHANNELS=ON \
     -DWITH_SERVER=ON \
-    -DWITH_PROXY=OFF \
+    -DWITH_PROXY=ON \
+    -DWITH_PROXY_MODULES=ON \
     -DWITH_CLIENT_INTERFACE=OFF \
     -DWITH_PULSE=ON \
     -DWITH_ICU=ON \
@@ -116,14 +116,6 @@ override_dh_auto_configure:
 	    -e "s$(xSEDx)$${o}=[^=]+=\. $(xSEDx)$(xSEDx)g;" \
 	    -e "s$(xSEDx) $${o}=[^=]+=\.$(xSEDx)$(xSEDx)g;" \
 	obj-$(DEB_HOST_GNU_TYPE)/winpr/include/winpr/buildflags.h
-	# remove unused config define (not packaging freerdp-proxy so far).
-	# fixes build path leakage.
-	# NB: mangle that define to something like
-	#   /usr/lib/$(DEB_HOST_MULTIARCH)/freerdp/proxy-plugins
-	# if you consider to package freerdp-proxy.
-	sed -i \
-	    -e '/FREERDP_PROXY_PLUGINDIR/d' \
-	    obj-$(DEB_HOST_GNU_TYPE)/include/freerdp/build-config.h
 
 # NB debhelper 13+: convert to execute_before_dh_install
 override_dh_install: TMP_LIB = debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)

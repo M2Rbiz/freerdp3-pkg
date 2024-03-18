@@ -7,4 +7,5 @@ usr/lib/*/libfreerdp-server3.so
 usr/lib/*/libfreerdp-shadow-subsystem3.so
 usr/lib/*/libfreerdp-shadow3.so
 usr/lib/*/libfreerdp3.so
+usr/lib/*/libfreerdp-server-proxy3.so
 usr/lib/*/pkgconfig/freerdp*.pc
