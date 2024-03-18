@@ -1297,6 +1297,8 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_FIPSMode@Base 3.0.0
  winpr_FreeLibraryWhenCallbackReturns@Base 3.0.0
  winpr_GetTickCount64@Base 3.0.0
+ winpr_GetTickCount64NS@Base 3.4.0
+ winpr_GetUnixTimeNS@Base 3.4.0
  winpr_HMAC@Base 3.0.0
  winpr_HMAC_Final@Base 3.0.0
  winpr_HMAC_Free@Base 3.0.0

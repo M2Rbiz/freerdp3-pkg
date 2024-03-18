@@ -338,6 +338,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_detect_keyboard_layout_from_system_locale@Base 3.0.0
  freerdp_device_clone@Base 3.0.0
  freerdp_device_collection_add@Base 3.0.0
+ freerdp_device_collection_del@Base 3.4.0
  freerdp_device_collection_find@Base 3.0.0
  freerdp_device_collection_find_type@Base 3.0.0
  freerdp_device_collection_free@Base 3.0.0
@@ -543,6 +544,8 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_target_net_addresses_free@Base 3.0.0
  freerdp_update_gateway_usage_method@Base 3.0.0
  (optional)freerdp_utils_aad_get_access_token@Base 3.0.0
+ freerdp_write_four_byte_float@Base 3.4.0
+ freerdp_write_four_byte_signed_integer@Base 3.4.0
  gdi_BitBlt@Base 3.0.0
  gdi_CRectToCRgn@Base 3.0.0
  gdi_CRectToRgn@Base 3.0.0
