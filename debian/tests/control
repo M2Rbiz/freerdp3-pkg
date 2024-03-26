@@ -1,0 +1,3 @@
+Tests: connect
+Depends: @, xrdp, xvfb
+Restrictions: allow-stderr
