@@ -108,6 +108,7 @@ endif
 xSEDx :=$(shell printf '\026')
 
 override_dh_auto_configure:
+	dh_auto_configure --builddirectory=debian/testtmp -- $(DEB_CMAKE_EXTRA_FLAGS) -DBUILD_TESTING=ON
 	dh_auto_configure -- $(DEB_CMAKE_EXTRA_FLAGS)
 	# mangle CFLAGS value stored in buildflags.h.
 	# fixes build path leakage.
@@ -120,6 +121,12 @@ override_dh_auto_configure:
 	    -e "s$(xSEDx)$${o}=[^=]+=\. $(xSEDx)$(xSEDx)g;" \
 	    -e "s$(xSEDx) $${o}=[^=]+=\.$(xSEDx)$(xSEDx)g;" \
 	obj-$(DEB_HOST_GNU_TYPE)/winpr/include/winpr/buildflags.h
+
+execute_after_dh_auto_build:
+	dh_auto_build --builddirectory=debian/testtmp
+
+execute_after_dh_auto_test:
+	dh_auto_test --builddirectory=debian/testtmp
 
 # NB debhelper 13+: convert to execute_before_dh_install
 override_dh_install: TMP_LIB = debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)
