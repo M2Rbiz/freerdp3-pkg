@@ -137,7 +137,7 @@ endif()
 
 # Soname versioning
 set(VERSION_REGEX "^(.*)([0-9]+)\\.([0-9]+)\\.([0-9]+)-?(.*)")
-set(RAW_VERSION_STRING "3.4.0")
+set(RAW_VERSION_STRING "3.5.0")
 if(EXISTS "${PROJECT_SOURCE_DIR}/.source_tag")
 	file(READ ${PROJECT_SOURCE_DIR}/.source_tag RAW_VERSION_STRING)
 elseif(USE_VERSION_FROM_GIT_TAG)
@@ -323,11 +323,6 @@ endif()
 
 add_definitions(-DWINPR_EXPORTS)
 
-# Enable 64bit file support on linux and FreeBSD.
-if("${CMAKE_SYSTEM_NAME}" MATCHES "Linux" OR FREEBSD)
-	add_definitions("-D_FILE_OFFSET_BITS=64")
-endif()
-
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 
@@ -346,12 +341,7 @@ endif()
 
 add_subdirectory(include)
 
-set(MANPAGE_NAME wlog)
-if (WITH_BINARY_VERSIONING)
-	set(MANPAGE_NAME wlog${WINPR_API_VERSION})
-endif()
-configure_file(wlog.7.in ${CMAKE_CURRENT_BINARY_DIR}/${MANPAGE_NAME}.7 @ONLY)
-install_freerdp_man(${CMAKE_CURRENT_BINARY_DIR}/${MANPAGE_NAME}.7  7)
+generate_and_install_freerdp_man_from_template("wlog" "7" "${WINPR_API_VERSION}")
 # Exporting
 
 export(PACKAGE winpr)

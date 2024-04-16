@@ -28,9 +28,10 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "project default")
 endif()
 
+include(PlatformDefaults)
 include(PreventInSourceBuilds)
 include(GNUInstallDirsWrapper)
 include(MSVCRuntime)
 include(ConfigureRPATH)
 include(ClangTidy)
-
+include(AddTargetWithResourceFile)

@@ -357,7 +357,13 @@ static int rdg_socket_read(BIO* bio, BYTE* pBuffer, size_t size,
 	}
 }
 
-static BOOL rdg_read_all(rdpTls* tls, BYTE* buffer, size_t size,
+static BOOL rdg_shall_abort(rdpRdg* rdg)
+{
+	WINPR_ASSERT(rdg);
+	return freerdp_shall_disconnect_context(rdg->context);
+}
+
+static BOOL rdg_read_all(rdpContext* context, rdpTls* tls, BYTE* buffer, size_t size,
                          rdg_http_encoding_context* transferEncoding)
 {
 	size_t readCount = 0;
@@ -365,6 +371,9 @@ static BOOL rdg_read_all(rdpTls* tls, BYTE* buffer, size_t size,
 
 	while (readCount < size)
 	{
+		if (freerdp_shall_disconnect_context(context))
+			return FALSE;
+
 		int status = rdg_socket_read(tls->bio, pBuffer, size - readCount, transferEncoding);
 		if (status <= 0)
 		{
@@ -391,7 +400,7 @@ static wStream* rdg_receive_packet(rdpRdg* rdg)
 	if (!s)
 		return NULL;
 
-	if (!rdg_read_all(rdg->tlsOut, Stream_Buffer(s), header, &rdg->transferEncoding))
+	if (!rdg_read_all(rdg->context, rdg->tlsOut, Stream_Buffer(s), header, &rdg->transferEncoding))
 	{
 		Stream_Free(s, TRUE);
 		return NULL;
@@ -407,8 +416,8 @@ static wStream* rdg_receive_packet(rdpRdg* rdg)
 		return NULL;
 	}
 
-	if (!rdg_read_all(rdg->tlsOut, Stream_Buffer(s) + header, (int)packetLength - (int)header,
-	                  &rdg->transferEncoding))
+	if (!rdg_read_all(rdg->context, rdg->tlsOut, Stream_Buffer(s) + header,
+	                  (int)packetLength - (int)header, &rdg->transferEncoding))
 	{
 		Stream_Free(s, TRUE);
 		return NULL;
@@ -733,6 +742,8 @@ static BOOL rdg_recv_auth_token(wLog* log, rdpCredsspAuth* auth, HttpResponse* r
 		authToken.cbBuffer = authTokenLength;
 		credssp_auth_take_input_buffer(auth, &authToken);
 	}
+	else
+		free(authTokenData);
 
 	rc = credssp_auth_authenticate(auth);
 	if (rc < 0)
@@ -741,7 +752,7 @@ static BOOL rdg_recv_auth_token(wLog* log, rdpCredsspAuth* auth, HttpResponse* r
 	return TRUE;
 }
 
-static BOOL rdg_skip_seed_payload(rdpTls* tls, SSIZE_T lastResponseLength,
+static BOOL rdg_skip_seed_payload(rdpContext* context, rdpTls* tls, size_t lastResponseLength,
                                   rdg_http_encoding_context* transferEncoding)
 {
 	BYTE seed_payload[10] = { 0 };
@@ -750,9 +761,9 @@ static BOOL rdg_skip_seed_payload(rdpTls* tls, SSIZE_T lastResponseLength,
 	/* Per [MS-TSGU] 3.3.5.1 step 4, after final OK response RDG server sends
 	 * random "seed" payload of limited size. In practice it's 10 bytes.
 	 */
-	if (lastResponseLength < (SSIZE_T)size)
+	if (lastResponseLength < size)
 	{
-		if (!rdg_read_all(tls, seed_payload, size - lastResponseLength, transferEncoding))
+		if (!rdg_read_all(context, tls, seed_payload, size - lastResponseLength, transferEncoding))
 		{
 			return FALSE;
 		}
@@ -1003,6 +1014,8 @@ static BOOL rdg_process_extauth_sspi(rdpRdg* rdg, wStream* s)
 	}
 
 	authTokenData = malloc(authBlobLen);
+	if (authTokenData == NULL)
+		return FALSE;
 	Stream_Read(s, authTokenData, authBlobLen);
 
 	authToken.pvBuffer = authTokenData;
@@ -1430,7 +1443,7 @@ static BOOL rdg_establish_data_connection(rdpRdg* rdg, rdpTls* tls, const char* 
 	const size_t bodyLength = http_response_get_body_length(response);
 	const TRANSFER_ENCODING encoding = http_response_get_transfer_encoding(response);
 	const BOOL isWebsocket = http_response_is_websocket(rdg->http, response);
-	http_response_free(response);
+
 	WLog_Print(rdg->log, WLOG_DEBUG, "%s authorization result: %s", method,
 	           freerdp_http_status_string_format(statusCode, buffer, ARRAYSIZE(buffer)));
 
@@ -1440,11 +1453,14 @@ static BOOL rdg_establish_data_connection(rdpRdg* rdg, rdpTls* tls, const char* 
 			/* old rdg endpoint without websocket support, don't request websocket for RDG_IN_DATA
 			 */
 			http_context_enable_websocket_upgrade(rdg->http, FALSE);
+			http_response_free(response);
 			break;
 		case HTTP_STATUS_DENIED:
 			freerdp_set_last_error_log(rdg->context, FREERDP_ERROR_CONNECT_ACCESS_DENIED);
+			http_response_free(response);
 			return FALSE;
 		case HTTP_STATUS_SWITCH_PROTOCOLS:
+			http_response_free(response);
 			if (!isWebsocket)
 			{
 				/*
@@ -1475,6 +1491,7 @@ static BOOL rdg_establish_data_connection(rdpRdg* rdg, rdpTls* tls, const char* 
 			return TRUE;
 		default:
 			http_response_log_error_status(rdg->log, WLOG_WARN, response);
+			http_response_free(response);
 			return FALSE;
 	}
 
@@ -1487,7 +1504,7 @@ static BOOL rdg_establish_data_connection(rdpRdg* rdg, rdpTls* tls, const char* 
 			rdg->transferEncoding.context.chunked.headerFooterPos = 0;
 			rdg->transferEncoding.context.chunked.state = ChunkStateLenghHeader;
 		}
-		if (!rdg_skip_seed_payload(tls, bodyLength, &rdg->transferEncoding))
+		if (!rdg_skip_seed_payload(rdg->context, tls, bodyLength, &rdg->transferEncoding))
 		{
 			return FALSE;
 		}
@@ -1840,6 +1857,11 @@ static BOOL rdg_process_control_packet(rdpRdg* rdg, int type, size_t packetLengt
 
 		while (readCount < payloadSize)
 		{
+			if (rdg_shall_abort(rdg))
+			{
+				Stream_Free(s, TRUE);
+				return FALSE;
+			}
 			status = rdg_socket_read(rdg->tlsOut->bio, Stream_Pointer(s), payloadSize - readCount,
 			                         &rdg->transferEncoding);
 
@@ -1913,6 +1935,9 @@ static int rdg_read_data_packet(rdpRdg* rdg, BYTE* buffer, int size)
 
 		while (readCount < sizeof(RdgPacketHeader))
 		{
+			if (rdg_shall_abort(rdg))
+				return -1;
+
 			status = rdg_socket_read(rdg->tlsOut->bio, (BYTE*)(&header) + readCount,
 			                         (int)sizeof(RdgPacketHeader) - (int)readCount,
 			                         &rdg->transferEncoding);
@@ -1949,6 +1974,8 @@ static int rdg_read_data_packet(rdpRdg* rdg, BYTE* buffer, int size)
 
 		while (readCount < 2)
 		{
+			if (rdg_shall_abort(rdg))
+				return -1;
 			status =
 			    rdg_socket_read(rdg->tlsOut->bio, (BYTE*)(&rdg->packetRemainingCount) + readCount,
 			                    2 - (int)readCount, &rdg->transferEncoding);

@@ -97,13 +97,14 @@ static const WinPrAsn1_OID negoex_OID = { 10, (BYTE*)"\x2b\x06\x01\x04\x01\x82\x
 #ifdef WITH_KRB5
 static const SecPkg SecPkgTable[] = {
 	{ KERBEROS_SSP_NAME, &KERBEROS_SecurityFunctionTableA, &KERBEROS_SecurityFunctionTableW },
+	{ KERBEROS_SSP_NAME, &KERBEROS_SecurityFunctionTableA, &KERBEROS_SecurityFunctionTableW },
 	{ NTLM_SSP_NAME, &NTLM_SecurityFunctionTableA, &NTLM_SecurityFunctionTableW }
 };
 
 static const Mech MechTable[] = {
 	{ &kerberos_u2u_OID, &SecPkgTable[0], ISC_REQ_INTEGRITY | ISC_REQ_USE_SESSION_KEY, TRUE },
-	{ &kerberos_OID, &SecPkgTable[0], ISC_REQ_INTEGRITY, TRUE },
-	{ &ntlm_OID, &SecPkgTable[1], 0, FALSE },
+	{ &kerberos_OID, &SecPkgTable[1], ISC_REQ_INTEGRITY, TRUE },
+	{ &ntlm_OID, &SecPkgTable[2], 0, FALSE },
 };
 #else
 static const SecPkg SecPkgTable[] = { { NTLM_SSP_NAME, &NTLM_SecurityFunctionTableA,
@@ -599,7 +600,11 @@ static SECURITY_STATUS negotiate_mic_exchange(NEGOTIATE_CONTEXT* context, NegTok
 	}
 
 	/* When using NTLM cipher states need to be reset after mic exchange */
-	if (_tcscmp(sspi_SecureHandleGetUpperPointer(&context->sub_context), NTLM_SSP_NAME) == 0)
+	const TCHAR* name = sspi_SecureHandleGetUpperPointer(&context->sub_context);
+	if (!name)
+		return SEC_E_INTERNAL_ERROR;
+
+	if (_tcscmp(name, NTLM_SSP_NAME) == 0)
 	{
 		if (!ntlm_reset_cipher_state(&context->sub_context))
 			return SEC_E_INTERNAL_ERROR;
@@ -674,6 +679,9 @@ static SECURITY_STATUS SEC_ENTRY negotiate_InitializeSecurityContextW(
 			if (!init_context.mech)
 			{
 				/* Use the output buffer to store the optimistic token */
+				if (!output_buffer)
+					goto cleanup;
+
 				CopyMemory(&output_token.mechToken, output_buffer, sizeof(SecBuffer));
 
 				if (bindings_buffer)
@@ -1127,7 +1135,8 @@ static SECURITY_STATUS SEC_ENTRY negotiate_AcceptSecurityContext(
 				return SEC_E_INVALID_TOKEN;
 
 			/* Use the output buffer to store the optimistic token */
-			CopyMemory(&output_token.mechToken, output_buffer, sizeof(SecBuffer));
+			if (output_buffer)
+				CopyMemory(&output_token.mechToken, output_buffer, sizeof(SecBuffer));
 
 			status = context->mech->pkg->table->AcceptSecurityContext(
 			    sub_cred, &context->sub_context, &mech_input, fContextReq | context->mech->flags,

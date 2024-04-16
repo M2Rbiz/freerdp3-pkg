@@ -160,7 +160,7 @@ static BOOL nsc_rle_decode(const BYTE* in, size_t inSize, BYTE* out, UINT32 outS
 				len |= ((UINT32)(*in++)) << 24U;
 			}
 
-			if (outSize < len)
+			if ((outSize < len) || (left < len))
 				return FALSE;
 
 			outSize -= len;
@@ -262,7 +262,7 @@ static BOOL nsc_context_initialize(NSC_CONTEXT* context, wStream* s)
 	if (!nsc_stream_initialize(context, s))
 		return FALSE;
 
-	const size_t blength = context->width * context->height * 4ull;
+	const size_t blength = 4ull * context->width * context->height;
 
 	if (!context->BitmapData || (blength > context->BitmapDataLength))
 	{

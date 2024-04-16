@@ -1154,10 +1154,13 @@ static UINT rdpdr_process_connect(rdpdrPlugin* rdpdr)
 		{
 			const char DynamicDrives[] = "DynamicDrives";
 			const RDPDR_DRIVE* drive = (const RDPDR_DRIVE*)device;
+			if (!drive->Path)
+				continue;
+
 			BOOL hotplugAll = strncmp(drive->Path, "*", 2) == 0;
 			BOOL hotplugLater = strncmp(drive->Path, DynamicDrives, sizeof(DynamicDrives)) == 0;
 
-			if (drive->Path && (hotplugAll || hotplugLater))
+			if (hotplugAll || hotplugLater)
 			{
 				if (!rdpdr->async)
 				{
@@ -1274,7 +1277,6 @@ static UINT rdpdr_send_client_name_request(rdpdrPlugin* rdpdr)
 	WINPR_ASSERT(rdpdr->computerName);
 	computerNameW = ConvertUtf8ToWCharAlloc(rdpdr->computerName, &computerNameLenW);
 	computerNameLenW *= sizeof(WCHAR);
-	WINPR_ASSERT(computerNameLenW >= 0);
 
 	if (computerNameLenW > 0)
 		computerNameLenW += sizeof(WCHAR); // also write '\0'

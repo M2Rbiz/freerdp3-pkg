@@ -120,7 +120,7 @@ static BOOL xf_keyboard_action_script_init(xfContext* xfc)
 		char* context = NULL;
 		strtok_s(buffer, "\n", &context);
 
-		if (!buffer || !ArrayList_Append(xfc->keyCombinations, buffer))
+		if (!ArrayList_Append(xfc->keyCombinations, buffer))
 		{
 			ArrayList_Free(xfc->keyCombinations);
 			xfc->actionScriptExists = FALSE;
@@ -180,7 +180,7 @@ void xf_keyboard_key_press(xfContext* xfc, const XKeyEvent* event, KeySym keysym
 
 	WINPR_ASSERT(xfc);
 	WINPR_ASSERT(event);
-	WINPR_ASSERT(event->keycode <= ARRAYSIZE(xfc->KeyboardState));
+	WINPR_ASSERT(event->keycode < ARRAYSIZE(xfc->KeyboardState));
 
 	last = xfc->KeyboardState[event->keycode];
 	xfc->KeyboardState[event->keycode] = TRUE;
@@ -195,7 +195,7 @@ void xf_keyboard_key_release(xfContext* xfc, const XKeyEvent* event, KeySym keys
 {
 	WINPR_ASSERT(xfc);
 	WINPR_ASSERT(event);
-	WINPR_ASSERT(event->keycode <= ARRAYSIZE(xfc->KeyboardState));
+	WINPR_ASSERT(event->keycode < ARRAYSIZE(xfc->KeyboardState));
 
 	BOOL last = xfc->KeyboardState[event->keycode];
 	xfc->KeyboardState[event->keycode] = FALSE;

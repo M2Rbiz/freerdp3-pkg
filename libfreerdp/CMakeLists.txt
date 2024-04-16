@@ -21,15 +21,6 @@ set(MODULE_PREFIX "FREERDP")
 # CMake modules includes
 include(FindCairo)
 
-# Create imported targets for Intel IPP libraries
-
-if(IPP_FOUND)
-    foreach(ipp_lib ${IPP_LIBRARIES})
-        add_library("${ipp_lib}_imported" STATIC IMPORTED)
-        set_property(TARGET "${ipp_lib}_imported" PROPERTY IMPORTED_LOCATION "${IPP_LIBRARY_DIRS}/${ipp_lib}")
-    endforeach()
-endif()
-
 set(LIBFREERDP_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(LIBFREERDP_SRCS "")
 set(LIBFREERDP_LIBS "")
@@ -376,15 +367,6 @@ set(PRIMITIVES_OPT_SRCS
     ${PRIMITIVES_SSSE3_SRCS}
     ${PRIMITIVES_OPENCL_SRCS})
 
-### IPP Variable debugging
-if(WITH_IPP)
-    if(CMAKE_COMPILER_IS_GNUCC OR ${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
-        foreach(INCLDIR ${IPP_INCLUDE_DIRS})
-            set(OPTIMIZATION "${OPTIMIZATION} -I${INCLDIR}")
-        endforeach(INCLDIR)
-    endif()
-endif()
-
 if(WITH_SSE2)
     if(CMAKE_COMPILER_IS_GNUCC OR ${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
         set_source_files_properties(${PRIMITIVES_SSE2_SRCS}
@@ -413,13 +395,6 @@ set(PRIMITIVES_SRCS ${PRIMITIVES_SRCS} ${PRIMITIVES_OPT_SRCS})
 
 freerdp_module_add(${PRIMITIVES_SRCS})
 
-if(IPP_FOUND)
-    freerdp_include_directory_add(${IPP_INCLUDE_DIRS})
-        foreach(ipp_lib ${IPP_LIBRARIES})
-        freerdp_library_add("${ipp_lib}_imported")
-    endforeach()
-endif()
-
 if(BUILD_TESTING AND NOT WIN32 AND NOT APPLE)
     add_subdirectory(primitives/test)
 endif()
@@ -430,36 +405,12 @@ endif()
 list(APPEND LIBFREERDP_PUB_LIBS winpr)
 
 list(REMOVE_DUPLICATES LIBFREERDP_DEFINITIONS)
-list(REMOVE_DUPLICATES LIBFREERDP_LIBS)
-list(REMOVE_DUPLICATES LIBFREERDP_PUB_LIBS)
 list(REMOVE_DUPLICATES LIBFREERDP_INCLUDES)
 include_directories(${LIBFREERDP_INCLUDES})
 
-# On windows create dll version information.
-# Vendor, product and year are already set in top level CMakeLists.txt
-if (WIN32)
-  set (RC_VERSION_MAJOR ${FREERDP_VERSION_MAJOR})
-  set (RC_VERSION_MINOR ${FREERDP_VERSION_MINOR})
-  set (RC_VERSION_BUILD ${FREERDP_VERSION_REVISION})
-  set (RC_VERSION_FILE "${CMAKE_SHARED_LIBRARY_PREFIX}${MODULE_NAME}${FREERDP_API_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}" )
+AddTargetWithResourceFile(${MODULE_NAME} FALSE "${FREERDP_VERSION}" LIBFREERDP_SRCS)
 
-  configure_file(
-    ${PROJECT_SOURCE_DIR}/cmake/WindowsDLLVersion.rc.in
-    ${CMAKE_CURRENT_BINARY_DIR}/version.rc
-    @ONLY)
-
-  set (LIBFREERDP_SRCS ${LIBFREERDP_SRCS} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
-endif()
-
-add_library(${MODULE_NAME} ${LIBFREERDP_SRCS})
 add_definitions(${LIBFREERDP_DEFINITIONS})
-
-set_target_properties(${MODULE_NAME} PROPERTIES LINKER_LANGUAGE C)
-set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME ${MODULE_NAME}${FREERDP_VERSION_MAJOR})
-
-if (WITH_LIBRARY_VERSIONING)
-    set_target_properties(${MODULE_NAME} PROPERTIES VERSION ${FREERDP_VERSION} SOVERSION ${FREERDP_API_VERSION})
-endif()
 
 target_include_directories(${MODULE_NAME} INTERFACE $<INSTALL_INTERFACE:include>)
 target_link_libraries(${MODULE_NAME} PRIVATE ${LIBFREERDP_LIBS})
@@ -468,11 +419,6 @@ install(TARGETS ${MODULE_NAME} COMPONENT libraries EXPORT FreeRDPTargets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-if (WITH_DEBUG_SYMBOLS AND MSVC AND BUILD_SHARED_LIBS)
-    get_target_property(OUTPUT_FILENAME ${MODULE_NAME} OUTPUT_NAME)
-    install(FILES ${CMAKE_PDB_BINARY_DIR}/${OUTPUT_FILENAME}.pdb DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT symbols)
-endif()
 
 set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "FreeRDP/libfreerdp")
 

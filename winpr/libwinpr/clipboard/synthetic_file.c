@@ -276,8 +276,14 @@ static BOOL add_directory_contents_to_list(wClipboard* clipboard, const WCHAR* l
                                            const WCHAR* remote_name, wArrayList* files)
 {
 	BOOL result = FALSE;
-	const WCHAR* wildcard = "/\0*\0\0\0";
-	const size_t wildcardLen = 3;
+	union
+	{
+		const char* c;
+		const WCHAR* w;
+	} wildcard;
+	const char buffer[6] = "/\0*\0\0\0";
+	wildcard.c = buffer;
+	const size_t wildcardLen = ARRAYSIZE(buffer) / sizeof(WCHAR);
 
 	WINPR_ASSERT(clipboard);
 	WINPR_ASSERT(local_name);
@@ -290,7 +296,7 @@ static BOOL add_directory_contents_to_list(wClipboard* clipboard, const WCHAR* l
 		return FALSE;
 
 	_wcsncat(namebuf, local_name, len);
-	_wcsncat(namebuf, wildcard, wildcardLen);
+	_wcsncat(namebuf, wildcard.w, wildcardLen);
 
 	result = do_add_directory_contents_to_list(clipboard, local_name, remote_name, namebuf, files);
 
@@ -1079,7 +1085,6 @@ static UINT file_get_range(struct synthetic_file* file, UINT64 offset, UINT32 si
 	UINT error = NO_ERROR;
 	DWORD dwLow = 0;
 	DWORD dwHigh = 0;
-	BYTE* buffer = NULL;
 
 	WINPR_ASSERT(file);
 	WINPR_ASSERT(actual_data);
@@ -1150,7 +1155,7 @@ static UINT file_get_range(struct synthetic_file* file, UINT64 offset, UINT32 si
 			}
 		}
 
-		buffer = malloc(size);
+		BYTE* buffer = malloc(size);
 		if (!buffer)
 		{
 			error = ERROR_NOT_ENOUGH_MEMORY;
@@ -1158,6 +1163,7 @@ static UINT file_get_range(struct synthetic_file* file, UINT64 offset, UINT32 si
 		}
 		if (!ReadFile(file->fd, buffer, size, (LPDWORD)actual_size, NULL))
 		{
+			free(buffer);
 			error = GetLastError();
 			break;
 		}
@@ -1168,10 +1174,6 @@ static UINT file_get_range(struct synthetic_file* file, UINT64 offset, UINT32 si
 		         *actual_size, file->offset);
 	} while (0);
 
-	if (NO_ERROR != error)
-	{
-		free(buffer);
-	}
 	synthetic_file_read_close(file, TRUE /* (error != NO_ERROR) && (size > 0) */);
 	return error;
 }
