@@ -2033,20 +2033,20 @@ fail:
 
 static BOOL TsProxyCreateChannelWriteRequest(rdpTsg* tsg, CONTEXT_HANDLE* tunnelContext)
 {
-	size_t count = 0;
-	wStream* s = NULL;
-	rdpRpc* rpc = NULL;
+	WINPR_ASSERT(tsg);
+	WINPR_ASSERT(tunnelContext);
+
 	WLog_Print(tsg->log, WLOG_DEBUG, "TsProxyCreateChannelWriteRequest");
 
-	if (!tsg || !tsg->rpc || !tunnelContext || !tsg->Hostname)
+	if (!tsg->rpc || !tsg->Hostname)
 		return FALSE;
 
-	rpc = tsg->rpc;
-	count = _wcslen(tsg->Hostname) + 1;
+	rdpRpc* rpc = tsg->rpc;
+	const size_t count = _wcslen(tsg->Hostname) + 1;
 	if (count > UINT32_MAX)
 		return FALSE;
-	s = Stream_New(NULL, 60 + count * 2);
 
+	wStream* s = Stream_New(NULL, 60 + count * 2);
 	if (!s)
 		return FALSE;
 
@@ -2082,10 +2082,12 @@ static BOOL TsProxyCreateChannelReadResponse(wLog* log, const RPC_PDU* pdu,
                                              CONTEXT_HANDLE* channelContext, UINT32* channelId)
 {
 	BOOL rc = FALSE;
-	WLog_Print(log, WLOG_DEBUG, "TsProxyCreateChannelReadResponse");
 
-	if (!pdu)
-		return FALSE;
+	WINPR_ASSERT(log);
+	WINPR_ASSERT(pdu);
+	WINPR_ASSERT(channelId);
+
+	WLog_Print(log, WLOG_DEBUG, "TsProxyCreateChannelReadResponse");
 
 	if (!Stream_CheckAndLogRequiredLengthWLog(log, pdu->s, 28))
 		goto fail;
@@ -2110,15 +2112,15 @@ fail:
 
 static BOOL TsProxyCloseChannelWriteRequest(rdpTsg* tsg, CONTEXT_HANDLE* context)
 {
-	wStream* s = NULL;
-	rdpRpc* rpc = NULL;
+	WINPR_ASSERT(tsg);
+	WINPR_ASSERT(context);
+
 	WLog_Print(tsg->log, WLOG_DEBUG, "TsProxyCloseChannelWriteRequest");
 
-	if (!tsg || !tsg->rpc || !context)
-		return FALSE;
+	rdpRpc* rpc = tsg->rpc;
+	WINPR_ASSERT(rpc);
 
-	rpc = tsg->rpc;
-	s = Stream_New(NULL, 20);
+	wStream* s = Stream_New(NULL, 20);
 
 	if (!s)
 		return FALSE;
@@ -2166,15 +2168,15 @@ fail:
 
 static BOOL TsProxyCloseTunnelWriteRequest(rdpTsg* tsg, const CONTEXT_HANDLE* context)
 {
-	wStream* s = NULL;
-	rdpRpc* rpc = NULL;
+	WINPR_ASSERT(tsg);
+	WINPR_ASSERT(context);
+
 	WLog_Print(tsg->log, WLOG_DEBUG, "TsProxyCloseTunnelWriteRequest");
 
-	if (!tsg || !tsg->rpc || !context)
-		return FALSE;
+	rdpRpc* rpc = tsg->rpc;
+	WINPR_ASSERT(rpc);
 
-	rpc = tsg->rpc;
-	s = Stream_New(NULL, 20);
+	wStream* s = Stream_New(NULL, 20);
 
 	if (!s)
 		return FALSE;
@@ -2191,10 +2193,12 @@ fail:
 static BOOL TsProxyCloseTunnelReadResponse(wLog* log, const RPC_PDU* pdu, CONTEXT_HANDLE* context)
 {
 	BOOL rc = FALSE;
-	WLog_Print(log, WLOG_DEBUG, "TsProxyCloseTunnelReadResponse");
 
-	if (!pdu || !context)
-		return FALSE;
+	WINPR_ASSERT(log);
+	WINPR_ASSERT(pdu);
+	WINPR_ASSERT(context);
+
+	WLog_Print(log, WLOG_DEBUG, "TsProxyCloseTunnelReadResponse");
 
 	if (!Stream_CheckAndLogRequiredLengthWLog(log, pdu->s, 24))
 		goto fail;
@@ -2384,8 +2388,8 @@ BOOL tsg_recv_pdu(rdpTsg* tsg, const RPC_PDU* pdu)
 
 		case TSG_STATE_CONNECTED:
 		{
-			CONTEXT_HANDLE* TunnelContext = NULL;
-			TunnelContext = (tsg->reauthSequence) ? &tsg->NewTunnelContext : &tsg->TunnelContext;
+			CONTEXT_HANDLE* TunnelContext =
+			    (tsg->reauthSequence) ? &tsg->NewTunnelContext : &tsg->TunnelContext;
 
 			if (!TsProxyAuthorizeTunnelReadResponse(tsg, pdu))
 			{

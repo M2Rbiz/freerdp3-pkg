@@ -214,17 +214,19 @@ static BOOL freerdp_client_add_drive(rdpSettings* settings, const char* path, co
 
 	if (!path)
 		goto fail;
-	else
+
 	{
 		BOOL isSpecial = FALSE;
 		BOOL isPath = freerdp_path_valid(path, &isSpecial);
 
 		if (!isPath && !isSpecial)
+		{
+			WLog_WARN(TAG, "Invalid drive to redirect: '%s' does not exist, skipping.", path);
+			freerdp_device_free(device);
+		}
+		else if (!freerdp_device_collection_add(settings, device))
 			goto fail;
 	}
-
-	if (!freerdp_device_collection_add(settings, device))
-		goto fail;
 
 	return TRUE;
 
@@ -899,7 +901,10 @@ static BOOL read_pem_file(rdpSettings* settings, FreeRDP_Settings_Keys_String id
 	size_t length = 0;
 	char* pem = crypto_read_pem(file, &length);
 	if (!pem || (length == 0))
+	{
+		free(pem);
 		return FALSE;
+	}
 
 	BOOL rc = freerdp_settings_set_string_len(settings, id, pem, length);
 	free(pem);
@@ -1171,6 +1176,14 @@ static int freerdp_client_command_line_post_filter(void* context, COMMAND_LINE_A
 static BOOL freerdp_parse_username_ptr(const char* username, const char** user, size_t* userlen,
                                        const char** domain, size_t* domainlen)
 {
+	WINPR_ASSERT(user);
+	WINPR_ASSERT(userlen);
+	WINPR_ASSERT(domain);
+	WINPR_ASSERT(domainlen);
+
+	if (!username)
+		return FALSE;
+
 	const char* p = strchr(username, '\\');
 
 	*user = NULL;
@@ -1188,7 +1201,7 @@ static BOOL freerdp_parse_username_ptr(const char* username, const char** user, 
 		*domain = username;
 		*domainlen = length;
 	}
-	else if (username)
+	else
 	{
 		/* Do not break up the name for '@'; both credSSP and the
 		 * ClientInfo PDU expect 'user@corp.net' to be transmitted
@@ -1197,8 +1210,6 @@ static BOOL freerdp_parse_username_ptr(const char* username, const char** user, 
 		*user = username;
 		*userlen = strlen(username);
 	}
-	else
-		return FALSE;
 
 	return TRUE;
 }
@@ -1386,24 +1397,27 @@ BOOL freerdp_set_connection_type(rdpSettings* settings, UINT32 type)
 
 static UINT32 freerdp_get_keyboard_layout_for_type(const char* name, DWORD type)
 {
+	UINT32 res = 0;
 	size_t count = 0;
 	RDP_KEYBOARD_LAYOUT* layouts =
 	    freerdp_keyboard_get_layouts(RDP_KEYBOARD_LAYOUT_TYPE_STANDARD, &count);
 
 	if (!layouts || (count == 0))
-		return FALSE;
+		goto fail;
 
 	for (size_t x = 0; x < count; x++)
 	{
 		const RDP_KEYBOARD_LAYOUT* layout = &layouts[x];
 		if (option_equals(layout->name, name))
 		{
-			return layout->code;
+			res = layout->code;
+			break;
 		}
 	}
 
+fail:
 	freerdp_keyboard_layouts_free(layouts, count);
-	return 0;
+	return res;
 }
 
 static UINT32 freerdp_map_keyboard_layout_name_to_id(const char* name)
@@ -2312,7 +2326,8 @@ static int parse_codec_cache_options(rdpSettings* settings, const COMMAND_LINE_A
 	}
 	else if (option_equals(arg->Value, "nsc"))
 	{
-		freerdp_settings_set_bool(settings, FreeRDP_NSCodec, TRUE);
+		if (!freerdp_settings_set_bool(settings, FreeRDP_NSCodec, TRUE))
+			return COMMAND_LINE_ERROR;
 	}
 
 #if defined(WITH_JPEG)
@@ -2329,6 +2344,7 @@ static int parse_codec_cache_options(rdpSettings* settings, const COMMAND_LINE_A
 	}
 
 #endif
+	return 0;
 }
 #endif
 
@@ -3580,18 +3596,18 @@ static int parse_app_options(rdpSettings* settings, const COMMAND_LINE_ARGUMENT_
 		struct app_map
 		{
 			const char* name;
-			FreeRDP_Settings_Keys_String id;
+			SSIZE_T id;
 			int (*fkt)(rdpSettings* settings, const char* value);
 		};
-		const struct app_map amap[] = {
-			{ "program:", FreeRDP_RemoteApplicationProgram, parse_app_option_program },
-			{ "workdir:", FreeRDP_RemoteApplicationWorkingDir, NULL },
-			{ "name:", FreeRDP_RemoteApplicationName, NULL },
-			{ "icon:", FreeRDP_RemoteApplicationIcon, NULL },
-			{ "cmd:", FreeRDP_RemoteApplicationCmdLine, NULL },
-			{ "file:", FreeRDP_RemoteApplicationFile, NULL },
-			{ "guid:", FreeRDP_RemoteApplicationGuid, NULL },
-		};
+		const struct app_map amap[] = { { "program:", FreeRDP_RemoteApplicationProgram,
+			                              parse_app_option_program },
+			                            { "workdir:", FreeRDP_RemoteApplicationWorkingDir, NULL },
+			                            { "name:", FreeRDP_RemoteApplicationName, NULL },
+			                            { "icon:", FreeRDP_RemoteApplicationIcon, NULL },
+			                            { "cmd:", FreeRDP_RemoteApplicationCmdLine, NULL },
+			                            { "file:", FreeRDP_RemoteApplicationFile, NULL },
+			                            { "guid:", FreeRDP_RemoteApplicationGuid, NULL },
+			                            { "hidef:", FreeRDP_HiDefRemoteApp, NULL } };
 		for (size_t x = 0; x < count; x++)
 		{
 			BOOL handled = FALSE;
@@ -3605,8 +3621,12 @@ static int parse_app_options(rdpSettings* settings, const COMMAND_LINE_ARGUMENT_
 					const char* xval = &val[strlen(cur->name)];
 					if (cur->fkt)
 						rc = cur->fkt(settings, xval);
-					else if (!freerdp_settings_set_string(settings, cur->id, xval))
-						rc = COMMAND_LINE_ERROR_MEMORY;
+					else
+					{
+						const char* name = freerdp_settings_get_name_for_key(cur->id);
+						if (!freerdp_settings_set_value_for_name(settings, name, xval))
+							rc = COMMAND_LINE_ERROR_MEMORY;
+					}
 
 					handled = TRUE;
 					break;

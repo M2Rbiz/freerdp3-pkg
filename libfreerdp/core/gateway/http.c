@@ -322,8 +322,9 @@ static BOOL list_append(HttpContext* context, WINPR_FORMAT_ARG const char* str, 
 	}
 	else
 		sstr = Pragma;
-	free(context->Pragma);
+	Pragma = NULL;
 
+	free(context->Pragma);
 	context->Pragma = sstr;
 
 	rc = TRUE;
@@ -830,7 +831,10 @@ static BOOL http_response_parse_header_field(HttpResponse* response, const char*
                                              const char* value)
 {
 	BOOL status = TRUE;
-	if (!response || !name)
+
+	WINPR_ASSERT(response);
+
+	if (!name)
 		return FALSE;
 
 	if (_stricmp(name, "Content-Length") == 0)
@@ -924,6 +928,10 @@ static BOOL http_response_parse_header_field(HttpResponse* response, const char*
 			*separator = '\0';
 			CookieName = value;
 			CookieValue = separator + 1;
+
+			if (!CookieName || !CookieValue)
+				return FALSE;
+
 			if (*CookieValue == '"')
 			{
 				char* p = CookieValue;
@@ -944,9 +952,6 @@ static BOOL http_response_parse_header_field(HttpResponse* response, const char*
 				}
 				*p = '\0';
 			}
-
-			if (!CookieName || !CookieValue)
-				return FALSE;
 		}
 		else
 		{

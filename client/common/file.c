@@ -2296,12 +2296,18 @@ BOOL freerdp_client_populate_settings_from_rdp_file(const rdpFile* file, rdpSett
 			return FALSE;
 	}
 
-	if (~file->RedirectLocation)
+	if (~file->RedirectLocation && file->RedirectLocation != 0)
 	{
 		size_t count = 0;
-		char** str = CommandLineParseCommaSeparatedValuesEx(LOCATION_CHANNEL_NAME, NULL, &count);
-		const BOOL rc = freerdp_client_add_dynamic_channel(settings, count, str);
-		free(str);
+		union
+		{
+			void* pv;
+			char** str;
+			const char** cstr;
+		} cnv;
+		cnv.str = CommandLineParseCommaSeparatedValuesEx(LOCATION_CHANNEL_NAME, NULL, &count);
+		const BOOL rc = freerdp_client_add_dynamic_channel(settings, count, cnv.cstr);
+		free(cnv.pv);
 		if (!rc)
 			return FALSE;
 	}

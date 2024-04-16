@@ -549,6 +549,7 @@ static BOOL arm_pick_base64Utf16Field(const cJSON* json, const char* name, BYTE*
 	if (!output1 || !len1)
 	{
 		WLog_ERR(TAG, "error when first unbase64 for %s", name);
+		free(output1);
 		return FALSE;
 	}
 
@@ -558,6 +559,7 @@ static BOOL arm_pick_base64Utf16Field(const cJSON* json, const char* name, BYTE*
 	if (!output2 || !len2)
 	{
 		WLog_ERR(TAG, "error when decode('utf-16') for %s", name);
+		free(output2);
 		return FALSE;
 	}
 
@@ -567,6 +569,7 @@ static BOOL arm_pick_base64Utf16Field(const cJSON* json, const char* name, BYTE*
 	if (!output || !*plen)
 	{
 		WLog_ERR(TAG, "error when second unbase64 for %s", name);
+		free(output);
 		return FALSE;
 	}
 
@@ -842,7 +845,11 @@ static BOOL arm_handle_bad_request(rdpArm* arm, const HttpResponse* response, BO
 	    0)
 	{
 		*retry = TRUE;
-		WLog_DBG(TAG, "Starting your VM. It may take up to 5 minutes");
+		const cJSON* message = cJSON_GetObjectItemCaseSensitive(json, "Message");
+		if (!cJSON_IsString(message) || !message->valuestring)
+			WLog_WARN(TAG, "Starting your VM. It may take up to 5 minutes");
+		else
+			WLog_WARN(TAG, "%s", message->valuestring);
 	}
 	else
 	{

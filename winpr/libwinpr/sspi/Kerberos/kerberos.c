@@ -657,6 +657,7 @@ static BOOL kerberos_rd_tgt_token(const sspi_gss_data* token, char** target, krb
 
 		*buf++ = '@';
 		strcpy(buf, str);
+		free(str);
 		return TRUE;
 	}
 	else if (val == KRB_TGT_REP)
@@ -1303,6 +1304,9 @@ static KRB_CONTEXT* get_context(PCtxtHandle phContext)
 		return NULL;
 
 	TCHAR* name = sspi_SecureHandleGetUpperPointer(phContext);
+	if (!name)
+		return NULL;
+
 	if (_tcscmp(KERBEROS_SSP_NAME, name) != 0)
 		return NULL;
 	return sspi_SecureHandleGetLowerPointer(phContext);

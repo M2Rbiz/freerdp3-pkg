@@ -353,7 +353,6 @@ static BOOL maybe_clear_fuse_request(const void* key, void* value, void* arg)
 
 	fuse_reply_err(fuse_request->fuse_req, EIO);
 	HashTable_Remove(file_context->request_table, key);
-	free(fuse_request);
 
 	return TRUE;
 }
@@ -505,16 +504,15 @@ static void clear_no_cdi_entry(CliprdrFileContext* file_context)
 {
 	WINPR_ASSERT(file_context);
 
-	if (!file_context->clip_data_entry_without_id)
-		return;
-
 	WINPR_ASSERT(file_context->inode_table);
-
 	HashTable_Lock(file_context->inode_table);
-	clear_entry_selection(file_context->clip_data_entry_without_id);
+	if (file_context->clip_data_entry_without_id)
+	{
+		clear_entry_selection(file_context->clip_data_entry_without_id);
 
-	clip_data_entry_free(file_context->clip_data_entry_without_id);
-	file_context->clip_data_entry_without_id = NULL;
+		clip_data_entry_free(file_context->clip_data_entry_without_id);
+		file_context->clip_data_entry_without_id = NULL;
+	}
 	HashTable_Unlock(file_context->inode_table);
 }
 
@@ -555,6 +553,7 @@ static UINT prepare_clip_data_entry_with_id(CliprdrFileContext* file_context)
 	{
 		WLog_Print(file_context->log, WLOG_ERROR, "Failed to insert clipDataEntry");
 		clip_data_entry_free(clip_data_entry);
+		HashTable_Unlock(file_context->inode_table);
 		return ERROR_INTERNAL_ERROR;
 	}
 	HashTable_Unlock(file_context->inode_table);
@@ -748,7 +747,6 @@ static BOOL request_file_size_async(CliprdrFileContext* file_context, CliprdrFus
 		           "Failed to send FileContentsRequest for file \"%s\"",
 		           fuse_file->filename_with_root);
 		HashTable_Remove(file_context->request_table, (void*)(UINT_PTR)fuse_request->stream_id);
-		free(fuse_request);
 		return FALSE;
 	}
 	DEBUG_CLIPRDR(file_context->log, "Requested file size for file \"%s\" with stream id %u",
@@ -1191,18 +1189,17 @@ static UINT cliprdr_file_context_server_file_contents_response(
 		HashTable_Unlock(file_context->inode_table);
 		return CHANNEL_RC_OK;
 	}
-	HashTable_Remove(file_context->request_table,
-	                 (void*)(UINT_PTR)file_contents_response->streamId);
 
 	if (!(file_contents_response->common.msgFlags & CB_RESPONSE_OK))
 	{
 		WLog_Print(file_context->log, WLOG_WARN,
 		           "FileContentsRequests for file \"%s\" was unsuccessful",
 		           fuse_request->fuse_file->filename);
-		HashTable_Unlock(file_context->inode_table);
 
 		fuse_reply_err(fuse_request->fuse_req, EIO);
-		free(fuse_request);
+		HashTable_Remove(file_context->request_table,
+		                 (void*)(UINT_PTR)file_contents_response->streamId);
+		HashTable_Unlock(file_context->inode_table);
 		return CHANNEL_RC_OK;
 	}
 
@@ -1213,10 +1210,10 @@ static UINT cliprdr_file_context_server_file_contents_response(
 		WLog_Print(file_context->log, WLOG_WARN,
 		           "Received invalid file size for file \"%s\" from the client",
 		           fuse_request->fuse_file->filename);
-		HashTable_Unlock(file_context->inode_table);
-
 		fuse_reply_err(fuse_request->fuse_req, EIO);
-		free(fuse_request);
+		HashTable_Remove(file_context->request_table,
+		                 (void*)(UINT_PTR)file_contents_response->streamId);
+		HashTable_Unlock(file_context->inode_table);
 		return CHANNEL_RC_OK;
 	}
 
@@ -1258,7 +1255,8 @@ static UINT cliprdr_file_context_server_file_contents_response(
 			break;
 	}
 
-	free(fuse_request);
+	HashTable_Remove(file_context->request_table,
+	                 (void*)(UINT_PTR)file_contents_response->streamId);
 
 	return CHANNEL_RC_OK;
 }
@@ -1806,7 +1804,7 @@ static CliprdrFuseFile* get_parent_directory(CliprdrFileContext* file_context, c
 
 static BOOL set_selection_for_clip_data_entry(CliprdrFileContext* file_context,
                                               CliprdrFuseClipDataEntry* clip_data_entry,
-                                              FILEDESCRIPTORW* files, UINT32 n_files)
+                                              const FILEDESCRIPTORW* files, UINT32 n_files)
 {
 	CliprdrFuseFile* clip_data_dir = NULL;
 
@@ -1826,7 +1824,7 @@ static BOOL set_selection_for_clip_data_entry(CliprdrFileContext* file_context,
 	// NOLINTBEGIN(clang-analyzer-unix.Malloc) HashTable_Insert owns fuse_file
 	for (UINT32 i = 0; i < n_files; ++i)
 	{
-		FILEDESCRIPTORW* file = &files[i];
+		const FILEDESCRIPTORW* file = &files[i];
 		CliprdrFuseFile* fuse_file = NULL;
 		char* filename = NULL;
 		size_t path_length = 0;
@@ -2016,6 +2014,7 @@ BOOL cliprdr_file_context_update_server_data(CliprdrFileContext* file_context, w
 	}
 	HashTable_Unlock(file_context->inode_table);
 
+	free(files);
 	return TRUE;
 #else
 	return FALSE;
@@ -2417,9 +2416,16 @@ CliprdrFileContext* cliprdr_file_context_new(void* context)
 	if (!file->inode_table || !file->clip_data_table || !file->request_table)
 		goto fail;
 
-	wObject* ctobj = HashTable_ValueObject(file->clip_data_table);
-	WINPR_ASSERT(ctobj);
-	ctobj->fnObjectFree = clip_data_entry_free;
+	{
+		wObject* ctobj = HashTable_ValueObject(file->request_table);
+		WINPR_ASSERT(ctobj);
+		ctobj->fnObjectFree = free;
+	}
+	{
+		wObject* ctobj = HashTable_ValueObject(file->clip_data_table);
+		WINPR_ASSERT(ctobj);
+		ctobj->fnObjectFree = clip_data_entry_free;
+	}
 
 	file->root_dir = fuse_file_new_root(file);
 	if (!file->root_dir)

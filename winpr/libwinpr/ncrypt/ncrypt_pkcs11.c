@@ -141,6 +141,7 @@ static BOOL attributes_have_unallocated_buffers(CK_ATTRIBUTE_PTR attributes, CK_
 
 static BOOL attribute_allocate_attribute_array(CK_ATTRIBUTE_PTR attribute)
 {
+	WINPR_ASSERT(attribute);
 	attribute->pValue = calloc(attribute->ulValueLen, sizeof(void*));
 	return !!attribute->pValue;
 }
@@ -1189,11 +1190,7 @@ static SECURITY_STATUS initialize_pkcs11(HANDLE handle,
 	ret = (NCryptP11ProviderHandle*)ncrypt_new_handle(
 	    WINPR_NCRYPT_PROVIDER, sizeof(*ret), NCryptP11GetProperty, NCryptP11StorageProvider_dtor);
 	if (!ret)
-	{
-		if (handle)
-			FreeLibrary(handle);
 		return NTE_NO_MEMORY;
-	}
 
 	ret->library = handle;
 	ret->baseProvider.enumKeysFn = NCryptP11EnumKeys;
@@ -1290,6 +1287,8 @@ SECURITY_STATUS NCryptOpenP11StorageProviderEx(NCRYPT_PROV_HANDLE* phProvider,
 		return ERROR_SUCCESS;
 
 	out_load_library:
+		if (library)
+			FreeLibrary(library);
 		modulePaths++;
 	}
 

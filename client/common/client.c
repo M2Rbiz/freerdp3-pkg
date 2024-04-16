@@ -1574,8 +1574,9 @@ BOOL freerdp_client_send_button_event(rdpClientContext* cctx, BOOL relative, UIN
 
 	WINPR_ASSERT(cctx);
 
-	const BOOL relativeInput = freerdp_client_use_relative_mouse_events(cctx);
-	if (relative && relativeInput)
+	const BOOL haveRelative =
+	    freerdp_settings_get_bool(cctx->context.settings, FreeRDP_HasRelativeMouseEvent);
+	if (relative && haveRelative)
 	{
 		return freerdp_input_send_rel_mouse_event(cctx->context.input, mflags, x, y);
 	}
@@ -1585,7 +1586,7 @@ BOOL freerdp_client_send_button_event(rdpClientContext* cctx, BOOL relative, UIN
 	{
 		UINT64 flags = 0;
 
-		if (cctx->mouse_grabbed && relativeInput)
+		if (cctx->mouse_grabbed && freerdp_client_use_relative_mouse_events(cctx))
 			flags |= AINPUT_FLAGS_HAVE_REL;
 
 		if (relative)
@@ -1630,7 +1631,9 @@ BOOL freerdp_client_send_extended_button_event(rdpClientContext* cctx, BOOL rela
 	BOOL handled = FALSE;
 	WINPR_ASSERT(cctx);
 
-	if (relative && freerdp_client_use_relative_mouse_events(cctx))
+	const BOOL haveRelative =
+	    freerdp_settings_get_bool(cctx->context.settings, FreeRDP_HasRelativeMouseEvent);
+	if (relative && haveRelative)
 	{
 		return freerdp_input_send_rel_mouse_event(cctx->context.input, mflags, x, y);
 	}
@@ -2147,8 +2150,8 @@ BOOL freerdp_client_use_relative_mouse_events(rdpClientContext* ccontext)
 	const rdpSettings* settings = ccontext->context.settings;
 	const BOOL useRelative = freerdp_settings_get_bool(settings, FreeRDP_MouseUseRelativeMove);
 	const BOOL haveRelative = freerdp_settings_get_bool(settings, FreeRDP_HasRelativeMouseEvent);
-	BOOL ainput = false;
-#if defined(CHANNEL_AINPUT_SERVER)
+	BOOL ainput = FALSE;
+#if defined(CHANNEL_AINPUT_CLIENT)
 	ainput = ccontext->ainput != NULL;
 #endif
 

@@ -1114,10 +1114,9 @@ BOOL license_generate_hwid(rdpLicense* license)
 		const char* hostname = license->rdp->settings->ClientHostname;
 		wStream* s = Stream_StaticInit(&buffer, license->HardwareId, 4);
 		Stream_Write_UINT32(s, license->PlatformId);
-		Stream_Free(s, TRUE);
 
 		hashTarget = (const BYTE*)hostname;
-		targetLen = strlen(hostname);
+		targetLen = hostname ? strlen(hostname) : 0;
 	}
 
 	/* Allow FIPS override for use of MD5 here, really this does not have to be MD5 as we are just
@@ -1723,14 +1722,15 @@ void license_free_scope_list(SCOPE_LIST* scopeList)
 BOOL license_send_license_info(rdpLicense* license, const LICENSE_BLOB* calBlob,
                                const BYTE* signature, size_t signature_length)
 {
-	wStream* s = license_send_stream_init(license);
-
 	WINPR_ASSERT(calBlob);
 	WINPR_ASSERT(signature);
 	WINPR_ASSERT(license->certificate);
 
 	const rdpCertInfo* info = freerdp_certificate_get_info(license->certificate);
+	if (!info)
+		return FALSE;
 
+	wStream* s = license_send_stream_init(license);
 	if (!s)
 		return FALSE;
 
@@ -2802,18 +2802,25 @@ BOOL license_server_send_request(rdpLicense* license)
 	return license_set_state(license, LICENSE_STATE_REQUEST);
 }
 
-static BOOL license_set_string(const char* what, const char* value, WCHAR** dst, UINT32* dstLen)
+static BOOL license_set_string(const char* what, const char* value, BYTE** bdst, UINT32* dstLen)
 {
 	WINPR_ASSERT(what);
 	WINPR_ASSERT(value);
-	WINPR_ASSERT(dst);
+	WINPR_ASSERT(bdst);
 	WINPR_ASSERT(dstLen);
 
-	size_t len = 0;
-	*dst = (BYTE*)ConvertUtf8ToWCharAlloc(value, &len);
-	if (!*dst || (len > UINT32_MAX / sizeof(WCHAR)))
+	union
 	{
-		WLog_ERR(TAG, "license->ProductInfo: %s == %p || %" PRIu32 " > UINT32_MAX", what, *dst,
+		WCHAR** w;
+		BYTE** b;
+	} cnv;
+	cnv.b = bdst;
+
+	size_t len = 0;
+	*cnv.w = ConvertUtf8ToWCharAlloc(value, &len);
+	if (!*cnv.w || (len > UINT32_MAX / sizeof(WCHAR)))
+	{
+		WLog_ERR(TAG, "license->ProductInfo: %s == %p || %" PRIu32 " > UINT32_MAX", what, *cnv.w,
 		         len);
 		return FALSE;
 	}

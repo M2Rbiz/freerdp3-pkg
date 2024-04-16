@@ -252,7 +252,7 @@ static BOOL shadow_client_context_new(freerdp_peer* peer, rdpContext* context)
 		goto fail;
 
 	region16_init(&(client->invalidRegion));
-	client->vcm = WTSOpenServerA(peer->context);
+	client->vcm = WTSOpenServerA((LPSTR)peer->context);
 
 	if (!client->vcm || client->vcm == INVALID_HANDLE_VALUE)
 		goto fail;
@@ -1444,7 +1444,6 @@ static BOOL shadow_client_send_surface_bits(rdpShadowClient* client, BYTE* pSrcD
 			const RFX_MESSAGE* msg = rfx_message_list_get(messages, i);
 			if (!rfx_write_message(encoder->rfx, s, msg))
 			{
-				rfx_message_list_free(messages);
 				WLog_ERR(TAG, "rfx_write_message failed");
 				ret = FALSE;
 				break;
@@ -1982,7 +1981,10 @@ static INLINE BOOL shadow_client_no_surface_update(rdpShadowClient* client,
 	server = client->server;
 	WINPR_ASSERT(server);
 	surface = client->inLobby ? server->lobby : server->surface;
-	return shadow_client_surface_update(client, &(surface->invalidRegion));
+	EnterCriticalSection(&surface->lock);
+	const BOOL rc = shadow_client_surface_update(client, &(surface->invalidRegion));
+	LeaveCriticalSection(&surface->lock);
+	return rc;
 }
 
 static int shadow_client_subsystem_process_message(rdpShadowClient* client, wMessage* message)

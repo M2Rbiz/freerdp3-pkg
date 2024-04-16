@@ -59,12 +59,6 @@ endif()
 # Include our extra modules
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/)
 
-if((CMAKE_SYSTEM_NAME MATCHES "WindowsStore") AND (CMAKE_SYSTEM_VERSION MATCHES "10.0"))
-	set(UWP 1)
-	add_definitions("-D_UWP")
-	set(CMAKE_WINDOWS_VERSION "WIN10")
-endif()
-
 # Check for cmake compatibility (enable/disable features)
 include(CheckCmakeCompat)
 
@@ -74,7 +68,6 @@ if(WITH_CLANG_FORMAT)
 endif()
 
 include(CompilerFlags)
-include(DetectBSD)
 include(CheckIncludeFiles)
 include(CheckLibraryExists)
 include(CheckSymbolExists)
@@ -98,7 +91,7 @@ if ($ENV{BUILD_NUMBER})
 endif()
 
 set(VERSION_REGEX "^(.*)([0-9]+)\\.([0-9]+)\\.([0-9]+)-?(.*)")
-set(RAW_VERSION_STRING "3.4.0")
+set(RAW_VERSION_STRING "3.5.0")
 if(EXISTS "${PROJECT_SOURCE_DIR}/.source_tag")
 	file(READ ${PROJECT_SOURCE_DIR}/.source_tag RAW_VERSION_STRING)
 elseif(USE_VERSION_FROM_GIT_TAG)
@@ -212,16 +205,6 @@ endif(EXPORT_ALL_SYMBOLS)
 if(FREEBSD)
 	find_path(EPOLLSHIM_INCLUDE_DIR NAMES sys/epoll.h sys/timerfd.h HINTS /usr/local/include/libepoll-shim)
 	find_library(EPOLLSHIM_LIBS NAMES epoll-shim libepoll-shim HINTS /usr/local/lib)
-endif()
-
-# Enable 64bit file support on linux and FreeBSD.
-if("${CMAKE_SYSTEM_NAME}" MATCHES "Linux" OR FREEBSD)
-	add_definitions("-D_FILE_OFFSET_BITS=64")
-endif()
-
-# Use Standard conforming getpwnam_r() on Solaris.
-if("${CMAKE_SYSTEM_NAME}" MATCHES "SunOS")
-	add_definitions("-D_POSIX_PTHREAD_SEMANTICS")
 endif()
 
 # Compiler-specific flags
@@ -384,14 +367,6 @@ if(WIN32)
 
 	set(CMAKE_DL_LIBS "")
 	set(CMAKE_USE_RELATIVE_PATH ON)
-	if (${CMAKE_GENERATOR} MATCHES "NMake Makefile*" OR ${CMAKE_GENERATOR} MATCHES "Ninja*" OR ${CMAKE_GENERATOR} MATCHES "Unix Makefiles")
-		set(CMAKE_PDB_BINARY_DIR ${PROJECT_BINARY_DIR})
-	elseif (${CMAKE_GENERATOR} MATCHES "Visual Studio*")
-		set(CMAKE_PDB_BINARY_DIR "${PROJECT_BINARY_DIR}/\${CMAKE_INSTALL_CONFIG_NAME}")
-	else()
-		message(FATAL_ERROR "Unknown generator ${CMAKE_GENERATOR}")
-	endif()
-
 	string(TIMESTAMP RC_VERSION_YEAR "%Y")
 
 	if(NOT DEFINED CMAKE_WINDOWS_VERSION)
@@ -528,10 +503,6 @@ set(VAAPI_FEATURE_TYPE "OPTIONAL")
 set(VAAPI_FEATURE_PURPOSE "multimedia")
 set(VAAPI_FEATURE_DESCRIPTION "VA-API hardware acceleration for video playback")
 
-set(IPP_FEATURE_TYPE "OPTIONAL")
-set(IPP_FEATURE_PURPOSE "performance")
-set(IPP_FEATURE_DESCRIPTION "Intel Integrated Performance Primitives library")
-
 set(OPENH264_FEATURE_TYPE "OPTIONAL")
 set(OPENH264_FEATURE_PURPOSE "codec")
 set(OPENH264_FEATURE_DESCRIPTION "use OpenH264 library")
@@ -660,13 +631,6 @@ if (WITH_OPENH264 AND NOT OPENH264_FOUND)
 endif()
 set(WITH_OPENH264 ${OPENH264_FOUND})
 
-if(TARGET_ARCH MATCHES "x86|x64")
-	if (NOT APPLE)
-		# Intel Performance Primitives
-		find_feature(IPP ${IPP_FEATURE_TYPE} ${IPP_FEATURE_PURPOSE} ${IPP_FEATURE_DESCRIPTION})
-	endif()
-endif()
-
 if(OPENSSL_FOUND)
 	add_definitions("-DWITH_OPENSSL")
 	message(STATUS "Using OpenSSL Version: ${OPENSSL_VERSION}")
@@ -794,18 +758,6 @@ endif()
 
 
 add_subdirectory(libfreerdp)
-
-if(BSD)
-	if(IS_DIRECTORY /usr/local/include)
-		include_directories(/usr/local/include)
-		link_directories(/usr/local/lib)
-	endif()
-	if(OPENBSD)
-		if(IS_DIRECTORY /usr/X11R6/include)
-			include_directories(/usr/X11R6/include)
-		endif()
-	endif()
-endif()
 
 if(WITH_CHANNELS)
 	add_subdirectory(channels)

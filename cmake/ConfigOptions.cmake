@@ -24,7 +24,6 @@ option(WITH_GPROF "Compile with GProf profiler." OFF)
 
 option(WITH_SSE2 "Enable SSE2 optimization." OFF)
 option(WITH_NEON "Enable NEON optimization." OFF)
-option(WITH_IPP "Use Intel Performance Primitives." OFF)
 
 option(WITH_JPEG "Use JPEG decoding." OFF)
 
@@ -80,6 +79,7 @@ endif()
 option(WITH_THIRD_PARTY "Build third-party components" OFF)
 
 option(WITH_CLIENT_INTERFACE "Build clients as a library with an interface" OFF)
+CMAKE_DEPENDENT_OPTION(CLIENT_INTERFACE_SHARED "Build clients as a shared library with an interface" OFF "WITH_CLIENT_INTERFACE" OFF)
 option(WITH_SERVER_INTERFACE "Build servers as a library with an interface" ON)
 
 option(WITH_DEBUG_ALL "Print all debug messages." OFF)

@@ -992,8 +992,14 @@ static LONG WINAPI PCSC_SCardListReadersW(SCARDCONTEXT hContext, LPCWSTR mszGrou
 			return SCARD_E_NO_MEMORY;
 	}
 
-	status =
-	    PCSC_SCardListReaders_Internal(hContext, mszGroupsA, (LPSTR*)&mszReadersA, pcchReaders);
+	union
+	{
+		LPSTR* ppc;
+		LPSTR pc;
+	} cnv;
+	cnv.ppc = &mszReadersA;
+
+	status = PCSC_SCardListReaders_Internal(hContext, mszGroupsA, cnv.pc, pcchReaders);
 	if (status == SCARD_S_SUCCESS)
 	{
 		size_t size = 0;
@@ -2380,7 +2386,10 @@ static LONG WINAPI PCSC_SCardGetAttrib_Internal(SCARDHANDLE hCard, DWORD dwAttrI
 			status = g_PCSC.pfnSCardGetAttrib(hCard, pcsc_dwAttrId, tmp, &pcsc_cbAttrLen);
 
 			if (status != SCARD_S_SUCCESS)
+			{
 				free(tmp);
+				tmp = NULL;
+			}
 			else
 				PCSC_AddMemoryBlock(hContext, tmp);
 			*(BYTE**)pbAttr = tmp;
@@ -2768,6 +2777,9 @@ static LONG WINAPI PCSC_SCardReadCacheA(SCARDCONTEXT hContext, UUID* CardIdentif
 {
 	PCSC_CACHE_ITEM* data = NULL;
 	PCSC_SCARDCONTEXT* ctx = PCSC_GetCardContextData(hContext);
+	if (!ctx)
+		return SCARD_E_INVALID_HANDLE;
+
 	char* id = card_id_and_name_a(CardIdentifier, LookupName);
 
 	data = HashTable_GetItemValue(ctx->cache, id);
@@ -2811,6 +2823,9 @@ static LONG WINAPI PCSC_SCardReadCacheW(SCARDCONTEXT hContext, UUID* CardIdentif
 {
 	PCSC_CACHE_ITEM* data = NULL;
 	PCSC_SCARDCONTEXT* ctx = PCSC_GetCardContextData(hContext);
+	if (!ctx)
+		return SCARD_E_INVALID_HANDLE;
+
 	char* id = card_id_and_name_w(CardIdentifier, LookupName);
 
 	data = HashTable_GetItemValue(ctx->cache, id);
