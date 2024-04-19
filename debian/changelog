@@ -1,7 +1,16 @@
-freerdp3 (3.5.0+dfsg1-1) UNRELEASED; urgency=medium
+freerdp3 (3.5.0+dfsg1-1) unstable; urgency=medium
 
   * Team upload
-  * New upstream release
+  * New upstream release (LP: #2061907)
+    - CVE-2024-32039 [Moderate] Integer overflow & OutOfBound Write in
+      clear_decompress_residual_data
+    - CVE-2024-32040 [Low] integer underflow in nsc_rle_decode
+    - CVE-2024-32041 [Low] OutOfBound Read in zgfx_decompress_segment
+    - CVE-2024-32458 [Low] OutOfBound Read in planar_skip_plane_rle
+    - CVE-2024-32459 [Low] OutOfBound Read in ncrush_decompress
+    - CVE-2024-32460 [Low] OutOfBound Read in interleaved_decompress
+  * Add freerdp3-dev Depends: libcjson-dev, libfuse3-dev
+  * Release to unstable
 
  -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 15 Mar 2024 06:36:44 -0400
 
