@@ -110,4 +110,5 @@ libfreerdp-client3.so.3 libfreerdp-client3-3 #MINVER#
  msusb_msinterface_replace@Base 3.0.0
  msusb_msinterface_write@Base 3.0.0
  msusb_mspipes_replace@Base 3.0.0
+ rail_handshake_ex_flags_to_string@Base 3.5.0
  rdpgfx_client_context_free@Base 3.0.0

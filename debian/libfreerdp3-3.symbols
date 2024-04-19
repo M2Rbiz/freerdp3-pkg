@@ -473,6 +473,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_rdp_version_string@Base 3.0.0
  freerdp_rdpdr_dtyp_string@Base 3.0.0
  freerdp_read_four_byte_float@Base 3.0.0
+ freerdp_read_four_byte_float_exp@Base 3.5.0
  freerdp_read_four_byte_signed_integer@Base 3.0.0
  freerdp_reconnect@Base 3.0.0
  freerdp_register_addin_provider@Base 3.0.0

@@ -27,6 +27,7 @@ libfreerdp-server3.so.3 libfreerdp-server3-3 #MINVER#
  location_server_context_new@Base 3.0.0
  mouse_cursor_server_context_free@Base 3.0.0
  mouse_cursor_server_context_new@Base 3.0.0
+ rail_handshake_ex_flags_to_string@Base 3.5.0
  rail_server_context_free@Base 3.0.0
  rail_server_context_new@Base 3.0.0
  rail_server_handle_messages@Base 3.0.0
