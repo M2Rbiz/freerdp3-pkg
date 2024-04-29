@@ -1,7 +1,12 @@
-freerdp3 (3.5.1+dfsg1-1) UNRELEASED; urgency=medium
+freerdp3 (3.5.1+dfsg1-1) unstable; urgency=high
 
   [ Jeremy Bícha ]
-  * New upstream release
+  * New upstream release (Closes: #1069752)
+    - CVE-2024-32658
+    - CVE-2024-32659
+    - CVE-2024-32660
+    - CVE-2024-32661
+    - CVE-2024-32662
   * Fix typo in enabling smartcard emulation
   * Update symbols files
   * Set symbols check level to 4
@@ -9,8 +14,10 @@ freerdp3 (3.5.1+dfsg1-1) UNRELEASED; urgency=medium
   [ Bernhard Miklautz ]
   * Update symbol files
   * debian/[control|rules]: enable WEBP, JPEG and PNG support for clipboard
+  * debian/copyright[.in]: update copyright files
+  * debian/control: update pkg-config binary package name
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 29 Apr 2024 09:21:55 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 29 Apr 2024 14:50:09 -0400
 
 freerdp3 (3.5.0+dfsg1-1) unstable; urgency=medium
 
