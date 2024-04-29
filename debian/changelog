@@ -1,12 +1,19 @@
+freerdp3 (3.5.1+dfsg1-2) UNRELEASED; urgency=medium
+
+  [ Bernhard Miklautz ]
+  * Enable proxy support
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 29 Apr 2024 15:07:11 -0400
+
 freerdp3 (3.5.1+dfsg1-1) unstable; urgency=high
 
   [ Jeremy Bícha ]
   * New upstream release (Closes: #1069752)
-    - CVE-2024-32658
-    - CVE-2024-32659
-    - CVE-2024-32660
-    - CVE-2024-32661
-    - CVE-2024-32662
+    - CVE-2024-32658 [Low] ExtractRunLengthRegular* out of bound read
+    - CVE-2024-32659 [Low] freerdp_image_copy out of bound read
+    - CVE-2024-32660 [Low] zgfx_decompress out of memory
+    - CVE-2024-32661 [Low] rdp_write_logon_info_v1 NULL access
+    - CVE-2024-32662 [Low] rdp_redirection_read_base64_wchar out of bound read
   * Fix typo in enabling smartcard emulation
   * Update symbols files
   * Set symbols check level to 4
