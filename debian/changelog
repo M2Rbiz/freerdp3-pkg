@@ -1,13 +1,14 @@
-freerdp3 (3.5.0+dfsg1-2) UNRELEASED; urgency=medium
+freerdp3 (3.5.1+dfsg1-1) UNRELEASED; urgency=medium
+
+  [ Jeremy Bícha ]
+  * New upstream release
+  * Fix typo in enabling smartcard emulation
+  * Update symbols files
+  * Set symbols check level to 4
 
   [ Bernhard Miklautz ]
   * Update symbol files
   * debian/[control|rules]: enable WEBP, JPEG and PNG support for clipboard
-
-  [ Jeremy Bícha ]
-  * Fix typo in enabling smartcard emulation
-  * Update symbols files
-  * Set symbols check level to 4
 
  -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 29 Apr 2024 09:21:55 -0400
 
