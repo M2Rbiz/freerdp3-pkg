@@ -797,9 +797,11 @@ static INLINE BOOL update_write_4byte_unsigned(wStream* s, UINT32 value)
 
 	return TRUE;
 }
+
 static INLINE BOOL update_read_delta(wStream* s, INT32* value)
 {
 	BYTE byte = 0;
+	UINT32 uvalue = 0;
 
 	if (!Stream_CheckAndLogRequiredLength(TAG, s, 1))
 		return FALSE;
@@ -807,9 +809,9 @@ static INLINE BOOL update_read_delta(wStream* s, INT32* value)
 	Stream_Read_UINT8(s, byte);
 
 	if (byte & 0x40)
-		*value = (byte | ~0x3F);
+		uvalue = (byte | ~0x3F);
 	else
-		*value = (byte & 0x3F);
+		uvalue = (byte & 0x3F);
 
 	if (byte & 0x80)
 	{
@@ -817,8 +819,9 @@ static INLINE BOOL update_read_delta(wStream* s, INT32* value)
 			return FALSE;
 
 		Stream_Read_UINT8(s, byte);
-		*value = (*value << 8) | byte;
+		uvalue = (uvalue << 8) | byte;
 	}
+	*value = (INT32)uvalue;
 
 	return TRUE;
 }
@@ -2171,7 +2174,9 @@ static BOOL update_read_ellipse_cb_order(const char* orderName, wStream* s,
 		return TRUE;
 	return FALSE;
 }
+
 /* Secondary Drawing Orders */
+WINPR_ATTR_MALLOC(free_cache_bitmap_order, 2)
 static CACHE_BITMAP_ORDER* update_read_cache_bitmap_order(rdpUpdate* update, wStream* s,
                                                           BOOL compressed, UINT16 flags)
 {
@@ -2290,6 +2295,7 @@ BOOL update_write_cache_bitmap_order(wStream* s, const CACHE_BITMAP_ORDER* cache
 	return TRUE;
 }
 
+WINPR_ATTR_MALLOC(free_cache_bitmap_v2_order, 2)
 static CACHE_BITMAP_V2_ORDER* update_read_cache_bitmap_v2_order(rdpUpdate* update, wStream* s,
                                                                 BOOL compressed, UINT16 flags)
 {
@@ -2466,6 +2472,8 @@ BOOL update_write_cache_bitmap_v2_order(wStream* s, CACHE_BITMAP_V2_ORDER* cache
 	cache_bitmap_v2->compressed = compressed;
 	return TRUE;
 }
+
+WINPR_ATTR_MALLOC(free_cache_bitmap_v3_order, 2)
 static CACHE_BITMAP_V3_ORDER* update_read_cache_bitmap_v3_order(rdpUpdate* update, wStream* s,
                                                                 UINT16 flags)
 {
@@ -2571,6 +2579,8 @@ BOOL update_write_cache_bitmap_v3_order(wStream* s, CACHE_BITMAP_V3_ORDER* cache
 	Stream_Write(s, bitmapData->data, bitmapData->length);
 	return TRUE;
 }
+
+WINPR_ATTR_MALLOC(free_cache_color_table_order, 2)
 static CACHE_COLOR_TABLE_ORDER* update_read_cache_color_table_order(rdpUpdate* update, wStream* s,
                                                                     UINT16 flags)
 {

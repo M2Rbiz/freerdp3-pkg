@@ -1,3 +1,14 @@
+freerdp3 (3.5.1+dfsg1-0ubuntu1) noble-security; urgency=medium
+
+  * SECURITY UPDATE: updated to 3.5.1 to fix multiple security issues
+    - CVE-2024-32658 [Low] ExtractRunLengthRegular* out of bound read
+    - CVE-2024-32659 [Low] freerdp_image_copy out of bound read
+    - CVE-2024-32660 [Low] zgfx_decompress out of memory
+    - CVE-2024-32661 [Low] rdp_write_logon_info_v1 NULL access
+    - CVE-2024-32662 [Low] rdp_redirection_read_base64_wchar out of bound read
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Mon, 29 Apr 2024 10:25:11 -0400
+
 freerdp3 (3.5.0+dfsg1-0ubuntu1) noble; urgency=medium
 
   * New upstream release (LP: #2061907)

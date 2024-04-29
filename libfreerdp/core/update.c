@@ -2031,7 +2031,9 @@ static BOOL update_send_cache_brush(rdpContext* context, const CACHE_BRUSH_ORDER
 		return FALSE;
 
 	const size_t em = Stream_GetPosition(s);
-	WINPR_ASSERT(em > bm + 13);
+	if (em <= bm + 13)
+		return FALSE;
+
 	const size_t orderLength = (em - bm) - 13;
 	WINPR_ASSERT(orderLength <= UINT16_MAX);
 	Stream_SetPosition(s, bm);
@@ -3299,6 +3301,9 @@ void update_free(rdpUpdate* update)
 
 		MessageQueue_Free(up->queue);
 		DeleteCriticalSection(&up->mux);
+
+		if (up->us)
+			Stream_Free(up->us, TRUE);
 		free(update);
 	}
 }
@@ -3328,7 +3333,9 @@ BOOL update_begin_paint(rdpUpdate* update)
 
 	/* Reset the invalid regions, we start a new frame here. */
 	rdpGdi* gdi = update->context->gdi;
-	WINPR_ASSERT(gdi);
+	if (!gdi)
+		return FALSE;
+
 	if (gdi->hdc && gdi->primary && gdi->primary->hdc)
 	{
 		HGDI_WND hwnd = gdi->primary->hdc->hwnd;
