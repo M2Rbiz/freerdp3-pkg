@@ -500,12 +500,12 @@ static BOOL clear_decompress_subcodecs_data(CLEAR_CONTEXT* clear, wStream* s,
 		{
 			case 0: /* Uncompressed */
 			{
-				UINT32 nSrcStep = width * FreeRDPGetBytesPerPixel(PIXEL_FORMAT_BGR24);
-				UINT32 nSrcSize = nSrcStep * height;
+				const UINT32 nSrcStep = width * FreeRDPGetBytesPerPixel(PIXEL_FORMAT_BGR24);
+				const size_t nSrcSize = 1ull * nSrcStep * height;
 
 				if (bitmapDataByteCount != nSrcSize)
 				{
-					WLog_ERR(TAG, "bitmapDataByteCount %" PRIu32 " != nSrcSize %" PRIu32 "",
+					WLog_ERR(TAG, "bitmapDataByteCount %" PRIu32 " != nSrcSize %" PRIuz "",
 					         bitmapDataByteCount, nSrcSize);
 					return FALSE;
 				}
@@ -798,10 +798,16 @@ static BOOL clear_decompress_bands_data(CLEAR_CONTEXT* clear, wStream* s, UINT32
 					count = (vBarPixelCount > y) ? (vBarPixelCount - y) : 0;
 
 				if (count > 0)
-					pSrcPixel =
-					    &vBarShortEntry
-					         ->pixels[(y - vBarYOn) * FreeRDPGetBytesPerPixel(clear->format)];
-
+				{
+					const size_t offset =
+					    (1ull * y - vBarYOn) * FreeRDPGetBytesPerPixel(clear->format);
+					pSrcPixel = &vBarShortEntry->pixels[offset];
+					if (offset + count > vBarShortEntry->count)
+					{
+						WLog_ERR(TAG, "offset + count > vBarShortEntry->count");
+						return FALSE;
+					}
+				}
 				for (UINT32 x = 0; x < count; x++)
 				{
 					UINT32 color = 0;
@@ -1169,7 +1175,10 @@ CLEAR_CONTEXT* clear_context_new(BOOL Compressor)
 
 	return clear;
 error_nsc:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	clear_context_free(clear);
+	WINPR_PRAGMA_DIAG_POP
 	return NULL;
 }
 
