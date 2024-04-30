@@ -1,7 +1,8 @@
 Source: freerdp3
 Section: x11
 Priority: optional
-Maintainer: Debian Remote Maintainers <debian-remote@lists.debian.org>
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+XSBC-Original-Maintainer: Debian Remote Maintainers <debian-remote@lists.debian.org>
 Uploaders:
  Mike Gabriel <sunweaver@debian.org>,
  Bernhard Miklautz <bernhard.miklautz@shacknet.at>,
