@@ -1,3 +1,9 @@
+freerdp3 (3.5.1+dfsg1-4) unstable; urgency=medium
+
+  * Enable build time tests (LP: #2058401)
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Tue, 21 May 2024 11:56:19 -0400
+
 freerdp3 (3.5.1+dfsg1-3) unstable; urgency=high
 
   [ Bernhard Miklautz ]
