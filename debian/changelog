@@ -1,3 +1,11 @@
+freerdp3 (3.5.1+dfsg1-5~bpo12+1) bookworm-backports; urgency=medium
+
+  * Rebuild for bookworm-backports.
+  * Add myself to Uploaders.
+  * Restrict build to architectures not affected by time64_t transition.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 24 Jun 2024 17:42:20 +0300
+
 freerdp3 (3.5.1+dfsg1-5) unstable; urgency=medium
 
   * Add patch to skip a test that fails on 32-bit arm (Closes: #1071949)
