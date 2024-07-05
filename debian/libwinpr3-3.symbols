@@ -908,6 +908,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  SetStdHandle@Base 3.0.0
  SetStdHandleEx@Base 3.0.0
  SetSystemTime@Base 3.0.0
+ SetThreadPriority@Base 3.6.2
  SetTimeZoneInformation@Base 3.0.0
  SetUnhandledExceptionFilter@Base 3.0.0
  SetWaitableTimer@Base 3.0.0
@@ -1001,6 +1002,45 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  UuidToStringA@Base 3.0.0
  UuidToStringW@Base 3.0.0
  ValidFileNameComponent@Base 3.0.0
+ WINPR_JSON_AddArrayToObject@Base 3.6.2
+ WINPR_JSON_AddBoolToObject@Base 3.6.2
+ WINPR_JSON_AddFalseToObject@Base 3.6.2
+ WINPR_JSON_AddNullToObject@Base 3.6.2
+ WINPR_JSON_AddNumberToObject@Base 3.6.2
+ WINPR_JSON_AddObjectToObject@Base 3.6.2
+ WINPR_JSON_AddStringToObject@Base 3.6.2
+ WINPR_JSON_AddTrueToObject@Base 3.6.2
+ WINPR_JSON_CreateArray@Base 3.6.2
+ WINPR_JSON_CreateBool@Base 3.6.2
+ WINPR_JSON_CreateFalse@Base 3.6.2
+ WINPR_JSON_CreateNull@Base 3.6.2
+ WINPR_JSON_CreateNumber@Base 3.6.2
+ WINPR_JSON_CreateObject@Base 3.6.2
+ WINPR_JSON_CreateString@Base 3.6.2
+ WINPR_JSON_CreateTrue@Base 3.6.2
+ WINPR_JSON_Delete@Base 3.6.2
+ WINPR_JSON_GetArrayItem@Base 3.6.2
+ WINPR_JSON_GetArraySize@Base 3.6.2
+ WINPR_JSON_GetErrorPtr@Base 3.6.2
+ WINPR_JSON_GetNumberValue@Base 3.6.2
+ WINPR_JSON_GetObjectItem@Base 3.6.2
+ WINPR_JSON_GetObjectItemCaseSensitive@Base 3.6.2
+ WINPR_JSON_GetStringValue@Base 3.6.2
+ WINPR_JSON_HasObjectItem@Base 3.6.2
+ WINPR_JSON_IsArray@Base 3.6.2
+ WINPR_JSON_IsBool@Base 3.6.2
+ WINPR_JSON_IsFalse@Base 3.6.2
+ WINPR_JSON_IsInvalid@Base 3.6.2
+ WINPR_JSON_IsNull@Base 3.6.2
+ WINPR_JSON_IsNumber@Base 3.6.2
+ WINPR_JSON_IsObject@Base 3.6.2
+ WINPR_JSON_IsString@Base 3.6.2
+ WINPR_JSON_IsTrue@Base 3.6.2
+ WINPR_JSON_Parse@Base 3.6.2
+ WINPR_JSON_ParseWithLength@Base 3.6.2
+ WINPR_JSON_Print@Base 3.6.2
+ WINPR_JSON_PrintUnformatted@Base 3.6.2
+ WINPR_JSON_version@Base 3.6.2
  WLog_AddStringLogFilters@Base 3.0.0
  WLog_CloseAppender@Base 3.0.0
  WLog_ConfigureAppender@Base 3.0.0
@@ -1318,6 +1358,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_LeaveCriticalSectionWhenCallbackReturns@Base 3.0.0
  winpr_MoveFile@Base 3.0.0
  winpr_MoveFileEx@Base 3.0.0
+ winpr_NCryptGetModulePath@Base 3.6.2
  winpr_NCryptOpenStorageProviderEx@Base 3.0.0
  winpr_NCryptSecurityStatusError@Base 3.0.0
  winpr_ObjectStringClone@Base 3.3.0

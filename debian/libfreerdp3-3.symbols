@@ -326,6 +326,8 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_channels_process_pending_messages@Base 3.0.0
  freerdp_check_event_handles@Base 3.0.0
  freerdp_check_fds@Base 3.0.0
+ freerdp_client_codecs_free@Base 3.6.2
+ freerdp_client_codecs_new@Base 3.6.2
  freerdp_client_codecs_prepare@Base 3.0.0
  freerdp_client_codecs_reset@Base 3.0.0
  freerdp_codepages_free@Base 3.0.0
@@ -381,11 +383,13 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_get_event_handles@Base 3.0.0
  freerdp_get_io_callback_context@Base 3.0.0
  freerdp_get_io_callbacks@Base 3.0.0
+ freerdp_get_keyboard_default_layout_for_locale@Base 3.6.2
  freerdp_get_last_error@Base 3.0.0
  freerdp_get_last_error_category@Base 3.0.0
  freerdp_get_last_error_name@Base 3.0.0
  freerdp_get_last_error_string@Base 3.0.0
  freerdp_get_library_install_path@Base 3.0.0
+ freerdp_get_locale_id_from_string@Base 3.6.2
  freerdp_get_logon_error_info_data@Base 3.0.0
  freerdp_get_logon_error_info_data_ex@Base 3.0.0
  freerdp_get_logon_error_info_type@Base 3.0.0
@@ -396,6 +400,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_get_state@Base 3.0.0
  freerdp_get_stats@Base 3.0.0
  freerdp_get_system_locale_id@Base 3.0.0
+ freerdp_get_system_locale_list@Base 3.6.2
  freerdp_get_system_locale_name_from_id@Base 3.0.0
  freerdp_get_transport@Base 3.0.0
  freerdp_get_transport_sent@Base 3.0.0
@@ -411,6 +416,8 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_image_copy_from_icon_data@Base 3.0.0
  freerdp_image_copy_from_monochrome@Base 3.0.0
  freerdp_image_copy_from_pointer_data@Base 3.0.0
+ freerdp_image_copy_no_overlap@Base 3.6.2
+ freerdp_image_copy_overlap@Base 3.6.2
  freerdp_image_fill@Base 3.0.0
  freerdp_image_scale@Base 3.0.0
  freerdp_input_send_extended_mouse_event@Base 3.0.0
@@ -495,6 +502,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_settings_free@Base 3.0.0
  freerdp_settings_get_bool@Base 3.0.0
  freerdp_settings_get_codecs_flags@Base 3.0.0
+ freerdp_settings_get_config_path@Base 3.6.2
  freerdp_settings_get_int16@Base 3.0.0
  freerdp_settings_get_int32@Base 3.0.0
  freerdp_settings_get_int64@Base 3.0.0
@@ -613,11 +621,13 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  graphics_register_bitmap@Base 3.0.0
  graphics_register_glyph@Base 3.0.0
  graphics_register_pointer@Base 3.0.0
+ h264_compress@Base 3.6.2
  h264_context_free@Base 3.0.0
  h264_context_get_option@Base 3.0.0
  h264_context_new@Base 3.0.0
  h264_context_reset@Base 3.0.0
  h264_context_set_option@Base 3.0.0
+ h264_get_yuv_buffer@Base 3.6.2
  interleaved_compress@Base 3.0.0
  interleaved_decompress@Base 3.0.0
  jpeg_decompress@Base 3.0.0
