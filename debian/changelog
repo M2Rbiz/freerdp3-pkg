@@ -2,8 +2,10 @@ freerdp3 (3.6.2+dfsg1-1) UNRELEASED; urgency=medium
 
   * Team upload
   * New upstream release
+  * debian/*.symbols: Add new symbols
+  * Add Build-Depends: libmp3lame-dev for MP3 audio codec support
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 05 Jul 2024 08:34:00 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 05 Jul 2024 10:18:51 -0400
 
 freerdp3 (3.5.1+dfsg1-5) unstable; urgency=medium
 
