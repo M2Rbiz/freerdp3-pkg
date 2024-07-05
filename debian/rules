@@ -81,7 +81,7 @@ endif
 # or uriparser in main
 ifeq ($(shell dpkg-vendor --is Ubuntu && echo yes),yes)
     DEB_CMAKE_EXTRA_FLAGS += \
-        -DWITH_AAD=OFF \
+        -DWITH_JSON_DISABLED=ON \
         -DWITH_FFMPEG=OFF \
         -DWITH_GSM=OFF \
         -DWITH_CAIRO=ON \
