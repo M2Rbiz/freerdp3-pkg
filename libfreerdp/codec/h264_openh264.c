@@ -68,13 +68,15 @@ static const char* openh264_library_names[] = {
 };
 #endif
 
-static void openh264_trace_callback(H264_CONTEXT* h264, int level, const char* message)
+static void openh264_trace_callback(H264_CONTEXT* WINPR_RESTRICT h264, int level,
+                                    const char* WINPR_RESTRICT message)
 {
 	if (h264)
 		WLog_Print(h264->log, WLOG_TRACE, "%d - %s", level, message);
 }
 
-static int openh264_decompress(H264_CONTEXT* h264, const BYTE* pSrcData, UINT32 SrcSize)
+static int openh264_decompress(H264_CONTEXT* WINPR_RESTRICT h264,
+                               const BYTE* WINPR_RESTRICT pSrcData, UINT32 SrcSize)
 {
 	DECODING_STATE state = dsInvalidArgument;
 	SBufferInfo sBufferInfo = { 0 };
@@ -179,8 +181,10 @@ static int openh264_decompress(H264_CONTEXT* h264, const BYTE* pSrcData, UINT32 
 	return 1;
 }
 
-static int openh264_compress(H264_CONTEXT* h264, const BYTE** pYUVData, const UINT32* iStride,
-                             BYTE** ppDstData, UINT32* pDstSize)
+static int openh264_compress(H264_CONTEXT* WINPR_RESTRICT h264,
+                             const BYTE** WINPR_RESTRICT pYUVData,
+                             const UINT32* WINPR_RESTRICT iStride, BYTE** WINPR_RESTRICT ppDstData,
+                             UINT32* WINPR_RESTRICT pDstSize)
 {
 	int status = 0;
 	SFrameBSInfo info = { 0 };
@@ -224,14 +228,32 @@ static int openh264_compress(H264_CONTEXT* h264, const BYTE** pYUVData, const UI
 			return status;
 		}
 
-		sys->EncParamExt.iUsageType = SCREEN_CONTENT_REAL_TIME;
+		EUsageType usageType;
+
+		switch (h264->UsageType)
+		{
+			case H264_CAMERA_VIDEO_NON_REAL_TIME:
+				usageType = CAMERA_VIDEO_NON_REAL_TIME;
+				break;
+			case H264_CAMERA_VIDEO_REAL_TIME:
+				usageType = CAMERA_VIDEO_REAL_TIME;
+				break;
+			case H264_SCREEN_CONTENT_NON_REAL_TIME:
+				usageType = SCREEN_CONTENT_NON_REAL_TIME;
+				break;
+			case H264_SCREEN_CONTENT_REAL_TIME:
+			default:
+				usageType = SCREEN_CONTENT_REAL_TIME;
+				break;
+		}
+
+		sys->EncParamExt.iUsageType = usageType;
 		sys->EncParamExt.iPicWidth = (int)h264->width;
 		sys->EncParamExt.iPicHeight = (int)h264->height;
 		sys->EncParamExt.fMaxFrameRate = (int)h264->FrameRate;
 		sys->EncParamExt.iMaxBitrate = UNSPECIFIED_BIT_RATE;
 		sys->EncParamExt.bEnableDenoise = 0;
 		sys->EncParamExt.bEnableLongTermReference = 0;
-		sys->EncParamExt.bEnableFrameSkip = 0;
 		sys->EncParamExt.iSpatialLayerNum = 1;
 		sys->EncParamExt.iMultipleThreadIdc = (int)h264->NumberOfThreads;
 		sys->EncParamExt.sSpatialLayers[0].fFrameRate = h264->FrameRate;
@@ -246,11 +268,13 @@ static int openh264_compress(H264_CONTEXT* h264, const BYTE** pYUVData, const UI
 				sys->EncParamExt.iTargetBitrate = (int)h264->BitRate;
 				sys->EncParamExt.sSpatialLayers[0].iSpatialBitrate =
 				    sys->EncParamExt.iTargetBitrate;
+				sys->EncParamExt.bEnableFrameSkip = 1;
 				break;
 
 			case H264_RATECONTROL_CQP:
 				sys->EncParamExt.iRCMode = RC_OFF_MODE;
 				sys->EncParamExt.sSpatialLayers[0].iDLayerQp = (int)h264->QP;
+				sys->EncParamExt.bEnableFrameSkip = 0;
 				break;
 		}
 

@@ -166,6 +166,7 @@ static BOOL rdp_apply_general_capability_set(rdpSettings* settings, const rdpSet
 		settings->OsMinorType = src->OsMinorType;
 	}
 
+	settings->CapsProtocolVersion = src->CapsProtocolVersion;
 	settings->NoBitmapCompressionHeader = src->NoBitmapCompressionHeader;
 	settings->LongCredentialsSupported = src->LongCredentialsSupported;
 	settings->AutoReconnectionPacketSupported = src->AutoReconnectionPacketSupported;
@@ -210,6 +211,22 @@ static BOOL rdp_read_general_capability_set(wStream* s, rdpSettings* settings)
 	Stream_Read_UINT16(s, settings->OsMinorType); /* osMinorType (2 bytes) */
 
 	Stream_Read_UINT16(s, settings->CapsProtocolVersion); /* protocolVersion (2 bytes) */
+	if (settings->CapsProtocolVersion != TS_CAPS_PROTOCOLVERSION)
+	{
+		WLog_ERR(TAG,
+		         "TS_GENERAL_CAPABILITYSET::protocolVersion(0x%04" PRIx16
+		         ") != TS_CAPS_PROTOCOLVERSION(0x%04" PRIx32 ")",
+		         settings->CapsProtocolVersion, TS_CAPS_PROTOCOLVERSION);
+		if (settings->CapsProtocolVersion == 0x0000)
+		{
+			WLog_WARN(TAG,
+			          "TS_GENERAL_CAPABILITYSET::protocolVersion(0x%04" PRIx16
+			          " assuming old FreeRDP, ignoring protocol violation.",
+			          settings->CapsProtocolVersion);
+		}
+		else
+			return FALSE;
+	}
 	Stream_Seek_UINT16(s);                                /* pad2OctetsA (2 bytes) */
 	Stream_Read_UINT16(
 	    s, settings->CapsGeneralCompressionTypes); /* generalCompressionTypes (2 bytes) */
@@ -268,6 +285,14 @@ static BOOL rdp_write_general_capability_set(wStream* s, const rdpSettings* sett
 		         "OsMajorType=%08" PRIx32 ", OsMinorType=%08" PRIx32
 		         " they need to be smaller %04" PRIx16,
 		         settings->OsMajorType, settings->OsMinorType, UINT16_MAX);
+		return FALSE;
+	}
+	if (settings->CapsProtocolVersion != TS_CAPS_PROTOCOLVERSION)
+	{
+		WLog_ERR(TAG,
+		         "TS_GENERAL_CAPABILITYSET::protocolVersion(0x%04" PRIx16
+		         ") != TS_CAPS_PROTOCOLVERSION(0x%04" PRIx32 ")",
+		         settings->CapsProtocolVersion, TS_CAPS_PROTOCOLVERSION);
 		return FALSE;
 	}
 	Stream_Write_UINT16(s, (UINT16)settings->OsMajorType); /* osMajorType (2 bytes) */
@@ -1397,7 +1422,7 @@ static BOOL rdp_read_input_capability_set(wStream* s, rdpSettings* settings)
 		if (ConvertWCharNToUtf8(wstr, ARRAYSIZE(wstr), str, ARRAYSIZE(str)) < 0)
 			memset(str, 0, sizeof(str));
 
-		if (!freerdp_settings_set_string(settings, FreeRDP_ImeFileName, str))
+		if (!freerdp_settings_set_string_len(settings, FreeRDP_ImeFileName, str, ARRAYSIZE(str)))
 			return FALSE;
 	}
 
@@ -1960,8 +1985,8 @@ static BOOL rdp_apply_bitmap_cache_v2_capability_set(rdpSettings* settings, cons
 	{
 		const UINT32 BitmapCacheV2NumCells =
 		    freerdp_settings_get_uint32(src, FreeRDP_BitmapCacheV2NumCells);
-		if (!freerdp_settings_set_uint32(settings, FreeRDP_BitmapCacheV2NumCells,
-		                                 BitmapCacheV2NumCells))
+		if (!freerdp_settings_set_pointer_len(settings, FreeRDP_BitmapCacheV2CellInfo, NULL,
+		                                      BitmapCacheV2NumCells))
 			return FALSE;
 
 		for (size_t x = 0; x < BitmapCacheV2NumCells; x++)
@@ -2001,11 +2026,25 @@ static BOOL rdp_read_bitmap_cache_v2_capability_set(wStream* s, rdpSettings* set
 
 	Stream_Seek_UINT8(s);                                  /* pad2 (1 byte) */
 	Stream_Read_UINT8(s, settings->BitmapCacheV2NumCells); /* numCellCaches (1 byte) */
-	for (size_t x = 0; x < 5; x++)
+	if (settings->BitmapCacheV2NumCells > 5)
+	{
+		WLog_ERR(TAG, "Invalid TS_BITMAPCACHE_CAPABILITYSET_REV2::numCellCaches %" PRIu32 " > 5",
+		         settings->BitmapCacheV2NumCells);
+		return FALSE;
+	}
+
+	for (size_t x = 0; x < settings->BitmapCacheV2NumCells; x++)
 	{
 		BITMAP_CACHE_V2_CELL_INFO* info =
 		    freerdp_settings_get_pointer_array_writable(settings, FreeRDP_BitmapCacheV2CellInfo, x);
 		if (!rdp_read_bitmap_cache_cell_info(s, info))
+			return FALSE;
+	}
+
+	/* Input must always have 5 BitmapCacheV2CellInfo values */
+	for (size_t x = settings->BitmapCacheV2NumCells; x < 5; x++)
+	{
+		if (!Stream_SafeSeek(s, 4))
 			return FALSE;
 	}
 	Stream_Seek(s, 12); /* pad3 (12 bytes) */
@@ -2996,7 +3035,9 @@ static BOOL rdp_apply_bitmap_codecs_capability_set(rdpSettings* settings, const 
 		/* only enable a codec if we've announced/enabled it before */
 		settings->RemoteFxCodec = settings->RemoteFxCodec && src->RemoteFxCodecId;
 		settings->RemoteFxImageCodec = settings->RemoteFxImageCodec && src->RemoteFxImageCodec;
-		freerdp_settings_set_bool(settings, FreeRDP_NSCodec, settings->NSCodec && src->NSCodec);
+		if (!freerdp_settings_set_bool(settings, FreeRDP_NSCodec,
+		                               settings->NSCodec && src->NSCodec))
+			return FALSE;
 		settings->JpegCodec = src->JpegCodec;
 	}
 	return TRUE;
@@ -3198,10 +3239,14 @@ static BOOL rdp_read_bitmap_codecs_capability_set(wStream* s, rdpSettings* setti
 		bitmapCodecCount--;
 
 		/* only enable a codec if we've announced/enabled it before */
-		settings->RemoteFxCodec = guidRemoteFx;
-		settings->RemoteFxImageCodec = guidRemoteFxImage;
-		freerdp_settings_set_bool(settings, FreeRDP_NSCodec, guidNSCodec);
-		settings->JpegCodec = FALSE;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_RemoteFxCodec, guidRemoteFx))
+			return FALSE;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_RemoteFxImageCodec, guidRemoteFxImage))
+			return FALSE;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_NSCodec, guidNSCodec))
+			return FALSE;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_JpegCodec, FALSE))
+			return FALSE;
 	}
 
 	return TRUE;
@@ -4453,9 +4498,12 @@ BOOL rdp_recv_confirm_active(rdpRdp* rdp, wStream* s, UINT16 pduLength)
 	if (!settings->ReceivedCapabilities[CAPSET_TYPE_BITMAP_CODECS])
 	{
 		/* client does not support bitmap codecs */
-		settings->RemoteFxCodec = FALSE;
-		freerdp_settings_set_bool(settings, FreeRDP_NSCodec, FALSE);
-		settings->JpegCodec = FALSE;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_RemoteFxCodec, FALSE))
+			return FALSE;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_NSCodec, FALSE))
+			return FALSE;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_JpegCodec, FALSE))
+			return FALSE;
 	}
 
 	if (!settings->ReceivedCapabilities[CAPSET_TYPE_MULTI_FRAGMENT_UPDATE])

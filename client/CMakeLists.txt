@@ -17,6 +17,8 @@
 
 # Clients
 
+include(CMakeDependentOption)
+
 if(WITH_CLIENT_COMMON)
 	add_subdirectory(common)
 endif()
@@ -30,14 +32,9 @@ if(FREERDP_VENDOR AND WITH_CLIENT)
 		endif()
 	endif()
 
-	if(WITH_CLIENT_SDL)
-		find_package(SDL2)
-		if (SDL2_FOUND)
-			add_subdirectory(SDL)
-		else()
-			message(WARNING "SDL2 requested but not found, continuing build without SDL client")
-		endif()
-	endif()
+	if (WITH_CLIENT_SDL)
+        add_subdirectory(SDL)
+    endif()
 
 	if(WITH_X11)
 		add_subdirectory(X11)

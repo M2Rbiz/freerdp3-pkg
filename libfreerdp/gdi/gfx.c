@@ -305,6 +305,12 @@ static UINT gdi_StartFrame(RdpgfxClientContext* context, const RDPGFX_START_FRAM
 	return CHANNEL_RC_OK;
 }
 
+static UINT gdi_call_update_surfaces(RdpgfxClientContext* context)
+{
+	WINPR_ASSERT(context);
+	return IFCALLRESULT(CHANNEL_RC_OK, context->UpdateSurfaces, context);
+}
+
 /**
  * Function description
  *
@@ -312,16 +318,22 @@ static UINT gdi_StartFrame(RdpgfxClientContext* context, const RDPGFX_START_FRAM
  */
 static UINT gdi_EndFrame(RdpgfxClientContext* context, const RDPGFX_END_FRAME_PDU* endFrame)
 {
-	UINT status = CHANNEL_RC_OK;
-	rdpGdi* gdi = NULL;
-
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(endFrame);
 
-	gdi = (rdpGdi*)context->custom;
+	rdpGdi* gdi = (rdpGdi*)context->custom;
 	WINPR_ASSERT(gdi);
-	IFCALLRET(context->UpdateSurfaces, status, context);
+	const UINT status = gdi_call_update_surfaces(context);
 	gdi->inGfxFrame = FALSE;
+	return status;
+}
+
+static UINT gdi_interFrameUpdate(rdpGdi* gdi, RdpgfxClientContext* context)
+{
+	WINPR_ASSERT(gdi);
+	UINT status = CHANNEL_RC_OK;
+	if (!gdi->inGfxFrame)
+		status = gdi_call_update_surfaces(context);
 	return status;
 }
 
@@ -363,9 +375,9 @@ static UINT gdi_SurfaceCommand_Uncompressed(rdpGdi* gdi, RdpgfxClientContext* co
 		return ERROR_INVALID_DATA;
 	}
 
-	if (!freerdp_image_copy(surface->data, surface->format, surface->scanline, cmd->left, cmd->top,
-	                        cmd->width, cmd->height, cmd->data, cmd->format, 0, 0, 0, NULL,
-	                        FREERDP_FLIP_NONE))
+	if (!freerdp_image_copy_no_overlap(surface->data, surface->format, surface->scanline, cmd->left,
+	                                   cmd->top, cmd->width, cmd->height, cmd->data, cmd->format, 0,
+	                                   0, 0, NULL, FREERDP_FLIP_NONE))
 		return ERROR_INTERNAL_ERROR;
 
 	invalidRect.left = (UINT16)MIN(UINT16_MAX, cmd->left);
@@ -379,11 +391,7 @@ static UINT gdi_SurfaceCommand_Uncompressed(rdpGdi* gdi, RdpgfxClientContext* co
 	if (status != CHANNEL_RC_OK)
 		goto fail;
 
-	if (!gdi->inGfxFrame)
-	{
-		status = CHANNEL_RC_NOT_INITIALIZED;
-		IFCALLRET(context->UpdateSurfaces, status, context);
-	}
+	status = gdi_interFrameUpdate(gdi, context);
 
 fail:
 	return status;
@@ -438,11 +446,7 @@ static UINT gdi_SurfaceCommand_RemoteFX(rdpGdi* gdi, RdpgfxClientContext* contex
 	for (UINT32 x = 0; x < nrRects; x++)
 		region16_union_rect(&surface->invalidRegion, &surface->invalidRegion, &rects[x]);
 
-	if (!gdi->inGfxFrame)
-	{
-		status = CHANNEL_RC_NOT_INITIALIZED;
-		IFCALLRET(context->UpdateSurfaces, status, context);
-	}
+	status = gdi_interFrameUpdate(gdi, context);
 
 fail:
 	region16_uninit(&invalidRegion);
@@ -497,11 +501,7 @@ static UINT gdi_SurfaceCommand_ClearCodec(rdpGdi* gdi, RdpgfxClientContext* cont
 	if (status != CHANNEL_RC_OK)
 		goto fail;
 
-	if (!gdi->inGfxFrame)
-	{
-		status = CHANNEL_RC_NOT_INITIALIZED;
-		IFCALLRET(context->UpdateSurfaces, status, context);
-	}
+	status = gdi_interFrameUpdate(gdi, context);
 
 fail:
 	return status;
@@ -554,11 +554,7 @@ static UINT gdi_SurfaceCommand_Planar(rdpGdi* gdi, RdpgfxClientContext* context,
 	if (status != CHANNEL_RC_OK)
 		goto fail;
 
-	if (!gdi->inGfxFrame)
-	{
-		status = CHANNEL_RC_NOT_INITIALIZED;
-		IFCALLRET(context->UpdateSurfaces, status, context);
-	}
+	status = gdi_interFrameUpdate(gdi, context);
 
 fail:
 	return status;
@@ -637,11 +633,7 @@ static UINT gdi_SurfaceCommand_AVC420(rdpGdi* gdi, RdpgfxClientContext* context,
 	if (status != CHANNEL_RC_OK)
 		goto fail;
 
-	if (!gdi->inGfxFrame)
-	{
-		status = CHANNEL_RC_NOT_INITIALIZED;
-		IFCALLRET(context->UpdateSurfaces, status, context);
-	}
+	status = gdi_interFrameUpdate(gdi, context);
 
 fail:
 	return status;
@@ -742,11 +734,7 @@ static UINT gdi_SurfaceCommand_AVC444(rdpGdi* gdi, RdpgfxClientContext* context,
 	if (status != CHANNEL_RC_OK)
 		goto fail;
 
-	if (!gdi->inGfxFrame)
-	{
-		status = CHANNEL_RC_NOT_INITIALIZED;
-		IFCALLRET(context->UpdateSurfaces, status, context);
-	}
+	status = gdi_interFrameUpdate(gdi, context);
 
 fail:
 	return status;
@@ -918,15 +906,43 @@ static UINT gdi_SurfaceCommand_Alpha(rdpGdi* gdi, RdpgfxClientContext* context,
 	if (status != CHANNEL_RC_OK)
 		goto fail;
 
-	if (!gdi->inGfxFrame)
-	{
-		status = CHANNEL_RC_NOT_INITIALIZED;
-		IFCALLRET(context->UpdateSurfaces, status, context);
-	}
+	status = gdi_interFrameUpdate(gdi, context);
 
 fail:
 	return status;
 }
+
+#if defined(WITH_GFX_FRAME_DUMP)
+static void dump_cmd(const RDPGFX_SURFACE_COMMAND* cmd, UINT32 frameId)
+{
+	static UINT64 xxx = 0;
+	const char* path = "/tmp/dump/";
+	WINPR_ASSERT(cmd);
+	char fname[1024] = { 0 };
+
+	snprintf(fname, sizeof(fname), "%s/%08" PRIx64 ".raw", path, xxx++);
+	FILE* fp = fopen(fname, "w");
+	if (!fp)
+		return;
+	fprintf(fp, "frameid: %" PRIu32 "\n", frameId);
+	fprintf(fp, "surfaceId: %" PRIu32 "\n", cmd->surfaceId);
+	fprintf(fp, "codecId: %" PRIu32 "\n", cmd->codecId);
+	fprintf(fp, "contextId: %" PRIu32 "\n", cmd->contextId);
+	fprintf(fp, "format: %" PRIu32 "\n", cmd->format);
+	fprintf(fp, "left: %" PRIu32 "\n", cmd->left);
+	fprintf(fp, "top: %" PRIu32 "\n", cmd->top);
+	fprintf(fp, "right: %" PRIu32 "\n", cmd->right);
+	fprintf(fp, "bottom: %" PRIu32 "\n", cmd->bottom);
+	fprintf(fp, "width: %" PRIu32 "\n", cmd->width);
+	fprintf(fp, "height: %" PRIu32 "\n", cmd->height);
+	fprintf(fp, "length: %" PRIu32 "\n", cmd->length);
+
+	char* bdata = crypto_base64_encode_ex(cmd->data, cmd->length, FALSE);
+	fprintf(fp, "data: %s\n", bdata);
+	free(bdata);
+	fclose(fp);
+}
+#endif
 
 /**
  * Function description
@@ -999,11 +1015,7 @@ static UINT gdi_SurfaceCommand_Progressive(rdpGdi* gdi, RdpgfxClientContext* con
 
 	region16_uninit(&invalidRegion);
 
-	if (!gdi->inGfxFrame)
-	{
-		status = CHANNEL_RC_NOT_INITIALIZED;
-		IFCALLRET(context->UpdateSurfaces, status, context);
-	}
+	status = gdi_interFrameUpdate(gdi, context);
 
 fail:
 	return status;
@@ -1034,6 +1046,9 @@ static UINT gdi_SurfaceCommand(RdpgfxClientContext* context, const RDPGFX_SURFAC
 	           cmd->contextId, FreeRDPGetColorFormatName(cmd->format), cmd->left, cmd->top,
 	           cmd->right, cmd->bottom, cmd->width, cmd->height, cmd->length, (void*)cmd->data,
 	           (void*)cmd->extra);
+#if defined(WITH_GFX_FRAME_DUMP)
+	dump_cmd(cmd, gdi->frameId);
+#endif
 
 	switch (cmd->codecId)
 	{
@@ -1297,13 +1312,7 @@ static UINT gdi_SolidFill(RdpgfxClientContext* context, const RDPGFX_SOLID_FILL_
 
 	LeaveCriticalSection(&context->mux);
 
-	if (!gdi->inGfxFrame)
-	{
-		status = CHANNEL_RC_NOT_INITIALIZED;
-		IFCALLRET(context->UpdateSurfaces, status, context);
-	}
-
-	return status;
+	return gdi_interFrameUpdate(gdi, context);
 fail:
 	LeaveCriticalSection(&context->mux);
 	return status;
@@ -1358,11 +1367,22 @@ static UINT gdi_SurfaceToSurface(RdpgfxClientContext* context,
 		if (!is_rect_valid(&rect, surfaceDst->width, surfaceDst->height))
 			goto fail;
 
-		if (!freerdp_image_copy(surfaceDst->data, surfaceDst->format, surfaceDst->scanline,
-		                        destPt->x, destPt->y, nWidth, nHeight, surfaceSrc->data,
-		                        surfaceSrc->format, surfaceSrc->scanline, rectSrc->left,
-		                        rectSrc->top, NULL, FREERDP_FLIP_NONE))
-			goto fail;
+		if (surfaceDst == surfaceSrc)
+		{
+			if (!freerdp_image_copy_overlap(
+			        surfaceDst->data, surfaceDst->format, surfaceDst->scanline, destPt->x,
+			        destPt->y, nWidth, nHeight, surfaceSrc->data, surfaceSrc->format,
+			        surfaceSrc->scanline, rectSrc->left, rectSrc->top, NULL, FREERDP_FLIP_NONE))
+				goto fail;
+		}
+		else
+		{
+			if (!freerdp_image_copy_no_overlap(
+			        surfaceDst->data, surfaceDst->format, surfaceDst->scanline, destPt->x,
+			        destPt->y, nWidth, nHeight, surfaceSrc->data, surfaceSrc->format,
+			        surfaceSrc->scanline, rectSrc->left, rectSrc->top, NULL, FREERDP_FLIP_NONE))
+				goto fail;
+		}
 
 		invalidRect = rect;
 		region16_union_rect(&surfaceDst->invalidRegion, &surfaceDst->invalidRegion, &invalidRect);
@@ -1375,13 +1395,7 @@ static UINT gdi_SurfaceToSurface(RdpgfxClientContext* context,
 
 	LeaveCriticalSection(&context->mux);
 
-	if (!gdi->inGfxFrame)
-	{
-		status = CHANNEL_RC_NOT_INITIALIZED;
-		IFCALLRET(context->UpdateSurfaces, status, context);
-	}
-
-	return status;
+	return gdi_interFrameUpdate(gdi, context);
 fail:
 	LeaveCriticalSection(&context->mux);
 	return status;
@@ -1454,9 +1468,10 @@ static UINT gdi_SurfaceToCache(RdpgfxClientContext* context,
 	if (!cacheEntry->data)
 		goto fail;
 
-	if (!freerdp_image_copy(cacheEntry->data, cacheEntry->format, cacheEntry->scanline, 0, 0,
-	                        cacheEntry->width, cacheEntry->height, surface->data, surface->format,
-	                        surface->scanline, rect->left, rect->top, NULL, FREERDP_FLIP_NONE))
+	if (!freerdp_image_copy_no_overlap(cacheEntry->data, cacheEntry->format, cacheEntry->scanline,
+	                                   0, 0, cacheEntry->width, cacheEntry->height, surface->data,
+	                                   surface->format, surface->scanline, rect->left, rect->top,
+	                                   NULL, FREERDP_FLIP_NONE))
 		goto fail;
 
 	RDPGFX_EVICT_CACHE_ENTRY_PDU evict = { surfaceToCache->cacheSlot };
@@ -1510,10 +1525,10 @@ static UINT gdi_CacheToSurface(RdpgfxClientContext* context,
 		if (!is_rect_valid(&rect, surface->width, surface->height))
 			goto fail;
 
-		if (!freerdp_image_copy(surface->data, surface->format, surface->scanline, destPt->x,
-		                        destPt->y, cacheEntry->width, cacheEntry->height, cacheEntry->data,
-		                        cacheEntry->format, cacheEntry->scanline, 0, 0, NULL,
-		                        FREERDP_FLIP_NONE))
+		if (!freerdp_image_copy_no_overlap(surface->data, surface->format, surface->scanline,
+		                                   destPt->x, destPt->y, cacheEntry->width,
+		                                   cacheEntry->height, cacheEntry->data, cacheEntry->format,
+		                                   cacheEntry->scanline, 0, 0, NULL, FREERDP_FLIP_NONE))
 			goto fail;
 
 		invalidRect = rect;
@@ -1527,12 +1542,7 @@ static UINT gdi_CacheToSurface(RdpgfxClientContext* context,
 
 	LeaveCriticalSection(&context->mux);
 
-	if (!gdi->inGfxFrame)
-		status = IFCALLRESULT(CHANNEL_RC_NOT_INITIALIZED, context->UpdateSurfaces, context);
-	else
-		status = CHANNEL_RC_OK;
-
-	return status;
+	return gdi_interFrameUpdate(gdi, context);
 
 fail:
 	LeaveCriticalSection(&context->mux);
@@ -1603,9 +1613,10 @@ static UINT gdi_ImportCacheEntry(RdpgfxClientContext* context, UINT16 cacheSlot,
 	if (!cacheEntry)
 		goto fail;
 
-	if (!freerdp_image_copy(cacheEntry->data, cacheEntry->format, cacheEntry->scanline, 0, 0,
-	                        cacheEntry->width, cacheEntry->height, importCacheEntry->data,
-	                        PIXEL_FORMAT_BGRX32, 0, 0, 0, NULL, FREERDP_FLIP_NONE))
+	if (!freerdp_image_copy_no_overlap(cacheEntry->data, cacheEntry->format, cacheEntry->scanline,
+	                                   0, 0, cacheEntry->width, cacheEntry->height,
+	                                   importCacheEntry->data, PIXEL_FORMAT_BGRX32, 0, 0, 0, NULL,
+	                                   FREERDP_FLIP_NONE))
 		goto fail;
 
 	RDPGFX_EVICT_CACHE_ENTRY_PDU evict = { cacheSlot };
@@ -1696,7 +1707,7 @@ static UINT gdi_MapSurfaceToOutput(RdpgfxClientContext* context,
 
 	if (surface->windowMapped)
 	{
-		WLog_WARN(TAG, "sufrace already windowMapped when trying to set outputMapped");
+		WLog_WARN(TAG, "surface already windowMapped when trying to set outputMapped");
 		goto fail;
 	}
 
@@ -1728,7 +1739,7 @@ gdi_MapSurfaceToScaledOutput(RdpgfxClientContext* context,
 
 	if (surface->windowMapped)
 	{
-		WLog_WARN(TAG, "sufrace already windowMapped when trying to set outputMapped");
+		WLog_WARN(TAG, "surface already windowMapped when trying to set outputMapped");
 		goto fail;
 	}
 
@@ -1764,7 +1775,7 @@ static UINT gdi_MapSurfaceToWindow(RdpgfxClientContext* context,
 
 	if (surface->outputMapped)
 	{
-		WLog_WARN(TAG, "sufrace already outputMapped when trying to set windowMapped");
+		WLog_WARN(TAG, "surface already outputMapped when trying to set windowMapped");
 		goto fail;
 	}
 
@@ -1772,7 +1783,7 @@ static UINT gdi_MapSurfaceToWindow(RdpgfxClientContext* context,
 	{
 		if (surface->windowId != surfaceToWindow->windowId)
 		{
-			WLog_WARN(TAG, "sufrace windowId mismatch, has %" PRIu64 ", expected %" PRIu64,
+			WLog_WARN(TAG, "surface windowId mismatch, has %" PRIu64 ", expected %" PRIu64,
 			          surface->windowId, surfaceToWindow->windowId);
 			goto fail;
 		}
@@ -1807,7 +1818,7 @@ gdi_MapSurfaceToScaledWindow(RdpgfxClientContext* context,
 
 	if (surface->outputMapped)
 	{
-		WLog_WARN(TAG, "sufrace already outputMapped when trying to set windowMapped");
+		WLog_WARN(TAG, "surface already outputMapped when trying to set windowMapped");
 		goto fail;
 	}
 
@@ -1815,7 +1826,7 @@ gdi_MapSurfaceToScaledWindow(RdpgfxClientContext* context,
 	{
 		if (surface->windowId != surfaceToWindow->windowId)
 		{
-			WLog_WARN(TAG, "sufrace windowId mismatch, has %" PRIu64 ", expected %" PRIu64,
+			WLog_WARN(TAG, "surface windowId mismatch, has %" PRIu64 ", expected %" PRIu64,
 			          surface->windowId, surfaceToWindow->windowId);
 			goto fail;
 		}
@@ -1883,8 +1894,9 @@ BOOL gdi_graphics_pipeline_init_ex(rdpGdi* gdi, RdpgfxClientContext* gfx,
 	{
 		const UINT32 w = freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
 		const UINT32 h = freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
+		const UINT32 flags = freerdp_settings_get_uint32(settings, FreeRDP_ThreadingFlags);
 
-		gfx->codecs = codecs_new(context);
+		gfx->codecs = freerdp_client_codecs_new(flags);
 		if (!gfx->codecs)
 			return FALSE;
 		if (!freerdp_client_codecs_prepare(gfx->codecs, FREERDP_CODEC_ALL, w, h))
@@ -1919,7 +1931,7 @@ void gdi_graphics_pipeline_uninit(rdpGdi* gdi, RdpgfxClientContext* gfx)
 		return;
 
 	gfx->custom = NULL;
-	codecs_free(gfx->codecs);
+	freerdp_client_codecs_free(gfx->codecs);
 	gfx->codecs = NULL;
 	DeleteCriticalSection(&gfx->mux);
 	PROFILER_PRINT_HEADER

@@ -16,6 +16,7 @@
 # limitations under the License.
 
 include(CheckFunctionExists)
+include(JsonDetect)
 
 set(WINPR_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(WINPR_SRCS "")
@@ -128,6 +129,11 @@ if(NOT IOS)
         add_definitions(-DWITH_POSIX_TIMER)
         winpr_library_add_private(rt)
     endif()
+endif()
+
+check_function_exists(pthread_setschedprio PTHREAD_SETSCHEDPRIO)
+if (PTHREAD_SETSCHEDPRIO)
+	winpr_definition_add(-DPTHREAD_SETSCHEDPRIO)
 endif()
 
 if (ANDROID)

@@ -147,8 +147,8 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	  "later\" option in MSTSC." },
 	{ "drives", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueFalse, NULL, -1, NULL,
 	  "Redirect all mount points as shares" },
-	{ "dump", COMMAND_LINE_VALUE_REQUIRED, "<record|replay>,<file>", NULL, NULL, -1, NULL,
-	  "record or replay dump" },
+	{ "dump", COMMAND_LINE_VALUE_REQUIRED, "<record|replay>,file:<file>[,nodelay]", NULL, NULL, -1,
+	  NULL, "record or replay dump" },
 	{ "dvc", COMMAND_LINE_VALUE_REQUIRED, "<channel>[,<options>]", NULL, NULL, -1, NULL,
 	  "Dynamic virtual channel" },
 	{ "dynamic-resolution", COMMAND_LINE_VALUE_FLAG, NULL, NULL, NULL, -1, NULL,
@@ -202,7 +202,7 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	{ "gfx", COMMAND_LINE_VALUE_OPTIONAL,
 	  "[[progressive[:on|off]|RFX[:on|off]|AVC420[:on|off]AVC444[:on|off]],mask:<value>,small-"
 	  "cache[:on|off],thin-client[:on|off],progressive[:on|"
-	  "off]]",
+	  "off],frame-ack[:on|off]]",
 	  NULL, NULL, -1, NULL, "RDP8 graphics pipeline" },
 #if defined(WITH_FREERDP_DEPRECATED_COMMANDLINE)
 	{ "gfx-h264", COMMAND_LINE_VALUE_OPTIONAL, "[[AVC420|AVC444],mask:<value>]", NULL, NULL, -1,
@@ -247,7 +247,9 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	  "Print help" },
 	{ "home-drive", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueFalse, NULL, -1, NULL,
 	  "Redirect user home as share" },
-	{ "ipv6", COMMAND_LINE_VALUE_FLAG, NULL, NULL, NULL, -1, "6",
+	{ "ipv4", COMMAND_LINE_VALUE_OPTIONAL, "[:force]", NULL, NULL, -1, "4",
+	  "Prefer IPv4 AAA record over IPv6 A record" },
+	{ "ipv6", COMMAND_LINE_VALUE_OPTIONAL, "[:force]", NULL, NULL, -1, "6",
 	  "Prefer IPv6 AAA record over IPv4 A record" },
 #if defined(WITH_JPEG)
 	{ "jpeg", COMMAND_LINE_VALUE_FLAG, NULL, NULL, NULL, -1, NULL, "JPEG codec support" },
@@ -341,7 +343,7 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	{ "nego", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueTrue, NULL, -1, NULL,
 	  "protocol security negotiation" },
 	{ "network", COMMAND_LINE_VALUE_REQUIRED,
-	  "[modem|broadband|broadband-low|broadband-high|wan|lan|auto]", NULL, NULL, -1, NULL,
+	  "[invalid|modem|broadband|broadband-low|broadband-high|wan|lan|auto]", NULL, NULL, -1, NULL,
 	  "Network connection type" },
 	{ "nsc", COMMAND_LINE_VALUE_FLAG, NULL, NULL, NULL, -1, "nscodec", "NSCodec support" },
 #if defined(WITH_FREERDP_DEPRECATED_COMMANDLINE)

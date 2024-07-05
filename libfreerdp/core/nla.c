@@ -505,6 +505,16 @@ int nla_client_begin(rdpNla* nla)
 			nla_set_state(nla, NLA_STATE_FINAL);
 			break;
 		default:
+			switch (credssp_auth_sspi_error(nla->auth))
+			{
+				case SEC_E_LOGON_DENIED:
+				case SEC_E_NO_CREDENTIALS:
+					freerdp_set_last_error_log(nla->rdpcontext,
+					                           FREERDP_ERROR_CONNECT_LOGON_FAILURE);
+					break;
+				default:
+					break;
+			}
 			return -1;
 	}
 
@@ -818,7 +828,7 @@ static int nla_server_authenticate(rdpNla* nla)
 					break;
 			}
 
-			nla_send(nla);
+			(void)nla_send(nla);
 			/* Access Denied */
 			goto fail;
 		}

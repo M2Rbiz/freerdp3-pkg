@@ -350,9 +350,39 @@ BOOL freerdp_capability_buffer_allocate(rdpSettings* settings, UINT32 count)
 	        settings->ReceivedCapabilityDataSizes);
 }
 
+#if !defined(WITH_FULL_CONFIG_PATH)
+static char* freerdp_settings_get_legacy_config_path(void)
+{
+	char product[sizeof(FREERDP_PRODUCT_STRING)] = { 0 };
+
+	for (size_t i = 0; i < sizeof(product); i++)
+		product[i] = tolower(FREERDP_PRODUCT_STRING[i]);
+
+	return GetKnownSubPath(KNOWN_PATH_XDG_CONFIG_HOME, product);
+}
+#endif
+
+char* freerdp_settings_get_config_path(void)
+{
+	char* path = NULL;
+	/* For default FreeRDP continue using same config directory
+	 * as in old releases.
+	 * Custom builds use <Vendor>/<Product> as config folder. */
+#if !defined(WITH_FULL_CONFIG_PATH)
+	if (_stricmp(FREERDP_VENDOR_STRING, FREERDP_PRODUCT_STRING) == 0)
+		return freerdp_settings_get_legacy_config_path();
+#endif
+
+	char* base = GetKnownSubPath(KNOWN_PATH_XDG_CONFIG_HOME, FREERDP_VENDOR_STRING);
+	if (base)
+		path = GetCombinedPath(base, FREERDP_PRODUCT_STRING);
+	free(base);
+
+	return path;
+}
+
 rdpSettings* freerdp_settings_new(DWORD flags)
 {
-	char* base = NULL;
 	char* issuers[] = { "FreeRDP", "FreeRDP-licenser" };
 	const BOOL server = (flags & FREERDP_SETTINGS_SERVER_MODE) != 0 ? TRUE : FALSE;
 	const BOOL remote = (flags & FREERDP_SETTINGS_REMOTE_MODE) != 0 ? TRUE : FALSE;
@@ -360,6 +390,10 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 
 	if (!settings)
 		return NULL;
+
+	if (!freerdp_settings_set_uint16(settings, FreeRDP_CapsProtocolVersion,
+	                                 TS_CAPS_PROTOCOLVERSION))
+		goto out_fail;
 
 	if (!freerdp_settings_set_uint32(settings, FreeRDP_ClipboardFeatureMask,
 	                                 CLIPRDR_FLAG_DEFAULT_MASK))
@@ -444,7 +478,8 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 	    !freerdp_settings_set_bool(settings, FreeRDP_DisableFullWindowDrag, TRUE) ||
 	    !freerdp_settings_set_bool(settings, FreeRDP_DisableMenuAnims, TRUE) ||
 	    !freerdp_settings_set_bool(settings, FreeRDP_DisableThemes, FALSE) ||
-	    !freerdp_settings_set_uint32(settings, FreeRDP_ConnectionType, CONNECTION_TYPE_LAN) ||
+	    !freerdp_settings_set_uint32(settings, FreeRDP_ConnectionType,
+	                                 CONNECTION_TYPE_AUTODETECT) ||
 	    !freerdp_settings_set_bool(settings, FreeRDP_NetworkAutoDetect, TRUE) ||
 	    !freerdp_settings_set_uint32(settings, FreeRDP_EncryptionMethods, ENCRYPTION_METHOD_NONE) ||
 	    !freerdp_settings_set_uint32(settings, FreeRDP_EncryptionLevel, ENCRYPTION_LEVEL_NONE) ||
@@ -693,6 +728,26 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 	if (!settings->ClientTimeZone)
 		goto out_fail;
 
+	if (!settings->ServerMode)
+	{
+		DYNAMIC_TIME_ZONE_INFORMATION dynamic = { 0 };
+		TIME_ZONE_INFORMATION* tz =
+		    freerdp_settings_get_pointer_writable(settings, FreeRDP_ClientTimeZone);
+		WINPR_ASSERT(tz);
+
+		GetTimeZoneInformation(tz);
+		GetDynamicTimeZoneInformation(&dynamic);
+
+		if (!freerdp_settings_set_string_from_utf16N(settings, FreeRDP_DynamicDSTTimeZoneKeyName,
+		                                             dynamic.TimeZoneKeyName,
+		                                             ARRAYSIZE(dynamic.TimeZoneKeyName)))
+			goto out_fail;
+
+		if (!freerdp_settings_set_bool(settings, FreeRDP_DynamicDaylightTimeDisabled,
+		                               dynamic.DynamicDaylightTimeDisabled))
+			goto out_fail;
+	}
+
 	if (!freerdp_settings_set_bool(settings, FreeRDP_TcpKeepAlive, TRUE) ||
 	    !freerdp_settings_set_uint32(settings, FreeRDP_TcpKeepAliveRetries, 3) ||
 	    !freerdp_settings_set_uint32(settings, FreeRDP_TcpKeepAliveDelay, 5) ||
@@ -703,7 +758,7 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 
 	if (!freerdp_settings_get_bool(settings, FreeRDP_ServerMode))
 	{
-		BOOL rc = 0;
+		BOOL rc = FALSE;
 		char* path = NULL;
 		if (!freerdp_settings_set_bool(settings, FreeRDP_RedirectClipboard, TRUE))
 			goto out_fail;
@@ -715,42 +770,10 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 		if (!rc || !freerdp_settings_get_string(settings, FreeRDP_HomePath))
 			goto out_fail;
 
-		/* For default FreeRDP continue using same config directory
-		 * as in old releases.
-		 * Custom builds use <Vendor>/<Product> as config folder. */
-		if (_stricmp(FREERDP_VENDOR_STRING, FREERDP_PRODUCT_STRING))
-		{
-			BOOL res = TRUE;
-			base = GetKnownSubPath(KNOWN_PATH_XDG_CONFIG_HOME, FREERDP_VENDOR_STRING);
-
-			if (base)
-			{
-				char* combined = GetCombinedPath(base, FREERDP_PRODUCT_STRING);
-				res = freerdp_settings_set_string(settings, FreeRDP_ConfigPath, combined);
-				free(combined);
-			}
-
-			free(base);
-			if (!res)
-				goto out_fail;
-		}
-		else
-		{
-			BOOL res = 0;
-			char* cpath = NULL;
-			char product[sizeof(FREERDP_PRODUCT_STRING)] = { 0 };
-
-			for (size_t i = 0; i < sizeof(product); i++)
-				product[i] = tolower(FREERDP_PRODUCT_STRING[i]);
-
-			cpath = GetKnownSubPath(KNOWN_PATH_XDG_CONFIG_HOME, product);
-			res = freerdp_settings_set_string(settings, FreeRDP_ConfigPath, cpath);
-			free(cpath);
-			if (!res)
-				goto out_fail;
-		}
-
-		if (!freerdp_settings_get_string(settings, FreeRDP_ConfigPath))
+		char* config = freerdp_settings_get_config_path();
+		rc = freerdp_settings_set_string(settings, FreeRDP_ConfigPath, config);
+		free(config);
+		if (!rc)
 			goto out_fail;
 	}
 
@@ -776,10 +799,10 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 	const BOOL enable = freerdp_settings_get_bool(settings, FreeRDP_ServerMode);
 
 	{
-		const FreeRDP_Settings_Keys_Bool keys[] = {
-			FreeRDP_SupportDynamicTimeZone, FreeRDP_SupportGraphicsPipeline,
-			FreeRDP_SupportStatusInfoPdu, FreeRDP_SupportErrorInfoPdu, FreeRDP_SupportAsymetricKeys
-		};
+		const FreeRDP_Settings_Keys_Bool keys[] = { FreeRDP_SupportGraphicsPipeline,
+			                                        FreeRDP_SupportStatusInfoPdu,
+			                                        FreeRDP_SupportErrorInfoPdu,
+			                                        FreeRDP_SupportAsymetricKeys };
 
 		for (size_t x = 0; x < ARRAYSIZE(keys); x++)
 		{
@@ -787,6 +810,9 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 				goto out_fail;
 		}
 	}
+
+	if (!freerdp_settings_set_bool(settings, FreeRDP_SupportDynamicTimeZone, TRUE))
+		goto out_fail;
 	if (!freerdp_settings_set_bool(settings, FreeRDP_SupportSkipChannelJoin, TRUE))
 		goto out_fail;
 
