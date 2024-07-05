@@ -73,6 +73,7 @@ include(CheckLibraryExists)
 include(CheckSymbolExists)
 include(CheckStructHasMember)
 include(TestBigEndian)
+include(CompilerDetect)
 
 include(FindFeature)
 include(ShowCMakeVars)
@@ -91,7 +92,7 @@ if ($ENV{BUILD_NUMBER})
 endif()
 
 set(VERSION_REGEX "^(.*)([0-9]+)\\.([0-9]+)\\.([0-9]+)-?(.*)")
-set(RAW_VERSION_STRING "3.5.1")
+set(RAW_VERSION_STRING "3.6.2")
 if(EXISTS "${PROJECT_SOURCE_DIR}/.source_tag")
 	file(READ ${PROJECT_SOURCE_DIR}/.source_tag RAW_VERSION_STRING)
 elseif(USE_VERSION_FROM_GIT_TAG)
@@ -249,7 +250,7 @@ if (CMAKE_GENERATOR MATCHES "Unix Makefile*")
 	endif()
 endif()
 
-if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
+if(CMAKE_COMPILER_IS_CLANG)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-c11-extensions -Wno-gnu")
 endif()
 
@@ -260,7 +261,7 @@ if(NOT IOS)
 endif()
 
 # Enable address sanitizer, where supported and when required
-if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang" OR CMAKE_COMPILER_IS_GNUCC)
+if(CMAKE_COMPILER_IS_CLANG OR CMAKE_COMPILER_IS_GNUCC)
 	CHECK_C_COMPILER_FLAG ("-fno-omit-frame-pointer" fno-omit-frame-pointer)
 
 	if (fno-omit-frame-pointer)
@@ -561,9 +562,6 @@ endif()
 
 find_feature(PCSC ${PCSC_FEATURE_TYPE} ${PCSC_FEATURE_PURPOSE} ${PCSC_FEATURE_DESCRIPTION})
 
-find_package(cJSON)
-option(WITH_AAD "Compile with support for Azure AD authentication" ${cJSON_FOUND})
-
 if (WITH_DSP_FFMPEG OR WITH_VIDEO_FFMPEG OR WITH_FFMPEG)
 	set(FFMPEG_FEATURE_TYPE "REQUIRED" )
 endif()
@@ -729,6 +727,8 @@ else()
 	find_package(WinPR 3 REQUIRED)
 	include_directories(${WinPR_INCLUDE_DIR})
 endif()
+
+option(WITH_AAD "Compile with support for Azure AD authentication" ${WITH_WINPR_JSON})
 
 # Include directories
 include_directories(${CMAKE_CURRENT_BINARY_DIR})

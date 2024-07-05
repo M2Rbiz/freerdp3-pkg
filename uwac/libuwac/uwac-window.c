@@ -78,14 +78,16 @@ static void UwacWindowDestroyBuffers(UwacWindow* w)
 	w->buffers = NULL;
 }
 
-static int UwacWindowShmAllocBuffers(UwacWindow* w, int nbuffers, int allocSize, uint32_t width,
-                                     uint32_t height, enum wl_shm_format format);
+static int UwacWindowShmAllocBuffers(UwacWindow* w, int64_t nbuffers, int64_t allocSize,
+                                     uint32_t width, uint32_t height, enum wl_shm_format format);
 
 static void xdg_handle_toplevel_configure(void* data, struct xdg_toplevel* xdg_toplevel,
                                           int32_t width, int32_t height, struct wl_array* states)
 {
 	UwacWindow* window = (UwacWindow*)data;
 	int scale = window->display->actual_scale;
+	int32_t actual_width = width;
+	int32_t actual_height = height;
 	width *= scale;
 	height *= scale;
 	UwacConfigureEvent* event = NULL;
@@ -156,10 +158,9 @@ static void xdg_handle_toplevel_configure(void* data, struct xdg_toplevel* xdg_t
 		if (window->viewport)
 		{
 			wp_viewport_set_source(window->viewport, wl_fixed_from_int(0), wl_fixed_from_int(0),
-			                       wl_fixed_from_int(window->width * scale),
-			                       wl_fixed_from_int(window->height * scale));
-			wp_viewport_set_destination(window->viewport, window->width * scale,
-			                            window->height * scale);
+			                       wl_fixed_from_int(actual_width),
+			                       wl_fixed_from_int(actual_height));
+			wp_viewport_set_destination(window->viewport, actual_width, actual_height);
 		}
 	}
 	else
@@ -315,22 +316,29 @@ static void shell_popup_done(void* data, struct wl_shell_surface* surface)
 static const struct wl_shell_surface_listener shell_listener = { shell_ping, shell_configure,
 	                                                             shell_popup_done };
 
-int UwacWindowShmAllocBuffers(UwacWindow* w, int nbuffers, int allocSize, uint32_t width,
+int UwacWindowShmAllocBuffers(UwacWindow* w, int64_t nbuffers, int64_t allocSize, uint32_t width,
                               uint32_t height, enum wl_shm_format format)
 {
 	int ret = UWAC_SUCCESS;
-	UwacBuffer* newBuffers = NULL;
 	int fd = 0;
 	void* data = NULL;
 	struct wl_shm_pool* pool = NULL;
-	size_t pagesize = sysconf(_SC_PAGESIZE);
-	newBuffers = xrealloc(w->buffers, (w->nbuffers + nbuffers) * sizeof(UwacBuffer));
-
-	if (!newBuffers)
+	int64_t pagesize = sysconf(_SC_PAGESIZE);
+	if (pagesize <= 0)
 		return UWAC_ERROR_NOMEMORY;
 
 	/* round up to a multiple of PAGESIZE to page align data for each buffer */
-	allocSize = (allocSize + pagesize - 1) & ~(pagesize - 1);
+	uint64_t test = (0ull + allocSize + pagesize - 1ull) & ~(pagesize - 1);
+	if (test > INT64_MAX)
+		return UWAC_ERROR_NOMEMORY;
+
+	allocSize = (int64_t)test;
+
+	UwacBuffer* newBuffers =
+	    xrealloc(w->buffers, (0ull + w->nbuffers + nbuffers) * sizeof(UwacBuffer));
+
+	if (!newBuffers)
+		return UWAC_ERROR_NOMEMORY;
 
 	w->buffers = newBuffers;
 	memset(w->buffers + w->nbuffers, 0, sizeof(UwacBuffer) * nbuffers);
@@ -341,7 +349,8 @@ int UwacWindowShmAllocBuffers(UwacWindow* w, int nbuffers, int allocSize, uint32
 		return UWAC_ERROR_INTERNAL;
 	}
 
-	data = mmap(NULL, 1ull * allocSize * nbuffers, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	const size_t allocbuffersize = 1ull * allocSize * nbuffers;
+	data = mmap(NULL, allocbuffersize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
 	if (data == MAP_FAILED)
 	{
@@ -349,11 +358,11 @@ int UwacWindowShmAllocBuffers(UwacWindow* w, int nbuffers, int allocSize, uint32
 		goto error_mmap;
 	}
 
-	pool = wl_shm_create_pool(w->display->shm, fd, allocSize * nbuffers);
+	pool = wl_shm_create_pool(w->display->shm, fd, allocbuffersize);
 
 	if (!pool)
 	{
-		munmap(data, 1ull * allocSize * nbuffers);
+		munmap(data, allocbuffersize);
 		ret = UWAC_ERROR_NOMEMORY;
 		goto error_mmap;
 	}
@@ -379,8 +388,6 @@ int UwacWindowShmAllocBuffers(UwacWindow* w, int nbuffers, int allocSize, uint32
 
 	wl_shm_pool_destroy(pool);
 	w->nbuffers += nbuffers;
-	munmap(data, 1ull * allocSize * nbuffers);
-
 error_mmap:
 	close(fd);
 	return ret;

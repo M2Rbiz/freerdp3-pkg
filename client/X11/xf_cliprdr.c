@@ -793,7 +793,7 @@ static UINT xf_cliprdr_send_format_list(xfClipboard* clipboard, const CLIPRDR_FO
 		const CLIPRDR_FORMAT* cpv;
 		CLIPRDR_FORMAT* pv;
 	} cnv = { .cpv = formats };
-	const CLIPRDR_FORMAT_LIST formatList = { .common.msgFlags = CB_RESPONSE_OK,
+	const CLIPRDR_FORMAT_LIST formatList = { .common.msgFlags = 0,
 		                                     .numFormats = numFormats,
 		                                     .formats = cnv.pv,
 		                                     .common.msgType = CB_FORMAT_LIST };
@@ -1126,7 +1126,8 @@ static void log_selection_event(xfContext* xfc, const XEvent* event)
 			case SelectionClear:
 			{
 				const XSelectionClearEvent* xevent = &event->xselectionclear;
-				char* selection = Safe_XGetAtomName(xfc->display, xevent->selection);
+				char* selection =
+				    Safe_XGetAtomName(_log_cached_ptr, xfc->display, xevent->selection);
 				WLog_Print(_log_cached_ptr, level, "got event %s [selection %s]",
 				           x11_event_string(event->type), selection);
 				XFree(selection);
@@ -1135,9 +1136,10 @@ static void log_selection_event(xfContext* xfc, const XEvent* event)
 			case SelectionNotify:
 			{
 				const XSelectionEvent* xevent = &event->xselection;
-				char* selection = Safe_XGetAtomName(xfc->display, xevent->selection);
-				char* target = Safe_XGetAtomName(xfc->display, xevent->target);
-				char* property = Safe_XGetAtomName(xfc->display, xevent->property);
+				char* selection =
+				    Safe_XGetAtomName(_log_cached_ptr, xfc->display, xevent->selection);
+				char* target = Safe_XGetAtomName(_log_cached_ptr, xfc->display, xevent->target);
+				char* property = Safe_XGetAtomName(_log_cached_ptr, xfc->display, xevent->property);
 				WLog_Print(_log_cached_ptr, level,
 				           "got event %s [selection %s, target %s, property %s]",
 				           x11_event_string(event->type), selection, target, property);
@@ -1149,9 +1151,10 @@ static void log_selection_event(xfContext* xfc, const XEvent* event)
 			case SelectionRequest:
 			{
 				const XSelectionRequestEvent* xevent = &event->xselectionrequest;
-				char* selection = Safe_XGetAtomName(xfc->display, xevent->selection);
-				char* target = Safe_XGetAtomName(xfc->display, xevent->target);
-				char* property = Safe_XGetAtomName(xfc->display, xevent->property);
+				char* selection =
+				    Safe_XGetAtomName(_log_cached_ptr, xfc->display, xevent->selection);
+				char* target = Safe_XGetAtomName(_log_cached_ptr, xfc->display, xevent->target);
+				char* property = Safe_XGetAtomName(_log_cached_ptr, xfc->display, xevent->property);
 				WLog_Print(_log_cached_ptr, level,
 				           "got event %s [selection %s, target %s, property %s]",
 				           x11_event_string(event->type), selection, target, property);
@@ -1163,7 +1166,7 @@ static void log_selection_event(xfContext* xfc, const XEvent* event)
 			case PropertyNotify:
 			{
 				const XPropertyEvent* xevent = &event->xproperty;
-				char* atom = Safe_XGetAtomName(xfc->display, xevent->atom);
+				char* atom = Safe_XGetAtomName(_log_cached_ptr, xfc->display, xevent->atom);
 				WLog_Print(_log_cached_ptr, level, "got event %s [atom %s]",
 				           x11_event_string(event->type), atom);
 				XFree(atom);

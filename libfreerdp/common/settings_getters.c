@@ -291,6 +291,9 @@ BOOL freerdp_settings_get_bool(const rdpSettings* settings, FreeRDP_Settings_Key
 		case FreeRDP_GfxSmallCache:
 			return settings->GfxSmallCache;
 
+		case FreeRDP_GfxSuspendFrameAck:
+			return settings->GfxSuspendFrameAck;
+
 		case FreeRDP_GfxThinClient:
 			return settings->GfxThinClient;
 
@@ -599,6 +602,9 @@ BOOL freerdp_settings_get_bool(const rdpSettings* settings, FreeRDP_Settings_Key
 
 		case FreeRDP_TransportDumpReplay:
 			return settings->TransportDumpReplay;
+
+		case FreeRDP_TransportDumpReplayNodelay:
+			return settings->TransportDumpReplayNodelay;
 
 		case FreeRDP_UnicodeInput:
 			return settings->UnicodeInput;
@@ -964,6 +970,10 @@ BOOL freerdp_settings_set_bool(rdpSettings* settings, FreeRDP_Settings_Keys_Bool
 
 		case FreeRDP_GfxSmallCache:
 			settings->GfxSmallCache = cnv.c;
+			break;
+
+		case FreeRDP_GfxSuspendFrameAck:
+			settings->GfxSuspendFrameAck = cnv.c;
 			break;
 
 		case FreeRDP_GfxThinClient:
@@ -1378,6 +1388,10 @@ BOOL freerdp_settings_set_bool(rdpSettings* settings, FreeRDP_Settings_Keys_Bool
 			settings->TransportDumpReplay = cnv.c;
 			break;
 
+		case FreeRDP_TransportDumpReplayNodelay:
+			settings->TransportDumpReplayNodelay = cnv.c;
+			break;
+
 		case FreeRDP_UnicodeInput:
 			settings->UnicodeInput = cnv.c;
 			break;
@@ -1721,6 +1735,9 @@ UINT32 freerdp_settings_get_uint32(const rdpSettings* settings, FreeRDP_Settings
 
 		case FreeRDP_Floatbar:
 			return settings->Floatbar;
+
+		case FreeRDP_ForceIPvX:
+			return settings->ForceIPvX;
 
 		case FreeRDP_FrameAcknowledge:
 			return settings->FrameAcknowledge;
@@ -2153,6 +2170,10 @@ BOOL freerdp_settings_set_uint32(rdpSettings* settings, FreeRDP_Settings_Keys_UI
 
 		case FreeRDP_Floatbar:
 			settings->Floatbar = cnv.c;
+			break;
+
+		case FreeRDP_ForceIPvX:
+			settings->ForceIPvX = cnv.c;
 			break;
 
 		case FreeRDP_FrameAcknowledge:

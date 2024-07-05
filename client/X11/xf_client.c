@@ -1930,6 +1930,20 @@ BOOL xf_setup_x11(xfContext* xfc)
 	xfc->WM_STATE = XInternAtom(xfc->display, "WM_STATE", False);
 	xfc->x11event = CreateFileDescriptorEvent(NULL, FALSE, FALSE, xfc->xfds, WINPR_FD_READ);
 
+	xfc->NET_WM_ALLOWED_ACTIONS = XInternAtom(xfc->display, "_NET_WM_ALLOWED_ACTIONS", False);
+
+	xfc->NET_WM_ACTION_CLOSE = XInternAtom(xfc->display, "_NET_WM_ACTION_CLOSE", False);
+	xfc->NET_WM_ACTION_MINIMIZE = XInternAtom(xfc->display, "_NET_WM_ACTION_MINIMIZE", False);
+	xfc->NET_WM_ACTION_MOVE = XInternAtom(xfc->display, "_NET_WM_ACTION_MOVE", False);
+	xfc->NET_WM_ACTION_RESIZE = XInternAtom(xfc->display, "_NET_WM_ACTION_RESIZE", False);
+	xfc->NET_WM_ACTION_MAXIMIZE_HORZ =
+	    XInternAtom(xfc->display, "_NET_WM_ACTION_MAXIMIZE_HORZ", False);
+	xfc->NET_WM_ACTION_MAXIMIZE_VERT =
+	    XInternAtom(xfc->display, "_NET_WM_ACTION_MAXIMIZE_VERT", False);
+	xfc->NET_WM_ACTION_FULLSCREEN = XInternAtom(xfc->display, "_NET_WM_ACTION_FULLSCREEN", False);
+	xfc->NET_WM_ACTION_CHANGE_DESKTOP =
+	    XInternAtom(xfc->display, "_NET_WM_ACTION_CHANGE_DESKTOP", False);
+
 	if (!xfc->x11event)
 	{
 		WLog_ERR(TAG, "Could not create xfds event");
@@ -1977,11 +1991,14 @@ static void xfreerdp_client_free(freerdp* instance, rdpContext* context)
 	if (!context)
 		return;
 
-	PubSub_UnsubscribeTerminate(context->pubSub, xf_TerminateEventHandler);
+	if (context->pubSub)
+	{
+		PubSub_UnsubscribeTerminate(context->pubSub, xf_TerminateEventHandler);
 #ifdef WITH_XRENDER
-	PubSub_UnsubscribeZoomingChange(context->pubSub, xf_ZoomingChangeEventHandler);
-	PubSub_UnsubscribePanningChange(context->pubSub, xf_PanningChangeEventHandler);
+		PubSub_UnsubscribeZoomingChange(context->pubSub, xf_ZoomingChangeEventHandler);
+		PubSub_UnsubscribePanningChange(context->pubSub, xf_PanningChangeEventHandler);
 #endif
+	}
 }
 
 int RdpClientEntry(RDP_CLIENT_ENTRY_POINTS* pEntryPoints)

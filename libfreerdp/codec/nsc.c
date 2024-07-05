@@ -34,7 +34,8 @@
 #include "nsc_types.h"
 #include "nsc_encode.h"
 
-#include "nsc_sse2.h"
+#include "sse/nsc_sse2.h"
+#include "neon/nsc_neon.h"
 
 #include <freerdp/log.h>
 #define TAG FREERDP_TAG("codec.nsc")
@@ -46,7 +47,7 @@
 	} while (0)
 #endif
 
-static BOOL nsc_decode(NSC_CONTEXT* context)
+static BOOL nsc_decode(NSC_CONTEXT* WINPR_RESTRICT context)
 {
 	UINT16 rw = 0;
 	BYTE shift = 0;
@@ -110,8 +111,8 @@ static BOOL nsc_decode(NSC_CONTEXT* context)
 	return TRUE;
 }
 
-static BOOL nsc_rle_decode(const BYTE* in, size_t inSize, BYTE* out, UINT32 outSize,
-                           UINT32 originalSize)
+static BOOL nsc_rle_decode(const BYTE* WINPR_RESTRICT in, size_t inSize, BYTE* WINPR_RESTRICT out,
+                           UINT32 outSize, UINT32 originalSize)
 {
 	UINT32 left = originalSize;
 
@@ -188,7 +189,7 @@ static BOOL nsc_rle_decode(const BYTE* in, size_t inSize, BYTE* out, UINT32 outS
 	return TRUE;
 }
 
-static BOOL nsc_rle_decompress_data(NSC_CONTEXT* context)
+static BOOL nsc_rle_decompress_data(NSC_CONTEXT* WINPR_RESTRICT context)
 {
 	if (!context)
 		return FALSE;
@@ -230,12 +231,13 @@ static BOOL nsc_rle_decompress_data(NSC_CONTEXT* context)
 		}
 
 		rle += planeSize;
+		rleSize -= planeSize;
 	}
 
 	return TRUE;
 }
 
-static BOOL nsc_stream_initialize(NSC_CONTEXT* context, wStream* s)
+static BOOL nsc_stream_initialize(NSC_CONTEXT* WINPR_RESTRICT context, wStream* WINPR_RESTRICT s)
 {
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(context->priv);
@@ -264,7 +266,7 @@ static BOOL nsc_stream_initialize(NSC_CONTEXT* context, wStream* s)
 	return Stream_CheckAndLogRequiredLengthWLog(context->priv->log, s, total);
 }
 
-static BOOL nsc_context_initialize(NSC_CONTEXT* context, wStream* s)
+static BOOL nsc_context_initialize(NSC_CONTEXT* WINPR_RESTRICT context, wStream* WINPR_RESTRICT s)
 {
 	if (!nsc_stream_initialize(context, s))
 		return FALSE;
@@ -316,7 +318,7 @@ static BOOL nsc_context_initialize(NSC_CONTEXT* context, wStream* s)
 	return TRUE;
 }
 
-static void nsc_profiler_print(NSC_CONTEXT_PRIV* priv)
+static void nsc_profiler_print(NSC_CONTEXT_PRIV* WINPR_RESTRICT priv)
 {
 	WINPR_UNUSED(priv);
 
@@ -328,7 +330,7 @@ static void nsc_profiler_print(NSC_CONTEXT_PRIV* priv)
 	PROFILER_PRINT_FOOTER
 }
 
-BOOL nsc_context_reset(NSC_CONTEXT* context, UINT32 width, UINT32 height)
+BOOL nsc_context_reset(NSC_CONTEXT* WINPR_RESTRICT context, UINT32 width, UINT32 height)
 {
 	if (!context)
 		return FALSE;
@@ -367,7 +369,8 @@ NSC_CONTEXT* nsc_context_new(void)
 	context->ColorLossLevel = 3;
 	context->ChromaSubsamplingLevel = 1;
 	/* init optimized methods */
-	NSC_INIT_SIMD(context);
+	nsc_init_sse2(context);
+	nsc_init_neon(context);
 	return context;
 error:
 	WINPR_PRAGMA_DIAG_PUSH
@@ -432,9 +435,9 @@ BOOL nsc_context_set_parameters(NSC_CONTEXT* context, NSC_PARAMETER what, UINT32
 }
 
 BOOL nsc_process_message(NSC_CONTEXT* context, UINT16 bpp, UINT32 width, UINT32 height,
-                         const BYTE* data, UINT32 length, BYTE* pDstData, UINT32 DstFormat,
-                         UINT32 nDstStride, UINT32 nXDst, UINT32 nYDst, UINT32 nWidth,
-                         UINT32 nHeight, UINT32 flip)
+                         const BYTE* WINPR_RESTRICT data, UINT32 length,
+                         BYTE* WINPR_RESTRICT pDstData, UINT32 DstFormat, UINT32 nDstStride,
+                         UINT32 nXDst, UINT32 nYDst, UINT32 nWidth, UINT32 nHeight, UINT32 flip)
 {
 	wStream* s = NULL;
 	wStream sbuffer = { 0 };
@@ -504,8 +507,9 @@ BOOL nsc_process_message(NSC_CONTEXT* context, UINT16 bpp, UINT32 width, UINT32 
 			return FALSE;
 	}
 
-	if (!freerdp_image_copy(pDstData, DstFormat, nDstStride, nXDst, nYDst, width, height,
-	                        context->BitmapData, PIXEL_FORMAT_BGRA32, 0, 0, 0, NULL, flip))
+	if (!freerdp_image_copy_no_overlap(pDstData, DstFormat, nDstStride, nXDst, nYDst, width, height,
+	                                   context->BitmapData, PIXEL_FORMAT_BGRA32, 0, 0, 0, NULL,
+	                                   flip))
 		return FALSE;
 
 	return TRUE;

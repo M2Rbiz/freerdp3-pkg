@@ -579,8 +579,8 @@ void winpr_image_free(wImage* image, BOOL bFreeBuffer)
 	free(image);
 }
 
-void* winpr_convert_to_jpeg(const void* data, size_t size, UINT32 width, UINT32 height,
-                            UINT32 stride, UINT32 bpp, UINT32* pSize)
+static void* winpr_convert_to_jpeg(const void* data, size_t size, UINT32 width, UINT32 height,
+                                   UINT32 stride, UINT32 bpp, UINT32* pSize)
 {
 	WINPR_ASSERT(data || (size == 0));
 	WINPR_ASSERT(pSize);
@@ -626,7 +626,10 @@ void* winpr_convert_to_jpeg(const void* data, size_t size, UINT32 width, UINT32 
 	for (size_t x = 0; x < height; x++)
 	{
 		const JDIMENSION offset = x * stride;
-		const JSAMPLE* coffset = &cdata[offset];
+
+		/* libjpeg is not const correct, we must cast here to avoid issues
+		 * with newer C compilers type check errors */
+		JSAMPLE* coffset = (JSAMPLE*)&cdata[offset];
 		if (jpeg_write_scanlines(&cinfo, &coffset, 1) != 1)
 			goto fail;
 	}
@@ -695,8 +698,8 @@ fail:
 #endif
 }
 
-void* winpr_convert_to_webp(const void* data, size_t size, UINT32 width, UINT32 height,
-                            UINT32 stride, UINT32 bpp, UINT32* pSize)
+static void* winpr_convert_to_webp(const void* data, size_t size, UINT32 width, UINT32 height,
+                                   UINT32 stride, UINT32 bpp, UINT32* pSize)
 {
 	WINPR_ASSERT(data || (size == 0));
 	WINPR_ASSERT(pSize);
@@ -968,8 +971,8 @@ fail:
 }
 #endif
 
-void* winpr_convert_to_png(const void* data, size_t size, UINT32 width, UINT32 height,
-                           UINT32 stride, UINT32 bpp, UINT32* pSize)
+static void* winpr_convert_to_png(const void* data, size_t size, UINT32 width, UINT32 height,
+                                  UINT32 stride, UINT32 bpp, UINT32* pSize)
 {
 	WINPR_ASSERT(data || (size == 0));
 	WINPR_ASSERT(pSize);
@@ -1224,7 +1227,6 @@ void* winpr_image_write_buffer(wImage* image, UINT32 format, size_t* psize)
 			*psize = outsize;
 			return data;
 		}
-		break;
 		case WINPR_IMAGE_WEBP:
 		{
 			UINT32 outsize = 0;
@@ -1234,7 +1236,6 @@ void* winpr_image_write_buffer(wImage* image, UINT32 format, size_t* psize)
 			*psize = outsize;
 			return data;
 		}
-		break;
 		case WINPR_IMAGE_JPEG:
 		{
 			UINT32 outsize = 0;
@@ -1244,7 +1245,6 @@ void* winpr_image_write_buffer(wImage* image, UINT32 format, size_t* psize)
 			*psize = outsize;
 			return data;
 		}
-		break;
 		case WINPR_IMAGE_PNG:
 		{
 			UINT32 outsize = 0;
@@ -1254,7 +1254,6 @@ void* winpr_image_write_buffer(wImage* image, UINT32 format, size_t* psize)
 			*psize = outsize;
 			return data;
 		}
-		break;
 		default:
 			*psize = 0;
 			return NULL;

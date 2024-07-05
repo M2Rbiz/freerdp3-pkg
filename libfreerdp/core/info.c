@@ -414,6 +414,8 @@ static BOOL rdp_read_extended_info_packet(rdpRdp* rdp, wStream* s)
 
 	if (!Stream_CheckAndLogRequiredLength(TAG, s, 2))
 		return FALSE;
+
+	if (freerdp_settings_get_bool(settings, FreeRDP_SupportDynamicTimeZone))
 	{
 		UINT16 cbDynamicDSTTimeZoneKeyName = 0;
 
@@ -443,6 +445,11 @@ static BOOL rdp_read_extended_info_packet(rdpRdp* rdp, wStream* s)
 		if (!freerdp_settings_set_bool(settings, FreeRDP_DynamicDaylightTimeDisabled,
 		                               DynamicDaylightTimeDisabled != 0))
 			return FALSE;
+		DEBUG_TIMEZONE("DynamicTimeZone=%s [%s]",
+		               freerdp_settings_get_string(settings, FreeRDP_DynamicDSTTimeZoneKeyName),
+		               freerdp_settings_get_bool(settings, FreeRDP_DynamicDaylightTimeDisabled)
+		                   ? "no-DST"
+		                   : "DST");
 	}
 
 end:
@@ -545,8 +552,8 @@ static BOOL rdp_write_extended_info_packet(rdpRdp* rdp, wStream* s)
 	if (!Stream_EnsureRemainingCapacity(s, 10ull))
 		goto fail;
 
-	Stream_Write_UINT32(
-	    s, settings->ClientSessionId); /* clientSessionId (4 bytes), should be set to 0 */
+	/* clientSessionId (4 bytes), should be set to 0 */
+	Stream_Write_UINT32(s, settings->ClientSessionId);
 	freerdp_performance_flags_make(settings);
 	Stream_Write_UINT32(s, settings->PerformanceFlags); /* performanceFlags (4 bytes) */
 	Stream_Write_UINT16(s, cbAutoReconnectCookie);      /* cbAutoReconnectCookie (2 bytes) */
@@ -557,20 +564,15 @@ static BOOL rdp_write_extended_info_packet(rdpRdp* rdp, wStream* s)
 			goto fail;
 		if (!rdp_write_client_auto_reconnect_cookie(rdp, s)) /* autoReconnectCookie */
 			goto fail;
-
-		if (!Stream_EnsureRemainingCapacity(s, 4ull))
-			goto fail;
-		Stream_Write_UINT16(s, 0); /* reserved1 (2 bytes) */
-		Stream_Write_UINT16(s, 0); /* reserved2 (2 bytes) */
 	}
 
 	if (freerdp_settings_get_bool(settings, FreeRDP_SupportDynamicTimeZone))
 	{
-		if (!Stream_EnsureRemainingCapacity(s, 10 + 254 * sizeof(WCHAR)))
+		if (!Stream_EnsureRemainingCapacity(s, 8 + 254 * sizeof(WCHAR)))
 			goto fail;
 
-		/* skip reserved1 and reserved2 fields */
-		Stream_Seek(s, 4);
+		Stream_Write_UINT16(s, 0); /* reserved1 (2 bytes) */
+		Stream_Write_UINT16(s, 0); /* reserved2 (2 bytes) */
 
 		size_t rlen = 0;
 		const char* tz = freerdp_settings_get_string(settings, FreeRDP_DynamicDSTTimeZoneKeyName);
@@ -1062,14 +1064,14 @@ static BOOL rdp_info_read_string(const char* what, wStream* s, size_t size, size
 	}
 
 	const WCHAR* str = Stream_ConstPointer(s);
+	if (!Stream_SafeSeek(s, skipMax ? max : size))
+		return FALSE;
+
 	if (str[size / sizeof(WCHAR) - 1])
 	{
 		WLog_ERR(TAG, "protocol error: %s must be null terminated", what);
 		return FALSE;
 	}
-
-	if (!Stream_SafeSeek(s, skipMax ? max : size))
-		return FALSE;
 
 	size_t len = 0;
 	char* rc = ConvertWCharNToUtf8Alloc(str, size / sizeof(WCHAR), &len);

@@ -137,7 +137,7 @@ endif()
 
 # Soname versioning
 set(VERSION_REGEX "^(.*)([0-9]+)\\.([0-9]+)\\.([0-9]+)-?(.*)")
-set(RAW_VERSION_STRING "3.5.1")
+set(RAW_VERSION_STRING "3.6.2")
 if(EXISTS "${PROJECT_SOURCE_DIR}/.source_tag")
 	file(READ ${PROJECT_SOURCE_DIR}/.source_tag RAW_VERSION_STRING)
 elseif(USE_VERSION_FROM_GIT_TAG)
@@ -313,7 +313,6 @@ else()
 endif()
 option(WITH_PKCS11 "encryption, certificate validation, hashing functions" ${PKCS11_DEFAULT})
 if (WITH_PKCS11)
-	find_package(Pkcs11 REQUIRED)
 	add_definitions("-DWITH_PKCS11")
 endif()
 
