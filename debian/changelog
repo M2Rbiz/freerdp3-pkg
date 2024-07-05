@@ -1,3 +1,10 @@
+freerdp3 (3.6.2+dfsg1-1) UNRELEASED; urgency=medium
+
+  * Team upload
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 05 Jul 2024 08:34:00 -0400
+
 freerdp3 (3.5.1+dfsg1-5) unstable; urgency=medium
 
   * Add patch to skip a test that fails on 32-bit arm (Closes: #1071949)
