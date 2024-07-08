@@ -58,6 +58,17 @@ ifneq (,$(filter armel,$(DEB_HOST_ARCH)))
         $(empty)
 endif
 
+ifneq (,$(filter armel armhf,$(DEB_HOST_ARCH)))
+# https://github.com/FreeRDP/FreeRDP/issues/10353
+# gcc/glibc does not provide _URC_NORMAL_STOP etc definitions in
+# <unwind.h> on armel armhf
+# it's proabbly be better to perform a build-time check instead
+# -DWITH_UNWIND=OFF does not work in version 3.6
+    DEB_CMAKE_EXTRA_FLAGS += \
+        -DWINPR_HAVE_UNWIND_H=OFF \
+        $(empty)
+endif
+
 ifneq (,$(filter linux,$(DEB_HOST_ARCH_OS)))
     DEB_CMAKE_EXTRA_FLAGS += \
         -DCHANNEL_URBDRC=ON \
