@@ -1,11 +1,15 @@
-freerdp3 (3.6.2+dfsg1-1) UNRELEASED; urgency=medium
+freerdp3 (3.6.2+dfsg1-1) unstable; urgency=medium
 
+  [ Jeremy Bícha ]
   * Team upload
   * New upstream release
   * debian/*.symbols: Add new symbols
   * Add Build-Depends: libmp3lame-dev for MP3 audio codec support
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 05 Jul 2024 10:18:51 -0400
+  [ Michael Tokarev ]
+  * d/rules: disable stack unwind (WINPR_HAVE_UNWIND_H=OFF) on armel and armhf
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 08 Jul 2024 18:37:15 +0300
 
 freerdp3 (3.5.1+dfsg1-5) unstable; urgency=medium
 
