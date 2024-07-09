@@ -21,7 +21,6 @@ Build-Depends:
  libicu-dev,
  libjpeg-dev,
  libkrb5-dev,
- libmp3lame-dev,
  libopus-dev,
  libpam0g-dev,
  libpcsclite-dev,
