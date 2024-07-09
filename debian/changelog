@@ -1,3 +1,11 @@
+freerdp3 (3.6.3+dfsg1-2) unstable; urgency=medium
+
+  * Revert "Add Build-Depends: libmp3lame-dev for MP3 audio codec support":
+    the option is disabled by default and the feature is not used bu modern
+    operating systems
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Tue, 09 Jul 2024 07:37:31 -0400
+
 freerdp3 (3.6.3+dfsg1-1) unstable; urgency=medium
 
   [ Jeremy Bícha ]
