@@ -34,7 +34,7 @@
 static primitives_t* generic = NULL;
 
 static pstatus_t
-neon_yCbCrToRGB_16s16s_P3P3(const INT16* const WINPR_RESTRICT pSrc[3], INT32 srcStep,
+neon_yCbCrToRGB_16s16s_P3P3(const INT16* WINPR_RESTRICT pSrc[3], INT32 srcStep,
                             INT16* WINPR_RESTRICT pDst[3], INT32 dstStep,
                             const prim_size_t* WINPR_RESTRICT roi) /* region of interest */
 {
@@ -46,9 +46,9 @@ neon_yCbCrToRGB_16s16s_P3P3(const INT16* const WINPR_RESTRICT pSrc[3], INT32 src
 	int16x8_t g_cr = vdupq_n_s16(-11698); // -0.714 << 14
 	int16x8_t b_cb = vdupq_n_s16(28999);  //  1.770 << 14
 	int16x8_t c4096 = vdupq_n_s16(4096);
-	int16x8_t* y_buf = (int16x8_t*)pSrc[0];
-	int16x8_t* cb_buf = (int16x8_t*)pSrc[1];
-	int16x8_t* cr_buf = (int16x8_t*)pSrc[2];
+	const int16x8_t* y_buf = (const int16x8_t*)pSrc[0];
+	const int16x8_t* cb_buf = (const int16x8_t*)pSrc[1];
+	const int16x8_t* cr_buf = (const int16x8_t*)pSrc[2];
 	int16x8_t* r_buf = (int16x8_t*)pDst[0];
 	int16x8_t* g_buf = (int16x8_t*)pDst[1];
 	int16x8_t* b_buf = (int16x8_t*)pDst[2];
@@ -117,9 +117,8 @@ neon_yCbCrToRGB_16s16s_P3P3(const INT16* const WINPR_RESTRICT pSrc[3], INT32 src
 	return PRIMITIVES_SUCCESS;
 }
 
-static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R_X(const INT16* const WINPR_RESTRICT pSrc[3],
-                                                UINT32 srcStep, BYTE* WINPR_RESTRICT pDst,
-                                                UINT32 dstStep,
+static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R_X(const INT16* WINPR_RESTRICT pSrc[3], UINT32 srcStep,
+                                                BYTE* WINPR_RESTRICT pDst, UINT32 dstStep,
                                                 const prim_size_t* WINPR_RESTRICT roi, uint8_t rPos,
                                                 uint8_t gPos, uint8_t bPos, uint8_t aPos)
 {
@@ -233,9 +232,9 @@ static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R_X(const INT16* const WINPR_RESTRIC
 	return PRIMITIVES_SUCCESS;
 }
 
-static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R(const INT16* const WINPR_RESTRICT pSrc[3],
-                                              UINT32 srcStep, BYTE* WINPR_RESTRICT pDst,
-                                              UINT32 dstStep, UINT32 DstFormat,
+static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R(const INT16* WINPR_RESTRICT pSrc[3], UINT32 srcStep,
+                                              BYTE* WINPR_RESTRICT pDst, UINT32 dstStep,
+                                              UINT32 DstFormat,
                                               const prim_size_t* WINPR_RESTRICT roi)
 {
 	switch (DstFormat)
@@ -261,21 +260,21 @@ static pstatus_t neon_yCbCrToRGB_16s8u_P3AC4R(const INT16* const WINPR_RESTRICT 
 	}
 }
 
-static pstatus_t neon_RGBToRGB_16s8u_P3AC4R_X(
-    const INT16* const WINPR_RESTRICT pSrc[3], /* 16-bit R,G, and B arrays */
-    UINT32 srcStep,                            /* bytes between rows in source data */
-    BYTE* WINPR_RESTRICT pDst,                 /* 32-bit interleaved ARGB (ABGR?) data */
-    UINT32 dstStep,                            /* bytes between rows in dest data */
-    const prim_size_t* WINPR_RESTRICT roi,     /* region of interest */
-    uint8_t rPos, uint8_t gPos, uint8_t bPos, uint8_t aPos)
+static pstatus_t
+neon_RGBToRGB_16s8u_P3AC4R_X(const INT16* WINPR_RESTRICT pSrc[3], /* 16-bit R,G, and B arrays */
+                             UINT32 srcStep,            /* bytes between rows in source data */
+                             BYTE* WINPR_RESTRICT pDst, /* 32-bit interleaved ARGB (ABGR?) data */
+                             UINT32 dstStep,            /* bytes between rows in dest data */
+                             const prim_size_t* WINPR_RESTRICT roi, /* region of interest */
+                             uint8_t rPos, uint8_t gPos, uint8_t bPos, uint8_t aPos)
 {
 	UINT32 pad = roi->width % 8;
 
 	for (UINT32 y = 0; y < roi->height; y++)
 	{
-		const INT16* pr = (INT16*)(((BYTE*)pSrc[0]) + y * srcStep);
-		const INT16* pg = (INT16*)(((BYTE*)pSrc[1]) + y * srcStep);
-		const INT16* pb = (INT16*)(((BYTE*)pSrc[2]) + y * srcStep);
+		const INT16* pr = (const INT16*)(((BYTE*)pSrc[0]) + y * srcStep);
+		const INT16* pg = (const INT16*)(((BYTE*)pSrc[1]) + y * srcStep);
+		const INT16* pb = (const INT16*)(((BYTE*)pSrc[2]) + y * srcStep);
 		BYTE* dst = pDst + y * dstStep;
 
 		for (UINT32 x = 0; x < roi->width - pad; x += 8)
@@ -313,7 +312,7 @@ static pstatus_t neon_RGBToRGB_16s8u_P3AC4R_X(
 }
 
 static pstatus_t
-neon_RGBToRGB_16s8u_P3AC4R(const INT16* const WINPR_RESTRICT pSrc[3], /* 16-bit R,G, and B arrays */
+neon_RGBToRGB_16s8u_P3AC4R(const INT16* WINPR_RESTRICT pSrc[3], /* 16-bit R,G, and B arrays */
                            UINT32 srcStep,            /* bytes between rows in source data */
                            BYTE* WINPR_RESTRICT pDst, /* 32-bit interleaved ARGB (ABGR?) data */
                            UINT32 dstStep,            /* bytes between rows in dest data */

@@ -127,7 +127,7 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	  " * use-selection:<atom>  ... (X11) Specify which X selection to access. Default is "
 	  "CLIPBOARD. PRIMARY is the X-style middle-click selection.\n"
 	  " * direction-to:[all|local|remote|off] control enabled clipboard direction\n"
-	  " * files-to:[all|local|remote|off] control enabled file clipboard directiont" },
+	  " * files-to:[all|local|remote|off] control enabled file clipboard direction" },
 #if defined(WITH_FREERDP_DEPRECATED_COMMANDLINE)
 	{ "codec-cache", COMMAND_LINE_VALUE_REQUIRED, "[rfx|nsc|jpeg]", NULL, NULL, -1, NULL,
 	  "[DEPRECATED, use /cache:codec:[rfx|nsc|jpeg]] Bitmap codec cache" },
@@ -151,7 +151,7 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	  NULL, "record or replay dump" },
 	{ "dvc", COMMAND_LINE_VALUE_REQUIRED, "<channel>[,<options>]", NULL, NULL, -1, NULL,
 	  "Dynamic virtual channel" },
-	{ "dynamic-resolution", COMMAND_LINE_VALUE_FLAG, NULL, NULL, NULL, -1, NULL,
+	{ "dynamic-resolution", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueFalse, NULL, -1, NULL,
 	  "Send resolution updates when the window is resized" },
 	{ "echo", COMMAND_LINE_VALUE_FLAG, NULL, NULL, NULL, -1, "echo", "Echo channel" },
 	{ "encryption", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueTrue, NULL, -1, NULL,
@@ -229,8 +229,9 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	  "[DEPRECATED, use /gateway:p:<password>] Gateway password" },
 #endif
 	{ "grab-keyboard", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueTrue, NULL, -1, NULL,
-	  "Grab keyboard" },
-	{ "grab-mouse", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueTrue, NULL, -1, NULL, "Grab mouse" },
+	  "Grab keyboard focus, forward all keys to remote" },
+	{ "grab-mouse", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueTrue, NULL, -1, NULL,
+	  "Grab mouse focus, forward all events to remote" },
 #if defined(WITH_FREERDP_DEPRECATED_COMMANDLINE)
 	{ "gt", COMMAND_LINE_VALUE_REQUIRED,
 	  "[rpc|http[,no-websockets][,extauth-sspi-ntlm]|auto[,no-websockets][,extauth-sspi-ntlm]]",
@@ -248,9 +249,9 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	{ "home-drive", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueFalse, NULL, -1, NULL,
 	  "Redirect user home as share" },
 	{ "ipv4", COMMAND_LINE_VALUE_OPTIONAL, "[:force]", NULL, NULL, -1, "4",
-	  "Prefer IPv4 AAA record over IPv6 A record" },
+	  "Prefer IPv4 A record over IPv6 AAAA record" },
 	{ "ipv6", COMMAND_LINE_VALUE_OPTIONAL, "[:force]", NULL, NULL, -1, "6",
-	  "Prefer IPv6 AAA record over IPv4 A record" },
+	  "Prefer IPv6 AAAA record over IPv4 A record" },
 #if defined(WITH_JPEG)
 	{ "jpeg", COMMAND_LINE_VALUE_FLAG, NULL, NULL, NULL, -1, NULL, "JPEG codec support" },
 	{ "jpeg-quality", COMMAND_LINE_VALUE_REQUIRED, "<percentage>", NULL, NULL, -1, NULL,
@@ -297,7 +298,7 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	{ "list", COMMAND_LINE_VALUE_REQUIRED | COMMAND_LINE_PRINT,
 	  "[kbd|kbd-scancode|kbd-lang[:<value>]|smartcard[:[pkinit-anchors:<path>][,pkcs11-module:<"
 	  "name>]]|"
-	  "monitor|tune]",
+	  "monitor|tune|timezones]",
 	  "List available options for subcommand", NULL, -1, NULL,
 	  "List available options for subcommand" },
 	{ "log-filters", COMMAND_LINE_VALUE_REQUIRED, "<tag>:<level>[,<tag>:<level>[,...]]", NULL, NULL,
@@ -355,8 +356,10 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	{ "old-license", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueFalse, NULL, -1, NULL,
 	  "Use the old license workflow (no CAL and hwId set to 0)" },
 	{ "p", COMMAND_LINE_VALUE_REQUIRED, "<password>", NULL, NULL, -1, NULL, "Password" },
+#if defined(CHANNEL_PARALLEL_CLIENT)
 	{ "parallel", COMMAND_LINE_VALUE_OPTIONAL, "<name>[,<path>]", NULL, NULL, -1, NULL,
 	  "Redirect parallel device" },
+#endif
 	{ "parent-window", COMMAND_LINE_VALUE_REQUIRED, "<window-id>", NULL, NULL, -1, NULL,
 	  "Parent window id" },
 	{ "pcb", COMMAND_LINE_VALUE_REQUIRED, "<blob>", NULL, NULL, -1, NULL, "Preconnection Blob" },
@@ -391,6 +394,8 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	  "connecting to a buggy server" },
 	{ "restricted-admin", COMMAND_LINE_VALUE_FLAG, NULL, NULL, NULL, -1, "restrictedAdmin",
 	  "Restricted admin mode" },
+	{ "remoteGuard", COMMAND_LINE_VALUE_FLAG, NULL, NULL, NULL, -1, "remoteGuard",
+	  "Remote guard credentials" },
 	{ "rfx", COMMAND_LINE_VALUE_FLAG, NULL, NULL, NULL, -1, NULL, "RemoteFX" },
 	{ "rfx-mode", COMMAND_LINE_VALUE_REQUIRED, "[image|video]", NULL, NULL, -1, NULL,
 	  "RemoteFX mode" },
@@ -415,8 +420,10 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	{ "sec-tls", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueTrue, NULL, -1, NULL,
 	  "[DEPRECATED, use /sec:tls] TLS protocol security" },
 #endif
+#if defined(CHANNEL_SERIAL_CLIENT)
 	{ "serial", COMMAND_LINE_VALUE_OPTIONAL, "<name>[,<path>[,<driver>[,permissive]]]", NULL, NULL,
 	  -1, "tty", "Redirect serial device" },
+#endif
 	{ "server-name", COMMAND_LINE_VALUE_REQUIRED, "<name>", NULL, NULL, -1, NULL,
 	  "User-specified server name to use for validation (TLS, Kerberos)" },
 	{ "shell", COMMAND_LINE_VALUE_REQUIRED, "<shell>", NULL, NULL, -1, NULL, "Alternate shell" },
@@ -453,6 +460,9 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	{ "timeout", COMMAND_LINE_VALUE_REQUIRED, "<time in ms>", "9000", NULL, -1, "timeout",
 	  "Advanced setting for high latency links: Adjust connection timeout, use if you encounter "
 	  "timeout failures with your connection" },
+	{ "timezone", COMMAND_LINE_VALUE_REQUIRED, "<windows timezone>", NULL, NULL, -1, NULL,
+	  "Use supplied windows timezone for connection (requires server support), see /list:timezones "
+	  "for allowed values" },
 	{ "tls", COMMAND_LINE_VALUE_REQUIRED, "[ciphers|seclevel|secrets-file|enforce]", NULL, NULL, -1,
 	  NULL,
 	  "TLS configuration options:"

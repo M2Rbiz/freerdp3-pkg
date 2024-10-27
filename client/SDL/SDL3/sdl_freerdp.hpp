@@ -22,6 +22,7 @@
 #include <memory>
 #include <thread>
 #include <map>
+#include <atomic>
 
 #include <freerdp/freerdp.h>
 #include <freerdp/client/rdpei.h>
@@ -41,12 +42,16 @@
 #include "dialogs/sdl_connection_dialog.hpp"
 
 using SDLSurfacePtr = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>;
-using SDLPixelFormatPtr = std::unique_ptr<SDL_PixelFormat, decltype(&SDL_DestroyPixelFormat)>;
 
 class SdlContext
 {
   public:
 	explicit SdlContext(rdpContext* context);
+	SdlContext(const SdlContext& other) = delete;
+	SdlContext(SdlContext&& other) = delete;
+
+	SdlContext& operator=(const SdlContext& other) = delete;
+	SdlContext& operator=(SdlContext&& other) = delete;
 
   private:
 	rdpContext* _context;
@@ -76,15 +81,16 @@ class SdlContext
 	sdlClip clip;
 
 	SDLSurfacePtr primary;
-	SDLPixelFormatPtr primary_format;
 
-	SDL_PixelFormatEnum sdl_pixel_format = SDL_PIXELFORMAT_UNKNOWN;
+	SDL_PixelFormat sdl_pixel_format = SDL_PIXELFORMAT_UNKNOWN;
 
 	std::unique_ptr<SDLConnectionDialog> connection_dialog;
 
-  public:
+	std::atomic<bool> rdp_thread_running;
+
 	BOOL update_resizeable(BOOL enable);
 	BOOL update_fullscreen(BOOL enter);
+	BOOL update_minimize();
 
 	[[nodiscard]] rdpContext* context() const;
 	[[nodiscard]] rdpClientContext* common() const;

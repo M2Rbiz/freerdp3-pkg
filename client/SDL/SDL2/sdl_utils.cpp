@@ -110,6 +110,7 @@ const char* sdl_event_type_str(Uint32 type)
 		EV_CASE_STR(SDL_USEREVENT_CREATE_WINDOWS);
 		EV_CASE_STR(SDL_USEREVENT_WINDOW_RESIZEABLE);
 		EV_CASE_STR(SDL_USEREVENT_WINDOW_FULLSCREEN);
+		EV_CASE_STR(SDL_USEREVENT_WINDOW_MINIMIZE);
 		EV_CASE_STR(SDL_USEREVENT_POINTER_NULL);
 		EV_CASE_STR(SDL_USEREVENT_POINTER_DEFAULT);
 		EV_CASE_STR(SDL_USEREVENT_POINTER_POSITION);
@@ -151,7 +152,7 @@ BOOL sdl_push_user_event(Uint32 type, ...)
 	SDL_Event ev = {};
 	SDL_UserEvent* event = &ev.user;
 
-	va_list ap;
+	va_list ap = {};
 	va_start(ap, type);
 	event->type = type;
 	switch (type)
@@ -219,6 +220,7 @@ BOOL sdl_push_user_event(Uint32 type, ...)
 			event->data1 = va_arg(ap, void*);
 			event->code = va_arg(ap, int);
 			break;
+		case SDL_USEREVENT_WINDOW_MINIMIZE:
 		case SDL_USEREVENT_QUIT:
 		case SDL_USEREVENT_POINTER_NULL:
 		case SDL_USEREVENT_POINTER_DEFAULT:
@@ -258,17 +260,17 @@ WinPREvent::WinPREvent(bool initial)
 
 WinPREvent::~WinPREvent()
 {
-	CloseHandle(_handle);
+	(void)CloseHandle(_handle);
 }
 
 void WinPREvent::set()
 {
-	SetEvent(_handle);
+	(void)SetEvent(_handle);
 }
 
 void WinPREvent::clear()
 {
-	ResetEvent(_handle);
+	(void)ResetEvent(_handle);
 }
 
 bool WinPREvent::isSet() const
@@ -283,7 +285,7 @@ HANDLE WinPREvent::handle() const
 
 bool sdl_push_quit()
 {
-	SDL_Event ev = { 0 };
+	SDL_Event ev = {};
 	ev.type = SDL_QUIT;
 	SDL_PushEvent(&ev);
 	return true;

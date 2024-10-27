@@ -26,6 +26,7 @@
 
 #include <freerdp/server/proxy/proxy_log.h>
 #include <freerdp/server/proxy/proxy_server.h>
+#include <freerdp/channels/drdynvc.h>
 
 #include "pf_client.h"
 #include "pf_utils.h"
@@ -52,6 +53,31 @@ static BOOL ChannelId_Compare(const void* pv1, const void* pv2)
 	return (*v1 == *v2);
 }
 
+static BOOL dyn_intercept(pServerContext* ps, const char* name)
+{
+	if (strncmp(DRDYNVC_SVC_CHANNEL_NAME, name, sizeof(DRDYNVC_SVC_CHANNEL_NAME)) != 0)
+		return FALSE;
+
+	WINPR_ASSERT(ps);
+	WINPR_ASSERT(ps->pdata);
+
+	const proxyConfig* cfg = ps->pdata->config;
+	WINPR_ASSERT(cfg);
+	if (!cfg->GFX)
+		return TRUE;
+	if (!cfg->AudioOutput)
+		return TRUE;
+	if (!cfg->AudioInput)
+		return TRUE;
+	if (!cfg->Multitouch)
+		return TRUE;
+	if (!cfg->VideoRedirection)
+		return TRUE;
+	if (!cfg->CameraRedirection)
+		return TRUE;
+	return FALSE;
+}
+
 pServerStaticChannelContext* StaticChannelContext_new(pServerContext* ps, const char* name,
                                                       UINT32 id)
 {
@@ -76,6 +102,8 @@ pServerStaticChannelContext* StaticChannelContext_new(pServerContext* ps, const 
 	if (pf_modules_run_filter(ps->pdata->module, FILTER_TYPE_STATIC_INTERCEPT_LIST, ps->pdata,
 	                          &channel) &&
 	    channel.intercept)
+		ret->channelMode = PF_UTILS_CHANNEL_INTERCEPT;
+	else if (dyn_intercept(ps, name))
 		ret->channelMode = PF_UTILS_CHANNEL_INTERCEPT;
 	else
 		ret->channelMode = pf_utils_get_channel_mode(ps->pdata->config, name);
@@ -170,7 +198,7 @@ void client_to_proxy_context_free(freerdp_peer* client, rdpContext* ctx)
 
 	if (context->dynvcReady)
 	{
-		CloseHandle(context->dynvcReady);
+		(void)CloseHandle(context->dynvcReady);
 		context->dynvcReady = NULL;
 	}
 
@@ -179,7 +207,7 @@ void client_to_proxy_context_free(freerdp_peer* client, rdpContext* ctx)
 	HashTable_Free(context->channelsByBackId);
 
 	if (context->vcm && (context->vcm != INVALID_HANDLE_VALUE))
-		WTSCloseServer((HANDLE)context->vcm);
+		WTSCloseServer(context->vcm);
 	context->vcm = NULL;
 }
 
@@ -360,13 +388,13 @@ void proxy_data_free(proxyData* pdata)
 		return;
 
 	if (pdata->abort_event)
-		CloseHandle(pdata->abort_event);
+		(void)CloseHandle(pdata->abort_event);
 
 	if (pdata->client_thread)
-		CloseHandle(pdata->client_thread);
+		(void)CloseHandle(pdata->client_thread);
 
 	if (pdata->gfx_server_ready)
-		CloseHandle(pdata->gfx_server_ready);
+		(void)CloseHandle(pdata->gfx_server_ready);
 
 	if (pdata->modules_info)
 		HashTable_Free(pdata->modules_info);
@@ -381,7 +409,7 @@ void proxy_data_abort_connect(proxyData* pdata)
 {
 	WINPR_ASSERT(pdata);
 	WINPR_ASSERT(pdata->abort_event);
-	SetEvent(pdata->abort_event);
+	(void)SetEvent(pdata->abort_event);
 	if (pdata->pc)
 		freerdp_abort_connect_context(&pdata->pc->context);
 }

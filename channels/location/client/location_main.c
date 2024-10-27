@@ -99,12 +99,15 @@ static BOOL location_read_server_ready_pdu(LOCATION_CALLBACK* callback, wStream*
 static UINT location_channel_send(IWTSVirtualChannel* channel, wStream* s)
 {
 	const size_t len = Stream_GetPosition(s);
+	if (len > UINT32_MAX)
+		return ERROR_INTERNAL_ERROR;
+
 	Stream_SetPosition(s, 2);
-	Stream_Write_UINT32(s, len);
+	Stream_Write_UINT32(s, (UINT32)len);
 
 	WINPR_ASSERT(channel);
 	WINPR_ASSERT(channel->Write);
-	return channel->Write(channel, len, Stream_Buffer(s), NULL);
+	return channel->Write(channel, (UINT32)len, Stream_Buffer(s), NULL);
 }
 
 static UINT location_send_client_ready_pdu(const LOCATION_CALLBACK* callback)
@@ -138,7 +141,7 @@ static const char* location_version_str(UINT32 version, char* buffer, size_t siz
 			break;
 	}
 
-	_snprintf(buffer, size, "%s [0x%08" PRIx32 "]", str, version);
+	(void)_snprintf(buffer, size, "%s [0x%08" PRIx32 "]", str, version);
 	return buffer;
 }
 
@@ -335,11 +338,12 @@ static UINT location_send(LocationClientContext* context, LOCATION_PDUTYPE type,
 	IWTSVirtualChannel* channel = cb->channel;
 	WINPR_ASSERT(channel);
 
-	LOCATION_CALLBACK* callback = (LOCATION_CALLBACK*)loc->baseDynPlugin.channel_callbacks;
+	const LOCATION_CALLBACK* callback =
+	    (const LOCATION_CALLBACK*)loc->baseDynPlugin.channel_callbacks;
 	WINPR_ASSERT(callback);
 
 	UINT32 res = ERROR_INTERNAL_ERROR;
-	va_list ap;
+	va_list ap = { 0 };
 	va_start(ap, count);
 	switch (type)
 	{
@@ -465,7 +469,7 @@ static const IWTSVirtualChannelCallback location_callbacks = { location_on_data_
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-FREERDP_ENTRY_POINT(UINT location_DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints))
+FREERDP_ENTRY_POINT(UINT VCAPITYPE location_DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints))
 {
 	return freerdp_generic_DVCPluginEntry(pEntryPoints, TAG, LOCATION_DVC_CHANNEL_NAME,
 	                                      sizeof(LOCATION_PLUGIN), sizeof(LOCATION_CALLBACK),

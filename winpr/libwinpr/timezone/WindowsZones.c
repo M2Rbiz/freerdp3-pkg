@@ -2,10 +2,6 @@
  *
  * url https://raw.githubusercontent.com/unicode-org/cldr/main/common/supplemental/windowsZones.xml
  * version: $Revision$
-
-#include "WindowsZones.h"
-
-const " + fname + "Entry " + fname + "[] ={
  * mapTimezones: otherVersion: 7e11800, typeVersion: 2021a
  */
 
@@ -43,7 +39,6 @@ const WINDOWS_TZID_ENTRY WindowsZones[] = {
 	{ "America/Los_Angeles", "Pacific Standard Time" },      // 001
 	{ "America/Vancouver", "Pacific Standard Time" },        // CA
 	{ "America/Los_Angeles", "Pacific Standard Time" },      // US
-	{ "PST8PDT", "Pacific Standard Time" },                  // ZZ
 	{ "America/Phoenix", "US Mountain Standard Time" },      // 001
 	{ "America/Creston America/Dawson_Creek America/Fort_Nelson",
 	  "US Mountain Standard Time" },                                                       // CA
@@ -56,7 +51,6 @@ const WINDOWS_TZID_ENTRY WindowsZones[] = {
 	{ "America/Edmonton America/Cambridge_Bay America/Inuvik", "Mountain Standard Time" }, // CA
 	{ "America/Ciudad_Juarez", "Mountain Standard Time" },                                 // MX
 	{ "America/Denver America/Boise", "Mountain Standard Time" },                          // US
-	{ "MST7MDT", "Mountain Standard Time" },                                               // ZZ
 	{ "America/Whitehorse", "Yukon Standard Time" },                                       // 001
 	{ "America/Whitehorse America/Dawson", "Yukon Standard Time" },                        // CA
 	{ "America/Guatemala", "Central America Standard Time" },                              // 001
@@ -74,7 +68,6 @@ const WINDOWS_TZID_ENTRY WindowsZones[] = {
 	{ "America/Chicago America/Indiana/Knox America/Indiana/Tell_City America/Menominee "
 	  "America/North_Dakota/Beulah America/North_Dakota/Center America/North_Dakota/New_Salem",
 	  "Central Standard Time" },                                 // US
-	{ "CST6CDT", "Central Standard Time" },                      // ZZ
 	{ "Pacific/Easter", "Easter Island Standard Time" },         // 001
 	{ "Pacific/Easter", "Easter Island Standard Time" },         // CL
 	{ "America/Mexico_City", "Central Standard Time (Mexico)" }, // 001
@@ -101,7 +94,6 @@ const WINDOWS_TZID_ENTRY WindowsZones[] = {
 	{ "America/New_York America/Detroit America/Indiana/Petersburg America/Indiana/Vincennes "
 	  "America/Indiana/Winamac America/Kentucky/Monticello America/Louisville",
 	  "Eastern Standard Time" },                            // US
-	{ "EST5EDT", "Eastern Standard Time" },                 // ZZ
 	{ "America/Port-au-Prince", "Haiti Standard Time" },    // 001
 	{ "America/Port-au-Prince", "Haiti Standard Time" },    // HT
 	{ "America/Havana", "Cuba Standard Time" },             // 001
@@ -450,7 +442,7 @@ const WINDOWS_TZID_ENTRY WindowsZones[] = {
 	{ "Asia/Taipei", "Taipei Standard Time" },                                      // 001
 	{ "Asia/Taipei", "Taipei Standard Time" },                                      // TW
 	{ "Asia/Ulaanbaatar", "Ulaanbaatar Standard Time" },                            // 001
-	{ "Asia/Ulaanbaatar Asia/Choibalsan", "Ulaanbaatar Standard Time" },            // MN
+	{ "Asia/Ulaanbaatar", "Ulaanbaatar Standard Time" },                            // MN
 	{ "Australia/Eucla", "Aus Central W. Standard Time" },                          // 001
 	{ "Australia/Eucla", "Aus Central W. Standard Time" },                          // AU
 	{ "Asia/Chita", "Transbaikal Standard Time" },                                  // 001

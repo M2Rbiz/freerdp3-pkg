@@ -26,9 +26,7 @@
 #include "sdl_touch.hpp"
 #include "sdl_utils.hpp"
 
-#include <SDL_mouse.h>
-
-#define TAG CLIENT_TAG("SDL.pointer")
+#include <SDL3/SDL_mouse.h>
 
 typedef struct
 {
@@ -178,18 +176,32 @@ static BOOL sdl_Pointer_SetNull(rdpContext* context)
 
 static BOOL sdl_Pointer_SetPosition(rdpContext* context, UINT32 x, UINT32 y)
 {
-	auto sdl = get_context(context);
-	WINPR_ASSERT(sdl);
+	WINPR_UNUSED(context);
+	WINPR_ASSERT(context);
 
 	return sdl_push_user_event(SDL_EVENT_USER_POINTER_POSITION, x, y);
 }
 
 BOOL sdl_register_pointer(rdpGraphics* graphics)
 {
-	const rdpPointer pointer = { sizeof(sdlPointer),      sdl_Pointer_New,
-		                         sdl_Pointer_Free,        sdl_Pointer_Set,
-		                         sdl_Pointer_SetNull,     sdl_Pointer_SetDefault,
-		                         sdl_Pointer_SetPosition, 0 };
+	const rdpPointer pointer = { sizeof(sdlPointer),
+		                         sdl_Pointer_New,
+		                         sdl_Pointer_Free,
+		                         sdl_Pointer_Set,
+		                         sdl_Pointer_SetNull,
+		                         sdl_Pointer_SetDefault,
+		                         sdl_Pointer_SetPosition,
+		                         {},
+		                         0,
+		                         0,
+		                         0,
+		                         0,
+		                         0,
+		                         0,
+		                         0,
+		                         nullptr,
+		                         nullptr,
+		                         {} };
 	graphics_register_pointer(graphics, &pointer);
 	return TRUE;
 }

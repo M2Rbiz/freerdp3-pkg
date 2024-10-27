@@ -139,7 +139,7 @@ static BOOL printer_write_setting(const char* path, prn_conf_t type, const void*
 		rc = TRUE;
 
 fail:
-	CloseHandle(file);
+	(void)CloseHandle(file);
 	free(base64);
 	return rc;
 }
@@ -194,7 +194,7 @@ static BOOL printer_read_setting(const char* path, prn_conf_t type, void** data,
 	}
 
 fail:
-	CloseHandle(file);
+	(void)CloseHandle(file);
 
 	if (rc && (lowSize <= INT_MAX))
 	{
@@ -515,6 +515,8 @@ static UINT printer_process_irp_write(PRINTER_DEVICE* printer_dev, IRP* irp)
 		return ERROR_INVALID_DATA;
 	Stream_Read_UINT32(irp->input, Length);
 	Stream_Read_UINT64(irp->input, Offset);
+	(void)Offset; /* [MS-RDPEPC] 2.2.2.9 Server Printer Write Request (DR_PRN_WRITE_REQ)
+	               * reserved for future use, ignore */
 	Stream_Seek(irp->input, 20); /* Padding */
 	const void* ptr = Stream_ConstPointer(irp->input);
 	if (!Stream_SafeSeek(irp->input, Length))
@@ -649,7 +651,7 @@ static DWORD WINAPI printer_thread_func(LPVOID arg)
 		else if (rc != WAIT_OBJECT_0)
 			continue;
 
-		ResetEvent(printer_dev->event);
+		(void)ResetEvent(printer_dev->event);
 		irp = (IRP*)InterlockedPopEntrySList(printer_dev->pIrpList);
 
 		if (irp == NULL)
@@ -688,7 +690,7 @@ static UINT printer_irp_request(DEVICE* device, IRP* irp)
 	if (printer_dev->async)
 	{
 		InterlockedPushEntrySList(printer_dev->pIrpList, &(irp->ItemEntry));
-		SetEvent(printer_dev->event);
+		(void)SetEvent(printer_dev->event);
 	}
 	else
 	{
@@ -906,7 +908,7 @@ static UINT printer_free(DEVICE* device)
 
 	if (printer_dev->async)
 	{
-		SetEvent(printer_dev->stopEvent);
+		(void)SetEvent(printer_dev->stopEvent);
 
 		if (WaitForSingleObject(printer_dev->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -927,9 +929,9 @@ static UINT printer_free(DEVICE* device)
 			irp->Discard(irp);
 		}
 
-		CloseHandle(printer_dev->thread);
-		CloseHandle(printer_dev->stopEvent);
-		CloseHandle(printer_dev->event);
+		(void)CloseHandle(printer_dev->thread);
+		(void)CloseHandle(printer_dev->stopEvent);
+		(void)CloseHandle(printer_dev->event);
 		winpr_aligned_free(printer_dev->pIrpList);
 	}
 
@@ -970,7 +972,7 @@ static UINT printer_register(PDEVICE_SERVICE_ENTRY_POINTS pEntryPoints, rdpPrint
 	if (!printer_dev->device.data)
 		goto error_out;
 
-	sprintf_s(printer_dev->port, sizeof(printer_dev->port), "PRN%" PRIdz, printer->id);
+	(void)sprintf_s(printer_dev->port, sizeof(printer_dev->port), "PRN%" PRIuz, printer->id);
 	printer_dev->device.type = RDPDR_DTYP_PRINT;
 	printer_dev->device.name = printer_dev->port;
 	printer_dev->device.IRPRequest = printer_irp_request;
@@ -1046,19 +1048,14 @@ error_out:
 
 static rdpPrinterDriver* printer_load_backend(const char* backend)
 {
-	typedef UINT (*backend_load_t)(rdpPrinterDriver**);
-	union
-	{
-		PVIRTUALCHANNELENTRY entry;
-		backend_load_t backend;
-	} fktconv;
-
-	fktconv.entry = freerdp_load_channel_addin_entry("printer", backend, NULL, 0);
-	if (!fktconv.entry)
+	typedef UINT(VCAPITYPE * backend_load_t)(rdpPrinterDriver**);
+	PVIRTUALCHANNELENTRY entry = freerdp_load_channel_addin_entry("printer", backend, NULL, 0);
+	backend_load_t func = WINPR_FUNC_PTR_CAST(entry, backend_load_t);
+	if (!func)
 		return NULL;
 
 	rdpPrinterDriver* printer = NULL;
-	const UINT rc = fktconv.backend(&printer);
+	const UINT rc = func(&printer);
 	if (rc != CHANNEL_RC_OK)
 		return NULL;
 
@@ -1070,7 +1067,8 @@ static rdpPrinterDriver* printer_load_backend(const char* backend)
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-FREERDP_ENTRY_POINT(UINT printer_DeviceServiceEntry(PDEVICE_SERVICE_ENTRY_POINTS pEntryPoints))
+FREERDP_ENTRY_POINT(
+    UINT VCAPITYPE printer_DeviceServiceEntry(PDEVICE_SERVICE_ENTRY_POINTS pEntryPoints))
 {
 	char* name = NULL;
 	char* driver_name = NULL;

@@ -121,7 +121,8 @@ static INLINE size_t HashTable_CalculateIdealNumOfBuckets(wHashTable* table)
 {
 	WINPR_ASSERT(table);
 
-	const float tmp = (table->numOfElements / table->idealRatio);
+	const float numOfElements = (float)table->numOfElements;
+	const float tmp = (numOfElements / table->idealRatio);
 	size_t idealNumOfBuckets = (size_t)tmp;
 
 	if (idealNumOfBuckets < 5)
@@ -772,9 +773,9 @@ wHashTable* HashTable_New(BOOL synchronized)
 	if (!table->bucketArray)
 		goto fail;
 
-	table->idealRatio = 3.0;
-	table->lowerRehashThreshold = 0.0;
-	table->upperRehashThreshold = 15.0;
+	table->idealRatio = 3.0f;
+	table->lowerRehashThreshold = 0.0f;
+	table->upperRehashThreshold = 15.0f;
 	table->hash = HashTable_PointerHash;
 	table->key.fnObjectEquals = HashTable_PointerCompare;
 	table->value.fnObjectEquals = HashTable_PointerCompare;

@@ -230,7 +230,7 @@ BOOL winpr_HMAC_Init(WINPR_HMAC_CTX* ctx, WINPR_MD_TYPE md, const void* key, siz
 
 #if defined(WITH_OPENSSL)
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-	const char* hash = winpr_md_type_to_string(md);
+	char* hash = WINPR_CAST_CONST_PTR_AWAY(winpr_md_type_to_string(md), char*);
 
 	if (!ctx->xhmac)
 		return FALSE;
@@ -538,8 +538,9 @@ BOOL winpr_Digest_Init_Allow_FIPS(WINPR_DIGEST_CTX* ctx, WINPR_MD_TYPE md)
 #if defined(WITH_INTERNAL_MD5)
 			winpr_MD5_Init(&ctx->md5);
 			return TRUE;
-#endif
+#else
 			break;
+#endif
 		default:
 			WLog_ERR(TAG, "Invalid FIPS digest %s requested", winpr_md_type_to_string(md));
 			return FALSE;

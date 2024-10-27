@@ -327,14 +327,6 @@ static BOOL rdpsnd_pulse_set_format_spec(rdpsndPulsePlugin* pulse, const AUDIO_F
 
 			break;
 
-		case WAVE_FORMAT_ALAW:
-			sample_spec.format = PA_SAMPLE_ALAW;
-			break;
-
-		case WAVE_FORMAT_MULAW:
-			sample_spec.format = PA_SAMPLE_ULAW;
-			break;
-
 		default:
 			return FALSE;
 	}
@@ -363,7 +355,7 @@ static BOOL rdpsnd_pulse_context_connect(rdpsndDevicePlugin* device)
 static BOOL rdpsnd_pulse_open_stream(rdpsndDevicePlugin* device)
 {
 	pa_stream_state_t state = PA_STREAM_FAILED;
-	pa_stream_flags_t flags = PA_STREAM_NOFLAGS;
+	int flags = PA_STREAM_NOFLAGS;
 	pa_buffer_attr buffer_attr = { 0 };
 	char ss[PA_SAMPLE_SPEC_SNPRINT_MAX] = { 0 };
 	rdpsndPulsePlugin* pulse = (rdpsndPulsePlugin*)device;
@@ -405,15 +397,18 @@ static BOOL rdpsnd_pulse_open_stream(rdpsndDevicePlugin* device)
 	if (pulse->latency > 0)
 	{
 		buffer_attr.maxlength = UINT32_MAX;
-		buffer_attr.tlength = pa_usec_to_bytes(pulse->latency * 1000, &pulse->sample_spec);
+		buffer_attr.tlength = pa_usec_to_bytes(1000ULL * pulse->latency, &pulse->sample_spec);
 		buffer_attr.prebuf = UINT32_MAX;
 		buffer_attr.minreq = UINT32_MAX;
 		buffer_attr.fragsize = UINT32_MAX;
 		flags |= PA_STREAM_ADJUST_LATENCY;
 	}
 
+	// NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
+	pa_stream_flags_t eflags = (pa_stream_flags_t)flags;
 	if (pa_stream_connect_playback(pulse->stream, pulse->device_name,
-	                               pulse->latency > 0 ? &buffer_attr : NULL, flags, NULL, NULL) < 0)
+	                               pulse->latency > 0 ? &buffer_attr : NULL, eflags, NULL,
+	                               NULL) < 0)
 	{
 		WLog_ERR(TAG, "error connecting playback stream");
 		pa_stream_unref(pulse->stream);
@@ -422,7 +417,7 @@ static BOOL rdpsnd_pulse_open_stream(rdpsndDevicePlugin* device)
 		return FALSE;
 	}
 
-	for (;;)
+	while (pulse->stream)
 	{
 		state = pa_stream_get_state(pulse->stream);
 
@@ -696,7 +691,7 @@ static UINT rdpsnd_pulse_parse_addin_args(rdpsndDevicePlugin* device, const ADDI
 			if ((errno != 0) || (val > INT32_MAX))
 				return ERROR_INVALID_DATA;
 
-			pulse->reconnect_delay_seconds = val;
+			pulse->reconnect_delay_seconds = (time_t)val;
 		}
 		CommandLineSwitchEnd(arg)
 	} while ((arg = CommandLineFindNextArgumentA(arg)) != NULL);
@@ -704,7 +699,7 @@ static UINT rdpsnd_pulse_parse_addin_args(rdpsndDevicePlugin* device, const ADDI
 	return CHANNEL_RC_OK;
 }
 
-FREERDP_ENTRY_POINT(UINT pulse_freerdp_rdpsnd_client_subsystem_entry(
+FREERDP_ENTRY_POINT(UINT VCAPITYPE pulse_freerdp_rdpsnd_client_subsystem_entry(
     PFREERDP_RDPSND_DEVICE_ENTRY_POINTS pEntryPoints))
 {
 	const ADDIN_ARGV* args = NULL;

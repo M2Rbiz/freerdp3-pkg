@@ -38,39 +38,8 @@
 #include "cliprdr_format.h"
 #include "../cliprdr_common.h"
 
-const char* type_FileGroupDescriptorW = "FileGroupDescriptorW";
-const char* type_FileContents = "FileContents";
-
-static const char* CB_MSG_TYPE_STRINGS(UINT32 type)
-{
-	switch (type)
-	{
-		case CB_MONITOR_READY:
-			return "CB_MONITOR_READY";
-		case CB_FORMAT_LIST:
-			return "CB_FORMAT_LIST";
-		case CB_FORMAT_LIST_RESPONSE:
-			return "CB_FORMAT_LIST_RESPONSE";
-		case CB_FORMAT_DATA_REQUEST:
-			return "CB_FORMAT_DATA_REQUEST";
-		case CB_FORMAT_DATA_RESPONSE:
-			return "CB_FORMAT_DATA_RESPONSE";
-		case CB_TEMP_DIRECTORY:
-			return "CB_TEMP_DIRECTORY";
-		case CB_CLIP_CAPS:
-			return "CB_CLIP_CAPS";
-		case CB_FILECONTENTS_REQUEST:
-			return "CB_FILECONTENTS_REQUEST";
-		case CB_FILECONTENTS_RESPONSE:
-			return "CB_FILECONTENTS_RESPONSE";
-		case CB_LOCK_CLIPDATA:
-			return "CB_LOCK_CLIPDATA";
-		case CB_UNLOCK_CLIPDATA:
-			return "CB_UNLOCK_CLIPDATA";
-		default:
-			return "UNKNOWN";
-	}
-}
+const char type_FileGroupDescriptorW[] = "FileGroupDescriptorW";
+const char type_FileContents[] = "FileContents";
 
 CliprdrClientContext* cliprdr_get_client_interface(cliprdrPlugin* cliprdr)
 {
@@ -475,8 +444,11 @@ static UINT cliprdr_order_recv(LPVOID userdata, wStream* s)
 	if (!Stream_CheckAndLogRequiredLength(TAG, s, dataLen))
 		return ERROR_INVALID_DATA;
 
-	WLog_DBG(TAG, "msgType: %s (%" PRIu16 "), msgFlags: %" PRIu16 " dataLen: %" PRIu32 "",
-	         CB_MSG_TYPE_STRINGS(msgType), msgType, msgFlags, dataLen);
+	char buffer1[64] = { 0 };
+	char buffer2[64] = { 0 };
+	WLog_DBG(TAG, "msgType: %s (%" PRIu16 "), msgFlags: %s dataLen: %" PRIu32 "",
+	         CB_MSG_TYPE_STRING(msgType, buffer1, sizeof(buffer1)), msgType,
+	         CB_MSG_FLAGS_STRING(msgFlags, buffer2, sizeof(buffer2)), dataLen);
 
 	switch (msgType)
 	{
@@ -705,7 +677,7 @@ static UINT cliprdr_client_format_list(CliprdrClientContext* context,
 	}
 	cliprdr->initialFormatListSent = TRUE;
 
-	s = cliprdr_packet_format_list_new(&filterList, cliprdr->useLongFormatNames);
+	s = cliprdr_packet_format_list_new(&filterList, cliprdr->useLongFormatNames, FALSE);
 	cliprdr_free_format_list(&filterList);
 
 	if (!s)
@@ -818,13 +790,10 @@ cliprdr_client_unlock_clipboard_data(CliprdrClientContext* context,
 static UINT cliprdr_client_format_data_request(CliprdrClientContext* context,
                                                const CLIPRDR_FORMAT_DATA_REQUEST* formatDataRequest)
 {
-	wStream* s = NULL;
-	cliprdrPlugin* cliprdr = NULL;
-
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(formatDataRequest);
 
-	cliprdr = (cliprdrPlugin*)context->handle;
+	cliprdrPlugin* cliprdr = (cliprdrPlugin*)context->handle;
 	WINPR_ASSERT(cliprdr);
 
 	const UINT32 mask =
@@ -834,8 +803,8 @@ static UINT cliprdr_client_format_data_request(CliprdrClientContext* context,
 		WLog_WARN(TAG, "remote -> local copy disabled, ignoring request");
 		return CHANNEL_RC_OK;
 	}
-	s = cliprdr_packet_new(CB_FORMAT_DATA_REQUEST, 0, 4);
 
+	wStream* s = cliprdr_packet_new(CB_FORMAT_DATA_REQUEST, 0, 4);
 	if (!s)
 	{
 		WLog_ERR(TAG, "cliprdr_packet_new failed!");
@@ -843,7 +812,8 @@ static UINT cliprdr_client_format_data_request(CliprdrClientContext* context,
 	}
 
 	Stream_Write_UINT32(s, formatDataRequest->requestedFormatId); /* requestedFormatId (4 bytes) */
-	WLog_Print(cliprdr->log, WLOG_DEBUG, "ClientFormatDataRequest");
+	WLog_Print(cliprdr->log, WLOG_DEBUG, "ClientFormatDataRequest(0x%08" PRIx32 ")",
+	           formatDataRequest->requestedFormatId);
 	return cliprdr_packet_send(cliprdr, s);
 }
 
@@ -856,21 +826,18 @@ static UINT
 cliprdr_client_format_data_response(CliprdrClientContext* context,
                                     const CLIPRDR_FORMAT_DATA_RESPONSE* formatDataResponse)
 {
-	wStream* s = NULL;
-	cliprdrPlugin* cliprdr = NULL;
-
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(formatDataResponse);
 
-	cliprdr = (cliprdrPlugin*)context->handle;
+	cliprdrPlugin* cliprdr = (cliprdrPlugin*)context->handle;
 	WINPR_ASSERT(cliprdr);
 
-	const UINT32 mask =
-	    freerdp_settings_get_uint32(context->rdpcontext->settings, FreeRDP_ClipboardFeatureMask);
-	WINPR_ASSERT((mask & (CLIPRDR_FLAG_LOCAL_TO_REMOTE | CLIPRDR_FLAG_LOCAL_TO_REMOTE_FILES)) != 0);
+	WINPR_ASSERT(
+	    (freerdp_settings_get_uint32(context->rdpcontext->settings, FreeRDP_ClipboardFeatureMask) &
+	     (CLIPRDR_FLAG_LOCAL_TO_REMOTE | CLIPRDR_FLAG_LOCAL_TO_REMOTE_FILES)) != 0);
 
-	s = cliprdr_packet_new(CB_FORMAT_DATA_RESPONSE, formatDataResponse->common.msgFlags,
-	                       formatDataResponse->common.dataLen);
+	wStream* s = cliprdr_packet_new(CB_FORMAT_DATA_RESPONSE, formatDataResponse->common.msgFlags,
+	                                formatDataResponse->common.dataLen);
 
 	if (!s)
 	{
@@ -1148,8 +1115,8 @@ FREERDP_ENTRY_POINT(BOOL VCAPITYPE VirtualChannelEntryEx(PCHANNEL_ENTRY_POINTS p
 
 	cliprdr->channelDef.options = CHANNEL_OPTION_INITIALIZED | CHANNEL_OPTION_ENCRYPT_RDP |
 	                              CHANNEL_OPTION_COMPRESS_RDP | CHANNEL_OPTION_SHOW_PROTOCOL;
-	sprintf_s(cliprdr->channelDef.name, ARRAYSIZE(cliprdr->channelDef.name),
-	          CLIPRDR_SVC_CHANNEL_NAME);
+	(void)sprintf_s(cliprdr->channelDef.name, ARRAYSIZE(cliprdr->channelDef.name),
+	                CLIPRDR_SVC_CHANNEL_NAME);
 	pEntryPointsEx = (CHANNEL_ENTRY_POINTS_FREERDP_EX*)pEntryPoints;
 	WINPR_ASSERT(pEntryPointsEx);
 

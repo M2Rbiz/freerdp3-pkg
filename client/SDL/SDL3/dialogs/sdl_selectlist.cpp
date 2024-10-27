@@ -62,12 +62,12 @@ int SdlSelectList::run()
 			if (!_buttons.update(_renderer))
 				throw;
 
-			SDL_Event event = { 0 };
+			SDL_Event event = {};
 			SDL_WaitEvent(&event);
 			switch (event.type)
 			{
 				case SDL_EVENT_KEY_DOWN:
-					switch (event.key.keysym.sym)
+					switch (event.key.key)
 					{
 						case SDLK_UP:
 						case SDLK_BACKSPACE:

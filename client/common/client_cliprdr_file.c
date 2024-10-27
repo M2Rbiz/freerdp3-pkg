@@ -39,6 +39,7 @@
 #endif
 
 #include <winpr/crt.h>
+#include <winpr/string.h>
 #include <winpr/assert.h>
 #include <winpr/image.h>
 #include <winpr/stream.h>
@@ -54,9 +55,8 @@
 #include <freerdp/client/client_cliprdr_file.h>
 
 #define MAX_CLIP_DATA_DIR_LEN 10
-#define MAX_CLIPBOARD_FORMATS 255
 #define NO_CLIP_DATA_ID (UINT64_C(1) << 32)
-#define WIN32_FILETIME_TO_UNIX_EPOCH UINT64_C(11644473600)
+#define WIN32_FILETIME_TO_UNIX_EPOCH INT64_C(11644473600)
 
 #ifdef WITH_DEBUG_CLIPRDR
 #define DEBUG_CLIPRDR(log, ...) WLog_Print(log, WLOG_DEBUG, __VA_ARGS__)
@@ -95,7 +95,7 @@ struct sCliprdrFuseFile
 	UINT64 size;
 
 	BOOL has_last_write_time;
-	UINT64 last_write_time_unix;
+	INT64 last_write_time_unix;
 
 	BOOL has_clip_data_id;
 	UINT32 clip_data_id;
@@ -274,7 +274,7 @@ static UINT32 get_next_free_clip_data_id(CliprdrFileContext* file_context)
 	HashTable_Lock(file_context->inode_table);
 	clip_data_id = file_context->next_clip_data_id;
 	while (clip_data_id == 0 ||
-	       HashTable_GetItemValue(file_context->clip_data_table, (void*)(UINT_PTR)clip_data_id))
+	       HashTable_GetItemValue(file_context->clip_data_table, (void*)(uintptr_t)clip_data_id))
 		++clip_data_id;
 
 	file_context->next_clip_data_id = clip_data_id + 1;
@@ -320,7 +320,7 @@ static CliprdrFuseClipDataEntry* clip_data_entry_new(CliprdrFileContext* file_co
 }
 
 static BOOL should_remove_fuse_file(CliprdrFuseFile* fuse_file, BOOL all_files,
-                                    BOOL has_clip_data_id, BOOL clip_data_id)
+                                    BOOL has_clip_data_id, UINT32 clip_data_id)
 {
 	if (all_files)
 		return TRUE;
@@ -329,7 +329,8 @@ static BOOL should_remove_fuse_file(CliprdrFuseFile* fuse_file, BOOL all_files,
 		return FALSE;
 	if (!fuse_file->has_clip_data_id && !has_clip_data_id)
 		return TRUE;
-	if (fuse_file->has_clip_data_id && has_clip_data_id && fuse_file->clip_data_id == clip_data_id)
+	if (fuse_file->has_clip_data_id && has_clip_data_id &&
+	    (fuse_file->clip_data_id == clip_data_id))
 		return TRUE;
 
 	return FALSE;
@@ -549,7 +550,7 @@ static UINT prepare_clip_data_entry_with_id(CliprdrFileContext* file_context)
 
 	HashTable_Lock(file_context->inode_table);
 	if (!HashTable_Insert(file_context->clip_data_table,
-	                      (void*)(UINT_PTR)clip_data_entry->clip_data_id, clip_data_entry))
+	                      (void*)(uintptr_t)clip_data_entry->clip_data_id, clip_data_entry))
 	{
 		WLog_Print(file_context->log, WLOG_ERROR, "Failed to insert clipDataEntry");
 		clip_data_entry_free(clip_data_entry);
@@ -624,7 +625,7 @@ static void writelog(wLog* log, DWORD level, const char* fname, const char* fkt,
 	if (!WLog_IsLevelActive(log, level))
 		return;
 
-	va_list ap;
+	va_list ap = { 0 };
 	va_start(ap, line);
 	WLog_PrintMessageVA(log, WLOG_MESSAGE_TEXT, level, line, fname, fkt, ap);
 	va_end(ap);
@@ -653,7 +654,7 @@ static CliprdrFuseFile* get_fuse_file_by_ino(CliprdrFileContext* file_context, f
 {
 	WINPR_ASSERT(file_context);
 
-	return HashTable_GetItemValue(file_context->inode_table, (void*)(UINT_PTR)fuse_ino);
+	return HashTable_GetItemValue(file_context->inode_table, (void*)(uintptr_t)fuse_ino);
 }
 
 static CliprdrFuseFile* get_fuse_file_by_name_from_parent(CliprdrFileContext* file_context,
@@ -701,13 +702,13 @@ static CliprdrFuseRequest* cliprdr_fuse_request_new(CliprdrFileContext* file_con
 	fuse_request->operation_type = operation_type;
 
 	while (stream_id == 0 ||
-	       HashTable_GetItemValue(file_context->request_table, (void*)(UINT_PTR)stream_id))
+	       HashTable_GetItemValue(file_context->request_table, (void*)(uintptr_t)stream_id))
 		++stream_id;
 	fuse_request->stream_id = stream_id;
 
 	file_context->next_stream_id = stream_id + 1;
 
-	if (!HashTable_Insert(file_context->request_table, (void*)(UINT_PTR)fuse_request->stream_id,
+	if (!HashTable_Insert(file_context->request_table, (void*)(uintptr_t)fuse_request->stream_id,
 	                      fuse_request))
 	{
 		WLog_Print(file_context->log, WLOG_ERROR, "Failed to track FUSE request for file \"%s\"",
@@ -746,7 +747,7 @@ static BOOL request_file_size_async(CliprdrFileContext* file_context, CliprdrFus
 		WLog_Print(file_context->log, WLOG_ERROR,
 		           "Failed to send FileContentsRequest for file \"%s\"",
 		           fuse_file->filename_with_root);
-		HashTable_Remove(file_context->request_table, (void*)(UINT_PTR)fuse_request->stream_id);
+		HashTable_Remove(file_context->request_table, (void*)(uintptr_t)fuse_request->stream_id);
 		return FALSE;
 	}
 	DEBUG_CLIPRDR(file_context->log, "Requested file size for file \"%s\" with stream id %u",
@@ -935,7 +936,7 @@ static BOOL request_file_range_async(CliprdrFileContext* file_context, CliprdrFu
 		WLog_Print(file_context->log, WLOG_ERROR,
 		           "Failed to send FileContentsRequest for file \"%s\"",
 		           fuse_file->filename_with_root);
-		HashTable_Remove(file_context->request_table, (void*)(UINT_PTR)fuse_request->stream_id);
+		HashTable_Remove(file_context->request_table, (void*)(uintptr_t)fuse_request->stream_id);
 		return FALSE;
 	}
 
@@ -972,14 +973,14 @@ static void cliprdr_file_fuse_read(fuse_req_t fuse_req, fuse_ino_t fuse_ino, siz
 		fuse_reply_err(fuse_req, EISDIR);
 		return;
 	}
-	if (!fuse_file->has_size || offset > fuse_file->size)
+	if (!fuse_file->has_size || (offset < 0) || ((size_t)offset > fuse_file->size))
 	{
 		HashTable_Unlock(file_context->inode_table);
 		fuse_reply_err(fuse_req, EINVAL);
 		return;
 	}
 
-	size = MIN(size, 8 * 1024 * 1024);
+	size = MIN(size, 8ULL * 1024ULL * 1024ULL);
 
 	result = request_file_range_async(file_context, fuse_file, fuse_req, offset, size);
 	HashTable_Unlock(file_context->inode_table);
@@ -1051,7 +1052,7 @@ static void cliprdr_file_fuse_readdir(fuse_req_t fuse_req, fuse_ino_t fuse_ino, 
 	DEBUG_CLIPRDR(file_context->log, "Reading directory \"%s\" at offset %lu",
 	              fuse_file->filename_with_root, offset);
 
-	if (offset >= ArrayList_Count(fuse_file->children))
+	if ((offset < 0) || ((size_t)offset >= ArrayList_Count(fuse_file->children)))
 	{
 		HashTable_Unlock(file_context->inode_table);
 		fuse_reply_buf(fuse_req, NULL, 0);
@@ -1100,7 +1101,7 @@ static void cliprdr_file_fuse_readdir(fuse_req_t fuse_req, fuse_ino_t fuse_ino, 
 
 	for (size_t j = 0, i = 2; j < ArrayList_Count(fuse_file->children); ++j, ++i)
 	{
-		if (i < offset)
+		if (i < (size_t)offset)
 			continue;
 
 		child = ArrayList_GetItem(fuse_file->children, j);
@@ -1142,7 +1143,7 @@ static DWORD WINAPI cliprdr_file_fuse_thread(LPVOID arg)
 	fuse_opt_add_arg(&args, file->path);
 	file->fuse_sess = fuse_session_new(&args, &cliprdr_file_fuse_oper,
 	                                   sizeof(cliprdr_file_fuse_oper), (void*)file);
-	SetEvent(file->fuse_start_sync);
+	(void)SetEvent(file->fuse_start_sync);
 
 	if (file->fuse_sess != NULL)
 	{
@@ -1183,7 +1184,7 @@ static UINT cliprdr_file_context_server_file_contents_response(
 
 	HashTable_Lock(file_context->inode_table);
 	fuse_request = HashTable_GetItemValue(file_context->request_table,
-	                                      (void*)(UINT_PTR)file_contents_response->streamId);
+	                                      (void*)(uintptr_t)file_contents_response->streamId);
 	if (!fuse_request)
 	{
 		HashTable_Unlock(file_context->inode_table);
@@ -1198,7 +1199,7 @@ static UINT cliprdr_file_context_server_file_contents_response(
 
 		fuse_reply_err(fuse_request->fuse_req, EIO);
 		HashTable_Remove(file_context->request_table,
-		                 (void*)(UINT_PTR)file_contents_response->streamId);
+		                 (void*)(uintptr_t)file_contents_response->streamId);
 		HashTable_Unlock(file_context->inode_table);
 		return CHANNEL_RC_OK;
 	}
@@ -1212,7 +1213,7 @@ static UINT cliprdr_file_context_server_file_contents_response(
 		           fuse_request->fuse_file->filename);
 		fuse_reply_err(fuse_request->fuse_req, EIO);
 		HashTable_Remove(file_context->request_table,
-		                 (void*)(UINT_PTR)file_contents_response->streamId);
+		                 (void*)(uintptr_t)file_contents_response->streamId);
 		HashTable_Unlock(file_context->inode_table);
 		return CHANNEL_RC_OK;
 	}
@@ -1256,7 +1257,7 @@ static UINT cliprdr_file_context_server_file_contents_response(
 	}
 
 	HashTable_Remove(file_context->request_table,
-	                 (void*)(UINT_PTR)file_contents_response->streamId);
+	                 (void*)(uintptr_t)file_contents_response->streamId);
 
 	return CHANNEL_RC_OK;
 }
@@ -1401,7 +1402,7 @@ static void cliprdr_local_file_try_close(CliprdrLocalFile* file, UINT res, UINT6
 		// TODO: for the time being just close again.
 	}
 	if (file->fp)
-		fclose(file->fp);
+		(void)fclose(file->fp);
 	file->fp = NULL;
 }
 
@@ -1490,29 +1491,34 @@ static UINT change_lock(CliprdrFileContext* file, UINT32 lockId, BOOL lock)
 	WINPR_ASSERT(file);
 
 	HashTable_Lock(file->local_streams);
-	CliprdrLocalStream* stream = HashTable_GetItemValue(file->local_streams, &lockId);
-	if (lock && !stream)
+
 	{
-		stream = cliprdr_local_stream_new(file, lockId, NULL, 0);
-		if (!HashTable_Insert(file->local_streams, &lockId, stream))
+		CliprdrLocalStream* stream = HashTable_GetItemValue(file->local_streams, &lockId);
+		if (lock && !stream)
 		{
-			rc = ERROR_INTERNAL_ERROR;
-			cliprdr_local_stream_free(stream);
-			stream = NULL;
+			stream = cliprdr_local_stream_new(file, lockId, NULL, 0);
+			if (!HashTable_Insert(file->local_streams, &lockId, stream))
+			{
+				rc = ERROR_INTERNAL_ERROR;
+				cliprdr_local_stream_free(stream);
+				stream = NULL;
+			}
+			file->local_lock_id = lockId;
 		}
-		file->local_lock_id = lockId;
-	}
-	if (stream)
-	{
-		stream->locked = lock;
-		stream->lockId = lockId;
+		if (stream)
+		{
+			stream->locked = lock;
+			stream->lockId = lockId;
+		}
 	}
 
+	// NOLINTNEXTLINE(clang-analyzer-unix.Malloc): HashTable_Insert ownership stream
 	if (!lock)
 	{
 		if (!HashTable_Foreach(file->local_streams, local_stream_discard, file))
 			rc = ERROR_INTERNAL_ERROR;
 	}
+
 	HashTable_Unlock(file->local_streams);
 	return rc;
 }
@@ -1673,7 +1679,7 @@ static fuse_ino_t get_next_free_inode(CliprdrFileContext* file_context)
 
 	ino = file_context->next_ino;
 	while (ino == 0 || ino == FUSE_ROOT_ID ||
-	       HashTable_GetItemValue(file_context->inode_table, (void*)(UINT_PTR)ino))
+	       HashTable_GetItemValue(file_context->inode_table, (void*)(uintptr_t)ino))
 		++ino;
 
 	file_context->next_ino = ino + 1;
@@ -1705,9 +1711,11 @@ static CliprdrFuseFile* clip_data_dir_new(CliprdrFileContext* file_context, BOOL
 	}
 
 	if (has_clip_data_id)
-		_snprintf(clip_data_dir->filename_with_root, path_length, "/%u", (unsigned)clip_data_id);
+		(void)_snprintf(clip_data_dir->filename_with_root, path_length, "/%u",
+		                (unsigned)clip_data_id);
 	else
-		_snprintf(clip_data_dir->filename_with_root, path_length, "/%" PRIu64, NO_CLIP_DATA_ID);
+		(void)_snprintf(clip_data_dir->filename_with_root, path_length, "/%" PRIu64,
+		                NO_CLIP_DATA_ID);
 
 	clip_data_dir->filename = strrchr(clip_data_dir->filename_with_root, '/') + 1;
 
@@ -1726,7 +1734,7 @@ static CliprdrFuseFile* clip_data_dir_new(CliprdrFileContext* file_context, BOOL
 	}
 	clip_data_dir->parent = root_dir;
 
-	if (!HashTable_Insert(file_context->inode_table, (void*)(UINT_PTR)clip_data_dir->ino,
+	if (!HashTable_Insert(file_context->inode_table, (void*)(uintptr_t)clip_data_dir->ino,
 	                      clip_data_dir))
 	{
 		WLog_Print(file_context->log, WLOG_ERROR, "Failed to insert inode into inode table");
@@ -1863,8 +1871,8 @@ static BOOL set_selection_for_clip_data_entry(CliprdrFileContext* file_context,
 			return FALSE;
 		}
 
-		_snprintf(fuse_file->filename_with_root, path_length, "%s/%s",
-		          clip_data_dir->filename_with_root, filename);
+		(void)_snprintf(fuse_file->filename_with_root, path_length, "%s/%s",
+		                clip_data_dir->filename_with_root, filename);
 		free(filename);
 
 		fuse_file->filename = strrchr(fuse_file->filename_with_root, '/') + 1;
@@ -1901,18 +1909,18 @@ static BOOL set_selection_for_clip_data_entry(CliprdrFileContext* file_context,
 		}
 		if (file->dwFlags & FD_WRITESTIME)
 		{
-			UINT64 filetime = 0;
+			INT64 filetime = 0;
 
 			filetime = file->ftLastWriteTime.dwHighDateTime;
 			filetime <<= 32;
 			filetime += file->ftLastWriteTime.dwLowDateTime;
 
 			fuse_file->last_write_time_unix =
-			    filetime / (10 * 1000 * 1000) - WIN32_FILETIME_TO_UNIX_EPOCH;
+			    1LL * filetime / (10LL * 1000LL * 1000LL) - WIN32_FILETIME_TO_UNIX_EPOCH;
 			fuse_file->has_last_write_time = TRUE;
 		}
 
-		if (!HashTable_Insert(file_context->inode_table, (void*)(UINT_PTR)fuse_file->ino,
+		if (!HashTable_Insert(file_context->inode_table, (void*)(uintptr_t)fuse_file->ino,
 		                      fuse_file))
 		{
 			WLog_Print(file_context->log, WLOG_ERROR, "Failed to insert inode into inode table");
@@ -1980,7 +1988,7 @@ BOOL cliprdr_file_context_update_server_data(CliprdrFileContext* file_context, w
 	HashTable_Lock(file_context->inode_table);
 	if (does_server_support_clipdata_locking(file_context))
 		clip_data_entry = HashTable_GetItemValue(
-		    file_context->clip_data_table, (void*)(UINT_PTR)file_context->current_clip_data_id);
+		    file_context->clip_data_table, (void*)(uintptr_t)file_context->current_clip_data_id);
 	else
 		clip_data_entry = file_context->clip_data_entry_without_id;
 
@@ -2042,7 +2050,7 @@ void cliprdr_file_session_terminate(CliprdrFileContext* file, BOOL stop_thread)
 	if (stop_thread)
 	{
 		WLog_Print(file->log, WLOG_DEBUG, "Setting FUSE stop event");
-		SetEvent(file->fuse_stop_sync);
+		(void)SetEvent(file->fuse_stop_sync);
 	}
 #endif
 	/* 	not elegant but works for umounting FUSE
@@ -2051,7 +2059,7 @@ void cliprdr_file_session_terminate(CliprdrFileContext* file, BOOL stop_thread)
 #if defined(WITH_FUSE)
 	WLog_Print(file->log, WLOG_DEBUG, "Forcing FUSE to check exit flag");
 #endif
-	winpr_PathFileExists(file->path);
+	(void)winpr_PathFileExists(file->path);
 }
 
 void cliprdr_file_context_free(CliprdrFileContext* file)
@@ -2074,13 +2082,13 @@ void cliprdr_file_context_free(CliprdrFileContext* file)
 		cliprdr_file_session_terminate(file, TRUE);
 
 		WLog_Print(file->log, WLOG_DEBUG, "Waiting on FUSE thread");
-		WaitForSingleObject(file->fuse_thread, INFINITE);
-		CloseHandle(file->fuse_thread);
+		(void)WaitForSingleObject(file->fuse_thread, INFINITE);
+		(void)CloseHandle(file->fuse_thread);
 	}
 	if (file->fuse_stop_sync)
-		CloseHandle(file->fuse_stop_sync);
+		(void)CloseHandle(file->fuse_stop_sync);
 	if (file->fuse_start_sync)
-		CloseHandle(file->fuse_start_sync);
+		(void)CloseHandle(file->fuse_start_sync);
 
 	HashTable_Free(file->request_table);
 	HashTable_Free(file->clip_data_table);
@@ -2098,7 +2106,8 @@ static BOOL create_base_path(CliprdrFileContext* file)
 	WINPR_ASSERT(file);
 
 	char base[64] = { 0 };
-	_snprintf(base, sizeof(base), "com.freerdp.client.cliprdr.%" PRIu32, GetCurrentProcessId());
+	(void)_snprintf(base, sizeof(base), "com.freerdp.client.cliprdr.%" PRIu32,
+	                GetCurrentProcessId());
 
 	file->path = GetKnownSubPath(KNOWN_PATH_TEMP, base);
 	if (!file->path)
@@ -2120,7 +2129,7 @@ static void cliprdr_local_file_free(CliprdrLocalFile* file)
 	if (file->fp)
 	{
 		WLog_Print(file->context->log, WLOG_DEBUG, "closing file %s, discarding entry", file->name);
-		fclose(file->fp);
+		(void)fclose(file->fp);
 	}
 	free(file->name);
 	*file = empty;
@@ -2193,7 +2202,7 @@ static BOOL is_directory(const char* path)
 
 	BY_HANDLE_FILE_INFORMATION fileInformation = { 0 };
 	const BOOL status = GetFileInformationByHandle(hFile, &fileInformation);
-	CloseHandle(hFile);
+	(void)CloseHandle(hFile);
 	if (!status)
 		return FALSE;
 
@@ -2232,8 +2241,8 @@ static BOOL add_directory(CliprdrLocalStream* stream, const char* path)
 			continue;
 
 		char cFileName[MAX_PATH] = { 0 };
-		ConvertWCharNToUtf8(FindFileData.cFileName, ARRAYSIZE(FindFileData.cFileName), cFileName,
-		                    ARRAYSIZE(cFileName));
+		(void)ConvertWCharNToUtf8(FindFileData.cFileName, ARRAYSIZE(FindFileData.cFileName),
+		                          cFileName, ARRAYSIZE(cFileName));
 
 		free(next);
 		next = GetCombinedPath(path, cFileName);
@@ -2273,7 +2282,9 @@ static BOOL cliprdr_local_stream_update(CliprdrLocalStream* stream, const char* 
 	char* copy = strndup(data, size);
 	if (!copy)
 		return FALSE;
-	char* ptr = strtok(copy, "\r\n");
+
+	char* saveptr = NULL;
+	char* ptr = strtok_s(copy, "\r\n", &saveptr);
 	while (ptr)
 	{
 		const char* name = ptr;
@@ -2291,7 +2302,7 @@ static BOOL cliprdr_local_stream_update(CliprdrLocalStream* stream, const char* 
 			if (!res)
 				goto fail;
 		}
-		ptr = strtok(NULL, "\r\n");
+		ptr = strtok_s(NULL, "\r\n", &saveptr);
 	}
 
 	rc = TRUE;
@@ -2300,7 +2311,7 @@ fail:
 	return rc;
 }
 
-CliprdrLocalStream* cliprdr_local_stream_new(CliprdrFileContext* context, UINT32 lockId,
+CliprdrLocalStream* cliprdr_local_stream_new(CliprdrFileContext* context, UINT32 streamID,
                                              const char* data, size_t size)
 {
 	WINPR_ASSERT(context);
@@ -2312,7 +2323,7 @@ CliprdrLocalStream* cliprdr_local_stream_new(CliprdrFileContext* context, UINT32
 	if (!cliprdr_local_stream_update(stream, data, size))
 		goto fail;
 
-	stream->lockId = lockId;
+	stream->lockId = streamID;
 	return stream;
 
 fail:
@@ -2366,14 +2377,14 @@ static CliprdrFuseFile* fuse_file_new_root(CliprdrFileContext* file_context)
 		return NULL;
 	}
 
-	_snprintf(root_dir->filename_with_root, 2, "/");
+	(void)_snprintf(root_dir->filename_with_root, 2, "/");
 	root_dir->filename = root_dir->filename_with_root;
 
 	root_dir->ino = FUSE_ROOT_ID;
 	root_dir->is_directory = TRUE;
 	root_dir->is_readonly = TRUE;
 
-	if (!HashTable_Insert(file_context->inode_table, (void*)(UINT_PTR)root_dir->ino, root_dir))
+	if (!HashTable_Insert(file_context->inode_table, (void*)(uintptr_t)root_dir->ino, root_dir))
 	{
 		fuse_file_free(root_dir);
 		return NULL;

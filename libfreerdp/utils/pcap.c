@@ -28,9 +28,6 @@
 #include <winpr/file.h>
 #include <winpr/crt.h>
 #include <winpr/sysinfo.h>
-#include <freerdp/log.h>
-
-#define TAG FREERDP_TAG("utils")
 
 #include <freerdp/types.h>
 #include <freerdp/utils/pcap.h>
@@ -225,9 +222,9 @@ rdpPcap* pcap_open(const char* name, BOOL write)
 	}
 	else
 	{
-		_fseeki64(pcap->fp, 0, SEEK_END);
+		(void)_fseeki64(pcap->fp, 0, SEEK_END);
 		pcap->file_size = _ftelli64(pcap->fp);
-		_fseeki64(pcap->fp, 0, SEEK_SET);
+		(void)_fseeki64(pcap->fp, 0, SEEK_SET);
 		if (!pcap_read_header(pcap, &pcap->header))
 			goto fail;
 	}
@@ -250,7 +247,7 @@ void pcap_flush(rdpPcap* pcap)
 	}
 
 	if (pcap->fp != NULL)
-		fflush(pcap->fp);
+		(void)fflush(pcap->fp);
 }
 
 void pcap_close(rdpPcap* pcap)
@@ -261,7 +258,7 @@ void pcap_close(rdpPcap* pcap)
 	pcap_flush(pcap);
 
 	if (pcap->fp != NULL)
-		fclose(pcap->fp);
+		(void)fclose(pcap->fp);
 
 	free(pcap->name);
 	free(pcap);

@@ -46,7 +46,7 @@ static UINT rail_send(RailServerContext* context, wStream* s, ULONG length)
 	if (!context)
 		return CHANNEL_RC_BAD_INIT_HANDLE;
 
-	if (!WTSVirtualChannelWrite(context->priv->rail_channel, (PCHAR)Stream_Buffer(s), length,
+	if (!WTSVirtualChannelWrite(context->priv->rail_channel, Stream_BufferAs(s, char), length,
 	                            &written))
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelWrite failed!");
@@ -670,14 +670,14 @@ static UINT rail_read_exec_order(wStream* s, RAIL_EXEC_ORDER* exec, char* args[]
 
 	if (exeLen > 0)
 	{
-		const SSIZE_T len = exeLen / sizeof(WCHAR);
+		const size_t len = exeLen / sizeof(WCHAR);
 		exec->RemoteApplicationProgram = args[0] = Stream_Read_UTF16_String_As_UTF8(s, len, NULL);
 		if (!exec->RemoteApplicationProgram)
 			goto fail;
 	}
 	if (workLen > 0)
 	{
-		const SSIZE_T len = workLen / sizeof(WCHAR);
+		const size_t len = workLen / sizeof(WCHAR);
 		exec->RemoteApplicationWorkingDir = args[1] =
 		    Stream_Read_UTF16_String_As_UTF8(s, len, NULL);
 		if (!exec->RemoteApplicationWorkingDir)
@@ -685,7 +685,7 @@ static UINT rail_read_exec_order(wStream* s, RAIL_EXEC_ORDER* exec, char* args[]
 	}
 	if (argLen > 0)
 	{
-		const SSIZE_T len = argLen / sizeof(WCHAR);
+		const size_t len = argLen / sizeof(WCHAR);
 		exec->RemoteApplicationArguments = args[2] = Stream_Read_UTF16_String_As_UTF8(s, len, NULL);
 		if (!exec->RemoteApplicationArguments)
 			goto fail;
@@ -1459,21 +1459,21 @@ static UINT rail_server_start(RailServerContext* context)
 
 	return CHANNEL_RC_OK;
 out_stop_event:
-	CloseHandle(context->priv->stopEvent);
+	(void)CloseHandle(context->priv->stopEvent);
 	context->priv->stopEvent = NULL;
 out_close:
-	WTSVirtualChannelClose(context->priv->rail_channel);
+	(void)WTSVirtualChannelClose(context->priv->rail_channel);
 	context->priv->rail_channel = NULL;
 	return error;
 }
 
 static BOOL rail_server_stop(RailServerContext* context)
 {
-	RailServerPrivate* priv = (RailServerPrivate*)context->priv;
+	RailServerPrivate* priv = context->priv;
 
 	if (priv->thread)
 	{
-		SetEvent(priv->stopEvent);
+		(void)SetEvent(priv->stopEvent);
 
 		if (WaitForSingleObject(priv->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -1481,15 +1481,15 @@ static BOOL rail_server_stop(RailServerContext* context)
 			return FALSE;
 		}
 
-		CloseHandle(priv->thread);
-		CloseHandle(priv->stopEvent);
+		(void)CloseHandle(priv->thread);
+		(void)CloseHandle(priv->stopEvent);
 		priv->thread = NULL;
 		priv->stopEvent = NULL;
 	}
 
 	if (priv->rail_channel)
 	{
-		WTSVirtualChannelClose(priv->rail_channel);
+		(void)WTSVirtualChannelClose(priv->rail_channel);
 		priv->rail_channel = NULL;
 	}
 

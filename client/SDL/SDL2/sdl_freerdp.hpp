@@ -22,6 +22,7 @@
 #include <memory>
 #include <thread>
 #include <map>
+#include <atomic>
 
 #include <freerdp/freerdp.h>
 #include <freerdp/client/rdpei.h>
@@ -46,6 +47,11 @@ class SdlContext
 {
   public:
 	explicit SdlContext(rdpContext* context);
+	SdlContext(const SdlContext& other) = delete;
+	SdlContext(SdlContext&& other) = delete;
+
+	SdlContext& operator=(const SdlContext& other) = delete;
+	SdlContext& operator=(SdlContext&& other) = delete;
 
   private:
 	rdpContext* _context;
@@ -80,9 +86,11 @@ class SdlContext
 
 	std::unique_ptr<SDLConnectionDialog> connection_dialog;
 
-  public:
+	std::atomic<bool> rdp_thread_running;
+
 	BOOL update_resizeable(BOOL enable);
 	BOOL update_fullscreen(BOOL enter);
+	BOOL update_minimize();
 
 	[[nodiscard]] rdpContext* context() const;
 	[[nodiscard]] rdpClientContext* common() const;

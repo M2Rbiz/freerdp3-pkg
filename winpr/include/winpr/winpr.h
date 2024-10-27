@@ -48,12 +48,13 @@
 #endif
 
 #if defined(__clang__) || defined(__GNUC__) && (__GNUC__ <= 10)
-#define WINPR_ATTR_MALLOC(deallocator, ptrindex) __attribute__((malloc, warn_unused_result))
+#define WINPR_ATTR_MALLOC(deallocator, ptrindex) \
+	__attribute__((malloc, warn_unused_result)) /** @since version 3.3.0 */
 #elif defined(__GNUC__)
 #define WINPR_ATTR_MALLOC(deallocator, ptrindex) \
-	__attribute__((malloc(deallocator, ptrindex), warn_unused_result))
+	__attribute__((malloc(deallocator, ptrindex), warn_unused_result)) /** @since version 3.3.0 */
 #else
-#define WINPR_ATTR_MALLOC(deallocator, ptrindex)
+#define WINPR_ATTR_MALLOC(deallocator, ptrindex) /** @since version 3.3.0 */
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -64,7 +65,7 @@
 #define WINPR_FORMAT_ARG _Printf_format_string_
 #endif
 
-#if defined(__STDC__) && defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L)
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L)
 #define WINPR_DEPRECATED(obj) [[deprecated]] obj
 #define WINPR_DEPRECATED_VAR(text, obj) [[deprecated(text)]] obj
 #define WINPR_NORETURN(obj) [[noreturn]] obj
@@ -120,12 +121,12 @@
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
-#define WINPR_ALIGN64 __attribute__((aligned(8)))
+#define WINPR_ALIGN64 __attribute__((aligned(8))) /** @since version 3.4.0 */
 #else
 #ifdef _WIN32
-#define WINPR_ALIGN64 __declspec(align(8))
+#define WINPR_ALIGN64 __declspec(align(8)) /** @since version 3.4.0 */
 #else
-#define WINPR_ALIGN64
+#define WINPR_ALIGN64 /** @since version 3.4.0 */
 #endif
 #endif
 
@@ -135,5 +136,65 @@ WINPR_API const char* winpr_get_build_revision(void);
 WINPR_API const char* winpr_get_build_config(void);
 
 #define WINPR_UNUSED(x) (void)(x)
+
+#if defined(__GNUC__) || defined(__clang__)
+/**
+ * @brief A macro to do dirty casts. Do not use without a good justification!
+ * @param ptr The pointer to cast
+ * @param dstType The data type to cast to
+ * @return The casted pointer
+ * @since version 3.9.0
+ */
+#define WINPR_REINTERPRET_CAST(ptr, srcType, dstType) \
+	__extension__({                                   \
+		union                                         \
+		{                                             \
+			srcType src;                              \
+			dstType dst;                              \
+		} cnv;                                        \
+		cnv.src = ptr;                                \
+		cnv.dst;                                      \
+	})
+
+/**
+ * @brief A macro to do dirty casts. Do not use without a good justification!
+ * @param ptr The pointer to cast
+ * @param dstType The data type to cast to
+ * @return The casted pointer
+ * @since version 3.9.0
+ */
+#define WINPR_CAST_CONST_PTR_AWAY(ptr, dstType) \
+	__extension__({                             \
+		union                                   \
+		{                                       \
+			typeof(ptr) src;                    \
+			dstType dst;                        \
+		} cnv;                                  \
+		cnv.src = ptr;                          \
+		cnv.dst;                                \
+	})
+
+/**
+ * @brief A macro to do function pointer casts. Do not use without a good justification!
+ * @param ptr The pointer to cast
+ * @param dstType The data type to cast to
+ * @return The casted pointer
+ * @since version 3.9.0
+ */
+#define WINPR_FUNC_PTR_CAST(ptr, dstType) \
+	__extension__({                       \
+		union                             \
+		{                                 \
+			typeof(ptr) src;              \
+			dstType dst;                  \
+		} cnv;                            \
+		cnv.src = ptr;                    \
+		cnv.dst;                          \
+	})
+#else
+#define WINPR_REINTERPRET_CAST(ptr, srcType, dstType) (dstType) ptr
+#define WINPR_CAST_CONST_PTR_AWAY(ptr, dstType) (dstType) ptr
+#define WINPR_FUNC_PTR_CAST(ptr, dstType) (dstType)(uintptr_t) ptr
+#endif
 
 #endif /* WINPR_H */

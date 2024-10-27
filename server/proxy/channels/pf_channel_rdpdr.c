@@ -259,10 +259,10 @@ static UINT rdpdr_seal_send_free_request(pf_channel_server_context* context, wSt
 
 	Stream_SealLength(s);
 	len = Stream_Length(s);
-	WINPR_ASSERT(len <= ULONG_MAX);
+	WINPR_ASSERT(len <= UINT32_MAX);
 
 	rdpdr_dump_send_packet(context->log, WLOG_TRACE, s, proxy_client_tx);
-	status = WTSVirtualChannelWrite(context->handle, (char*)Stream_Buffer(s), (ULONG)len, NULL);
+	status = WTSVirtualChannelWrite(context->handle, Stream_BufferAs(s, char), (ULONG)len, NULL);
 	return (status) ? CHANNEL_RC_OK : ERROR_INTERNAL_ERROR;
 }
 
@@ -457,7 +457,7 @@ static UINT rdpdr_process_client_name_request(pf_channel_server_context* rdpdr, 
 		return ERROR_INVALID_DATA;
 
 	Stream_Read_UINT32(s, unicodeFlag);
-	rdpdr->common.computerNameUnicode = (unicodeFlag & 1);
+	rdpdr->common.computerNameUnicode = ((unicodeFlag & 1) != 0) ? TRUE : FALSE;
 
 	Stream_Read_UINT32(s, codePage);
 	WINPR_UNUSED(codePage); /* Field is ignored */
@@ -1764,7 +1764,7 @@ static void pf_channel_rdpdr_server_context_free(InterceptContextMapEntry* base)
 	if (!entry)
 		return;
 
-	WTSVirtualChannelClose(entry->handle);
+	(void)WTSVirtualChannelClose(entry->handle);
 	pf_channel_rdpdr_common_context_free(&entry->common);
 	ArrayList_Free(entry->blockedDevices);
 	free(entry);

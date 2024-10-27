@@ -9,7 +9,7 @@ macro (checkCFlag FLAG)
 	endif()
 endmacro()
 
-option(ENABLE_WARNING_VERBOSE "enable -Weveryting (and some exceptions) for compile" ON)
+option(ENABLE_WARNING_VERBOSE "enable -Weveryting (and some exceptions) for compile" OFF)
 option(ENABLE_WARNING_ERROR "enable -Werror for compile" OFF)
 
 if (ENABLE_WARNING_VERBOSE)
@@ -36,11 +36,13 @@ if (ENABLE_WARNING_VERBOSE)
 			-Wall
 			-Wpedantic
 			-Wno-padded
+			-Wno-switch-enum
 			-Wno-cast-align
 			-Wno-declaration-after-statement
 			-Wno-unsafe-buffer-usage
 			-Wno-reserved-identifier
 			-Wno-covered-switch-default
+			-Wno-disabled-macro-expansion
 		)
 	endif()
 

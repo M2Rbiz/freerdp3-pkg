@@ -75,7 +75,8 @@ typedef struct
 } FREERDP_URBDRC_SERVICE_ENTRY_POINTS;
 typedef FREERDP_URBDRC_SERVICE_ENTRY_POINTS* PFREERDP_URBDRC_SERVICE_ENTRY_POINTS;
 
-typedef int (*PFREERDP_URBDRC_DEVICE_ENTRY)(PFREERDP_URBDRC_SERVICE_ENTRY_POINTS pEntryPoints);
+typedef UINT(VCAPITYPE* PFREERDP_URBDRC_DEVICE_ENTRY)(
+    PFREERDP_URBDRC_SERVICE_ENTRY_POINTS pEntryPoints);
 
 typedef struct
 {
@@ -217,6 +218,6 @@ FREERDP_API BOOL add_device(IUDEVMAN* idevman, UINT32 flags, BYTE busnum, BYTE d
 FREERDP_API BOOL del_device(IUDEVMAN* idevman, UINT32 flags, BYTE busnum, BYTE devnum,
                             UINT16 idVendor, UINT16 idProduct);
 
-UINT stream_write_and_free(IWTSPlugin* plugin, IWTSVirtualChannel* channel, wStream* s);
+UINT stream_write_and_free(IWTSPlugin* plugin, IWTSVirtualChannel* channel, wStream* out);
 
 #endif /* FREERDP_CHANNEL_URBDRC_CLIENT_MAIN_H */

@@ -17,6 +17,7 @@
  * limitations under the License.
  */
 
+#include <winpr/winpr.h>
 #include <freerdp/log.h>
 #include <freerdp/codec/h264.h>
 
@@ -374,7 +375,7 @@ static int mf_decompress(H264_CONTEXT* h264, const BYTE* pSrcData, UINT32 SrcSiz
 	inputSample->lpVtbl->Release(inputSample);
 	return 1;
 error:
-	fprintf(stderr, "mf_decompress error\n");
+	(void)fprintf(stderr, "mf_decompress error\n");
 	return -1;
 }
 
@@ -466,12 +467,13 @@ static BOOL mf_init(H264_CONTEXT* h264)
 	if (!sys->mfplat)
 		goto error;
 
-	sys->MFStartup = (pfnMFStartup)GetProcAddress(sys->mfplat, "MFStartup");
-	sys->MFShutdown = (pfnMFShutdown)GetProcAddress(sys->mfplat, "MFShutdown");
-	sys->MFCreateSample = (pfnMFCreateSample)GetProcAddress(sys->mfplat, "MFCreateSample");
+	sys->MFStartup = GetProcAddressAs(sys->mfplat, "MFStartup", pfnMFStartup);
+	sys->MFShutdown = GetProcAddressAs(sys->mfplat, "MFShutdown", pfnMFShutdown);
+	sys->MFCreateSample = GetProcAddressAs(sys->mfplat, "MFCreateSample", pfnMFCreateSample);
 	sys->MFCreateMemoryBuffer =
-	    (pfnMFCreateMemoryBuffer)GetProcAddress(sys->mfplat, "MFCreateMemoryBuffer");
-	sys->MFCreateMediaType = (pfnMFCreateMediaType)GetProcAddress(sys->mfplat, "MFCreateMediaType");
+	    GetProcAddressAs(sys->mfplat, "MFCreateMemoryBuffer", pfnMFCreateMemoryBuffer);
+	sys->MFCreateMediaType =
+	    GetProcAddressAs(sys->mfplat, "MFCreateMediaType", pfnMFCreateMediaType);
 
 	if (!mf_plat_loaded(sys))
 		goto error;

@@ -45,12 +45,12 @@
 #include "drive_file.h"
 
 #ifdef WITH_DEBUG_RDPDR
-#define DEBUG_WSTR(msg, wstr)                              \
-	do                                                     \
-	{                                                      \
-		char lpstr[1024] = { 0 };                          \
-		ConvertWCharToUtf8(wstr, lpstr, ARRAYSIZE(lpstr)); \
-		WLog_DBG(TAG, msg, lpstr);                         \
+#define DEBUG_WSTR(msg, wstr)                                    \
+	do                                                           \
+	{                                                            \
+		char lpstr[1024] = { 0 };                                \
+		(void)ConvertWCharToUtf8(wstr, lpstr, ARRAYSIZE(lpstr)); \
+		WLog_DBG(TAG, msg, lpstr);                               \
 	} while (0)
 #else
 #define DEBUG_WSTR(msg, wstr) \
@@ -96,6 +96,9 @@ static BOOL contains_dotdot(const WCHAR* path, size_t base_length, size_t path_l
 	const WCHAR* dotdot = InitializeConstWCharFromUtf8("..", dotdotbuffer, ARRAYSIZE(dotdotbuffer));
 	const WCHAR* tst = path;
 
+	if (path_length < 2)
+		return FALSE;
+
 	do
 	{
 		tst = _wcsstr(tst, dotdot);
@@ -122,13 +125,12 @@ static WCHAR* drive_file_combine_fullpath(const WCHAR* base_path, const WCHAR* p
 {
 	BOOL ok = FALSE;
 	WCHAR* fullpath = NULL;
-	size_t length = 0;
 
 	if (!base_path || (!path && (PathWCharLength > 0)))
 		goto fail;
 
 	const size_t base_path_length = _wcsnlen(base_path, MAX_PATH);
-	length = base_path_length + PathWCharLength + 1;
+	const size_t length = base_path_length + PathWCharLength + 1;
 	fullpath = (WCHAR*)calloc(length, sizeof(WCHAR));
 
 	if (!fullpath)
@@ -145,7 +147,7 @@ static WCHAR* drive_file_combine_fullpath(const WCHAR* base_path, const WCHAR* p
 	if (contains_dotdot(&fullpath[base_path_length], base_path_length, PathWCharLength))
 	{
 		char abuffer[MAX_PATH] = { 0 };
-		ConvertWCharToUtf8(&fullpath[base_path_length], abuffer, ARRAYSIZE(abuffer));
+		(void)ConvertWCharToUtf8(&fullpath[base_path_length], abuffer, ARRAYSIZE(abuffer));
 
 		WLog_WARN(TAG, "[rdpdr] received invalid file path '%s' from server, aborting!",
 		          &abuffer[base_path_length]);
@@ -359,7 +361,7 @@ BOOL drive_file_free(DRIVE_FILE* file)
 
 	if (file->file_handle != INVALID_HANDLE_VALUE)
 	{
-		CloseHandle(file->file_handle);
+		(void)CloseHandle(file->file_handle);
 		file->file_handle = INVALID_HANDLE_VALUE;
 	}
 
@@ -583,7 +585,7 @@ BOOL drive_file_query_information(DRIVE_FILE* file, UINT32 FsInformationClass, w
 	if (hFile != INVALID_HANDLE_VALUE)
 	{
 		status = GetFileInformationByHandle(hFile, &fileInformation);
-		CloseHandle(hFile);
+		(void)CloseHandle(hFile);
 		if (!status)
 			goto out_fail;
 
@@ -788,7 +790,7 @@ BOOL drive_file_set_information(DRIVE_FILE* file, UINT32 FsInformationClass, UIN
 
 			if (file->file_handle != INVALID_HANDLE_VALUE)
 			{
-				CloseHandle(file->file_handle);
+				(void)CloseHandle(file->file_handle);
 				file->file_handle = INVALID_HANDLE_VALUE;
 			}
 

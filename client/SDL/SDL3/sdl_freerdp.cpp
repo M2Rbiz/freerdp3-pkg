@@ -48,6 +48,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_video.h>
+#include <SDL3/SDL_oldnames.h>
 
 #include "sdl_channels.hpp"
 #include "sdl_freerdp.hpp"
@@ -59,6 +60,7 @@
 #include "sdl_pointer.hpp"
 #include "sdl_prefs.hpp"
 #include "dialogs/sdl_dialogs.hpp"
+#include "scoped_guard.hpp"
 
 #include <aad/sdl_webview.hpp>
 
@@ -211,20 +213,28 @@ static const struct sdl_exit_code_map_t sdl_exit_code_map[] = {
 
 static const struct sdl_exit_code_map_t* sdl_map_entry_by_code(int exit_code)
 {
-	for (size_t x = 0; x < ARRAYSIZE(sdl_exit_code_map); x++)
+	for (const auto& x : sdl_exit_code_map)
 	{
-		const struct sdl_exit_code_map_t* cur = &sdl_exit_code_map[x];
+		const struct sdl_exit_code_map_t* cur = &x;
 		if (cur->code == exit_code)
 			return cur;
 	}
 	return nullptr;
 }
 
+static void sdl_hide_connection_dialog(SdlContext* sdl)
+{
+	WINPR_ASSERT(sdl);
+	std::lock_guard<CriticalSection> lock(sdl->critical);
+	if (sdl->connection_dialog)
+		sdl->connection_dialog->hide();
+}
+
 static const struct sdl_exit_code_map_t* sdl_map_entry_by_error(DWORD error)
 {
-	for (size_t x = 0; x < ARRAYSIZE(sdl_exit_code_map); x++)
+	for (const auto& x : sdl_exit_code_map)
 	{
-		const struct sdl_exit_code_map_t* cur = &sdl_exit_code_map[x];
+		const struct sdl_exit_code_map_t* cur = &x;
 		if (cur->error == error)
 			return cur;
 	}
@@ -324,6 +334,10 @@ class SdlEventUpdateTriggerGuard
 	{
 		_sdl->update_complete.set();
 	}
+	SdlEventUpdateTriggerGuard(const SdlEventUpdateTriggerGuard&) = delete;
+	SdlEventUpdateTriggerGuard(SdlEventUpdateTriggerGuard&&) = delete;
+	SdlEventUpdateTriggerGuard& operator=(const SdlEventUpdateTriggerGuard&) = delete;
+	SdlEventUpdateTriggerGuard& operator=(SdlEventUpdateTriggerGuard&&) = delete;
 };
 
 static bool sdl_draw_to_window_rect(SdlContext* sdl, SdlWindow& window, SDL_Surface* surface,
@@ -475,7 +489,6 @@ static void sdl_destroy_primary(SdlContext* sdl)
 	if (!sdl)
 		return;
 	sdl->primary.reset();
-	sdl->primary_format.reset();
 }
 
 /* Create a SDL surface from the GDI buffer */
@@ -490,19 +503,17 @@ static BOOL sdl_create_primary(SdlContext* sdl)
 
 	sdl_destroy_primary(sdl);
 	sdl->primary =
-	    SDLSurfacePtr(SDL_CreateSurfaceFrom(gdi->primary_buffer, static_cast<int>(gdi->width),
-	                                        static_cast<int>(gdi->height),
-	                                        static_cast<int>(gdi->stride), sdl->sdl_pixel_format),
+	    SDLSurfacePtr(SDL_CreateSurfaceFrom(static_cast<int>(gdi->width),
+	                                        static_cast<int>(gdi->height), sdl->sdl_pixel_format,
+	                                        gdi->primary_buffer, static_cast<int>(gdi->stride)),
 	                  SDL_DestroySurface);
-	sdl->primary_format =
-	    SDLPixelFormatPtr(SDL_CreatePixelFormat(sdl->sdl_pixel_format), SDL_DestroyPixelFormat);
-
-	if (!sdl->primary || !sdl->primary_format)
+	if (!sdl->primary)
 		return FALSE;
 
 	SDL_SetSurfaceBlendMode(sdl->primary.get(), SDL_BLENDMODE_NONE);
-	SDL_FillSurfaceRect(sdl->primary.get(), nullptr,
-	                    SDL_MapRGBA(sdl->primary_format.get(), 0, 0, 0, 0xff));
+	SDL_Rect surfaceRect = { 0, 0, gdi->width, gdi->height };
+	SDL_FillSurfaceRect(sdl->primary.get(), &surfaceRect,
+	                    SDL_MapSurfaceRGBA(sdl->primary.get(), 0, 0, 0, 0xff));
 
 	return TRUE;
 }
@@ -564,6 +575,9 @@ static BOOL sdl_pre_connect(freerdp* instance)
 
 	auto settings = instance->context->settings;
 	WINPR_ASSERT(settings);
+
+	if (!freerdp_settings_set_bool(settings, FreeRDP_CertificateCallbackPreferPEM, TRUE))
+		return FALSE;
 
 	/* Optional OS identifier sent to server */
 	if (!freerdp_settings_set_uint32(settings, FreeRDP_OsMajorType, OSMAJORTYPE_UNIX))
@@ -649,7 +663,7 @@ static const char* sdl_window_get_title(rdpSettings* settings)
 
 	addPort = (port != 3389);
 
-	char buffer[MAX_PATH + 64] = { 0 };
+	char buffer[MAX_PATH + 64] = {};
 
 	if (!addPort)
 		sprintf_s(buffer, sizeof(buffer), "%s %s", prefix, name);
@@ -688,12 +702,15 @@ static BOOL sdl_create_windows(SdlContext* sdl)
 
 	auto settings = sdl->context()->settings;
 	auto title = sdl_window_get_title(settings);
-	BOOL rc = FALSE;
 
 	UINT32 windowCount = freerdp_settings_get_uint32(settings, FreeRDP_MonitorCount);
 
 	for (UINT32 x = 0; x < windowCount; x++)
 	{
+		auto id = sdl_monitor_id_for_index(sdl, x);
+		if (id < 0)
+			return FALSE;
+
 		auto monitor = static_cast<rdpMonitor*>(
 		    freerdp_settings_get_pointer_array_writable(settings, FreeRDP_MonitorDefArray, x));
 
@@ -707,8 +724,8 @@ static BOOL sdl_create_windows(SdlContext* sdl)
 		}
 
 		Uint32 flags = 0;
-		Uint32 startupX = SDL_WINDOWPOS_CENTERED_DISPLAY(x);
-		Uint32 startupY = SDL_WINDOWPOS_CENTERED_DISPLAY(x);
+		Uint32 startupX = SDL_WINDOWPOS_CENTERED_DISPLAY(id);
+		Uint32 startupY = SDL_WINDOWPOS_CENTERED_DISPLAY(id);
 
 		if (monitor->attributes.desktopScaleFactor > 100)
 		{
@@ -735,8 +752,9 @@ static BOOL sdl_create_windows(SdlContext* sdl)
 			              static_cast<int>(w),
 			              static_cast<int>(h),
 			              flags };
+		ScopeGuard guard1([&]() { sdl->windows_created.set(); });
 		if (!window.window())
-			goto fail;
+			return FALSE;
 
 		if (freerdp_settings_get_bool(settings, FreeRDP_UseMultimon))
 		{
@@ -748,11 +766,7 @@ static BOOL sdl_create_windows(SdlContext* sdl)
 		sdl->windows.insert({ window.id(), std::move(window) });
 	}
 
-	rc = TRUE;
-fail:
-
-	sdl->windows_created.set();
-	return rc;
+	return TRUE;
 }
 
 static BOOL sdl_wait_create_windows(SdlContext* sdl)
@@ -779,6 +793,8 @@ static bool shall_abort(SdlContext* sdl)
 	std::lock_guard<CriticalSection> lock(sdl->critical);
 	if (freerdp_shall_disconnect_context(sdl->context()))
 	{
+		if (sdl->rdp_thread_running)
+			return false;
 		if (!sdl->connection_dialog)
 			return true;
 		return !sdl->connection_dialog->running();
@@ -812,7 +828,7 @@ static int sdl_run(SdlContext* sdl)
 
 	while (!shall_abort(sdl))
 	{
-		SDL_Event windowEvent = { 0 };
+		SDL_Event windowEvent = {};
 		while (!shall_abort(sdl) && SDL_WaitEventTimeout(nullptr, 1000))
 		{
 			/* Only poll standard SDL events and SDL_EVENT_USERS meant to create dialogs.
@@ -947,7 +963,7 @@ static int sdl_run(SdlContext* sdl)
 				case SDL_EVENT_USER_WINDOW_RESIZEABLE:
 				{
 					auto window = static_cast<SdlWindow*>(windowEvent.user.data1);
-					const SDL_bool use = windowEvent.user.code != 0 ? SDL_TRUE : SDL_FALSE;
+					const bool use = windowEvent.user.code != 0;
 					if (window)
 						window->resizeable(use);
 				}
@@ -955,11 +971,17 @@ static int sdl_run(SdlContext* sdl)
 				case SDL_EVENT_USER_WINDOW_FULLSCREEN:
 				{
 					auto window = static_cast<SdlWindow*>(windowEvent.user.data1);
-					const SDL_bool enter = windowEvent.user.code != 0 ? SDL_TRUE : SDL_FALSE;
+					const bool enter = windowEvent.user.code != 0;
 					if (window)
 						window->fullscreen(enter);
 				}
 				break;
+				case SDL_EVENT_USER_WINDOW_MINIMIZE:
+					for (auto& window : sdl->windows)
+					{
+						window.second.minimize();
+					}
+					break;
 				case SDL_EVENT_USER_POINTER_NULL:
 					SDL_HideCursor();
 					break;
@@ -993,7 +1015,7 @@ static int sdl_run(SdlContext* sdl)
 					sdl_Pointer_Set_Process(&windowEvent.user);
 					break;
 				case SDL_EVENT_CLIPBOARD_UPDATE:
-					sdl->clip.handle_update();
+					sdl->clip.handle_update(windowEvent.clipboard);
 					break;
 				case SDL_EVENT_USER_QUIT:
 				default:
@@ -1007,34 +1029,28 @@ static int sdl_run(SdlContext* sdl)
 					         (windowEvent.type <= SDL_EVENT_WINDOW_LAST))
 					{
 						const SDL_WindowEvent* ev = &windowEvent.window;
-						sdl->disp.handle_window_event(ev);
-
-						switch (ev->type)
+						auto window = sdl->windows.find(ev->windowID);
+						if (window != sdl->windows.end())
 						{
-							case SDL_EVENT_WINDOW_RESIZED:
-							case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+							sdl->disp.handle_window_event(ev);
+
+							switch (ev->type)
 							{
-								auto window = sdl->windows.find(ev->windowID);
-								if (window != sdl->windows.end())
-								{
+								case SDL_EVENT_WINDOW_RESIZED:
+								case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
 									window->second.fill();
 									window->second.updateSurface();
-								}
-							}
-							break;
-							case SDL_EVENT_WINDOW_MOVED:
-							{
-								auto window = sdl->windows.find(ev->windowID);
-								if (window != sdl->windows.end())
+									break;
+								case SDL_EVENT_WINDOW_MOVED:
 								{
 									auto r = window->second.rect();
 									auto id = window->second.id();
 									WLog_DBG(SDL_TAG, "%lu: %dx%d-%dx%d", id, r.x, r.y, r.w, r.h);
 								}
-							}
-							break;
-							default:
 								break;
+								default:
+									break;
+							}
 						}
 					}
 					break;
@@ -1066,11 +1082,7 @@ static BOOL sdl_post_connect(freerdp* instance)
 	auto sdl = get_context(context);
 
 	// Retry was successful, discard dialog
-	{
-		std::lock_guard<CriticalSection> lock(sdl->critical);
-		if (sdl->connection_dialog)
-			sdl->connection_dialog->hide();
-	}
+	sdl_hide_connection_dialog(sdl);
 
 	if (freerdp_settings_get_bool(context->settings, FreeRDP_AuthenticationOnly))
 	{
@@ -1138,34 +1150,68 @@ static void sdl_post_final_disconnect(freerdp* instance)
 
 	if (!instance->context)
 		return;
-
-	auto context = get_context(instance->context);
 }
 
-/* RDP main loop.
- * Connects RDP, loops while running and handles event and dispatch, cleans up
- * after the connection ends. */
-static DWORD WINAPI sdl_client_thread_proc(SdlContext* sdl)
+static void sdl_client_cleanup(SdlContext* sdl, int exit_code, const std::string& error_msg)
 {
-	DWORD nCount = 0;
-	DWORD status = 0;
-	int exit_code = SDL_EXIT_SUCCESS;
-	char* error_msg = nullptr;
-	size_t error_msg_len = 0;
+	WINPR_ASSERT(sdl);
 
-	HANDLE handles[MAXIMUM_WAIT_OBJECTS] = {};
+	rdpContext* context = sdl->context();
+	WINPR_ASSERT(context);
+	rdpSettings* settings = context->settings;
+	WINPR_ASSERT(settings);
 
+	sdl->rdp_thread_running = false;
+	bool showError = false;
+	if (freerdp_settings_get_bool(settings, FreeRDP_AuthenticationOnly))
+		WLog_Print(sdl->log, WLOG_INFO, "Authentication only, exit status %s [%" PRId32 "]",
+		           sdl_map_to_code_tag(exit_code), exit_code);
+	else
+	{
+		switch (exit_code)
+		{
+			case SDL_EXIT_SUCCESS:
+			case SDL_EXIT_DISCONNECT:
+			case SDL_EXIT_LOGOFF:
+			case SDL_EXIT_DISCONNECT_BY_USER:
+			case SDL_EXIT_CONNECT_CANCELLED:
+				break;
+			default:
+			{
+				std::lock_guard<CriticalSection> lock(sdl->critical);
+				if (sdl->connection_dialog && !error_msg.empty())
+				{
+					sdl->connection_dialog->showError(error_msg.c_str());
+					showError = true;
+				}
+			}
+			break;
+		}
+	}
+
+	if (!showError)
+		sdl_hide_connection_dialog(sdl);
+
+	sdl->exit_code = exit_code;
+	sdl_push_user_event(SDL_EVENT_USER_QUIT);
+	SDL_CleanupTLS();
+}
+
+static int sdl_client_thread_connect(SdlContext* sdl, std::string& error_msg)
+{
 	WINPR_ASSERT(sdl);
 
 	auto instance = sdl->context()->instance;
 	WINPR_ASSERT(instance);
 
+	sdl->rdp_thread_running = true;
 	BOOL rc = freerdp_connect(instance);
 
 	rdpContext* context = sdl->context();
 	rdpSettings* settings = context->settings;
 	WINPR_ASSERT(settings);
 
+	int exit_code = SDL_EXIT_SUCCESS;
 	if (!rc)
 	{
 		UINT32 error = freerdp_get_last_error(context);
@@ -1178,33 +1224,63 @@ static DWORD WINAPI sdl_client_thread_proc(SdlContext* sdl)
 		freerdp_abort_connect_context(context);
 		WLog_Print(sdl->log, WLOG_ERROR, "Authentication only, %s [0x%08" PRIx32 "] %s",
 		           freerdp_get_last_error_name(code), code, freerdp_get_last_error_string(code));
-		goto terminate;
+		return exit_code;
 	}
 
 	if (!rc)
 	{
 		DWORD code = freerdp_error_info(instance);
 		if (exit_code == SDL_EXIT_SUCCESS)
-			exit_code = error_info_to_error(instance, &code, &error_msg, &error_msg_len);
-
-		auto last = freerdp_get_last_error(context);
-		if (!error_msg)
 		{
-			winpr_asprintf(&error_msg, &error_msg_len, "%s [0x%08" PRIx32 "]\n%s",
-			               freerdp_get_last_error_name(last), last,
-			               freerdp_get_last_error_string(last));
+			char* msg = nullptr;
+			size_t len = 0;
+			exit_code = error_info_to_error(instance, &code, &msg, &len);
+			if (msg)
+				error_msg = msg;
+			free(msg);
 		}
 
-		if (last == FREERDP_ERROR_AUTHENTICATION_FAILED)
-			exit_code = SDL_EXIT_AUTH_FAILURE;
-		else if (code == ERRINFO_SUCCESS)
-			exit_code = SDL_EXIT_CONN_FAILED;
+		auto last = freerdp_get_last_error(context);
+		if (error_msg.empty())
+		{
+			char* msg = nullptr;
+			size_t len = 0;
+			winpr_asprintf(&msg, &len, "%s [0x%08" PRIx32 "]\n%s",
+			               freerdp_get_last_error_name(last), last,
+			               freerdp_get_last_error_string(last));
+			if (msg)
+				error_msg = msg;
+			free(msg);
+		}
 
-		goto terminate;
+		if (exit_code == SDL_EXIT_SUCCESS)
+		{
+			if (last == FREERDP_ERROR_AUTHENTICATION_FAILED)
+				exit_code = SDL_EXIT_AUTH_FAILURE;
+			else if (code == ERRINFO_SUCCESS)
+				exit_code = SDL_EXIT_CONN_FAILED;
+		}
+
+		sdl_hide_connection_dialog(sdl);
 	}
 
+	return exit_code;
+}
+
+static int sdl_client_thread_run(SdlContext* sdl, std::string& error_msg)
+{
+	WINPR_ASSERT(sdl);
+
+	auto context = sdl->context();
+	WINPR_ASSERT(context);
+
+	auto instance = context->instance;
+	WINPR_ASSERT(instance);
+
+	int exit_code = SDL_EXIT_SUCCESS;
 	while (!freerdp_shall_disconnect_context(context))
 	{
+		HANDLE handles[MAXIMUM_WAIT_OBJECTS] = {};
 		/*
 		 * win8 and server 2k12 seem to have some timing issue/race condition
 		 * when a initial sync request is send to sync the keyboard indicators
@@ -1220,7 +1296,7 @@ static DWORD WINAPI sdl_client_thread_proc(SdlContext* sdl)
 				break;
 		}
 
-		nCount = freerdp_get_event_handles(context, handles, ARRAYSIZE(handles));
+		const DWORD nCount = freerdp_get_event_handles(context, handles, ARRAYSIZE(handles));
 
 		if (nCount == 0)
 		{
@@ -1228,12 +1304,19 @@ static DWORD WINAPI sdl_client_thread_proc(SdlContext* sdl)
 			break;
 		}
 
-		status = WaitForMultipleObjects(nCount, handles, FALSE, 100);
+		const DWORD status = WaitForMultipleObjects(nCount, handles, FALSE, INFINITE);
 
 		if (status == WAIT_FAILED)
+			break;
+
+		if (!freerdp_check_event_handles(context))
 		{
 			if (client_auto_reconnect(instance))
+			{
+				// Retry was successful, discard dialog
+				sdl_hide_connection_dialog(sdl);
 				continue;
+			}
 			else
 			{
 				/*
@@ -1247,14 +1330,8 @@ static DWORD WINAPI sdl_client_thread_proc(SdlContext* sdl)
 			if (freerdp_get_last_error(context) == FREERDP_ERROR_SUCCESS)
 				WLog_Print(sdl->log, WLOG_ERROR, "WaitForMultipleObjects failed with %" PRIu32 "",
 				           status);
-			break;
-		}
-
-		if (!freerdp_check_event_handles(context))
-		{
 			if (freerdp_get_last_error(context) == FREERDP_ERROR_SUCCESS)
 				WLog_Print(sdl->log, WLOG_ERROR, "Failed to check FreeRDP event handles");
-
 			break;
 		}
 	}
@@ -1262,17 +1339,27 @@ static DWORD WINAPI sdl_client_thread_proc(SdlContext* sdl)
 	if (exit_code == SDL_EXIT_SUCCESS)
 	{
 		DWORD code = 0;
-		exit_code = error_info_to_error(instance, &code, &error_msg, &error_msg_len);
+		{
+			char* emsg = nullptr;
+			size_t elen = 0;
+			exit_code = error_info_to_error(instance, &code, &emsg, &elen);
+			if (emsg)
+				error_msg = emsg;
+			free(emsg);
+		}
 
 		if ((code == ERRINFO_LOGOFF_BY_USER) &&
 		    (freerdp_get_disconnect_ultimatum(context) == Disconnect_Ultimatum_user_requested))
 		{
 			const char* msg = "Error info says user did not initiate but disconnect ultimatum says "
 			                  "they did; treat this as a user logoff";
-			free(error_msg);
-			error_msg = nullptr;
-			error_msg_len = 0;
-			winpr_asprintf(&error_msg, &error_msg_len, "%s", msg);
+
+			char* emsg = nullptr;
+			size_t elen = 0;
+			winpr_asprintf(&emsg, &elen, "%s", msg);
+			if (emsg)
+				error_msg = emsg;
+			free(emsg);
 
 			/* This situation might be limited to Windows XP. */
 			WLog_Print(sdl->log, WLOG_INFO, "%s", msg);
@@ -1282,42 +1369,32 @@ static DWORD WINAPI sdl_client_thread_proc(SdlContext* sdl)
 
 	freerdp_disconnect(instance);
 
-terminate:
-	if (freerdp_settings_get_bool(settings, FreeRDP_AuthenticationOnly))
-		WLog_Print(sdl->log, WLOG_INFO, "Authentication only, exit status %s [%" PRId32 "]",
-		           sdl_map_to_code_tag(exit_code), exit_code);
-	else
-	{
-		switch (exit_code)
-		{
-			case SDL_EXIT_SUCCESS:
-			case SDL_EXIT_DISCONNECT:
-			case SDL_EXIT_LOGOFF:
-			case SDL_EXIT_DISCONNECT_BY_USER:
-				break;
-			default:
-			{
-				std::lock_guard<CriticalSection> lock(sdl->critical);
-				if (sdl->connection_dialog && error_msg)
-					sdl->connection_dialog->showError(error_msg);
-			}
-			break;
-		}
-	}
-	free(error_msg);
-	sdl->exit_code = exit_code;
-	sdl_push_user_event(SDL_EVENT_USER_QUIT);
-	SDL_CleanupTLS();
 	return 0;
+}
+
+/* RDP main loop.
+ * Connects RDP, loops while running and handles event and dispatch, cleans up
+ * after the connection ends. */
+static DWORD WINAPI sdl_client_thread_proc(SdlContext* sdl)
+{
+	WINPR_ASSERT(sdl);
+
+	std::string error_msg;
+	int exit_code = sdl_client_thread_connect(sdl, error_msg);
+	if (exit_code == SDL_EXIT_SUCCESS)
+		exit_code = sdl_client_thread_run(sdl, error_msg);
+	sdl_client_cleanup(sdl, exit_code, error_msg);
+
+	return static_cast<DWORD>(exit_code);
 }
 
 /* Optional global initializer.
  * Here we just register a signal handler to print out stack traces
  * if available. */
-static BOOL sdl_client_global_init(void)
+static BOOL sdl_client_global_init()
 {
 #if defined(_WIN32)
-	WSADATA wsaData = { 0 };
+	WSADATA wsaData = {};
 	const DWORD wVersionRequested = MAKEWORD(1, 1);
 	const int rc = WSAStartup(wVersionRequested, &wsaData);
 	if (rc != 0)
@@ -1334,7 +1411,7 @@ static BOOL sdl_client_global_init(void)
 }
 
 /* Optional global tear down */
-static void sdl_client_global_uninit(void)
+static void sdl_client_global_uninit()
 {
 #if defined(_WIN32)
 	WSACleanup();
@@ -1453,8 +1530,8 @@ static const char* category2str(int category)
 			return "SDL_LOG_CATEGORY_INPUT";
 		case SDL_LOG_CATEGORY_TEST:
 			return "SDL_LOG_CATEGORY_TEST";
-		case SDL_LOG_CATEGORY_RESERVED1:
-			return "SDL_LOG_CATEGORY_RESERVED1";
+		case SDL_LOG_CATEGORY_GPU:
+			return "SDL_LOG_CATEGORY_GPU";
 		case SDL_LOG_CATEGORY_RESERVED2:
 			return "SDL_LOG_CATEGORY_RESERVED2";
 		case SDL_LOG_CATEGORY_RESERVED3:
@@ -1546,58 +1623,6 @@ static void SDLCALL winpr_LogOutputFunction(void* userdata, int category, SDL_Lo
 	                  category2str(category), message);
 }
 
-static void print_config_file_help()
-{
-#if defined(WITH_WINPR_JSON)
-	std::cout << "CONFIGURATION FILE" << std::endl;
-	std::cout << std::endl;
-	std::cout << "  The SDL client supports some user defined configuration options." << std::endl;
-	std::cout << "  Settings are stored in JSON format" << std::endl;
-	std::cout << "  The location is a per user file. Location for current user is "
-	          << SdlPref::instance()->get_pref_file() << std::endl;
-	std::cout
-	    << "  The XDG_CONFIG_HOME environment variable can be used to override the base directory."
-	    << std::endl;
-	std::cout << std::endl;
-	std::cout << "  The following configuration options are supported:" << std::endl;
-	std::cout << std::endl;
-	std::cout << "    SDL_KeyModMask" << std::endl;
-	std::cout << "      Defines the key combination required for SDL client shortcuts."
-	          << std::endl;
-	std::cout << "      Default KMOD_RSHIFT" << std::endl;
-	std::cout << "      An array of SDL_Keymod strings as defined at "
-	             "https://wiki.libsdl.org/SDL2/SDL_Keymod"
-	          << std::endl;
-	std::cout << std::endl;
-	std::cout << "    SDL_Fullscreen" << std::endl;
-	std::cout << "      Toggles client fullscreen state." << std::endl;
-	std::cout << "      Default SDL_SCANCODE_RETURN." << std::endl;
-	std::cout << "      A string as "
-	             "defined at https://wiki.libsdl.org/SDL2/SDLScancodeLookup"
-	          << std::endl;
-	std::cout << std::endl;
-	std::cout << "    SDL_Resizeable" << std::endl;
-	std::cout << "      Toggles local window resizeable state." << std::endl;
-	std::cout << "      Default SDL_SCANCODE_R." << std::endl;
-	std::cout << "      A string as "
-	             "defined at https://wiki.libsdl.org/SDL2/SDLScancodeLookup"
-	          << std::endl;
-	std::cout << std::endl;
-	std::cout << "    SDL_Grab" << std::endl;
-	std::cout << "      Toggles keyboard and mouse grab state." << std::endl;
-	std::cout << "      Default SDL_SCANCODE_G." << std::endl;
-	std::cout << "      A string as "
-	             "defined at https://wiki.libsdl.org/SDL2/SDLScancodeLookup"
-	          << std::endl;
-	std::cout << std::endl;
-	std::cout << "    SDL_Disconnect" << std::endl;
-	std::cout << "      Disconnects from the RDP session." << std::endl;
-	std::cout << "      Default SDL_SCANCODE_D." << std::endl;
-	std::cout << "      A string as defined at https://wiki.libsdl.org/SDL2/SDLScancodeLookup"
-	          << std::endl;
-#endif
-}
-
 int main(int argc, char* argv[])
 {
 	int rc = -1;
@@ -1622,7 +1647,7 @@ int main(int argc, char* argv[])
 	if (status)
 	{
 		rc = freerdp_client_settings_command_line_status_print(settings, status, argc, argv);
-		print_config_file_help();
+		SdlPref::print_config_file_help(3);
 		if (freerdp_settings_get_bool(settings, FreeRDP_ListMonitors))
 			sdl_list_monitors(sdl);
 		return rc;
@@ -1630,7 +1655,7 @@ int main(int argc, char* argv[])
 
 	SDL_SetLogOutputFunction(winpr_LogOutputFunction, sdl);
 	auto level = WLog_GetLogLevel(sdl->log);
-	SDL_LogSetAllPriority(wloglevel2dl(level));
+	SDL_SetLogPriorities(wloglevel2dl(level));
 
 	auto context = sdl->context();
 	WINPR_ASSERT(context);
@@ -1646,7 +1671,8 @@ int main(int argc, char* argv[])
 	if (freerdp_client_stop(context) != 0)
 		return -1;
 
-	rc = sdl->exit_code;
+	if (sdl->exit_code != 0)
+		rc = sdl->exit_code;
 
 	return rc;
 }
@@ -1660,6 +1686,14 @@ BOOL SdlContext::update_fullscreen(BOOL enter)
 			return FALSE;
 	}
 	fullscreen = enter;
+	return TRUE;
+}
+
+BOOL SdlContext::update_minimize()
+{
+	std::lock_guard<CriticalSection> lock(critical);
+	if (!sdl_push_user_event(SDL_EVENT_USER_WINDOW_MINIMIZE))
+		return FALSE;
 	return TRUE;
 }
 
@@ -1684,8 +1718,7 @@ BOOL SdlContext::update_resizeable(BOOL enable)
 
 SdlContext::SdlContext(rdpContext* context)
     : _context(context), log(WLog_Get(SDL_TAG)), update_complete(true), disp(this), clip(this),
-      input(this), primary(nullptr, SDL_DestroySurface),
-      primary_format(nullptr, SDL_DestroyPixelFormat)
+      input(this), primary(nullptr, SDL_DestroySurface), rdp_thread_running(false)
 {
 	WINPR_ASSERT(context);
 	grab_kbd_enabled = freerdp_settings_get_bool(context->settings, FreeRDP_GrabKeyboard);

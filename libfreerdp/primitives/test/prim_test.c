@@ -57,19 +57,19 @@ void measure_floatprint(float t, char* output)
 	i = ((int)(t / f + 0.5f)) * (int)f;
 
 	if (t < 0.0f)
-		sprintf(output, "%f", t);
+		(void)sprintf(output, "%f", t);
 	else if (i == 0)
-		sprintf(output, "%d", (int)(t + 0.5f));
+		(void)sprintf(output, "%d", (int)(t + 0.5f));
 	else if (t < 1e+3f)
-		sprintf(output, "%3d", i);
+		(void)sprintf(output, "%3d", i);
 	else if (t < 1e+6f)
-		sprintf(output, "%3d,%03d", i / 1000, i % 1000);
+		(void)sprintf(output, "%3d,%03d", i / 1000, i % 1000);
 	else if (t < 1e+9f)
-		sprintf(output, "%3d,%03d,000", i / 1000000, (i % 1000000) / 1000);
+		(void)sprintf(output, "%3d,%03d,000", i / 1000000, (i % 1000000) / 1000);
 	else if (t < 1e+12f)
-		sprintf(output, "%3d,%03d,000,000", i / 1000000000, (i % 1000000000) / 1000000);
+		(void)sprintf(output, "%3d,%03d,000,000", i / 1000000000, (i % 1000000000) / 1000000);
 	else
-		sprintf(output, "%f", t);
+		(void)sprintf(output, "%f", t);
 }
 
 void prim_test_setup(BOOL performance)
@@ -79,10 +79,10 @@ void prim_test_setup(BOOL performance)
 	g_TestPrimitivesPerformance = performance;
 }
 
-BOOL speed_test(const char* name, const char* dsc, UINT32 iterations, pstatus_t (*fkt_generic)(),
-                pstatus_t (*optimised)(), ...)
+BOOL speed_test(const char* name, const char* dsc, UINT32 iterations, speed_test_fkt generic,
+                speed_test_fkt optimized, ...)
 {
-	if (!name || !generic || !optimised || (iterations == 0))
+	if (!name || !generic || !optimized || (iterations == 0))
 		return FALSE;
 
 	for (UINT32 i = 0; i < iterations; i++)

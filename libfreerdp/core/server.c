@@ -440,8 +440,8 @@ static BOOL WTSProcessChannelData(rdpPeerChannel* channel, UINT16 channelId, con
                                   size_t s, UINT32 flags, size_t t)
 {
 	BOOL ret = TRUE;
-	const size_t size = (size_t)s;
-	const size_t totalSize = (size_t)t;
+	const size_t size = s;
+	const size_t totalSize = t;
 
 	WINPR_ASSERT(channel);
 	WINPR_ASSERT(channel->vcm);
@@ -1066,7 +1066,7 @@ VOID WINAPI FreeRDP_WTSCloseServer(HANDLE hServer)
 
 		if (vcm->drdynvc_channel)
 		{
-			WTSVirtualChannelClose(vcm->drdynvc_channel);
+			(void)WTSVirtualChannelClose(vcm->drdynvc_channel);
 			vcm->drdynvc_channel = NULL;
 		}
 
@@ -1411,7 +1411,7 @@ HANDLE WINAPI FreeRDP_WTSVirtualChannelOpenEx(DWORD SessionId, LPSTR pVirtualNam
 	if (!wts_write_drdynvc_create_request(s, channel->channelId, pVirtualName))
 		goto fail;
 
-	if (!WTSVirtualChannelWrite(vcm->drdynvc_channel, (PCHAR)Stream_Buffer(s),
+	if (!WTSVirtualChannelWrite(vcm->drdynvc_channel, Stream_BufferAs(s, char),
 	                            Stream_GetPosition(s), &written))
 		goto fail;
 
@@ -1469,7 +1469,7 @@ BOOL WINAPI FreeRDP_WTSVirtualChannelClose(HANDLE hChannelHandle)
 				else
 				{
 					wts_write_drdynvc_header(s, CLOSE_REQUEST_PDU, channel->channelId);
-					ret = WTSVirtualChannelWrite(vcm->drdynvc_channel, (PCHAR)Stream_Buffer(s),
+					ret = WTSVirtualChannelWrite(vcm->drdynvc_channel, Stream_BufferAs(s, char),
 					                             Stream_GetPosition(s), &written);
 					Stream_Free(s, TRUE);
 				}
@@ -1519,7 +1519,7 @@ BOOL WINAPI FreeRDP_WTSVirtualChannelRead(HANDLE hChannelHandle, ULONG TimeOut, 
 
 	if (messageCtx->offset >= messageCtx->length)
 	{
-		MessageQueue_Peek(channel->queue, &message, TRUE);
+		(void)MessageQueue_Peek(channel->queue, &message, TRUE);
 		peer_channel_queue_free_message(&message);
 	}
 
@@ -1558,7 +1558,8 @@ BOOL WINAPI FreeRDP_WTSVirtualChannelWrite(HANDLE hChannelHandle, PCHAR Buffer, 
 
 		CopyMemory(buffer, Buffer, length);
 		totalWritten = Length;
-		ret = wts_queue_send_item(channel, buffer, length);
+		if (!wts_queue_send_item(channel, buffer, length))
+			goto fail;
 	}
 	else if (!channel->vcm->drdynvc_channel || (channel->vcm->drdynvc_state != DRDYNVC_STATE_READY))
 	{

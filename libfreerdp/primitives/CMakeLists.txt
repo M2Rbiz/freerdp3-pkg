@@ -64,9 +64,20 @@ set(PRIMITIVES_OPENCL_SRCS
 )
 
 if (WITH_OPENCL)
-		freerdp_include_directory_add(${OpenCL_INCLUDE_DIRS})
-		freerdp_library_add(OpenCL::OpenCL)
+    set(FILENAME "opencl/primitives.cl")
+    set_source_files_properties(${FILENAME} PROPERTIES HEADER_FILE_ONLY ON)
+    list(APPEND PRIMITIVES_OPENCL_SRCS ${FILENAME})
 
+    include(ConvertFileToHexArray)
+    file_to_hex_array(${FILENAME} FILEDATA)
+
+    set(HDR_FILE "${CMAKE_CURRENT_BINARY_DIR}/opencl/primitives-opencl-program.h")
+    cleaning_configure_file("${CMAKE_CURRENT_SOURCE_DIR}/opencl/primitives.h.in" ${HDR_FILE} @ONLY)
+    list(APPEND PRIMITIVES_OPENCL_SRCS ${HDR_FILE})
+
+    include_directories(${CMAKE_CURRENT_BINARY_DIR}/opencl)
+    freerdp_include_directory_add(${OpenCL_INCLUDE_DIRS})
+    freerdp_library_add(OpenCL::OpenCL)
 endif()
 
 set(PRIMITIVES_OPT_SRCS
@@ -76,8 +87,13 @@ set(PRIMITIVES_OPT_SRCS
 	${PRIMITIVES_SSSE3_SRCS}
 	${PRIMITIVES_SSE4_1_SRCS}
 	${PRIMITIVES_SSE4_2_SRCS}
-	${PRIMITIVES_AVX2_SRCS}
 	${PRIMITIVES_OPENCL_SRCS})
+
+if (WITH_AVX2)
+	list(APPEND PRIMITIVES_OPT_SRCS
+		${PRIMITIVES_AVX2_SRCS}
+	)
+endif()
 
 set(PRIMITIVES_SRCS ${PRIMITIVES_SRCS} ${PRIMITIVES_OPT_SRCS})
 
@@ -106,7 +122,7 @@ if(WITH_SSE2)
 		if (PRIMITIVES_SSE4_2_SRCS)
 			set_source_files_properties(${PRIMITIVES_SSE4_2_SRCS} PROPERTIES COMPILE_FLAGS "-msse4.2" )
 		endif()
-		if (PRIMITIVES_AVX2_SRCS)
+		if (PRIMITIVES_AVX2_SRCS AND WITH_AVX2)
 			set_source_files_properties(${PRIMITIVES_AVX2_SRCS} PROPERTIES COMPILE_FLAGS "-mavx2" )
 		endif()
 	endif()

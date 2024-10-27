@@ -28,9 +28,9 @@
 #include <winpr/crt.h>
 #include <freerdp/log.h>
 
+#ifdef WITH_DEBUG_RINGBUFFER
 #define TAG FREERDP_TAG("utils.ringbuffer")
 
-#ifdef WITH_DEBUG_RINGBUFFER
 #define DEBUG_RINGBUFFER(...) WLog_DBG(TAG, __VA_ARGS__)
 #else
 #define DEBUG_RINGBUFFER(...) \
@@ -246,7 +246,7 @@ int ringbuffer_peek(const RingBuffer* rb, DataChunk chunks[2], size_t sz)
 	size_t toRead = 0;
 	int chunkIndex = 0;
 	int status = 0;
-	DEBUG_RINGBUFFER("ringbuffer_peek(%p): sz: %" PRIdz "", (void*)rb, sz);
+	DEBUG_RINGBUFFER("ringbuffer_peek(%p): sz: %" PRIdz "", (const void*)rb, sz);
 
 	if (sz < 1)
 		return 0;

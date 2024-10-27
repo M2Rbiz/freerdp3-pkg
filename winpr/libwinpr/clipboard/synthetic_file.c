@@ -22,8 +22,9 @@
 
 WINPR_PRAGMA_DIAG_PUSH
 WINPR_PRAGMA_DIAG_IGNORED_RESERVED_ID_MACRO
+WINPR_PRAGMA_DIAG_IGNORED_UNUSED_MACRO
 
-#define _FILE_OFFSET_BITS 64
+#define _FILE_OFFSET_BITS 64 // NOLINT(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
 
 WINPR_PRAGMA_DIAG_POP
 
@@ -775,7 +776,7 @@ static void* convert_filedescriptors_to_file_list(wClipboard* clipboard, UINT32 
 	if (!dst)
 		return NULL;
 
-	_snprintf(&dst[0], alloc, "%s", header);
+	(void)_snprintf(&dst[0], alloc, "%s", header);
 
 	pos = header_len;
 
@@ -1105,7 +1106,7 @@ static UINT file_get_range(struct synthetic_file* file, UINT64 offset, UINT32 si
 
 		if (!GetFileInformationByHandle(file->fd, &FileInfo))
 		{
-			CloseHandle(file->fd);
+			(void)CloseHandle(file->fd);
 			file->fd = INVALID_HANDLE_VALUE;
 			error = GetLastError();
 			WLog_ERR(TAG, "Get file [%s] information fail: 0x%08" PRIx32, file->local_name, error);

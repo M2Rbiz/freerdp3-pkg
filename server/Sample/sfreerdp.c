@@ -82,9 +82,9 @@ static void test_peer_context_free(freerdp_peer* client, rdpContext* ctx)
 		if (context->debug_channel_thread)
 		{
 			WINPR_ASSERT(context->stopEvent);
-			SetEvent(context->stopEvent);
-			WaitForSingleObject(context->debug_channel_thread, INFINITE);
-			CloseHandle(context->debug_channel_thread);
+			(void)SetEvent(context->stopEvent);
+			(void)WaitForSingleObject(context->debug_channel_thread, INFINITE);
+			(void)CloseHandle(context->debug_channel_thread);
 		}
 
 		Stream_Free(context->s, TRUE);
@@ -93,7 +93,7 @@ static void test_peer_context_free(freerdp_peer* client, rdpContext* ctx)
 		nsc_context_free(context->nsc_context);
 
 		if (context->debug_channel)
-			WTSVirtualChannelClose(context->debug_channel);
+			(void)WTSVirtualChannelClose(context->debug_channel);
 
 		sf_peer_audin_uninit(context);
 
@@ -104,7 +104,7 @@ static void test_peer_context_free(freerdp_peer* client, rdpContext* ctx)
 		rdpsnd_server_context_free(context->rdpsnd);
 		encomsp_server_context_free(context->encomsp);
 
-		WTSCloseServer((HANDLE)context->vcm);
+		WTSCloseServer(context->vcm);
 	}
 }
 
@@ -127,7 +127,8 @@ static BOOL test_peer_context_new(freerdp_peer* client, rdpContext* ctx)
 	                       SAMPLE_SERVER_DEFAULT_HEIGHT))
 		goto fail;
 
-	rfx_context_set_mode(context->rfx_context, RLGR3);
+	const UINT32 rlgr = freerdp_settings_get_uint32(ctx->settings, FreeRDP_RemoteFxRlgrMode);
+	rfx_context_set_mode(context->rfx_context, rlgr);
 
 	if (!(context->nsc_context = nsc_context_new()))
 		goto fail;
@@ -210,6 +211,13 @@ static void test_peer_end_frame(freerdp_peer* client)
 	context->frame_id++;
 }
 
+static BOOL stream_surface_bits_supported(const rdpSettings* settings)
+{
+	const UINT32 supported =
+	    freerdp_settings_get_uint32(settings, FreeRDP_SurfaceCommandsSupported);
+	return ((supported & SURFCMDS_STREAM_SURFACE_BITS) != 0);
+}
+
 static BOOL test_peer_draw_background(freerdp_peer* client)
 {
 	size_t size = 0;
@@ -256,7 +264,7 @@ static BOOL test_peer_draw_background(freerdp_peer* client)
 
 	memset(rgb_data, 0xA0, size);
 
-	if (RemoteFxCodec)
+	if (RemoteFxCodec && stream_surface_bits_supported(settings))
 	{
 		WLog_DBG(TAG, "Using RemoteFX codec");
 		rfx_context_set_pixel_format(context->rfx_context, colorFormat);
@@ -354,10 +362,10 @@ static BOOL test_peer_load_icon(freerdp_peer* client)
 		goto out_fail;
 
 	/* background with same size, which will be used to erase the icon from old position */
-	if (!(context->bg_data = calloc(context->image->height, context->image->width * 3)))
+	if (!(context->bg_data = calloc(context->image->height, 3ULL * context->image->width)))
 		goto out_fail;
 
-	memset(context->bg_data, 0xA0, context->image->height * context->image->width * 3ull);
+	memset(context->bg_data, 0xA0, 3ULL * context->image->height * context->image->width);
 	return TRUE;
 out_fail:
 	context->bg_data = NULL;
@@ -407,8 +415,9 @@ static void test_peer_draw_icon(freerdp_peer* client, UINT32 x, UINT32 y)
 		return;
 
 	test_peer_begin_frame(client);
+
 	const BOOL RemoteFxCodec = freerdp_settings_get_bool(settings, FreeRDP_RemoteFxCodec);
-	if (RemoteFxCodec)
+	if (RemoteFxCodec && stream_surface_bits_supported(settings))
 	{
 		const UINT32 RemoteFxCodecId =
 		    freerdp_settings_get_uint32(settings, FreeRDP_RemoteFxCodecId);
@@ -601,7 +610,6 @@ fail:
 static DWORD WINAPI tf_debug_channel_thread_func(LPVOID arg)
 {
 	void* fd = NULL;
-	wStream* s = NULL;
 	void* buffer = NULL;
 	DWORD BytesReturned = 0;
 	ULONG written = 0;
@@ -618,8 +626,12 @@ static DWORD WINAPI tf_debug_channel_thread_func(LPVOID arg)
 			return 0;
 	}
 
-	s = Stream_New(NULL, 4096);
-	WTSVirtualChannelWrite(context->debug_channel, (PCHAR) "test1", 5, &written);
+	wStream* s = Stream_New(NULL, 4096);
+	if (!s)
+		goto fail;
+
+	if (!WTSVirtualChannelWrite(context->debug_channel, (PCHAR) "test1", 5, &written))
+		goto fail;
 
 	while (1)
 	{
@@ -641,15 +653,16 @@ static DWORD WINAPI tf_debug_channel_thread_func(LPVOID arg)
 
 		Stream_SetPosition(s, 0);
 
-		if (WTSVirtualChannelRead(context->debug_channel, 0, (PCHAR)Stream_Buffer(s),
+		if (WTSVirtualChannelRead(context->debug_channel, 0, Stream_BufferAs(s, char),
 		                          (ULONG)Stream_Capacity(s), &BytesReturned) == FALSE)
 		{
 			if (BytesReturned == 0)
 				break;
 
-			Stream_EnsureRemainingCapacity(s, BytesReturned);
+			if (!Stream_EnsureRemainingCapacity(s, BytesReturned))
+				break;
 
-			if (WTSVirtualChannelRead(context->debug_channel, 0, (PCHAR)Stream_Buffer(s),
+			if (WTSVirtualChannelRead(context->debug_channel, 0, Stream_BufferAs(s, char),
 			                          (ULONG)Stream_Capacity(s), &BytesReturned) == FALSE)
 			{
 				/* should not happen */
@@ -748,7 +761,7 @@ static BOOL tf_peer_post_connect(freerdp_peer* client)
 			          CreateThread(NULL, 0, tf_debug_channel_thread_func, (void*)context, 0, NULL)))
 			{
 				WLog_ERR(TAG, "Failed to create debug channel thread");
-				CloseHandle(context->stopEvent);
+				(void)CloseHandle(context->stopEvent);
 				context->stopEvent = NULL;
 				return FALSE;
 			}
@@ -883,7 +896,8 @@ static BOOL tf_peer_keyboard_event(rdpInput* input, UINT16 flags, UINT8 code)
 		if (tcontext->debug_channel)
 		{
 			ULONG written = 0;
-			WTSVirtualChannelWrite(tcontext->debug_channel, (PCHAR) "test2", 5, &written);
+			if (!WTSVirtualChannelWrite(tcontext->debug_channel, (PCHAR) "test2", 5, &written))
+				return FALSE;
 		}
 	}
 	else if (((flags & KBD_FLAGS_RELEASE) == 0) && code == RDP_SCANCODE_KEY_X) /* 'x' key */
@@ -1261,7 +1275,7 @@ static BOOL test_peer_accepted(freerdp_listener* instance, freerdp_peer* client)
 	if (!(hThread = CreateThread(NULL, 0, test_peer_mainloop, (void*)client, 0, NULL)))
 		return FALSE;
 
-	CloseHandle(hThread);
+	(void)CloseHandle(hThread);
 	return TRUE;
 }
 
@@ -1313,21 +1327,24 @@ static const struct
 	const char skey[6];
 } options = { "--pcap=", "--fast", "--port=", "--local-only", "--cert=", "--key=" };
 
+WINPR_PRAGMA_DIAG_PUSH
+WINPR_PRAGMA_DIAG_IGNORED_FORMAT_NONLITERAL
 WINPR_ATTR_FORMAT_ARG(2, 0)
 static void print_entry(FILE* fp, WINPR_FORMAT_ARG const char* fmt, const char* what, size_t size)
 {
 	char buffer[32] = { 0 };
 	strncpy(buffer, what, MIN(size, sizeof(buffer) - 1));
-	fprintf(fp, fmt, buffer);
+	(void)fprintf(fp, fmt, buffer);
 }
+WINPR_PRAGMA_DIAG_POP
 
 static WINPR_NORETURN(void usage(const char* app, const char* invalid))
 {
 	FILE* fp = stdout;
 
-	fprintf(fp, "Invalid argument '%s'\n", invalid);
-	fprintf(fp, "Usage: %s <arg>[ <arg> ...]\n", app);
-	fprintf(fp, "Arguments:\n");
+	(void)fprintf(fp, "Invalid argument '%s'\n", invalid);
+	(void)fprintf(fp, "Usage: %s <arg>[ <arg> ...]\n", app);
+	(void)fprintf(fp, "Arguments:\n");
 	print_entry(fp, "\t%s<pcap file>\n", options.spcap, sizeof(options.spcap));
 	print_entry(fp, "\t%s<cert file>\n", options.scert, sizeof(options.scert));
 	print_entry(fp, "\t%s<key file>\n", options.skey, sizeof(options.skey));
@@ -1411,7 +1428,7 @@ int main(int argc, char* argv[])
 		goto fail;
 
 	/* Open the server socket and start listening. */
-	sprintf_s(name, sizeof(name), "tfreerdp-server.%ld", port);
+	(void)sprintf_s(name, sizeof(name), "tfreerdp-server.%ld", port);
 	file = GetKnownSubPath(KNOWN_PATH_TEMP, name);
 
 	if (!file)

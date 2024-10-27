@@ -19,12 +19,9 @@
 
 #include <winpr/platform.h>
 #include <freerdp/config.h>
-#include <freerdp/log.h>
 
 #include "../nsc_types.h"
 #include "nsc_sse2.h"
-
-#define TAG FREERDP_TAG("codec.nsc.sse2")
 
 #if defined(WITH_SSE2)
 #if defined(_M_IX86) || defined(_M_AMD64) || defined(_M_IA64) || defined(_M_IX86_AMD64)
@@ -46,7 +43,7 @@
 
 static BOOL nsc_encode_argb_to_aycocg_sse2(NSC_CONTEXT* context, const BYTE* data, UINT32 scanline)
 {
-	UINT16 y = 0;
+	size_t y = 0;
 	UINT16 rw = 0;
 	BYTE ccl = 0;
 	const BYTE* src = NULL;
@@ -247,27 +244,30 @@ static BOOL nsc_encode_argb_to_aycocg_sse2(NSC_CONTEXT* context, const BYTE* dat
 
 				case PIXEL_FORMAT_RGB8:
 				{
-					r_val = _mm_set_epi16(
-					    context->palette[(*(src + 7)) * 3], context->palette[(*(src + 6)) * 3],
-					    context->palette[(*(src + 5)) * 3], context->palette[(*(src + 4)) * 3],
-					    context->palette[(*(src + 3)) * 3], context->palette[(*(src + 2)) * 3],
-					    context->palette[(*(src + 1)) * 3], context->palette[(*src) * 3]);
-					g_val = _mm_set_epi16(context->palette[(*(src + 7)) * 3 + 1],
-					                      context->palette[(*(src + 6)) * 3 + 1],
-					                      context->palette[(*(src + 5)) * 3 + 1],
-					                      context->palette[(*(src + 4)) * 3 + 1],
-					                      context->palette[(*(src + 3)) * 3 + 1],
-					                      context->palette[(*(src + 2)) * 3 + 1],
-					                      context->palette[(*(src + 1)) * 3 + 1],
-					                      context->palette[(*src) * 3 + 1]);
-					b_val = _mm_set_epi16(context->palette[(*(src + 7)) * 3 + 2],
-					                      context->palette[(*(src + 6)) * 3 + 2],
-					                      context->palette[(*(src + 5)) * 3 + 2],
-					                      context->palette[(*(src + 4)) * 3 + 2],
-					                      context->palette[(*(src + 3)) * 3 + 2],
-					                      context->palette[(*(src + 2)) * 3 + 2],
-					                      context->palette[(*(src + 1)) * 3 + 2],
-					                      context->palette[(*src) * 3 + 2]);
+					r_val = _mm_set_epi16(context->palette[(*(src + 7ULL)) * 3ULL],
+					                      context->palette[(*(src + 6ULL)) * 3ULL],
+					                      context->palette[(*(src + 5ULL)) * 3ULL],
+					                      context->palette[(*(src + 4ULL)) * 3ULL],
+					                      context->palette[(*(src + 3ULL)) * 3ULL],
+					                      context->palette[(*(src + 2ULL)) * 3ULL],
+					                      context->palette[(*(src + 1ULL)) * 3ULL],
+					                      context->palette[(*src) * 3ULL]);
+					g_val = _mm_set_epi16(context->palette[(*(src + 7ULL)) * 3ULL + 1ULL],
+					                      context->palette[(*(src + 6ULL)) * 3ULL + 1ULL],
+					                      context->palette[(*(src + 5ULL)) * 3ULL + 1ULL],
+					                      context->palette[(*(src + 4ULL)) * 3ULL + 1ULL],
+					                      context->palette[(*(src + 3ULL)) * 3ULL + 1ULL],
+					                      context->palette[(*(src + 2ULL)) * 3ULL + 1ULL],
+					                      context->palette[(*(src + 1ULL)) * 3ULL + 1ULL],
+					                      context->palette[(*src) * 3ULL + 1ULL]);
+					b_val = _mm_set_epi16(context->palette[(*(src + 7ULL)) * 3ULL + 2ULL],
+					                      context->palette[(*(src + 6ULL)) * 3ULL + 2ULL],
+					                      context->palette[(*(src + 5ULL)) * 3ULL + 2ULL],
+					                      context->palette[(*(src + 4ULL)) * 3ULL + 2ULL],
+					                      context->palette[(*(src + 3ULL)) * 3ULL + 2ULL],
+					                      context->palette[(*(src + 2ULL)) * 3ULL + 2ULL],
+					                      context->palette[(*(src + 1ULL)) * 3ULL + 2ULL],
+					                      context->palette[(*src) * 3ULL + 2ULL]);
 					src += 8;
 				}
 
@@ -341,7 +341,7 @@ static void nsc_encode_subsampling_sse2(NSC_CONTEXT* context)
 	tempWidth = ROUND_UP_TO(context->width, 8);
 	tempHeight = ROUND_UP_TO(context->height, 2);
 
-	for (UINT32 y = 0; y < tempHeight >> 1; y++)
+	for (size_t y = 0; y < tempHeight >> 1; y++)
 	{
 		co_dst = context->priv->PlaneBuffers[1] + y * (tempWidth >> 1);
 		cg_dst = context->priv->PlaneBuffers[2] + y * (tempWidth >> 1);

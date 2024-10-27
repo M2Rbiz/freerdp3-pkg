@@ -50,12 +50,12 @@
 
 #define CONFIG_PRINT_SECTION(section) WLog_INFO(TAG, "\t%s:", section)
 #define CONFIG_PRINT_SECTION_KEY(section, key) WLog_INFO(TAG, "\t%s/%s:", section, key)
-#define CONFIG_PRINT_STR(config, key) WLog_INFO(TAG, "\t\t%s: %s", #key, config->key)
+#define CONFIG_PRINT_STR(config, key) WLog_INFO(TAG, "\t\t%s: %s", #key, (config)->key)
 #define CONFIG_PRINT_STR_CONTENT(config, key) \
-	WLog_INFO(TAG, "\t\t%s: %s", #key, config->key ? "set" : NULL)
-#define CONFIG_PRINT_BOOL(config, key) WLog_INFO(TAG, "\t\t%s: %s", #key, boolstr(config->key))
-#define CONFIG_PRINT_UINT16(config, key) WLog_INFO(TAG, "\t\t%s: %" PRIu16 "", #key, config->key)
-#define CONFIG_PRINT_UINT32(config, key) WLog_INFO(TAG, "\t\t%s: %" PRIu32 "", #key, config->key)
+	WLog_INFO(TAG, "\t\t%s: %s", #key, (config)->key ? "set" : NULL)
+#define CONFIG_PRINT_BOOL(config, key) WLog_INFO(TAG, "\t\t%s: %s", #key, boolstr((config)->key))
+#define CONFIG_PRINT_UINT16(config, key) WLog_INFO(TAG, "\t\t%s: %" PRIu16 "", #key, (config)->key)
+#define CONFIG_PRINT_UINT32(config, key) WLog_INFO(TAG, "\t\t%s: %" PRIu32 "", #key, (config)->key)
 
 static const char* bool_str_true = "true";
 static const char* bool_str_false = "false";
@@ -155,12 +155,9 @@ static BOOL pf_config_get_uint16(wIniFile* ini, const char* section, const char*
 static BOOL pf_config_get_uint32(wIniFile* ini, const char* section, const char* key,
                                  UINT32* result, BOOL required)
 {
-	int val = 0;
-	const char* strval = NULL;
-
 	WINPR_ASSERT(result);
 
-	strval = IniFile_GetKeyValueString(ini, section, key);
+	const char* strval = IniFile_GetKeyValueString(ini, section, key);
 	if (!strval)
 	{
 		if (required)
@@ -168,8 +165,8 @@ static BOOL pf_config_get_uint32(wIniFile* ini, const char* section, const char*
 		return !required;
 	}
 
-	val = IniFile_GetKeyValueInt(ini, section, key);
-	if ((val < 0) || (val > INT32_MAX))
+	const int val = IniFile_GetKeyValueInt(ini, section, key);
+	if (val < 0)
 	{
 		WLog_ERR(TAG, "invalid value %d for key '%s.%s'.", val, section, key);
 		return FALSE;
@@ -409,7 +406,7 @@ static char* pf_config_decode_base64(const char* data, const char* name, size_t*
 				while (*end == '-')
 					end++;
 
-				const size_t s = MIN(ARRAYSIZE(hdr) - 1, end - data);
+				const size_t s = MIN(ARRAYSIZE(hdr) - 1ULL, (size_t)(end - data));
 				memcpy(hdr, data, s);
 			}
 
@@ -585,7 +582,11 @@ proxyConfig* server_config_load_ini(wIniFile* ini)
 	}
 	return config;
 out:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	pf_server_config_free(config);
+	WINPR_PRAGMA_DIAG_POP
+
 	return NULL;
 }
 
@@ -929,8 +930,10 @@ static BOOL pf_config_copy_string_list(char*** dst, size_t* size, char** src, si
 
 	*dst = NULL;
 	*size = 0;
-	if (srcSize == 0)
-		return TRUE;
+	if (srcSize > INT32_MAX)
+		return FALSE;
+
+	if (srcSize != 0)
 	{
 		char* csv = CommandLineToCommaSeparatedValues(srcSize, src);
 		*dst = CommandLineParseCommaSeparatedValues(csv, size);
@@ -992,7 +995,10 @@ BOOL pf_config_clone(proxyConfig** dst, const proxyConfig* config)
 	return TRUE;
 
 fail:
+	WINPR_PRAGMA_DIAG_PUSH
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	pf_server_config_free(tmp);
+	WINPR_PRAGMA_DIAG_POP
 	return FALSE;
 }
 

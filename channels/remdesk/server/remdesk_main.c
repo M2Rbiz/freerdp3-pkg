@@ -38,7 +38,7 @@ static UINT remdesk_virtual_channel_write(RemdeskServerContext* context, wStream
 {
 	BOOL status = 0;
 	ULONG BytesWritten = 0;
-	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, (PCHAR)Stream_Buffer(s),
+	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, Stream_BufferAs(s, char),
 	                                Stream_Length(s), &BytesWritten);
 	return (status) ? CHANNEL_RC_OK : ERROR_INTERNAL_ERROR;
 }
@@ -128,8 +128,8 @@ static UINT remdesk_prepare_ctl_header(REMDESK_CTL_HEADER* ctlHeader, UINT32 msg
                                        UINT32 msgSize)
 {
 	ctlHeader->msgType = msgType;
-	sprintf_s(ctlHeader->ch.ChannelName, ARRAYSIZE(ctlHeader->ch.ChannelName),
-	          REMDESK_CHANNEL_CTL_NAME);
+	(void)sprintf_s(ctlHeader->ch.ChannelName, ARRAYSIZE(ctlHeader->ch.ChannelName),
+	                REMDESK_CHANNEL_CTL_NAME);
 	ctlHeader->ch.DataLength = 4 + msgSize;
 	return CHANNEL_RC_OK;
 }
@@ -595,7 +595,7 @@ static DWORD WINAPI remdesk_server_thread(LPVOID arg)
 			break;
 		}
 
-		if (WTSVirtualChannelRead(context->priv->ChannelHandle, 0, (PCHAR)Stream_Buffer(s),
+		if (WTSVirtualChannelRead(context->priv->ChannelHandle, 0, Stream_BufferAs(s, char),
 		                          Stream_Capacity(s), &BytesReturned))
 		{
 			if (BytesReturned)
@@ -613,7 +613,7 @@ static DWORD WINAPI remdesk_server_thread(LPVOID arg)
 
 		if (Stream_GetPosition(s) >= 8)
 		{
-			pHeader = (UINT32*)Stream_Buffer(s);
+			pHeader = Stream_BufferAs(s, UINT32);
 			PduLength = pHeader[0] + pHeader[1] + 8;
 
 			if (PduLength >= Stream_GetPosition(s))
@@ -669,7 +669,7 @@ static UINT remdesk_server_start(RemdeskServerContext* context)
 	          CreateThread(NULL, 0, remdesk_server_thread, (void*)context, 0, NULL)))
 	{
 		WLog_ERR(TAG, "CreateThread failed!");
-		CloseHandle(context->priv->StopEvent);
+		(void)CloseHandle(context->priv->StopEvent);
 		context->priv->StopEvent = NULL;
 		return ERROR_INTERNAL_ERROR;
 	}
@@ -685,7 +685,7 @@ static UINT remdesk_server_start(RemdeskServerContext* context)
 static UINT remdesk_server_stop(RemdeskServerContext* context)
 {
 	UINT error = 0;
-	SetEvent(context->priv->StopEvent);
+	(void)SetEvent(context->priv->StopEvent);
 
 	if (WaitForSingleObject(context->priv->Thread, INFINITE) == WAIT_FAILED)
 	{
@@ -694,8 +694,8 @@ static UINT remdesk_server_stop(RemdeskServerContext* context)
 		return error;
 	}
 
-	CloseHandle(context->priv->Thread);
-	CloseHandle(context->priv->StopEvent);
+	(void)CloseHandle(context->priv->Thread);
+	(void)CloseHandle(context->priv->StopEvent);
 	return CHANNEL_RC_OK;
 }
 
@@ -728,7 +728,7 @@ void remdesk_server_context_free(RemdeskServerContext* context)
 	if (context)
 	{
 		if (context->priv->ChannelHandle != INVALID_HANDLE_VALUE)
-			WTSVirtualChannelClose(context->priv->ChannelHandle);
+			(void)WTSVirtualChannelClose(context->priv->ChannelHandle);
 
 		free(context->priv);
 		free(context);

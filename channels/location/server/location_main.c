@@ -296,7 +296,7 @@ static UINT location_process_message(location_server* location)
 		goto out;
 	}
 
-	if (WTSVirtualChannelRead(location->location_channel, 0, (PCHAR)Stream_Buffer(s),
+	if (WTSVirtualChannelRead(location->location_channel, 0, Stream_BufferAs(s, char),
 	                          (ULONG)Stream_Capacity(s), &BytesReturned) == FALSE)
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
@@ -426,7 +426,7 @@ static DWORD WINAPI location_server_thread_func(LPVOID arg)
 		}
 	}
 
-	WTSVirtualChannelClose(location->location_channel);
+	(void)WTSVirtualChannelClose(location->location_channel);
 	location->location_channel = NULL;
 
 	if (error && location->context.rdpcontext)
@@ -456,7 +456,7 @@ static UINT location_server_open(LocationServerContext* context)
 		if (!location->thread)
 		{
 			WLog_ERR(TAG, "CreateThread failed!");
-			CloseHandle(location->stopEvent);
+			(void)CloseHandle(location->stopEvent);
 			location->stopEvent = NULL;
 			return ERROR_INTERNAL_ERROR;
 		}
@@ -475,7 +475,7 @@ static UINT location_server_close(LocationServerContext* context)
 
 	if (!location->externalThread && location->thread)
 	{
-		SetEvent(location->stopEvent);
+		(void)SetEvent(location->stopEvent);
 
 		if (WaitForSingleObject(location->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -484,8 +484,8 @@ static UINT location_server_close(LocationServerContext* context)
 			return error;
 		}
 
-		CloseHandle(location->thread);
-		CloseHandle(location->stopEvent);
+		(void)CloseHandle(location->thread);
+		(void)CloseHandle(location->stopEvent);
 		location->thread = NULL;
 		location->stopEvent = NULL;
 	}
@@ -493,7 +493,7 @@ static UINT location_server_close(LocationServerContext* context)
 	{
 		if (location->state != LOCATION_INITIAL)
 		{
-			WTSVirtualChannelClose(location->location_channel);
+			(void)WTSVirtualChannelClose(location->location_channel);
 			location->location_channel = NULL;
 			location->state = LOCATION_INITIAL;
 		}
@@ -541,8 +541,11 @@ static UINT location_server_packet_send(LocationServerContext* context, wStream*
 	WINPR_ASSERT(location);
 	WINPR_ASSERT(s);
 
-	if (!WTSVirtualChannelWrite(location->location_channel, (PCHAR)Stream_Buffer(s),
-	                            Stream_GetPosition(s), &written))
+	const size_t pos = Stream_GetPosition(s);
+	if (pos > UINT32_MAX)
+		return ERROR_OUTOFMEMORY;
+	if (!WTSVirtualChannelWrite(location->location_channel, Stream_BufferAs(s, char), (ULONG)pos,
+	                            &written))
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelWrite failed!");
 		error = ERROR_INTERNAL_ERROR;

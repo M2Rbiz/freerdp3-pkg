@@ -285,7 +285,7 @@ static const char* tsg_component_id_to_string(UINT16 ComponentId, char* buffer, 
 	}
 #undef ENTRY
 
-	_snprintf(buffer, bytelen, "%s [0x%04" PRIx16 "]", str, ComponentId);
+	(void)_snprintf(buffer, bytelen, "%s [0x%04" PRIx16 "]", str, ComponentId);
 	return buffer;
 }
 
@@ -693,14 +693,13 @@ static BOOL tsg_ndr_read_packet_response(wLog* log, wStream* s, UINT32* index,
 	UINT32 MaxSizeValue = 0;
 	UINT32 MaxOffsetValue = 0;
 	UINT32 idleTimeout = 0;
-	UINT32 reserved = 0;
 
 	WINPR_ASSERT(response);
 
 	if (!Stream_CheckAndLogRequiredLengthOfSizeWLog(log, s, 2, sizeof(UINT32)))
 		return FALSE;
 	Stream_Read_UINT32(s, response->flags); /* Flags (4 bytes) */
-	Stream_Read_UINT32(s, reserved);        /* Reserved (4 bytes) */
+	Stream_Seek_UINT32(s);                  /* Reserved (4 bytes) */
 
 	if (response->flags != TSG_PACKET_TYPE_QUARREQUEST)
 	{
@@ -763,7 +762,7 @@ WINPR_ATTR_FORMAT_ARG(3, 4)
 static BOOL tsg_print(char** buffer, size_t* len, WINPR_FORMAT_ARG const char* fmt, ...)
 {
 	int rc = 0;
-	va_list ap;
+	va_list ap = { 0 };
 	if (!buffer || !len || !fmt)
 		return FALSE;
 	va_start(ap, fmt);
@@ -926,18 +925,18 @@ static const char* tsg_redirection_flags_to_string(char* buffer, size_t size,
 	WINPR_ASSERT(buffer || (size == 0));
 	WINPR_ASSERT(flags);
 
-	_snprintf(buffer, size,
-	          "enableAllRedirections=%s,  disableAllRedirections=%s, driveRedirectionDisabled=%s, "
-	          "printerRedirectionDisabled=%s, portRedirectionDisabled=%s, reserved=%s, "
-	          "clipboardRedirectionDisabled=%s, pnpRedirectionDisabled=%s",
-	          tsg_bool_to_string(flags->enableAllRedirections),
-	          tsg_bool_to_string(flags->disableAllRedirections),
-	          tsg_bool_to_string(flags->driveRedirectionDisabled),
-	          tsg_bool_to_string(flags->printerRedirectionDisabled),
-	          tsg_bool_to_string(flags->portRedirectionDisabled),
-	          tsg_bool_to_string(flags->reserved),
-	          tsg_bool_to_string(flags->clipboardRedirectionDisabled),
-	          tsg_bool_to_string(flags->pnpRedirectionDisabled));
+	(void)_snprintf(
+	    buffer, size,
+	    "enableAllRedirections=%s,  disableAllRedirections=%s, driveRedirectionDisabled=%s, "
+	    "printerRedirectionDisabled=%s, portRedirectionDisabled=%s, reserved=%s, "
+	    "clipboardRedirectionDisabled=%s, pnpRedirectionDisabled=%s",
+	    tsg_bool_to_string(flags->enableAllRedirections),
+	    tsg_bool_to_string(flags->disableAllRedirections),
+	    tsg_bool_to_string(flags->driveRedirectionDisabled),
+	    tsg_bool_to_string(flags->printerRedirectionDisabled),
+	    tsg_bool_to_string(flags->portRedirectionDisabled), tsg_bool_to_string(flags->reserved),
+	    tsg_bool_to_string(flags->clipboardRedirectionDisabled),
+	    tsg_bool_to_string(flags->pnpRedirectionDisabled));
 	return buffer;
 }
 
@@ -1263,7 +1262,7 @@ static BIO_METHOD* BIO_s_tsg(void);
  */
 
 static int TsProxySendToServer(handle_t IDL_handle, const byte pRpcMessage[], UINT32 count,
-                               UINT32* lengths)
+                               const UINT32* lengths)
 {
 	wStream* s = NULL;
 	rdpTsg* tsg = NULL;
@@ -2845,7 +2844,7 @@ static int tsg_read(rdpTsg* tsg, BYTE* data, size_t length)
 				if (!tsg_check_event_handles(tsg))
 					return -1;
 
-				WaitForSingleObject(rpc->client->PipeEvent, 100);
+				(void)WaitForSingleObject(rpc->client->PipeEvent, 100);
 			}
 		}
 	} while (transport_get_blocking(rpc->transport));
@@ -2971,6 +2970,7 @@ static int transport_bio_tsg_puts(BIO* bio, const char* str)
 	return 1;
 }
 
+// NOLINTNEXTLINE(readability-non-const-parameter)
 static int transport_bio_tsg_gets(BIO* bio, char* str, int size)
 {
 	WINPR_UNUSED(bio);

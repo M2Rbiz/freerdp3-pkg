@@ -316,6 +316,12 @@ static UINT ecam_on_new_channel_connection(IWTSListenerCallback* pListenerCallba
 	return CHANNEL_RC_OK;
 }
 
+static void ecam_dev_destroy_pv(void* obj)
+{
+	CameraDevice* dev = obj;
+	ecam_dev_destroy(dev);
+}
+
 /**
  * Function description
  *
@@ -349,7 +355,7 @@ static UINT ecam_plugin_initialize(IWTSPlugin* pPlugin, IWTSVirtualChannelManage
 
 	wObject* obj = HashTable_ValueObject(ecam->devices);
 	WINPR_ASSERT(obj);
-	obj->fnObjectFree = ecam_dev_destroy;
+	obj->fnObjectFree = ecam_dev_destroy_pv;
 
 	ecam->hlistener = (GENERIC_LISTENER_CALLBACK*)calloc(1, sizeof(GENERIC_LISTENER_CALLBACK));
 
@@ -468,11 +474,14 @@ static UINT ecam_load_hal_plugin(CameraPlugin* ecam, const char* name, const ADD
 
 	FREERDP_CAMERA_HAL_ENTRY_POINTS entryPoints = { 0 };
 	UINT error = ERROR_INTERNAL_ERROR;
-	const PFREERDP_CAMERA_HAL_ENTRY entry =
-	    (const PFREERDP_CAMERA_HAL_ENTRY)freerdp_load_channel_addin_entry(RDPECAM_CHANNEL_NAME,
-	                                                                      name, NULL, 0);
+	union
+	{
+		PVIRTUALCHANNELENTRY pvce;
+		const PFREERDP_CAMERA_HAL_ENTRY entry;
+	} cnv;
+	cnv.pvce = freerdp_load_channel_addin_entry(RDPECAM_CHANNEL_NAME, name, NULL, 0);
 
-	if (entry == NULL)
+	if (cnv.entry == NULL)
 	{
 		WLog_ERR(TAG,
 		         "freerdp_load_channel_addin_entry did not return any function pointers for %s ",
@@ -485,7 +494,8 @@ static UINT ecam_load_hal_plugin(CameraPlugin* ecam, const char* name, const ADD
 	entryPoints.args = args;
 	entryPoints.ecam = ecam;
 
-	if ((error = entry(&entryPoints)))
+	error = cnv.entry(&entryPoints);
+	if (error)
 	{
 		WLog_ERR(TAG, "%s entry returned error %" PRIu32 ".", name, error);
 		return error;
@@ -500,7 +510,7 @@ static UINT ecam_load_hal_plugin(CameraPlugin* ecam, const char* name, const ADD
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-FREERDP_ENTRY_POINT(UINT rdpecam_DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints))
+FREERDP_ENTRY_POINT(UINT VCAPITYPE rdpecam_DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints))
 {
 	UINT error = CHANNEL_RC_INITIALIZATION_ERROR;
 

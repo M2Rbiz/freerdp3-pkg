@@ -45,6 +45,7 @@
 
 static const char* rpc_client_state_str(RPC_CLIENT_STATE state)
 {
+	// NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
 	const char* str = "RPC_CLIENT_STATE_UNKNOWN";
 
 	switch (state)
@@ -79,6 +80,8 @@ static const char* rpc_client_state_str(RPC_CLIENT_STATE state)
 
 		case RPC_CLIENT_STATE_FINAL:
 			str = "RPC_CLIENT_STATE_FINAL";
+			break;
+		default:
 			break;
 	}
 	return str;
@@ -135,7 +138,7 @@ static int rpc_client_receive_pipe_write(RpcClient* client, const BYTE* buffer, 
 		status += (int)length;
 
 	if (ringbuffer_used(&(client->ReceivePipe)) > 0)
-		SetEvent(client->PipeEvent);
+		(void)SetEvent(client->PipeEvent);
 
 	LeaveCriticalSection(&(client->PipeLock));
 	return status;
@@ -163,7 +166,7 @@ int rpc_client_receive_pipe_read(RpcClient* client, BYTE* buffer, size_t length)
 		ringbuffer_commit_read_bytes(&(client->ReceivePipe), status);
 
 	if (ringbuffer_used(&(client->ReceivePipe)) < 1)
-		ResetEvent(client->PipeEvent);
+		(void)ResetEvent(client->PipeEvent);
 
 	LeaveCriticalSection(&(client->PipeLock));
 
@@ -478,8 +481,7 @@ static int rpc_client_recv_fragment(rdpRpc* rpc, wStream* fragment)
 			if (Stream_Length(fragment) < StubOffset + StubLength)
 				goto fail;
 			Stream_SetPosition(fragment, StubOffset);
-			rpc_client_receive_pipe_write(rpc->client, Stream_ConstPointer(fragment),
-			                              (size_t)StubLength);
+			rpc_client_receive_pipe_write(rpc->client, Stream_ConstPointer(fragment), StubLength);
 			rpc->StubFragCount++;
 
 			if (response->alloc_hint == StubLength)
@@ -987,6 +989,9 @@ int rpc_in_channel_send_pdu(RpcInChannel* inChannel, const BYTE* buffer, size_t 
 		return -1;
 
 	clientCall = rpc_client_call_find_by_id(inChannel->common.client, header.call_id);
+	if (!clientCall)
+		return -1;
+
 	clientCall->State = RPC_CLIENT_CALL_STATE_DISPATCHED;
 
 	/*
@@ -1002,7 +1007,9 @@ int rpc_in_channel_send_pdu(RpcInChannel* inChannel, const BYTE* buffer, size_t 
 		inChannel->SenderAvailableWindow -= status;
 	}
 
-	return status;
+	if (status > INT32_MAX)
+		return -1;
+	return (int)status;
 }
 
 BOOL rpc_client_write_call(rdpRpc* rpc, wStream* s, UINT16 opnum)
@@ -1210,7 +1217,7 @@ void rpc_client_free(RpcClient* client)
 		Stream_Free(client->ReceiveFragment, TRUE);
 
 	if (client->PipeEvent)
-		CloseHandle(client->PipeEvent);
+		(void)CloseHandle(client->PipeEvent);
 
 	ringbuffer_destroy(&(client->ReceivePipe));
 	DeleteCriticalSection(&(client->PipeLock));

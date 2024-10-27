@@ -23,8 +23,8 @@
 
 #include <freerdp/crypto/crypto.h>
 
-static const char enc_base64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-static const char enc_base64url[] =
+static const BYTE enc_base64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static const BYTE enc_base64url[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 static const signed char dec_base64url[] = {
@@ -302,15 +302,12 @@ static const signed char dec_base64[] = {
 	-1, /* 127        177	7F	01111111	DEL	&#127;	 	Delete */
 };
 
-static INLINE char* base64_encode_ex(const char* WINPR_RESTRICT alphabet,
+static INLINE char* base64_encode_ex(const BYTE* WINPR_RESTRICT alphabet,
                                      const BYTE* WINPR_RESTRICT data, size_t length, BOOL pad,
                                      BOOL crLf, size_t lineSize)
 {
 	int c = 0;
-	const BYTE* q = NULL;
-	char* p = NULL;
-	char* ret = NULL;
-	int blocks = 0;
+	size_t blocks = 0;
 	size_t outLen = (length + 3) * 4 / 3;
 	size_t extra = 0;
 	if (crLf)
@@ -320,10 +317,12 @@ static INLINE char* base64_encode_ex(const char* WINPR_RESTRICT alphabet,
 	}
 	size_t outCounter = 0;
 
-	q = data;
-	p = ret = (char*)malloc(outLen + extra + 1ull);
+	const BYTE* q = data;
+	BYTE* p = malloc(outLen + extra + 1ull);
 	if (!p)
 		return NULL;
+
+	char* ret = (char*)p;
 
 	/* b1, b2, b3 are input bytes
 	 *
@@ -339,7 +338,7 @@ static INLINE char* base64_encode_ex(const char* WINPR_RESTRICT alphabet,
 
 	/* first treat complete blocks */
 	blocks = length - (length % 3);
-	for (int i = 0; i < blocks; i += 3, q += 3)
+	for (size_t i = 0; i < blocks; i += 3, q += 3)
 	{
 		c = (q[0] << 16) + (q[1] << 8) + q[2];
 
@@ -391,7 +390,7 @@ static INLINE char* base64_encode_ex(const char* WINPR_RESTRICT alphabet,
 	return ret;
 }
 
-static INLINE char* base64_encode(const signed char* WINPR_RESTRICT alphabet,
+static INLINE char* base64_encode(const BYTE* WINPR_RESTRICT alphabet,
                                   const BYTE* WINPR_RESTRICT data, size_t length, BOOL pad)
 {
 	return base64_encode_ex(alphabet, data, length, pad, FALSE, 64);
@@ -402,7 +401,7 @@ static INLINE int base64_decode_char(const signed char* WINPR_RESTRICT alphabet,
 	if (c <= '\0')
 		return -1;
 
-	return alphabet[c];
+	return alphabet[(size_t)c];
 }
 
 static INLINE void* base64_decode(const signed char* WINPR_RESTRICT alphabet,
@@ -414,7 +413,7 @@ static INLINE void* base64_decode(const signed char* WINPR_RESTRICT alphabet,
 	BYTE* data = NULL;
 	size_t nBlocks = 0;
 	size_t outputLen = 0;
-	int remainder = length % 4;
+	const size_t remainder = length % 4;
 
 	if ((pad && remainder > 0) || (remainder == 1))
 		return NULL;

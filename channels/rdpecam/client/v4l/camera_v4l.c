@@ -27,6 +27,7 @@
 #include <linux/videodev2.h>
 
 #include "camera.h"
+#include <winpr/handle.h>
 
 #define TAG CHANNELS_TAG("rdpecam-v4l.client")
 
@@ -77,15 +78,17 @@ static UINT cam_v4l_stream_stop(CamV4lStream* stream);
  *
  * @return NULL-terminated fourcc string
  */
-static const char* cam_v4l_get_fourcc_str(unsigned int fourcc)
+static const char* cam_v4l_get_fourcc_str(unsigned int fourcc, char* buffer, size_t size)
 {
-	static char buf[5] = { 0 };
-	buf[0] = (fourcc & 0xFF);
-	buf[1] = (fourcc >> 8) & 0xFF;
-	buf[2] = (fourcc >> 16) & 0xFF;
-	buf[3] = (fourcc >> 24) & 0xFF;
-	buf[4] = 0;
-	return buf;
+	if (size < 5)
+		return NULL;
+
+	buffer[0] = (char)(fourcc & 0xFF);
+	buffer[1] = (char)((fourcc >> 8) & 0xFF);
+	buffer[2] = (char)((fourcc >> 16) & 0xFF);
+	buffer[3] = (char)((fourcc >> 24) & 0xFF);
+	buffer[4] = '\0';
+	return buffer;
 }
 
 /**
@@ -142,10 +145,9 @@ static BOOL cam_v4l_format_supported(int fd, UINT32 format)
  */
 static int cam_v4l_open_device(const char* deviceId, int flags)
 {
-	UINT n;
-	char device[20];
+	char device[20] = { 0 };
 	int fd = -1;
-	struct v4l2_capability cap;
+	struct v4l2_capability cap = { 0 };
 
 	if (!deviceId)
 		return -1;
@@ -153,9 +155,9 @@ static int cam_v4l_open_device(const char* deviceId, int flags)
 	if (0 == strncmp(deviceId, "/dev/video", 10))
 		return open(deviceId, flags);
 
-	for (n = 0; n < 64; n++)
+	for (UINT n = 0; n < 64; n++)
 	{
-		snprintf(device, sizeof(device), "/dev/video%d", n);
+		(void)_snprintf(device, sizeof(device), "/dev/video%d", n);
 		if ((fd = open(device, flags)) == -1)
 			continue;
 
@@ -188,19 +190,19 @@ static INT16 cam_v4l_get_media_type_descriptions(ICamHal* hal, const char* devic
                                                  CAM_MEDIA_TYPE_DESCRIPTION* mediaTypes,
                                                  size_t* nMediaTypes)
 {
-	int fd;
 	size_t maxMediaTypes = *nMediaTypes;
 	size_t nTypes = 0;
-	int formatIndex;
 	BOOL formatFound = FALSE;
 
-	if ((fd = cam_v4l_open_device(deviceId, O_RDONLY)) == -1)
+	int fd = cam_v4l_open_device(deviceId, O_RDONLY);
+	if (fd == -1)
 	{
 		WLog_ERR(TAG, "Unable to open device %s", deviceId);
 		return -1;
 	}
 
-	for (formatIndex = 0; formatIndex < nSupportedFormats; formatIndex++)
+	size_t formatIndex = 0;
+	for (; formatIndex < nSupportedFormats; formatIndex++)
 	{
 		UINT32 pixelFormat = ecamToV4L2PixFormat(supportedFormats[formatIndex].inputFormat);
 		WINPR_ASSERT(pixelFormat != 0);
@@ -243,9 +245,11 @@ static INT16 cam_v4l_get_media_type_descriptions(ICamHal* hal, const char* devic
 
 			mediaTypes->PixelAspectRatioNumerator = mediaTypes->PixelAspectRatioDenominator = 1;
 
+			char fourccstr[5] = { 0 };
 			WLog_DBG(TAG, "Camera format: %s, width: %u, height: %u, fps: %u/%u",
-			         cam_v4l_get_fourcc_str(pixelFormat), mediaTypes->Width, mediaTypes->Height,
-			         mediaTypes->FrameRateNumerator, mediaTypes->FrameRateDenominator);
+			         cam_v4l_get_fourcc_str(pixelFormat, fourccstr, ARRAYSIZE(fourccstr)),
+			         mediaTypes->Width, mediaTypes->Height, mediaTypes->FrameRateNumerator,
+			         mediaTypes->FrameRateDenominator);
 
 			mediaTypes++;
 			nTypes++;
@@ -268,7 +272,9 @@ error:
 
 	*nMediaTypes = nTypes;
 	close(fd);
-	return formatIndex;
+	if (formatIndex > INT16_MAX)
+		return -1;
+	return (INT16)formatIndex;
 }
 
 /**
@@ -279,16 +285,15 @@ error:
 static UINT cam_v4l_enumerate(ICamHal* ihal, ICamHalEnumCallback callback, CameraPlugin* ecam,
                               GENERIC_CHANNEL_CALLBACK* hchannel)
 {
-	UINT n, count = 0;
-	char device[20];
-	int fd = -1;
-	struct v4l2_capability cap;
-	char *deviceName, *deviceId;
+	UINT count = 0;
 
-	for (n = 0; n < 64; n++)
+	for (UINT n = 0; n < 64; n++)
 	{
-		snprintf(device, sizeof(device), "/dev/video%d", n);
-		if ((fd = open(device, O_RDONLY)) == -1)
+		char device[20] = { 0 };
+		struct v4l2_capability cap = { 0 };
+		(void)_snprintf(device, sizeof(device), "/dev/video%d", n);
+		int fd = open(device, O_RDONLY);
+		if (fd == -1)
 			continue;
 
 		/* query device capabilities and make sure this is a video capture device */
@@ -299,12 +304,10 @@ static UINT cam_v4l_enumerate(ICamHal* ihal, ICamHalEnumCallback callback, Camer
 		}
 		count++;
 
-		deviceName = (char*)cap.card;
-
+		const char* deviceName = (char*)cap.card;
+		const char* deviceId = device;
 		if (cap.bus_info[0] != 0) /* may not be available in all drivers */
 			deviceId = (char*)cap.bus_info;
-		else
-			deviceId = device;
 
 		IFCALL(callback, ecam, hchannel, deviceId, deviceName);
 
@@ -314,18 +317,13 @@ static UINT cam_v4l_enumerate(ICamHal* ihal, ICamHalEnumCallback callback, Camer
 	return count;
 }
 
-/**
- * Function description
- *
- * @return void
- */
 static void cam_v4l_stream_free_buffers(CamV4lStream* stream)
 {
 	if (!stream || !stream->buffers)
 		return;
 
 	/* unmap buffers */
-	for (int i = 0; i < stream->nBuffers; i++)
+	for (size_t i = 0; i < stream->nBuffers; i++)
 	{
 		if (stream->buffers[i].length && stream->buffers[i].start != MAP_FAILED)
 		{
@@ -336,7 +334,6 @@ static void cam_v4l_stream_free_buffers(CamV4lStream* stream)
 	free(stream->buffers);
 	stream->buffers = NULL;
 	stream->nBuffers = 0;
-	return;
 }
 
 /**
@@ -420,7 +417,7 @@ static UINT cam_v4l_stream_capture_thread(void* param)
 
 	do
 	{
-		int retVal;
+		int retVal = 0;
 		struct pollfd pfd = { 0 };
 
 		pfd.fd = fd;
@@ -473,11 +470,6 @@ static UINT cam_v4l_stream_capture_thread(void* param)
 	return CHANNEL_RC_OK;
 }
 
-/**
- * Function description
- *
- * @return void
- */
 void cam_v4l_stream_close_device(CamV4lStream* stream)
 {
 	if (stream->fd != -1)
@@ -532,16 +524,15 @@ UINT cam_v4l_stream_stop(CamV4lStream* stream)
 
 	if (stream->captureThread)
 	{
-		WaitForSingleObject(stream->captureThread, INFINITE);
-		CloseHandle(stream->captureThread);
+		(void)WaitForSingleObject(stream->captureThread, INFINITE);
+		(void)CloseHandle(stream->captureThread);
 		stream->captureThread = NULL;
 	}
 
 	EnterCriticalSection(&stream->lock);
 
 	/* stop streaming */
-	enum v4l2_buf_type type;
-	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if (ioctl(stream->fd, VIDIOC_STREAMOFF, &type) < 0)
 	{
 		WLog_ERR(TAG, "Failure in VIDIOC_STREAMOFF, errno %d", errno);
@@ -616,7 +607,8 @@ static UINT cam_v4l_stream_start(ICamHal* ihal, CameraDevice* dev, int streamInd
 	}
 
 	/* trying to set frame rate, if driver supports it */
-	struct v4l2_streamparm sp1 = { 0 }, sp2 = { 0 };
+	struct v4l2_streamparm sp1 = { 0 };
+	struct v4l2_streamparm sp2 = { 0 };
 	sp1.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if (ioctl(stream->fd, VIDIOC_G_PARM, &sp1) < 0 ||
 	    !(sp1.parm.capture.capability & V4L2_CAP_TIMEPERFRAME))
@@ -648,8 +640,7 @@ static UINT cam_v4l_stream_start(ICamHal* ihal, CameraDevice* dev, int streamInd
 	stream->streaming = TRUE;
 
 	/* start streaming */
-	enum v4l2_buf_type type;
-	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if (ioctl(stream->fd, VIDIOC_STREAMON, &type) < 0)
 	{
 		WLog_ERR(TAG, "Failure in VIDIOC_STREAMON, errno %d", errno);
@@ -665,9 +656,11 @@ static UINT cam_v4l_stream_start(ICamHal* ihal, CameraDevice* dev, int streamInd
 		return CAM_ERROR_CODE_OutOfMemory;
 	}
 
+	char fourccstr[5] = { 0 };
 	WLog_INFO(TAG, "Camera format: %s, width: %u, height: %u, fps: %u/%u",
-	          cam_v4l_get_fourcc_str(pixelFormat), mediaType->Width, mediaType->Height,
-	          mediaType->FrameRateNumerator, mediaType->FrameRateDenominator);
+	          cam_v4l_get_fourcc_str(pixelFormat, fourccstr, ARRAYSIZE(fourccstr)),
+	          mediaType->Width, mediaType->Height, mediaType->FrameRateNumerator,
+	          mediaType->FrameRateDenominator);
 
 	return CHANNEL_RC_OK;
 }
@@ -694,7 +687,6 @@ static UINT cam_v4l_stream_stop_by_device_id(ICamHal* ihal, const char* deviceId
  *
  * OBJECT_FREE_FN for streams hash table value
  *
- * @return void
  */
 void cam_v4l_stream_free(void* obj)
 {
@@ -706,8 +698,6 @@ void cam_v4l_stream_free(void* obj)
 
 	DeleteCriticalSection(&stream->lock);
 	free(stream);
-
-	return;
 }
 
 /**
@@ -734,8 +724,8 @@ static UINT cam_v4l_free(ICamHal* ihal)
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-FREERDP_ENTRY_POINT(
-    UINT v4l_freerdp_rdpecam_client_subsystem_entry(PFREERDP_CAMERA_HAL_ENTRY_POINTS pEntryPoints))
+FREERDP_ENTRY_POINT(UINT VCAPITYPE v4l_freerdp_rdpecam_client_subsystem_entry(
+    PFREERDP_CAMERA_HAL_ENTRY_POINTS pEntryPoints))
 {
 	UINT ret = CHANNEL_RC_OK;
 	WINPR_ASSERT(pEntryPoints);

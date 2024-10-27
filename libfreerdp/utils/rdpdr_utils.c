@@ -27,7 +27,6 @@
 #include <freerdp/channels/rdpdr.h>
 
 #include <freerdp/log.h>
-#define TAG FREERDP_TAG("utils.scard")
 
 LONG scard_log_status_error(const char* tag, const char* what, LONG status)
 {
@@ -325,8 +324,8 @@ static void rdpdr_dump_packet(wLog* log, DWORD lvl, wStream* s, const char* cust
 				if (unicodeFlag == 0)
 					Stream_Read(s, name, MIN(sizeof(name), computerNameLen));
 				else
-					ConvertWCharNToUtf8(Stream_ConstPointer(s), computerNameLen / sizeof(WCHAR),
-					                    name, sizeof(name));
+					(void)ConvertWCharNToUtf8(Stream_ConstPointer(s),
+					                          computerNameLen / sizeof(WCHAR), name, sizeof(name));
 			}
 			WLog_Print(log, lvl,
 			           "%s [%s | %s] [ucs:%" PRIu32 "|cp:%" PRIu32 "][len:0x%08" PRIx32

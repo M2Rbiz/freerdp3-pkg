@@ -78,7 +78,7 @@ static int testTimeout(int port)
 	char arg1[] = "/v:192.0.2.1:XXXXX";
 	char* argv[] = { "test", "/v:192.0.2.1:XXXXX" };
 	int rc = 0;
-	_snprintf(arg1, 18, "/v:192.0.2.1:%d", port);
+	(void)_snprintf(arg1, 18, "/v:192.0.2.1:%d", port);
 	argv[1] = arg1;
 	start = GetTickCount();
 	rc = runInstance(ARRAYSIZE(argv), argv, NULL, timeout);
@@ -111,7 +111,7 @@ static DWORD WINAPI testThread(LPVOID arg)
 	char* argv[] = { "test", "/v:192.0.2.1:XXXXX" };
 	int rc = 0;
 	struct testThreadArgs* args = arg;
-	_snprintf(arg1, 18, "/v:192.0.2.1:%d", args->port);
+	(void)_snprintf(arg1, 18, "/v:192.0.2.1:%d", args->port);
 	argv[1] = arg1;
 	rc = runInstance(ARRAYSIZE(argv), argv, args->arg, 5000);
 
@@ -143,12 +143,12 @@ static int testAbort(int port)
 
 	if (!thread)
 	{
-		CloseHandle(s_sync);
+		(void)CloseHandle(s_sync);
 		s_sync = NULL;
 		return -1;
 	}
 
-	WaitForSingleObject(s_sync, INFINITE);
+	(void)WaitForSingleObject(s_sync, INFINITE);
 	Sleep(100); /* Wait until freerdp_connect has been called */
 	if (instance)
 	{
@@ -156,8 +156,8 @@ static int testAbort(int port)
 
 		if (!freerdp_shall_disconnect_context(instance->context))
 		{
-			CloseHandle(s_sync);
-			CloseHandle(thread);
+			(void)CloseHandle(s_sync);
+			(void)CloseHandle(thread);
 			s_sync = NULL;
 			return -1;
 		}
@@ -165,8 +165,8 @@ static int testAbort(int port)
 
 	status = WaitForSingleObject(thread, 20000);
 	end = GetTickCount();
-	CloseHandle(s_sync);
-	CloseHandle(thread);
+	(void)CloseHandle(s_sync);
+	(void)CloseHandle(thread);
 	s_sync = NULL;
 	diff = end - start;
 
@@ -186,7 +186,7 @@ static int testAbort(int port)
 static char* concatenate(size_t count, ...)
 {
 	char* rc = NULL;
-	va_list ap;
+	va_list ap = { 0 };
 	va_start(ap, count);
 	rc = _strdup(va_arg(ap, char*));
 	for (size_t x = 1; x < count; x++)
@@ -216,7 +216,7 @@ static BOOL prepare_certificates(const char* path)
 	                  "winpr-makecert" CMAKE_EXECUTABLE_SUFFIX);
 	if (!exe)
 		return FALSE;
-	_snprintf(commandLine, sizeof(commandLine), "%s -format crt -path . -n server", exe);
+	(void)_snprintf(commandLine, sizeof(commandLine), "%s -format crt -path . -n server", exe);
 
 	rc = CreateProcessA(exe, commandLine, NULL, NULL, TRUE, 0, NULL, path, &si, &process);
 	free(exe);
@@ -227,8 +227,8 @@ static BOOL prepare_certificates(const char* path)
 		goto fail;
 	rc = TRUE;
 fail:
-	CloseHandle(process.hProcess);
-	CloseHandle(process.hThread);
+	(void)CloseHandle(process.hProcess);
+	(void)CloseHandle(process.hThread);
 	return rc;
 }
 
@@ -246,7 +246,7 @@ static int testSuccess(int port)
 	char* path = NULL;
 	char* wpath = NULL;
 	char* exe = GetCombinedPath(TESTING_OUTPUT_DIRECTORY, "server");
-	_snprintf(arg1, 18, "/v:127.0.0.1:%d", port);
+	(void)_snprintf(arg1, 18, "/v:127.0.0.1:%d", port);
 	clientArgs[1] = arg1;
 
 	if (!exe)
@@ -281,7 +281,7 @@ static int testSuccess(int port)
 	if (!commandLine)
 		goto fail;
 
-	_snprintf(commandLine, commandLineLen, "%s --port=%d", exe, port);
+	(void)_snprintf(commandLine, commandLineLen, "%s --port=%d", exe, port);
 	si.cb = sizeof(si);
 
 	if (!CreateProcessA(NULL, commandLine, NULL, NULL, FALSE, 0, NULL, wpath, &si, &process))
@@ -293,9 +293,9 @@ static int testSuccess(int port)
 	if (!TerminateProcess(process.hProcess, 0))
 		goto fail;
 
-	WaitForSingleObject(process.hProcess, INFINITE);
-	CloseHandle(process.hProcess);
-	CloseHandle(process.hThread);
+	(void)WaitForSingleObject(process.hProcess, INFINITE);
+	(void)CloseHandle(process.hProcess);
+	(void)CloseHandle(process.hThread);
 	printf("%s: returned %d!\n", __func__, r);
 	rc = r;
 

@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <winpr/crt.h>
+#include <winpr/crypto.h>
 #include <winpr/windows.h>
 #include <winpr/synch.h>
 #include <winpr/sysinfo.h>
@@ -40,6 +41,15 @@ static BOOL TestSynchCritical_TriggerAndCheckRaceCondition(HANDLE OwningThread, 
 	return TRUE;
 }
 
+static UINT32 prand(UINT32 max)
+{
+	UINT32 tmp = 0;
+	if (max <= 1)
+		return 1;
+	winpr_RAND(&tmp, sizeof(tmp));
+	return tmp % (max - 1) + 1;
+}
+
 /* this thread function shall increment the global dwTestValue until the PBOOL passsed in arg is
  * FALSE */
 static DWORD WINAPI TestSynchCritical_Test1(LPVOID arg)
@@ -59,14 +69,14 @@ static DWORD WINAPI TestSynchCritical_Test1(LPVOID arg)
 			return 1;
 
 		/* add some random recursion level */
-		int j = rand() % 5;
-		for (int i = 0; i < j; i++)
+		UINT32 j = prand(5);
+		for (UINT32 i = 0; i < j; i++)
 		{
 			if (!TestSynchCritical_TriggerAndCheckRaceCondition(hThread, rc++))
 				return 2;
 			EnterCriticalSection(&critical);
 		}
-		for (int i = 0; i < j; i++)
+		for (UINT32 i = 0; i < j; i++)
 		{
 			if (!TestSynchCritical_TriggerAndCheckRaceCondition(hThread, rc--))
 				return 2;
@@ -193,7 +203,7 @@ static DWORD WINAPI TestSynchCritical_Main(LPVOID arg)
 			       critical.RecursionCount, i);
 			goto fail;
 		}
-		if (critical.OwningThread != (HANDLE)(i ? hMainThread : NULL))
+		if (critical.OwningThread != (i ? hMainThread : NULL))
 		{
 			printf("CriticalSection failure: Could not verify section ownership (loop index=%d).\n",
 			       i);
@@ -253,7 +263,7 @@ static DWORD WINAPI TestSynchCritical_Main(LPVOID arg)
 				       dwThreadExitCode);
 				goto fail;
 			}
-			CloseHandle(hThreads[i]);
+			(void)CloseHandle(hThreads[i]);
 		}
 
 		if (gTestValueVulnerable != gTestValueSerialized)
@@ -298,7 +308,7 @@ static DWORD WINAPI TestSynchCritical_Main(LPVOID arg)
 		       dwThreadExitCode);
 		goto fail;
 	}
-	CloseHandle(hThread);
+	(void)CloseHandle(hThread);
 
 	*pbThreadTerminated = TRUE; /* requ. for winpr issue, see below */
 	return 0;
@@ -352,7 +362,7 @@ int TestSynchCritical(int argc, char* argv[])
 	}
 
 	GetExitCodeThread(hThread, &dwThreadExitCode);
-	CloseHandle(hThread);
+	(void)CloseHandle(hThread);
 
 	if (dwThreadExitCode != 0)
 	{

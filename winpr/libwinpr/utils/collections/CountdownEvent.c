@@ -105,10 +105,11 @@ void CountdownEvent_AddCount(wCountdownEvent* countdown, size_t signalCount)
 	WINPR_ASSERT(countdown);
 	EnterCriticalSection(&countdown->lock);
 
+	const BOOL signalSet = countdown->count == 0;
 	countdown->count += signalCount;
 
-	if (countdown->count > 0)
-		ResetEvent(countdown->event);
+	if (signalSet)
+		(void)ResetEvent(countdown->event);
 
 	LeaveCriticalSection(&countdown->lock);
 }
@@ -141,7 +142,7 @@ BOOL CountdownEvent_Signal(wCountdownEvent* countdown, size_t signalCount)
 
 	if (newStatus && (!oldStatus))
 	{
-		SetEvent(countdown->event);
+		(void)SetEvent(countdown->event);
 		status = TRUE;
 	}
 
@@ -203,7 +204,7 @@ void CountdownEvent_Free(wCountdownEvent* countdown)
 		return;
 
 	DeleteCriticalSection(&countdown->lock);
-	CloseHandle(countdown->event);
+	(void)CloseHandle(countdown->event);
 
 	free(countdown);
 }

@@ -130,7 +130,7 @@ static const char* general_name_type_label(int general_name_type)
 	else
 	{
 		static char buffer[80];
-		sprintf(buffer, "Unknown general name type (%d)", general_name_type);
+		(void)sprintf(buffer, "Unknown general name type (%d)", general_name_type);
 		return buffer;
 	}
 }
@@ -377,7 +377,7 @@ static char* object_string(ASN1_TYPE* object)
 		return 0;
 	}
 
-	result = (char*)_strdup((char*)utf8String);
+	result = _strdup((char*)utf8String);
 	OPENSSL_free(utf8String);
 	return result;
 }
@@ -461,6 +461,33 @@ char* x509_utils_get_upn(const X509* x509)
 	result = list.strings[0];
 	object_list_free(&list);
 	return result;
+}
+
+char* x509_utils_get_date(const X509* x509, BOOL startDate)
+{
+	WINPR_ASSERT(x509);
+
+	const ASN1_TIME* date = startDate ? X509_get0_notBefore(x509) : X509_get0_notAfter(x509);
+	if (!date)
+		return NULL;
+
+	BIO* bmem = BIO_new(BIO_s_mem());
+	if (!bmem)
+		return NULL;
+
+	char* str = NULL;
+	if (ASN1_TIME_print(bmem, date))
+	{
+		BUF_MEM* bptr = NULL;
+
+		BIO_get_mem_ptr(bmem, &bptr);
+		str = strndup(bptr->data, bptr->length);
+	}
+	else
+	{ // Log error
+	}
+	BIO_free_all(bmem);
+	return str;
 }
 
 void x509_utils_dns_names_free(size_t count, size_t* lengths, char** dns_names)
@@ -587,119 +614,6 @@ out_free_issuer:
 	free(subject);
 }
 
-static BYTE* x509_utils_get_pem(const X509* xcert, const STACK_OF(X509) * chain, size_t* plength)
-{
-	BIO* bio = NULL;
-	int status = 0;
-	int count = 0;
-	size_t offset = 0;
-	size_t length = 0;
-	BOOL rc = FALSE;
-	BYTE* pemCert = NULL;
-
-	if (!xcert || !plength)
-		return NULL;
-
-	/**
-	 * Don't manage certificates internally, leave it up entirely to the external client
-	 * implementation
-	 */
-	bio = BIO_new(BIO_s_mem());
-
-	if (!bio)
-	{
-		WLog_ERR(TAG, "BIO_new() failure");
-		return NULL;
-	}
-
-	status = PEM_write_bio_X509(bio, (X509*)xcert);
-
-	if (status < 0)
-	{
-		WLog_ERR(TAG, "PEM_write_bio_X509 failure: %d", status);
-		goto fail;
-	}
-
-	if (chain)
-	{
-		count = sk_X509_num(chain);
-		for (int x = 0; x < count; x++)
-		{
-			X509* c = sk_X509_value(chain, x);
-			status = PEM_write_bio_X509(bio, c);
-			if (status < 0)
-			{
-				WLog_ERR(TAG, "PEM_write_bio_X509 failure: %d", status);
-				goto fail;
-			}
-		}
-	}
-
-	offset = 0;
-	length = 2048;
-	pemCert = (BYTE*)malloc(length + 1);
-
-	if (!pemCert)
-	{
-		WLog_ERR(TAG, "error allocating pemCert");
-		goto fail;
-	}
-
-	ERR_clear_error();
-	status = BIO_read(bio, pemCert, length);
-
-	if (status < 0)
-	{
-		WLog_ERR(TAG, "failed to read certificate");
-		goto fail;
-	}
-
-	offset += (size_t)status;
-
-	while (offset >= length)
-	{
-		int new_len = 0;
-		BYTE* new_cert = NULL;
-		new_len = length * 2;
-		new_cert = (BYTE*)realloc(pemCert, new_len + 1);
-
-		if (!new_cert)
-			goto fail;
-
-		length = new_len;
-		pemCert = new_cert;
-		ERR_clear_error();
-		status = BIO_read(bio, &pemCert[offset], length - offset);
-
-		if (status < 0)
-			break;
-
-		offset += status;
-	}
-
-	if (status < 0)
-	{
-		WLog_ERR(TAG, "failed to read certificate");
-		goto fail;
-	}
-
-	length = offset;
-	pemCert[length] = '\0';
-	*plength = length;
-	rc = TRUE;
-fail:
-
-	if (!rc)
-	{
-		WLog_ERR(TAG, "Failed to extract PEM from certificate %p", xcert);
-		free(pemCert);
-		pemCert = NULL;
-	}
-
-	BIO_free_all(bio);
-	return pemCert;
-}
-
 X509* x509_utils_from_pem(const char* data, size_t len, BOOL fromFile)
 {
 	X509* x509 = NULL;
@@ -707,7 +621,12 @@ X509* x509_utils_from_pem(const char* data, size_t len, BOOL fromFile)
 	if (fromFile)
 		bio = BIO_new_file(data, "rb");
 	else
-		bio = BIO_new_mem_buf(data, len);
+	{
+		if (len > INT_MAX)
+			return NULL;
+
+		bio = BIO_new_mem_buf(data, (int)len);
+	}
 
 	if (!bio)
 	{

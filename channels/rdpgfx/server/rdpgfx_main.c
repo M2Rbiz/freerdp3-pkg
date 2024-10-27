@@ -138,7 +138,7 @@ static UINT rdpgfx_server_packet_send(RdpgfxServerContext* context, wStream* s)
 		goto out;
 	}
 
-	if (!WTSVirtualChannelWrite(context->priv->rdpgfx_channel, (PCHAR)Stream_Buffer(fs),
+	if (!WTSVirtualChannelWrite(context->priv->rdpgfx_channel, Stream_BufferAs(fs, char),
 	                            Stream_GetPosition(fs), &written))
 	{
 		WLog_Print(context->priv->log, WLOG_ERROR, "WTSVirtualChannelWrite failed!");
@@ -501,7 +501,7 @@ static INLINE UINT32 rdpgfx_estimate_h264_avc420(const RDPGFX_AVC420_BITMAP_STRE
 {
 	/* H264 metadata + H264 stream. See rdpgfx_write_h264_avc420 */
 	return sizeof(UINT32) /* numRegionRects */
-	       + 10           /* regionRects + quantQualityVals */
+	       + 10ULL        /* regionRects + quantQualityVals */
 	             * havc420->meta.numRegionRects +
 	       havc420->length;
 }
@@ -1526,7 +1526,7 @@ static DWORD WINAPI rdpgfx_server_thread_func(LPVOID arg)
 static BOOL rdpgfx_server_open(RdpgfxServerContext* context)
 {
 	WINPR_ASSERT(context);
-	RdpgfxServerPrivate* priv = (RdpgfxServerPrivate*)context->priv;
+	RdpgfxServerPrivate* priv = context->priv;
 	void* buffer = NULL;
 
 	WINPR_ASSERT(priv);
@@ -1625,12 +1625,12 @@ BOOL rdpgfx_server_close(RdpgfxServerContext* context)
 {
 	WINPR_ASSERT(context);
 
-	RdpgfxServerPrivate* priv = (RdpgfxServerPrivate*)context->priv;
+	RdpgfxServerPrivate* priv = context->priv;
 	WINPR_ASSERT(priv);
 
 	if (priv->ownThread && priv->thread)
 	{
-		SetEvent(priv->stopEvent);
+		(void)SetEvent(priv->stopEvent);
 
 		if (WaitForSingleObject(priv->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -1638,8 +1638,8 @@ BOOL rdpgfx_server_close(RdpgfxServerContext* context)
 			return FALSE;
 		}
 
-		CloseHandle(priv->thread);
-		CloseHandle(priv->stopEvent);
+		(void)CloseHandle(priv->thread);
+		(void)CloseHandle(priv->stopEvent);
 		priv->thread = NULL;
 		priv->stopEvent = NULL;
 	}
@@ -1649,7 +1649,7 @@ BOOL rdpgfx_server_close(RdpgfxServerContext* context)
 
 	if (priv->rdpgfx_channel)
 	{
-		WTSVirtualChannelClose(priv->rdpgfx_channel);
+		(void)WTSVirtualChannelClose(priv->rdpgfx_channel);
 		priv->rdpgfx_channel = NULL;
 	}
 
@@ -1836,7 +1836,7 @@ UINT rdpgfx_server_handle_messages(RdpgfxServerContext* context)
 			return CHANNEL_RC_NO_MEMORY;
 		}
 
-		if (WTSVirtualChannelRead(priv->rdpgfx_channel, 0, (PCHAR)Stream_Buffer(s),
+		if (WTSVirtualChannelRead(priv->rdpgfx_channel, 0, Stream_BufferAs(s, char),
 		                          Stream_Capacity(s), &BytesReturned) == FALSE)
 		{
 			WLog_Print(context->priv->log, WLOG_ERROR, "WTSVirtualChannelRead failed!");

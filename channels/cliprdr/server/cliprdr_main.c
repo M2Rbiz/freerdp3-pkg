@@ -102,7 +102,7 @@ static UINT cliprdr_server_packet_send(CliprdrServerPrivate* cliprdr, wStream* s
 		goto fail;
 	}
 
-	status = WTSVirtualChannelWrite(cliprdr->ChannelHandle, (PCHAR)Stream_Buffer(s), (UINT32)pos,
+	status = WTSVirtualChannelWrite(cliprdr->ChannelHandle, Stream_BufferAs(s, char), (UINT32)pos,
 	                                &written);
 	rc = status ? CHANNEL_RC_OK : ERROR_INTERNAL_ERROR;
 fail:
@@ -230,7 +230,7 @@ static UINT cliprdr_server_format_list(CliprdrServerContext* context,
 
 	cliprdr = (CliprdrServerPrivate*)context->handle;
 
-	s = cliprdr_packet_format_list_new(formatList, context->useLongFormatNames);
+	s = cliprdr_packet_format_list_new(formatList, context->useLongFormatNames, FALSE);
 	if (!s)
 	{
 		WLog_ERR(TAG, "cliprdr_packet_format_list_new failed!");
@@ -902,10 +902,11 @@ static UINT cliprdr_server_receive_pdu(CliprdrServerContext* context, wStream* s
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(header);
 
-	WLog_DBG(TAG,
-	         "CliprdrServerReceivePdu: msgType: %" PRIu16 " msgFlags: 0x%04" PRIX16
-	         " dataLen: %" PRIu32 "",
-	         header->msgType, header->msgFlags, header->dataLen);
+	char buffer1[64] = { 0 };
+	char buffer2[64] = { 0 };
+	WLog_DBG(TAG, "CliprdrServerReceivePdu: msgType: %s, msgFlags: %s dataLen: %" PRIu32 "",
+	         CB_MSG_TYPE_STRING(header->msgType, buffer1, sizeof(buffer1)),
+	         CB_MSG_FLAGS_STRING(header->msgFlags, buffer2, sizeof(buffer2)), header->dataLen);
 
 	switch (header->msgType)
 	{
@@ -1354,7 +1355,7 @@ static UINT cliprdr_server_close(CliprdrServerContext* context)
 
 	if (cliprdr->ChannelHandle)
 	{
-		WTSVirtualChannelClose(cliprdr->ChannelHandle);
+		(void)WTSVirtualChannelClose(cliprdr->ChannelHandle);
 		cliprdr->ChannelHandle = NULL;
 	}
 
@@ -1394,7 +1395,7 @@ static UINT cliprdr_server_start(CliprdrServerContext* context)
 	if (!(cliprdr->Thread = CreateThread(NULL, 0, cliprdr_server_thread, (void*)context, 0, NULL)))
 	{
 		WLog_ERR(TAG, "CreateThread failed!");
-		CloseHandle(cliprdr->StopEvent);
+		(void)CloseHandle(cliprdr->StopEvent);
 		cliprdr->StopEvent = NULL;
 		return ERROR_INTERNAL_ERROR;
 	}
@@ -1419,7 +1420,7 @@ static UINT cliprdr_server_stop(CliprdrServerContext* context)
 
 	if (cliprdr->StopEvent)
 	{
-		SetEvent(cliprdr->StopEvent);
+		(void)SetEvent(cliprdr->StopEvent);
 
 		if (WaitForSingleObject(cliprdr->Thread, INFINITE) == WAIT_FAILED)
 		{
@@ -1428,8 +1429,8 @@ static UINT cliprdr_server_stop(CliprdrServerContext* context)
 			return error;
 		}
 
-		CloseHandle(cliprdr->Thread);
-		CloseHandle(cliprdr->StopEvent);
+		(void)CloseHandle(cliprdr->Thread);
+		(void)CloseHandle(cliprdr->StopEvent);
 	}
 
 	if (cliprdr->ChannelHandle)

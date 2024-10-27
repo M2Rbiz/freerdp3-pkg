@@ -135,10 +135,10 @@ static BOOL x11_shadow_pam_get_service_name(SHADOW_PAM_AUTH_INFO* info)
 
 	for (size_t x = 0; x < ARRAYSIZE(hints); x++)
 	{
-		char path[MAX_PATH];
+		char path[MAX_PATH] = { 0 };
 		const char* hint = hints[x];
 
-		_snprintf(path, sizeof(path), "%s/%s", base, hint);
+		(void)_snprintf(path, sizeof(path), "%s/%s", base, hint);
 		if (winpr_PathFileExists(path))
 		{
 
@@ -676,12 +676,12 @@ static int x11_shadow_blend_cursor(x11ShadowSubsystem* subsystem)
 	pDstData = surface->data;
 	nDstStep = surface->scanline;
 
-	for (int y = 0; y < nHeight; y++)
+	for (size_t y = 0; y < nHeight; y++)
 	{
-		const BYTE* pSrcPixel = &pSrcData[((nYSrc + y) * nSrcStep) + (nXSrc * 4)];
-		BYTE* pDstPixel = &pDstData[((nYDst + y) * nDstStep) + (nXDst * 4)];
+		const BYTE* pSrcPixel = &pSrcData[((nYSrc + y) * nSrcStep) + (4ULL * nXSrc)];
+		BYTE* pDstPixel = &pDstData[((nYDst + y) * nDstStep) + (4ULL * nXDst)];
 
-		for (int x = 0; x < nWidth; x++)
+		for (size_t x = 0; x < nWidth; x++)
 		{
 			B = *pSrcPixel++;
 			G = *pSrcPixel++;
@@ -722,14 +722,19 @@ static BOOL x11_shadow_check_resize(x11ShadowSubsystem* subsystem)
 
 		/* Screen size changed. Refresh monitor definitions and trigger screen resize */
 		subsystem->common.numMonitors = x11_shadow_enum_monitors(subsystem->common.monitors, 16);
-		shadow_screen_resize(subsystem->common.server->screen);
-		subsystem->width = attr.width;
-		subsystem->height = attr.height;
+		if (!shadow_screen_resize(subsystem->common.server->screen))
+			return FALSE;
+
+		WINPR_ASSERT(attr.width > 0);
+		WINPR_ASSERT(attr.height > 0);
+
+		subsystem->width = (UINT32)attr.width;
+		subsystem->height = (UINT32)attr.height;
 
 		virtualScreen->left = 0;
 		virtualScreen->top = 0;
-		virtualScreen->right = subsystem->width - 1;
-		virtualScreen->bottom = subsystem->height - 1;
+		virtualScreen->right = attr.width - 1;
+		virtualScreen->bottom = attr.height - 1;
 		virtualScreen->flags = 1;
 		return TRUE;
 	}
@@ -1351,7 +1356,7 @@ static int x11_shadow_subsystem_init(rdpShadowSubsystem* sub)
 	subsystem->cursorMaxWidth = 256;
 	subsystem->cursorMaxHeight = 256;
 	subsystem->cursorPixels =
-	    winpr_aligned_malloc(subsystem->cursorMaxWidth * subsystem->cursorMaxHeight * 4ull, 16);
+	    winpr_aligned_malloc(4ULL * subsystem->cursorMaxWidth * subsystem->cursorMaxHeight, 16);
 
 	if (!subsystem->cursorPixels)
 		return -1;
@@ -1420,7 +1425,7 @@ static int x11_shadow_subsystem_uninit(rdpShadowSubsystem* sub)
 
 	if (subsystem->common.event)
 	{
-		CloseHandle(subsystem->common.event);
+		(void)CloseHandle(subsystem->common.event);
 		subsystem->common.event = NULL;
 	}
 
@@ -1460,9 +1465,9 @@ static int x11_shadow_subsystem_stop(rdpShadowSubsystem* sub)
 	if (subsystem->thread)
 	{
 		if (MessageQueue_PostQuit(subsystem->common.MsgPipe->In, 0))
-			WaitForSingleObject(subsystem->thread, INFINITE);
+			(void)WaitForSingleObject(subsystem->thread, INFINITE);
 
-		CloseHandle(subsystem->thread);
+		(void)CloseHandle(subsystem->thread);
 		subsystem->thread = NULL;
 	}
 

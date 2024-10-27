@@ -23,8 +23,11 @@
 #include "sdl_utils.hpp"
 #include "sdl_prefs.hpp"
 
+#include <SDL3/SDL_oldnames.h>
+
 #include <map>
 
+#include <freerdp/utils/string.h>
 #include <freerdp/scancode.h>
 
 #include <freerdp/log.h>
@@ -160,17 +163,13 @@ static const scancode_entry_t map[] = {
 	ENTRY(SDL_SCANCODE_PAGEUP, RDP_SCANCODE_PRIOR),
 	ENTRY(SDL_SCANCODE_END, RDP_SCANCODE_END),
 	ENTRY(SDL_SCANCODE_PAGEDOWN, RDP_SCANCODE_NEXT),
-	ENTRY(SDL_SCANCODE_AUDIONEXT, RDP_SCANCODE_MEDIA_NEXT_TRACK),
-	ENTRY(SDL_SCANCODE_AUDIOPREV, RDP_SCANCODE_MEDIA_PREV_TRACK),
-	ENTRY(SDL_SCANCODE_AUDIOSTOP, RDP_SCANCODE_MEDIA_STOP),
-	ENTRY(SDL_SCANCODE_AUDIOPLAY, RDP_SCANCODE_MEDIA_PLAY_PAUSE),
-	ENTRY(SDL_SCANCODE_AUDIOMUTE, RDP_SCANCODE_VOLUME_MUTE),
-	ENTRY(SDL_SCANCODE_MEDIASELECT, RDP_SCANCODE_LAUNCH_MEDIA_SELECT),
-	ENTRY(SDL_SCANCODE_MAIL, RDP_SCANCODE_LAUNCH_MAIL),
-	ENTRY(SDL_SCANCODE_APP1, RDP_SCANCODE_LAUNCH_APP1),
-	ENTRY(SDL_SCANCODE_APP2, RDP_SCANCODE_LAUNCH_APP2),
+	ENTRY(SDL_SCANCODE_MEDIA_NEXT_TRACK, RDP_SCANCODE_MEDIA_NEXT_TRACK),
+	ENTRY(SDL_SCANCODE_MEDIA_PREVIOUS_TRACK, RDP_SCANCODE_MEDIA_PREV_TRACK),
+	ENTRY(SDL_SCANCODE_MEDIA_STOP, RDP_SCANCODE_MEDIA_STOP),
+	ENTRY(SDL_SCANCODE_MEDIA_PLAY, RDP_SCANCODE_MEDIA_PLAY_PAUSE),
+	ENTRY(SDL_SCANCODE_MUTE, RDP_SCANCODE_VOLUME_MUTE),
+	ENTRY(SDL_SCANCODE_MEDIA_SELECT, RDP_SCANCODE_LAUNCH_MEDIA_SELECT),
 	ENTRY(SDL_SCANCODE_SYSREQ, RDP_SCANCODE_SYSREQ),
-	ENTRY(SDL_SCANCODE_WWW, RDP_SCANCODE_BROWSER_HOME),
 	ENTRY(SDL_SCANCODE_LEFTBRACKET, RDP_SCANCODE_OEM_4),
 	ENTRY(SDL_SCANCODE_RIGHTBRACKET, RDP_SCANCODE_OEM_6),
 	ENTRY(SDL_SCANCODE_APOSTROPHE, RDP_SCANCODE_OEM_7),
@@ -276,23 +275,15 @@ static const scancode_entry_t map[] = {
 	ENTRY(SDL_SCANCODE_KP_OCTAL, RDP_SCANCODE_UNKNOWN),
 	ENTRY(SDL_SCANCODE_KP_DECIMAL, RDP_SCANCODE_UNKNOWN),
 	ENTRY(SDL_SCANCODE_KP_HEXADECIMAL, RDP_SCANCODE_UNKNOWN),
-	ENTRY(SDL_SCANCODE_CALCULATOR, RDP_SCANCODE_UNKNOWN),
-	ENTRY(SDL_SCANCODE_COMPUTER, RDP_SCANCODE_UNKNOWN),
 	ENTRY(SDL_SCANCODE_AC_REFRESH, RDP_SCANCODE_UNKNOWN),
 	ENTRY(SDL_SCANCODE_AC_BOOKMARKS, RDP_SCANCODE_UNKNOWN),
-	ENTRY(SDL_SCANCODE_BRIGHTNESSDOWN, RDP_SCANCODE_UNKNOWN),
-	ENTRY(SDL_SCANCODE_BRIGHTNESSUP, RDP_SCANCODE_UNKNOWN),
-	ENTRY(SDL_SCANCODE_DISPLAYSWITCH, RDP_SCANCODE_UNKNOWN),
-	ENTRY(SDL_SCANCODE_KBDILLUMTOGGLE, RDP_SCANCODE_UNKNOWN),
-	ENTRY(SDL_SCANCODE_KBDILLUMDOWN, RDP_SCANCODE_UNKNOWN),
-	ENTRY(SDL_SCANCODE_KBDILLUMUP, RDP_SCANCODE_UNKNOWN),
-	ENTRY(SDL_SCANCODE_EJECT, RDP_SCANCODE_UNKNOWN),
-	ENTRY(SDL_SCANCODE_AUDIOREWIND, RDP_SCANCODE_UNKNOWN),
-	ENTRY(SDL_SCANCODE_AUDIOFASTFORWARD, RDP_SCANCODE_UNKNOWN)
+	ENTRY(SDL_SCANCODE_MEDIA_EJECT, RDP_SCANCODE_UNKNOWN),
+	ENTRY(SDL_SCANCODE_MEDIA_REWIND, RDP_SCANCODE_UNKNOWN),
+	ENTRY(SDL_SCANCODE_MEDIA_FAST_FORWARD, RDP_SCANCODE_UNKNOWN)
 #endif
 };
 
-static UINT32 sdl_get_kbd_flags(void)
+static UINT32 sdl_get_kbd_flags()
 {
 	UINT32 flags = 0;
 
@@ -493,14 +484,7 @@ std::list<std::string> sdlInput::tokenize(const std::string& data, const std::st
 
 bool sdlInput::extract(const std::string& token, uint32_t& key, uint32_t& value)
 {
-	int rc = sscanf(token.c_str(), "%" PRIu32 "=%" PRIu32, &key, &value);
-	if (rc != 2)
-		rc = sscanf(token.c_str(), "%" PRIx32 "=%" PRIx32 "", &key, &value);
-	if (rc != 2)
-		rc = sscanf(token.c_str(), "%" PRIu32 "=%" PRIx32, &key, &value);
-	if (rc != 2)
-		rc = sscanf(token.c_str(), "%" PRIx32 "=%" PRIu32, &key, &value);
-	return (rc == 2);
+	return freerdp_extract_key_value(token.c_str(), &key, &value);
 }
 
 uint32_t sdlInput::remapScancode(uint32_t scancode)
@@ -538,33 +522,38 @@ void sdlInput::remapInitialize()
 BOOL sdlInput::keyboard_handle_event(const SDL_KeyboardEvent* ev)
 {
 	WINPR_ASSERT(ev);
-	const UINT32 rdp_scancode = sdl_scancode_to_rdp(ev->keysym.scancode);
+	const UINT32 rdp_scancode = sdl_scancode_to_rdp(ev->scancode);
 	const SDL_Keymod mods = SDL_GetModState();
 
 	if ((mods & _hotkeyModmask) == _hotkeyModmask)
 	{
 		if (ev->type == SDL_EVENT_KEY_DOWN)
 		{
-			if (ev->keysym.scancode == _hotkeyFullscreen)
+			if (ev->scancode == _hotkeyFullscreen)
 			{
 				_sdl->update_fullscreen(!_sdl->fullscreen);
 				return TRUE;
 			}
-			if (ev->keysym.scancode == _hotkeyResizable)
+			if (ev->scancode == _hotkeyResizable)
 			{
 				_sdl->update_resizeable(!_sdl->resizeable);
 				return TRUE;
 			}
 
-			if (ev->keysym.scancode == _hotkeyGrab)
+			if (ev->scancode == _hotkeyGrab)
 			{
 				_sdl->grab_kbd_enabled = !_sdl->grab_kbd_enabled;
-				keyboard_grab(ev->windowID, _sdl->grab_kbd ? SDL_FALSE : SDL_TRUE);
+				keyboard_grab(ev->windowID, _sdl->grab_kbd);
 				return TRUE;
 			}
-			if (ev->keysym.scancode == _hotkeyDisconnect)
+			if (ev->scancode == _hotkeyDisconnect)
 			{
 				freerdp_abort_connect_context(_sdl->context());
+				return TRUE;
+			}
+			if (ev->scancode == _hotkeyMinimize)
+			{
+				_sdl->update_minimize();
 				return TRUE;
 			}
 		}
@@ -575,7 +564,7 @@ BOOL sdlInput::keyboard_handle_event(const SDL_KeyboardEvent* ev)
 	    _sdl->context()->input, ev->type == SDL_EVENT_KEY_DOWN, ev->repeat, scancode);
 }
 
-BOOL sdlInput::keyboard_grab(Uint32 windowID, SDL_bool enable)
+BOOL sdlInput::keyboard_grab(Uint32 windowID, bool enable)
 {
 	auto it = _sdl->windows.find(windowID);
 	if (it == _sdl->windows.end())
@@ -599,7 +588,7 @@ BOOL sdlInput::mouse_focus(Uint32 windowID)
 	return TRUE;
 }
 
-BOOL sdlInput::mouse_grab(Uint32 windowID, SDL_bool enable)
+BOOL sdlInput::mouse_grab(Uint32 windowID, bool enable)
 {
 	auto it = _sdl->windows.find(windowID);
 	if (it == _sdl->windows.end())
@@ -608,11 +597,13 @@ BOOL sdlInput::mouse_grab(Uint32 windowID, SDL_bool enable)
 	return it->second.grabMouse(enable);
 }
 
-sdlInput::sdlInput(SdlContext* sdl) : _sdl(sdl), _lastWindowID(UINT32_MAX)
+sdlInput::sdlInput(SdlContext* sdl)
+    : _sdl(sdl), _lastWindowID(UINT32_MAX), _hotkeyModmask(prefToMask())
 {
-	_hotkeyModmask = prefToMask();
+
 	_hotkeyFullscreen = prefKeyValue("SDL_Fullscreen", SDL_SCANCODE_RETURN);
 	_hotkeyResizable = prefKeyValue("SDL_Resizeable", SDL_SCANCODE_R);
 	_hotkeyGrab = prefKeyValue("SDL_Grab", SDL_SCANCODE_G);
 	_hotkeyDisconnect = prefKeyValue("SDL_Disconnect", SDL_SCANCODE_D);
+	_hotkeyMinimize = prefKeyValue("SDL_Minimize", SDL_SCANCODE_M);
 }

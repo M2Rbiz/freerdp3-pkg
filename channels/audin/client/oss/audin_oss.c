@@ -85,15 +85,14 @@ static UINT32 audin_oss_get_format(const AUDIO_FORMAT* format)
 
 				case 16:
 					return AFMT_S16_LE;
+
+				default:
+					break;
 			}
 
 			break;
-
-		case WAVE_FORMAT_ALAW:
-			return AFMT_A_LAW;
-
-		case WAVE_FORMAT_MULAW:
-			return AFMT_MU_LAW;
+		default:
+			break;
 	}
 
 	return 0;
@@ -160,8 +159,8 @@ static DWORD WINAPI audin_oss_thread_func(LPVOID arg)
 
 	if (oss->dev_unit != -1)
 	{
-		sprintf_s(dev_name, (PATH_MAX - 1), "/dev/dsp%i", oss->dev_unit);
-		sprintf_s(mixer_name, PATH_MAX - 1, "/dev/mixer%i", oss->dev_unit);
+		(void)sprintf_s(dev_name, (PATH_MAX - 1), "/dev/dsp%i", oss->dev_unit);
+		(void)sprintf_s(mixer_name, PATH_MAX - 1, "/dev/mixer%i", oss->dev_unit);
 	}
 
 	WLog_INFO(TAG, "open: %s", dev_name);
@@ -309,7 +308,7 @@ static UINT audin_oss_open(IAudinDevice* device, AudinReceive receive, void* use
 	if (!(oss->thread = CreateThread(NULL, 0, audin_oss_thread_func, oss, 0, NULL)))
 	{
 		WLog_ERR(TAG, "CreateThread failed!");
-		CloseHandle(oss->stopEvent);
+		(void)CloseHandle(oss->stopEvent);
 		oss->stopEvent = NULL;
 		return ERROR_INTERNAL_ERROR;
 	}
@@ -332,7 +331,7 @@ static UINT audin_oss_close(IAudinDevice* device)
 
 	if (oss->stopEvent != NULL)
 	{
-		SetEvent(oss->stopEvent);
+		(void)SetEvent(oss->stopEvent);
 
 		if (WaitForSingleObject(oss->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -341,9 +340,9 @@ static UINT audin_oss_close(IAudinDevice* device)
 			return error;
 		}
 
-		CloseHandle(oss->stopEvent);
+		(void)CloseHandle(oss->stopEvent);
 		oss->stopEvent = NULL;
-		CloseHandle(oss->thread);
+		(void)CloseHandle(oss->thread);
 		oss->thread = NULL;
 	}
 
@@ -386,7 +385,7 @@ static UINT audin_oss_parse_addin_args(AudinOSSDevice* device, const ADDIN_ARGV*
 	char* eptr = NULL;
 	DWORD flags = 0;
 	const COMMAND_LINE_ARGUMENT_A* arg = NULL;
-	AudinOSSDevice* oss = (AudinOSSDevice*)device;
+	AudinOSSDevice* oss = device;
 	COMMAND_LINE_ARGUMENT_A audin_oss_args[] = { { "dev", COMMAND_LINE_VALUE_REQUIRED, "<device>",
 		                                           NULL, NULL, -1, NULL, "audio device name" },
 		                                         { NULL, 0, NULL, NULL, NULL, -1, NULL, NULL } };
@@ -445,8 +444,8 @@ static UINT audin_oss_parse_addin_args(AudinOSSDevice* device, const ADDIN_ARGV*
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-FREERDP_ENTRY_POINT(
-    UINT oss_freerdp_audin_client_subsystem_entry(PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints))
+FREERDP_ENTRY_POINT(UINT VCAPITYPE oss_freerdp_audin_client_subsystem_entry(
+    PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints))
 {
 	const ADDIN_ARGV* args = NULL;
 	AudinOSSDevice* oss = NULL;

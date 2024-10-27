@@ -103,7 +103,7 @@ static BOOL disp_server_is_monitor_layout_valid(const DISPLAY_CONTROL_MONITOR_LA
 	if (monitor->Height < DISPLAY_CONTROL_MIN_MONITOR_HEIGHT ||
 	    monitor->Height > DISPLAY_CONTROL_MAX_MONITOR_HEIGHT)
 	{
-		WLog_WARN(TAG, "Received invalid value for monitor->Height: %" PRIu32 "", monitor->Width);
+		WLog_WARN(TAG, "Received invalid value for monitor->Height: %" PRIu32 "", monitor->Height);
 		return FALSE;
 	}
 
@@ -311,7 +311,11 @@ static UINT disp_server_handle_messages(DispServerContext* context)
 		return CHANNEL_RC_NO_MEMORY;
 	}
 
-	if (WTSVirtualChannelRead(priv->disp_channel, 0, (PCHAR)Stream_Buffer(s), Stream_Capacity(s),
+	const size_t cap = Stream_Capacity(s);
+	if (cap > UINT32_MAX)
+		return CHANNEL_RC_NO_BUFFER;
+
+	if (WTSVirtualChannelRead(priv->disp_channel, 0, Stream_BufferAs(s, char), (ULONG)cap,
 	                          &BytesReturned) == FALSE)
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
@@ -412,8 +416,8 @@ static UINT disp_server_open(DispServerContext* context)
 
 	priv->SessionId = (DWORD)*pSessionId;
 	WTSFreeMemory(pSessionId);
-	priv->disp_channel = (HANDLE)WTSVirtualChannelOpenEx(priv->SessionId, DISP_DVC_CHANNEL_NAME,
-	                                                     WTS_CHANNEL_OPTION_DYNAMIC);
+	priv->disp_channel =
+	    WTSVirtualChannelOpenEx(priv->SessionId, DISP_DVC_CHANNEL_NAME, WTS_CHANNEL_OPTION_DYNAMIC);
 
 	if (!priv->disp_channel)
 	{
@@ -465,7 +469,7 @@ static UINT disp_server_open(DispServerContext* context)
 		          CreateThread(NULL, 0, disp_server_thread_func, (void*)context, 0, NULL)))
 		{
 			WLog_ERR(TAG, "CreateEvent failed!");
-			CloseHandle(priv->stopEvent);
+			(void)CloseHandle(priv->stopEvent);
 			priv->stopEvent = NULL;
 			rc = ERROR_INTERNAL_ERROR;
 			goto out_close;
@@ -474,7 +478,7 @@ static UINT disp_server_open(DispServerContext* context)
 
 	return CHANNEL_RC_OK;
 out_close:
-	WTSVirtualChannelClose(priv->disp_channel);
+	(void)WTSVirtualChannelClose(priv->disp_channel);
 	priv->disp_channel = NULL;
 	priv->channelEvent = NULL;
 	return rc;
@@ -488,8 +492,15 @@ static UINT disp_server_packet_send(DispServerContext* context, wStream* s)
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(s);
 
-	if (!WTSVirtualChannelWrite(context->priv->disp_channel, (PCHAR)Stream_Buffer(s),
-	                            Stream_GetPosition(s), &written))
+	const size_t pos = Stream_GetPosition(s);
+	if (pos > UINT32_MAX)
+	{
+		ret = ERROR_INTERNAL_ERROR;
+		goto out;
+	}
+
+	if (!WTSVirtualChannelWrite(context->priv->disp_channel, Stream_BufferAs(s, char), pos,
+	                            &written))
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelWrite failed!");
 		ret = ERROR_INTERNAL_ERROR;
@@ -550,7 +561,7 @@ static UINT disp_server_close(DispServerContext* context)
 
 	if (priv->thread)
 	{
-		SetEvent(priv->stopEvent);
+		(void)SetEvent(priv->stopEvent);
 
 		if (WaitForSingleObject(priv->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -559,15 +570,15 @@ static UINT disp_server_close(DispServerContext* context)
 			return error;
 		}
 
-		CloseHandle(priv->thread);
-		CloseHandle(priv->stopEvent);
+		(void)CloseHandle(priv->thread);
+		(void)CloseHandle(priv->stopEvent);
 		priv->thread = NULL;
 		priv->stopEvent = NULL;
 	}
 
 	if (priv->disp_channel)
 	{
-		WTSVirtualChannelClose(priv->disp_channel);
+		(void)WTSVirtualChannelClose(priv->disp_channel);
 		priv->disp_channel = NULL;
 	}
 

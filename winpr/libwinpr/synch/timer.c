@@ -64,8 +64,6 @@ static int TimerGetFd(HANDLE handle)
 
 static DWORD TimerCleanupHandle(HANDLE handle)
 {
-	SSIZE_T length = 0;
-	UINT64 expirations = 0;
 	WINPR_TIMER* timer = (WINPR_TIMER*)handle;
 
 	if (!TimerIsHandled(handle))
@@ -75,8 +73,10 @@ static DWORD TimerCleanupHandle(HANDLE handle)
 		return WAIT_OBJECT_0;
 
 #ifdef TIMER_IMPL_TIMERFD
+	SSIZE_T length = 0;
 	do
 	{
+		UINT64 expirations = 0;
 		length = read(timer->fd, (void*)&expirations, sizeof(UINT64));
 	} while (length < 0 && errno == EINTR);
 
@@ -232,7 +232,6 @@ static BOOL InstallTimerSignalHandler(PINIT_ONCE InitOnce, PVOID Parameter, PVOI
 #ifdef TIMER_IMPL_DISPATCH
 static void WaitableTimerHandler(void* arg)
 {
-	UINT64 data = 1;
 	WINPR_TIMER* timer = (WINPR_TIMER*)arg;
 
 	if (!timer)
@@ -516,8 +515,8 @@ BOOL SetWaitableTimer(HANDLE hTimer, const LARGE_INTEGER* lpDueTime, LONG lPerio
 
 	if (lPeriod > 0)
 	{
-		timer->timeout.it_interval.tv_sec = (lPeriod / 1000);              /* seconds */
-		timer->timeout.it_interval.tv_nsec = ((lPeriod % 1000) * 1000000); /* nanoseconds */
+		timer->timeout.it_interval.tv_sec = (lPeriod / 1000LL);                /* seconds */
+		timer->timeout.it_interval.tv_nsec = (1000000LL * (lPeriod % 1000LL)); /* nanoseconds */
 	}
 
 	if (lpDueTime->QuadPart != 0)
@@ -670,7 +669,6 @@ BOOL CancelWaitableTimer(HANDLE hTimer)
 
 int GetTimerFileDescriptor(HANDLE hTimer)
 {
-#ifndef _WIN32
 	WINPR_HANDLE* hdl = NULL;
 	ULONG type = 0;
 
@@ -682,9 +680,6 @@ int GetTimerFileDescriptor(HANDLE hTimer)
 	}
 
 	return winpr_Handle_getFd(hTimer);
-#else
-	return -1;
-#endif
 }
 
 /**
@@ -985,7 +980,7 @@ BOOL DeleteTimerQueueEx(HANDLE TimerQueue, HANDLE CompletionEvent)
 	free(timerQueue);
 
 	if (CompletionEvent && (CompletionEvent != INVALID_HANDLE_VALUE))
-		SetEvent(CompletionEvent);
+		(void)SetEvent(CompletionEvent);
 
 	return TRUE;
 }
@@ -1086,7 +1081,7 @@ BOOL DeleteTimerQueueTimer(HANDLE TimerQueue, HANDLE Timer, HANDLE CompletionEve
 	free(timer);
 
 	if (CompletionEvent && (CompletionEvent != INVALID_HANDLE_VALUE))
-		SetEvent(CompletionEvent);
+		(void)SetEvent(CompletionEvent);
 
 	return TRUE;
 }

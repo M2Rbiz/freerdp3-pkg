@@ -24,11 +24,16 @@
 #define TAG CHANNELS_TAG("rdpecam-device.client")
 
 /* supported formats in preference order:
- * passthrough, I420 (used as input for H264 encoder), other YUV based, RGB based
+ * H264, MJPG, I420 (used as input for H264 encoder), other YUV based, RGB based
  */
 static const CAM_MEDIA_FORMAT_INFO supportedFormats[] = {
-	/* inputFormat, outputFormat */
-	{ CAM_MEDIA_FORMAT_H264, CAM_MEDIA_FORMAT_H264 }, /* passthrough: comment out to disable */
+/* inputFormat, outputFormat */
+#if defined(WITH_INPUT_FORMAT_H264)
+	{ CAM_MEDIA_FORMAT_H264, CAM_MEDIA_FORMAT_H264 }, /* passthrough */
+#endif
+#if defined(WITH_INPUT_FORMAT_MJPG)
+	{ CAM_MEDIA_FORMAT_MJPG, CAM_MEDIA_FORMAT_H264 },
+#endif
 	{ CAM_MEDIA_FORMAT_I420, CAM_MEDIA_FORMAT_H264 },
 	{ CAM_MEDIA_FORMAT_YUY2, CAM_MEDIA_FORMAT_H264 },
 	{ CAM_MEDIA_FORMAT_NV12, CAM_MEDIA_FORMAT_H264 },
@@ -37,11 +42,6 @@ static const CAM_MEDIA_FORMAT_INFO supportedFormats[] = {
 };
 static const size_t nSupportedFormats = ARRAYSIZE(supportedFormats);
 
-/**
- * Function description
- *
- * @return void
- */
 static void ecam_dev_write_media_type(wStream* s, CAM_MEDIA_TYPE_DESCRIPTION* mediaType)
 {
 	WINPR_ASSERT(mediaType);
@@ -56,11 +56,6 @@ static void ecam_dev_write_media_type(wStream* s, CAM_MEDIA_TYPE_DESCRIPTION* me
 	Stream_Write_UINT8(s, mediaType->Flags);
 }
 
-/**
- * Function description
- *
- * @return TRUE if success
- */
 static BOOL ecam_dev_read_media_type(wStream* s, CAM_MEDIA_TYPE_DESCRIPTION* mediaType)
 {
 	WINPR_ASSERT(mediaType);
@@ -76,11 +71,6 @@ static BOOL ecam_dev_read_media_type(wStream* s, CAM_MEDIA_TYPE_DESCRIPTION* med
 	return TRUE;
 }
 
-/**
- * Function description
- *
- * @return void
- */
 static void ecam_dev_print_media_type(CAM_MEDIA_TYPE_DESCRIPTION* mediaType)
 {
 	WINPR_ASSERT(mediaType);
@@ -149,7 +139,7 @@ static UINT ecam_dev_sample_captured_callback(CameraDevice* dev, int streamIndex
 	}
 	else /* passthrough */
 	{
-		encodedSample = (BYTE*)sample;
+		encodedSample = WINPR_CAST_CONST_PTR_AWAY(sample, BYTE*);
 		encodedSize = size;
 	}
 
@@ -163,11 +153,6 @@ static UINT ecam_dev_sample_captured_callback(CameraDevice* dev, int streamIndex
 	return ecam_dev_send_sample_response(dev, streamIndex, encodedSample, encodedSize);
 }
 
-/**
- * Function description
- *
- * @return void
- */
 static void ecam_dev_stop_stream(CameraDevice* dev, size_t streamIndex)
 {
 	WINPR_ASSERT(dev);
@@ -493,7 +478,7 @@ static UINT ecam_dev_process_media_type_list_request(CameraDevice* dev,
 	stream->formats = supportedFormats[formatIndex];
 
 	/* replacing inputFormat with outputFormat in mediaTypes before sending response */
-	for (int i = 0; i < nMediaTypes; i++)
+	for (size_t i = 0; i < nMediaTypes; i++)
 	{
 		mediaTypes[i].Format = streamOutputFormat(stream);
 		mediaTypes[i].Flags = CAM_MEDIA_TYPE_DESCRIPTION_FLAG_DecodingRequired;
@@ -794,11 +779,9 @@ CameraDevice* ecam_dev_create(CameraPlugin* ecam, const char* deviceId, const ch
  *
  * OBJECT_FREE_FN for devices hash table value
  *
- * @return void
  */
-void ecam_dev_destroy(void* obj)
+void ecam_dev_destroy(CameraDevice* dev)
 {
-	CameraDevice* dev = (CameraDevice*)obj;
 	if (!dev)
 		return;
 
@@ -817,5 +800,4 @@ void ecam_dev_destroy(void* obj)
 		ecam_dev_stop_stream(dev, i);
 
 	free(dev);
-	return;
 }

@@ -168,8 +168,6 @@ static UINT gdi_OutputUpdate(rdpGdi* gdi, gdiGfxSurface* surface)
 	RECTANGLE_16 surfaceRect;
 	const RECTANGLE_16* rects = NULL;
 	UINT32 nbRects = 0;
-	double sx = NAN;
-	double sy = NAN;
 	rdpUpdate* update = NULL;
 
 	WINPR_ASSERT(gdi);
@@ -189,8 +187,8 @@ static UINT gdi_OutputUpdate(rdpGdi* gdi, gdiGfxSurface* surface)
 	surfaceRect.right = (UINT16)MIN(UINT16_MAX, surface->mappedWidth);
 	surfaceRect.bottom = (UINT16)MIN(UINT16_MAX, surface->mappedHeight);
 	region16_intersect_rect(&(surface->invalidRegion), &(surface->invalidRegion), &surfaceRect);
-	sx = surface->outputTargetWidth / (double)surface->mappedWidth;
-	sy = surface->outputTargetHeight / (double)surface->mappedHeight;
+	const double sx = surface->outputTargetWidth / (double)surface->mappedWidth;
+	const double sy = surface->outputTargetHeight / (double)surface->mappedHeight;
 
 	if (!(rects = region16_rects(&surface->invalidRegion, &nbRects)) || !nbRects)
 		return CHANNEL_RC_OK;
@@ -624,7 +622,7 @@ static UINT gdi_SurfaceCommand_AVC420(rdpGdi* gdi, RdpgfxClientContext* context,
 	for (UINT32 i = 0; i < meta->numRegionRects; i++)
 	{
 		region16_union_rect(&(surface->invalidRegion), &(surface->invalidRegion),
-		                    (RECTANGLE_16*)&(meta->regionRects[i]));
+		                    &(meta->regionRects[i]));
 	}
 
 	status = IFCALLRESULT(CHANNEL_RC_OK, context->UpdateSurfaceArea, context, surface->surfaceId,
@@ -751,11 +749,11 @@ static BOOL gdi_apply_alpha(BYTE* data, UINT32 format, UINT32 stride, RECTANGLE_
 	const UINT32 bpp = FreeRDPGetBytesPerPixel(format);
 	WINPR_ASSERT(rect);
 
-	for (UINT32 y = rect->top; y < rect->bottom; y++)
+	for (size_t y = rect->top; y < rect->bottom; y++)
 	{
-		BYTE* line = &data[stride * y];
+		BYTE* line = &data[y * stride];
 
-		for (UINT32 x = first ? rect->left + startOffsetX : rect->left; x < rect->right; x++)
+		for (size_t x = first ? rect->left + startOffsetX : rect->left; x < rect->right; x++)
 		{
 			BYTE r = 0;
 			BYTE g = 0;
@@ -825,11 +823,11 @@ static UINT gdi_SurfaceCommand_Alpha(rdpGdi* gdi, RdpgfxClientContext* context,
 		if (!Stream_CheckAndLogRequiredLengthOfSize(TAG, s, cmd->height, cmd->width))
 			return ERROR_INVALID_DATA;
 
-		for (UINT32 y = cmd->top; y < cmd->top + cmd->height; y++)
+		for (size_t y = cmd->top; y < cmd->top + cmd->height; y++)
 		{
-			BYTE* line = &surface->data[surface->scanline * y];
+			BYTE* line = &surface->data[y * surface->scanline];
 
-			for (UINT32 x = cmd->left; x < cmd->left + cmd->width; x++)
+			for (size_t x = cmd->left; x < cmd->left + cmd->width; x++)
 			{
 				UINT32 color = 0;
 				BYTE r = 0;
@@ -924,21 +922,21 @@ static void dump_cmd(const RDPGFX_SURFACE_COMMAND* cmd, UINT32 frameId)
 	FILE* fp = fopen(fname, "w");
 	if (!fp)
 		return;
-	fprintf(fp, "frameid: %" PRIu32 "\n", frameId);
-	fprintf(fp, "surfaceId: %" PRIu32 "\n", cmd->surfaceId);
-	fprintf(fp, "codecId: %" PRIu32 "\n", cmd->codecId);
-	fprintf(fp, "contextId: %" PRIu32 "\n", cmd->contextId);
-	fprintf(fp, "format: %" PRIu32 "\n", cmd->format);
-	fprintf(fp, "left: %" PRIu32 "\n", cmd->left);
-	fprintf(fp, "top: %" PRIu32 "\n", cmd->top);
-	fprintf(fp, "right: %" PRIu32 "\n", cmd->right);
-	fprintf(fp, "bottom: %" PRIu32 "\n", cmd->bottom);
-	fprintf(fp, "width: %" PRIu32 "\n", cmd->width);
-	fprintf(fp, "height: %" PRIu32 "\n", cmd->height);
-	fprintf(fp, "length: %" PRIu32 "\n", cmd->length);
+	(void)fprintf(fp, "frameid: %" PRIu32 "\n", frameId);
+	(void)fprintf(fp, "surfaceId: %" PRIu32 "\n", cmd->surfaceId);
+	(void)fprintf(fp, "codecId: %" PRIu32 "\n", cmd->codecId);
+	(void)fprintf(fp, "contextId: %" PRIu32 "\n", cmd->contextId);
+	(void)fprintf(fp, "format: %" PRIu32 "\n", cmd->format);
+	(void)fprintf(fp, "left: %" PRIu32 "\n", cmd->left);
+	(void)fprintf(fp, "top: %" PRIu32 "\n", cmd->top);
+	(void)fprintf(fp, "right: %" PRIu32 "\n", cmd->right);
+	(void)fprintf(fp, "bottom: %" PRIu32 "\n", cmd->bottom);
+	(void)fprintf(fp, "width: %" PRIu32 "\n", cmd->width);
+	(void)fprintf(fp, "height: %" PRIu32 "\n", cmd->height);
+	(void)fprintf(fp, "length: %" PRIu32 "\n", cmd->length);
 
 	char* bdata = crypto_base64_encode_ex(cmd->data, cmd->length, FALSE);
-	fprintf(fp, "data: %s\n", bdata);
+	(void)fprintf(fp, "data: %s\n", bdata);
 	free(bdata);
 	fclose(fp);
 }
@@ -1266,7 +1264,7 @@ static BOOL intersect_rect(const RECTANGLE_16* rect, const gdiGfxSurface* surfac
 static UINT gdi_SolidFill(RdpgfxClientContext* context, const RDPGFX_SOLID_FILL_PDU* solidFill)
 {
 	UINT status = ERROR_INTERNAL_ERROR;
-	BYTE a = 0;
+	BYTE a = 0xff;
 	RECTANGLE_16 invalidRect = { 0 };
 	rdpGdi* gdi = (rdpGdi*)context->custom;
 
@@ -1281,10 +1279,17 @@ static UINT gdi_SolidFill(RdpgfxClientContext* context, const RDPGFX_SOLID_FILL_
 	const BYTE b = solidFill->fillPixel.B;
 	const BYTE g = solidFill->fillPixel.G;
 	const BYTE r = solidFill->fillPixel.R;
+
+#if 0
+	/* [MS-RDPEGFX] 3.3.5.4 Processing an RDPGFX_SOLIDFILL_PDU message
+	 * https://learn.microsoft.com/en-us/windows/win32/gdi/binary-raster-operations
+	 *
+	 * this sounds like the alpha value is always ignored.
+	 */
 	if (FreeRDPColorHasAlpha(surface->format))
 		a = solidFill->fillPixel.XA;
-	else
-		a = 0xFF;
+#endif
+
 	const UINT32 color = FreeRDPGetColor(surface->format, r, g, b, a);
 
 	for (UINT16 index = 0; index < solidFill->fillRectCount; index++)
@@ -1367,22 +1372,11 @@ static UINT gdi_SurfaceToSurface(RdpgfxClientContext* context,
 		if (!is_rect_valid(&rect, surfaceDst->width, surfaceDst->height))
 			goto fail;
 
-		if (surfaceDst == surfaceSrc)
-		{
-			if (!freerdp_image_copy_overlap(
-			        surfaceDst->data, surfaceDst->format, surfaceDst->scanline, destPt->x,
-			        destPt->y, nWidth, nHeight, surfaceSrc->data, surfaceSrc->format,
-			        surfaceSrc->scanline, rectSrc->left, rectSrc->top, NULL, FREERDP_FLIP_NONE))
-				goto fail;
-		}
-		else
-		{
-			if (!freerdp_image_copy_no_overlap(
-			        surfaceDst->data, surfaceDst->format, surfaceDst->scanline, destPt->x,
-			        destPt->y, nWidth, nHeight, surfaceSrc->data, surfaceSrc->format,
-			        surfaceSrc->scanline, rectSrc->left, rectSrc->top, NULL, FREERDP_FLIP_NONE))
-				goto fail;
-		}
+		if (!freerdp_image_copy(surfaceDst->data, surfaceDst->format, surfaceDst->scanline,
+		                        destPt->x, destPt->y, nWidth, nHeight, surfaceSrc->data,
+		                        surfaceSrc->format, surfaceSrc->scanline, rectSrc->left,
+		                        rectSrc->top, NULL, FREERDP_FLIP_NONE))
+			goto fail;
 
 		invalidRect = rect;
 		region16_union_rect(&surfaceDst->invalidRegion, &surfaceDst->invalidRegion, &invalidRect);
@@ -1855,14 +1849,11 @@ BOOL gdi_graphics_pipeline_init_ex(rdpGdi* gdi, RdpgfxClientContext* gfx,
                                    pcRdpgfxUnmapWindowForSurface unmap,
                                    pcRdpgfxUpdateSurfaceArea update)
 {
-	rdpContext* context = NULL;
-	const rdpSettings* settings = NULL;
-
 	if (!gdi || !gfx || !gdi->context || !gdi->context->settings)
 		return FALSE;
 
-	context = gdi->context;
-	settings = gdi->context->settings;
+	rdpContext* context = gdi->context;
+	rdpSettings* settings = context->settings;
 
 	gdi->gfx = gfx;
 	gfx->custom = (void*)gdi;
@@ -1938,4 +1929,35 @@ void gdi_graphics_pipeline_uninit(rdpGdi* gdi, RdpgfxClientContext* gfx)
 	PROFILER_PRINT(gfx->SurfaceProfiler)
 	PROFILER_PRINT_FOOTER
 	PROFILER_FREE(gfx->SurfaceProfiler)
+}
+
+const char* rdpgfx_caps_version_str(UINT32 capsVersion)
+{
+	switch (capsVersion)
+	{
+		case RDPGFX_CAPVERSION_8:
+			return "RDPGFX_CAPVERSION_8";
+		case RDPGFX_CAPVERSION_81:
+			return "RDPGFX_CAPVERSION_81";
+		case RDPGFX_CAPVERSION_10:
+			return "RDPGFX_CAPVERSION_10";
+		case RDPGFX_CAPVERSION_101:
+			return "RDPGFX_CAPVERSION_101";
+		case RDPGFX_CAPVERSION_102:
+			return "RDPGFX_CAPVERSION_102";
+		case RDPGFX_CAPVERSION_103:
+			return "RDPGFX_CAPVERSION_103";
+		case RDPGFX_CAPVERSION_104:
+			return "RDPGFX_CAPVERSION_104";
+		case RDPGFX_CAPVERSION_105:
+			return "RDPGFX_CAPVERSION_105";
+		case RDPGFX_CAPVERSION_106:
+			return "RDPGFX_CAPVERSION_106";
+		case RDPGFX_CAPVERSION_106_ERR:
+			return "RDPGFX_CAPVERSION_106_ERR";
+		case RDPGFX_CAPVERSION_107:
+			return "RDPGFX_CAPVERSION_107";
+		default:
+			return "RDPGFX_CAPVERSION_UNKNOWN";
+	}
 }

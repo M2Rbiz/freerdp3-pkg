@@ -28,10 +28,15 @@
 #include <winpr/wtypes.h>
 #include <winpr/winpr.h>
 
+WINPR_PRAGMA_DIAG_PUSH
+WINPR_PRAGMA_DIAG_IGNORED_RESERVED_ID_MACRO
+
 #ifndef __SECSTATUS_DEFINED__
 typedef LONG SECURITY_STATUS;
 #define __SECSTATUS_DEFINED__
 #endif
+
+WINPR_PRAGMA_DIAG_POP
 
 typedef ULONG_PTR NCRYPT_HANDLE;
 typedef ULONG_PTR NCRYPT_PROV_HANDLE;
@@ -217,6 +222,7 @@ extern "C"
 	 *
 	 * @param phProvider [in] provider handle
 	 * @return module path
+	 * @since version 3.6.0
 	 */
 	WINPR_API const char* winpr_NCryptGetModulePath(NCRYPT_PROV_HANDLE phProvider);
 

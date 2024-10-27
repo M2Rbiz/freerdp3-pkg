@@ -608,7 +608,6 @@ static SECURITY_STATUS SEC_ENTRY ntlm_InitializeSecurityContextW(
 	SSPI_CREDENTIALS* credentials = NULL;
 	PSecBuffer input_buffer = NULL;
 	PSecBuffer output_buffer = NULL;
-	PSecBuffer channel_bindings = NULL;
 
 	/* behave like windows SSPIs that don't want empty context */
 	if (phContext && !phContext->dwLower && !phContext->dwUpper)
@@ -619,7 +618,6 @@ static SECURITY_STATUS SEC_ENTRY ntlm_InitializeSecurityContextW(
 	if (pInput)
 	{
 		input_buffer = sspi_FindSecBuffer(pInput, SECBUFFER_TOKEN);
-		channel_bindings = sspi_FindSecBuffer(pInput, SECBUFFER_CHANNEL_BINDINGS);
 	}
 
 	if (!context)
@@ -686,7 +684,7 @@ static SECURITY_STATUS SEC_ENTRY ntlm_InitializeSecurityContextW(
 		if (input_buffer->cbBuffer < 1)
 			return SEC_E_INVALID_TOKEN;
 
-		channel_bindings = sspi_FindSecBuffer(pInput, SECBUFFER_CHANNEL_BINDINGS);
+		PSecBuffer channel_bindings = sspi_FindSecBuffer(pInput, SECBUFFER_CHANNEL_BINDINGS);
 
 		if (channel_bindings)
 		{
@@ -1087,7 +1085,7 @@ static SECURITY_STATUS SEC_ENTRY ntlm_EncryptMessage(PCtxtHandle phContext, ULON
 	{
 		Data_Write_UINT32(&value, SeqNo);
 		winpr_HMAC_Update(hmac, (void*)&value, 4);
-		winpr_HMAC_Update(hmac, (void*)data, length);
+		winpr_HMAC_Update(hmac, data, length);
 		winpr_HMAC_Final(hmac, digest, WINPR_MD5_DIGEST_LENGTH);
 		winpr_HMAC_Free(hmac);
 	}
@@ -1186,7 +1184,7 @@ static SECURITY_STATUS SEC_ENTRY ntlm_DecryptMessage(PCtxtHandle phContext, PSec
 	{
 		Data_Write_UINT32(&value, SeqNo);
 		winpr_HMAC_Update(hmac, (void*)&value, 4);
-		winpr_HMAC_Update(hmac, (void*)data_buffer->pvBuffer, data_buffer->cbBuffer);
+		winpr_HMAC_Update(hmac, data_buffer->pvBuffer, data_buffer->cbBuffer);
 		winpr_HMAC_Final(hmac, digest, WINPR_MD5_DIGEST_LENGTH);
 		winpr_HMAC_Free(hmac);
 	}
@@ -1419,7 +1417,7 @@ char* ntlm_negotiate_flags_string(char* buffer, size_t size, UINT32 flags)
 	if (!buffer || (size == 0))
 		return buffer;
 
-	_snprintf(buffer, size, "[0x%08" PRIx32 "] ", flags);
+	(void)_snprintf(buffer, size, "[0x%08" PRIx32 "] ", flags);
 
 	for (int x = 0; x < 31; x++)
 	{

@@ -17,9 +17,11 @@
  * limitations under the License.
  */
 
+#include <iostream>
 #include <fstream>
 #if __has_include(<filesystem>)
 #include <filesystem>
+#include <utility>
 namespace fs = std::filesystem;
 #elif __has_include(<experimental/filesystem>)
 #include <experimental/filesystem>
@@ -93,7 +95,7 @@ std::vector<std::string> SdlPref::get_array(const std::string& key,
 		return fallback;
 
 	std::vector<std::string> values;
-	for (int x = 0; x < WINPR_JSON_GetArraySize(item); x++)
+	for (size_t x = 0; x < WINPR_JSON_GetArraySize(item); x++)
 	{
 		auto cur = WINPR_JSON_GetArrayItem(item, x);
 		values.push_back(item_to_str(cur));
@@ -102,7 +104,66 @@ std::vector<std::string> SdlPref::get_array(const std::string& key,
 	return values;
 }
 
-SdlPref::SdlPref(const std::string& file) : _name(file), _config(get())
+void SdlPref::print_config_file_help(int version)
+{
+#if defined(WITH_WINPR_JSON)
+	const std::string url = "https://wiki.libsdl.org/SDL" + std::to_string(version);
+	std::cout << "CONFIGURATION FILE" << std::endl;
+	std::cout << std::endl;
+	std::cout << "  The SDL client supports some user defined configuration options." << std::endl;
+	std::cout << "  Settings are stored in JSON format" << std::endl;
+	std::cout << "  The location is a per user file. Location for current user is "
+	          << SdlPref::instance()->get_pref_file() << std::endl;
+	std::cout
+	    << "  The XDG_CONFIG_HOME environment variable can be used to override the base directory."
+	    << std::endl;
+	std::cout << std::endl;
+	std::cout << "  The following configuration options are supported:" << std::endl;
+	std::cout << std::endl;
+	std::cout << "    SDL_KeyModMask" << std::endl;
+	std::cout << "      Defines the key combination required for SDL client shortcuts."
+	          << std::endl;
+	std::cout << "      Default KMOD_RSHIFT" << std::endl;
+	std::cout << "      An array of SDL_Keymod strings as defined at "
+	             ""
+	          << url << "/SDL_Keymod" << std::endl;
+	std::cout << std::endl;
+	std::cout << "    SDL_Fullscreen" << std::endl;
+	std::cout << "      Toggles client fullscreen state." << std::endl;
+	std::cout << "      Default SDL_SCANCODE_RETURN." << std::endl;
+	std::cout << "      A string as "
+	             "defined at "
+	          << url << "/SDLScancodeLookup" << std::endl;
+	std::cout << std::endl;
+	std::cout << "    SDL_Minimize" << std::endl;
+	std::cout << "      Minimizes client windows." << std::endl;
+	std::cout << "      Default SDL_SCANCODE_M." << std::endl;
+	std::cout << "      A string as "
+	             "defined at "
+	          << url << "/SDLScancodeLookup" << std::endl;
+	std::cout << std::endl;
+	std::cout << "    SDL_Resizeable" << std::endl;
+	std::cout << "      Toggles local window resizeable state." << std::endl;
+	std::cout << "      Default SDL_SCANCODE_R." << std::endl;
+	std::cout << "      A string as "
+	             "defined at "
+	          << url << "/SDLScancodeLookup" << std::endl;
+	std::cout << std::endl;
+	std::cout << "    SDL_Grab" << std::endl;
+	std::cout << "      Toggles keyboard and mouse grab state." << std::endl;
+	std::cout << "      Default SDL_SCANCODE_G." << std::endl;
+	std::cout << "      A string as "
+	             "defined at "
+	          << url << "/SDLScancodeLookup" << std::endl;
+	std::cout << std::endl;
+	std::cout << "    SDL_Disconnect" << std::endl;
+	std::cout << "      Disconnects from the RDP session." << std::endl;
+	std::cout << "      Default SDL_SCANCODE_D." << std::endl;
+	std::cout << "      A string as defined at " << url << "/SDLScancodeLookup" << std::endl;
+#endif
+}
+
+SdlPref::SdlPref(std::string file) : _name(std::move(file)), _config(get())
 {
 }
 

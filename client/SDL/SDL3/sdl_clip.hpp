@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <utility>
 #include <vector>
 #include <atomic>
 #include <queue>
@@ -33,6 +34,7 @@
 #include "sdl_types.hpp"
 #include "sdl_utils.hpp"
 
+/** @brief a clipboard format request */
 class ClipRequest
 {
   public:
@@ -41,13 +43,19 @@ class ClipRequest
 	ClipRequest(ClipRequest&& other) = default;
 	~ClipRequest() = default;
 
+	ClipRequest& operator=(const ClipRequest& other) = delete;
+	ClipRequest& operator=(ClipRequest&& other) = delete;
+
 	[[nodiscard]] uint32_t format() const;
 	[[nodiscard]] std::string formatstr() const;
 	[[nodiscard]] std::string mime() const;
+	[[nodiscard]] bool success() const;
+	void setSuccess(bool status);
 
   private:
 	uint32_t _format;
 	std::string _mime;
+	bool _success;
 };
 
 class CliprdrFormat
@@ -76,6 +84,7 @@ class CliprdrFormat
 	std::string _formatName;
 };
 
+/** @brief object that handles clipboard context for the SDL3 client */
 class sdlClip
 {
   public:
@@ -85,28 +94,18 @@ class sdlClip
 	BOOL init(CliprdrClientContext* clip);
 	BOOL uninit(CliprdrClientContext* clip);
 
-	bool handle_update();
+	bool handle_update(const SDL_ClipboardEvent& ev);
 
   private:
 	UINT SendClientCapabilities();
 	void clearServerFormats();
 	UINT SendFormatListResponse(BOOL status);
 	UINT SendDataResponse(const BYTE* data, size_t size);
-	UINT SendDataRequest(uint32_t formatID, const std::string& mime)
-	{
-		CLIPRDR_FORMAT_DATA_REQUEST request = { .requestedFormatId = formatID };
-
-		_request_queue.push({ formatID, mime });
-
-		WINPR_ASSERT(_ctx);
-		WINPR_ASSERT(_ctx->ClientFormatDataRequest);
-		return _ctx->ClientFormatDataRequest(_ctx, &request);
-	}
+	UINT SendDataRequest(uint32_t formatID, const std::string& mime);
 
 	std::string getServerFormat(uint32_t id);
 	uint32_t serverIdForMime(const std::string& mime);
 
-  private:
 	static UINT MonitorReady(CliprdrClientContext* context,
 	                         const CLIPRDR_MONITOR_READY* monitorReady);
 
@@ -131,7 +130,6 @@ class sdlClip
 	static bool mime_is_image(const std::string& mime);
 	static bool mime_is_html(const std::string& mime);
 
-  private:
 	SdlContext* _sdl = nullptr;
 	CliprdrFileContext* _file = nullptr;
 	CliprdrClientContext* _ctx = nullptr;
@@ -147,7 +145,7 @@ class sdlClip
 
 	struct cache_entry
 	{
-		cache_entry(size_t len, std::shared_ptr<void> p) : size(len), ptr(p)
+		cache_entry(size_t len, std::shared_ptr<void> p) : size(len), ptr(std::move(p))
 		{
 		}
 

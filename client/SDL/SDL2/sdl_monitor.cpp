@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
 
 #include <SDL.h>
 
@@ -37,20 +38,20 @@
 #include "sdl_monitor.hpp"
 #include "sdl_freerdp.hpp"
 
-typedef struct
+using MONITOR_INFO = struct
 {
 	RECTANGLE_16 area;
 	RECTANGLE_16 workarea;
 	BOOL primary;
-} MONITOR_INFO;
+};
 
-typedef struct
+using VIRTUAL_SCREEN = struct
 {
 	int nmonitors;
 	RECTANGLE_16 area;
 	RECTANGLE_16 workarea;
 	MONITOR_INFO* monitors;
-} VIRTUAL_SCREEN;
+};
 
 /* See MSDN Section on Multiple Display Monitors: http://msdn.microsoft.com/en-us/library/dd145071
  */
@@ -174,6 +175,13 @@ static UINT32 sdl_orientaion_to_rdp(SDL_DisplayOrientation orientation)
 }
 #endif
 
+static Uint32 scale(Uint32 val, float scale)
+{
+	const auto dval = static_cast<float>(val);
+	const auto sval = dval / scale;
+	return static_cast<Uint32>(sval);
+}
+
 static BOOL sdl_apply_display_properties(SdlContext* sdl)
 {
 	WINPR_ASSERT(sdl);
@@ -238,8 +246,8 @@ static BOOL sdl_apply_display_properties(SdlContext* sdl)
 				}
 			}
 
-			const float dw = 1.0f * rect.w / scaleRect.w;
-			const float dh = 1.0f * rect.h / scaleRect.h;
+			const float dw = 1.0f * static_cast<float>(rect.w) / static_cast<float>(scaleRect.w);
+			const float dh = 1.0f * static_cast<float>(rect.h) / static_cast<float>(scaleRect.h);
 			hdpi /= dw;
 			vdpi /= dh;
 		}
@@ -263,11 +271,11 @@ static BOOL sdl_apply_display_properties(SdlContext* sdl)
 		monitor->width = rect.w;
 		monitor->height = rect.h;
 		monitor->is_primary = x == 0;
-		monitor->attributes.desktopScaleFactor = factor;
+		monitor->attributes.desktopScaleFactor = static_cast<UINT32>(factor);
 		monitor->attributes.deviceScaleFactor = 100;
 		monitor->attributes.orientation = rdp_orientation;
-		monitor->attributes.physicalWidth = rect.w / hdpi;
-		monitor->attributes.physicalHeight = rect.h / vdpi;
+		monitor->attributes.physicalWidth = scale(rect.w, hdpi);
+		monitor->attributes.physicalHeight = scale(rect.h, vdpi);
 	}
 	return TRUE;
 }
@@ -291,7 +299,7 @@ static BOOL sdl_detect_single_window(SdlContext* sdl, UINT32* pMaxWidth, UINT32*
 		if (freerdp_settings_get_uint32(settings, FreeRDP_NumMonitorIds) == 0)
 		{
 			const size_t id =
-			    (sdl->windows.size() > 0) ? sdl->windows.begin()->second.displayIndex() : 0;
+			    (!sdl->windows.empty()) ? sdl->windows.begin()->second.displayIndex() : 0;
 			if (!freerdp_settings_set_pointer_len(settings, FreeRDP_MonitorIds, &id, 1))
 				return FALSE;
 		}
@@ -324,17 +332,82 @@ BOOL sdl_detect_monitors(SdlContext* sdl, UINT32* pMaxWidth, UINT32* pMaxHeight)
 	WINPR_ASSERT(settings);
 
 	const int numDisplays = SDL_GetNumVideoDisplays();
-	if (!freerdp_settings_set_pointer_len(settings, FreeRDP_MonitorIds, nullptr, numDisplays))
+	auto nr = freerdp_settings_get_uint32(settings, FreeRDP_NumMonitorIds);
+	if (numDisplays < 0)
 		return FALSE;
 
-	for (size_t x = 0; x < numDisplays; x++)
+	if (nr == 0)
 	{
-		if (!freerdp_settings_set_pointer_array(settings, FreeRDP_MonitorIds, x, &x))
+		if (!freerdp_settings_set_pointer_len(settings, FreeRDP_MonitorIds, nullptr,
+		                                      static_cast<size_t>(numDisplays)))
 			return FALSE;
+		for (size_t x = 0; x < static_cast<size_t>(numDisplays); x++)
+		{
+			if (!freerdp_settings_set_pointer_array(settings, FreeRDP_MonitorIds, x, &x))
+				return FALSE;
+		}
+	}
+	else
+	{
+
+		/* There were more IDs supplied than there are monitors */
+		if (nr > static_cast<UINT32>(numDisplays))
+		{
+			WLog_ERR(TAG,
+			         "Found %" PRIu32 " monitor IDs, but only have %" PRIu32 " monitors connected",
+			         nr, numDisplays);
+			return FALSE;
+		}
+
+		std::vector<UINT32> used;
+		for (size_t x = 0; x < nr; x++)
+		{
+			auto cur = static_cast<const UINT32*>(
+			    freerdp_settings_get_pointer_array(settings, FreeRDP_MonitorIds, x));
+			WINPR_ASSERT(cur);
+
+			auto id = *cur;
+
+			/* the ID is no valid monitor index */
+			if (id >= nr)
+			{
+				WLog_ERR(TAG,
+				         "Supplied monitor ID[%" PRIuz "]=%" PRIu32 " is invalid, only [0-%" PRIu32
+				         "] are allowed",
+				         x, id, nr - 1);
+				return FALSE;
+			}
+
+			/* The ID is already taken */
+			if (std::find(used.begin(), used.end(), id) != used.end())
+			{
+				WLog_ERR(TAG, "Duplicate monitor ID[%" PRIuz "]=%" PRIu32 " detected", x, id);
+				return FALSE;
+			}
+			used.push_back(*cur);
+		}
 	}
 
 	if (!sdl_apply_display_properties(sdl))
 		return FALSE;
 
 	return sdl_detect_single_window(sdl, pMaxWidth, pMaxHeight);
+}
+
+INT64 sdl_monitor_id_for_index(SdlContext* sdl, UINT32 index)
+{
+	WINPR_ASSERT(sdl);
+	auto settings = sdl->context()->settings;
+
+	auto nr = freerdp_settings_get_uint32(settings, FreeRDP_NumMonitorIds);
+	if (nr == 0)
+		return index;
+
+	if (nr <= index)
+		return -1;
+
+	auto cur = static_cast<const UINT32*>(
+	    freerdp_settings_get_pointer_array(settings, FreeRDP_MonitorIds, index));
+	WINPR_ASSERT(cur);
+	return *cur;
 }

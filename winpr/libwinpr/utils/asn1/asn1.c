@@ -72,7 +72,7 @@ struct WinPrAsn1Encoder
 	size_t containerCapacity;
 };
 
-#define WINPR_ASSERT_VALID_TAG(t) WINPR_ASSERT(t < 64)
+#define WINPR_ASSERT_VALID_TAG(t) WINPR_ASSERT((t) < 64)
 
 void WinPrAsn1FreeOID(WinPrAsn1_OID* poid)
 {
@@ -1000,7 +1000,7 @@ size_t WinPrAsn1DecReadBoolean(WinPrAsn1Decoder* dec, WinPrAsn1_BOOL* target)
 	ret = readTagAndLen(dec, &dec->source, &tag, &len);
 	if (!ret || tag != ER_TAG_BOOLEAN)
 		return 0;
-	if (!Stream_CheckAndLogRequiredLength(TAG, &dec->source, len) || len != 1)
+	if (Stream_GetRemainingLength(&dec->source) < len || len != 1)
 		return 0;
 
 	Stream_Read_UINT8(&dec->source, v);
@@ -1020,18 +1020,31 @@ static size_t WinPrAsn1DecReadIntegerLike(WinPrAsn1Decoder* dec, WinPrAsn1_tag e
 	size_t ret = readTagAndLen(dec, &dec->source, &tag, &len);
 	if (!ret || (tag != expectedTag))
 		return 0;
-	if (!Stream_CheckAndLogRequiredLength(TAG, &dec->source, len) || (len > 4))
+	if (len == 0 || Stream_GetRemainingLength(&dec->source) < len || (len > 4))
 		return 0;
 
-	WinPrAsn1_INTEGER val = 0;
-	for (size_t x = 0; x < len; x++)
+	UINT32 uval = 0;
+	UINT8 v = 0;
+
+	Stream_Read_UINT8(&dec->source, v);
+
+	/* extract sign from first byte.
+	 * the ASN integer might be smaller than 32bit so we need to set the initial
+	 * value to FF for all unused bytes (e.g. all except the lowest one we just read)
+	 */
+	BOOL isNegative = (v & 0x80);
+	if (isNegative)
+		uval = 0xFFFFFF00;
+	uval |= v;
+
+	for (size_t x = 1; x < len; x++)
 	{
-		INT8 v = 0;
-		Stream_Read_INT8(&dec->source, v);
-		val = (WinPrAsn1_INTEGER)(((UINT32)val) << 8);
-		val |= v;
+		Stream_Read_UINT8(&dec->source, v);
+		uval <<= 8;
+		uval |= v;
 	}
-	*target = val;
+
+	*target = (WinPrAsn1_INTEGER)uval;
 	ret += len;
 
 	/* TODO: check ber/der rules */
@@ -1092,8 +1105,7 @@ size_t WinPrAsn1DecReadOID(WinPrAsn1Decoder* dec, WinPrAsn1_OID* target, BOOL al
 size_t WinPrAsn1DecReadOctetString(WinPrAsn1Decoder* dec, WinPrAsn1_OctetString* target,
                                    BOOL allocate)
 {
-	return WinPrAsn1DecReadMemoryChunkLike(dec, ER_TAG_OCTET_STRING, (WinPrAsn1_OctetString*)target,
-	                                       allocate);
+	return WinPrAsn1DecReadMemoryChunkLike(dec, ER_TAG_OCTET_STRING, target, allocate);
 }
 
 size_t WinPrAsn1DecReadIA5String(WinPrAsn1Decoder* dec, WinPrAsn1_IA5STRING* target)

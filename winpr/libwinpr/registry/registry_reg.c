@@ -18,6 +18,7 @@
  */
 
 #include <winpr/config.h>
+#include <winpr/path.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -25,6 +26,7 @@
 #include <string.h>
 
 #include <winpr/wtypes.h>
+#include <winpr/string.h>
 #include <winpr/assert.h>
 #include <winpr/crt.h>
 #include <winpr/file.h>
@@ -33,8 +35,6 @@
 
 #include "../log.h"
 #define TAG WINPR_TAG("registry")
-
-#define WINPR_HKLM_HIVE "/etc/winpr/HKLM.reg"
 
 struct reg_data_type
 {
@@ -94,9 +94,11 @@ static BOOL reg_load_start(Reg* reg)
 	WINPR_ASSERT(reg);
 	WINPR_ASSERT(reg->fp);
 
-	_fseeki64(reg->fp, 0, SEEK_END);
+	if (_fseeki64(reg->fp, 0, SEEK_END) != 0)
+		return FALSE;
 	file_size = _ftelli64(reg->fp);
-	_fseeki64(reg->fp, 0, SEEK_SET);
+	if (_fseeki64(reg->fp, 0, SEEK_SET) != 0)
+		return FALSE;
 	reg->line = NULL;
 	reg->next_line = NULL;
 
@@ -114,7 +116,7 @@ static BOOL reg_load_start(Reg* reg)
 
 	reg->buffer[file_size] = '\n';
 	reg->buffer[file_size + 1] = '\0';
-	reg->next_line = strtok(reg->buffer, "\n");
+	reg->next_line = strtok_s(reg->buffer, "\n", &reg->saveptr);
 	return TRUE;
 }
 
@@ -295,7 +297,7 @@ static char* reg_load_get_next_line(Reg* reg)
 		return NULL;
 
 	reg->line = reg->next_line;
-	reg->next_line = strtok(NULL, "\n");
+	reg->next_line = strtok_s(NULL, "\n", &reg->saveptr);
 	reg->line_length = strlen(reg->line);
 	return reg->line;
 }
@@ -494,7 +496,9 @@ Reg* reg_open(BOOL read_only)
 		return NULL;
 
 	reg->read_only = read_only;
-	reg->filename = WINPR_HKLM_HIVE;
+	reg->filename = winpr_GetConfigFilePath(TRUE, "HKLM.reg");
+	if (!reg->filename)
+		goto fail;
 
 	if (reg->read_only)
 		reg->fp = winpr_fopen(reg->filename, "r");
@@ -531,7 +535,8 @@ void reg_close(Reg* reg)
 	{
 		reg_unload(reg);
 		if (reg->fp)
-			fclose(reg->fp);
+			(void)fclose(reg->fp);
+		free(reg->filename);
 		free(reg);
 	}
 }

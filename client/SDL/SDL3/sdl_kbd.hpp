@@ -34,18 +34,22 @@ class sdlInput
 {
   public:
 	explicit sdlInput(SdlContext* sdl);
+	sdlInput(const sdlInput& other) = delete;
+	sdlInput(sdlInput&& other) = delete;
 	~sdlInput() = default;
+
+	sdlInput& operator=(const sdlInput& other) = delete;
+	sdlInput& operator=(sdlInput&& other) = delete;
 
 	BOOL keyboard_sync_state();
 	BOOL keyboard_focus_in();
 
 	BOOL keyboard_handle_event(const SDL_KeyboardEvent* ev);
 
-	BOOL keyboard_grab(Uint32 windowID, SDL_bool enable);
+	BOOL keyboard_grab(Uint32 windowID, bool enable);
 	BOOL mouse_focus(Uint32 windowID);
-	BOOL mouse_grab(Uint32 windowID, SDL_bool enable);
+	BOOL mouse_grab(Uint32 windowID, bool enable);
 
-  public:
 	static BOOL keyboard_set_indicators(rdpContext* context, UINT16 led_flags);
 	static BOOL keyboard_set_ime_status(rdpContext* context, UINT16 imeId, UINT32 imeState,
 	                                    UINT32 imeConvMode);
@@ -61,7 +65,6 @@ class sdlInput
 	uint32_t remapScancode(uint32_t scancode);
 	void remapInitialize();
 
-  private:
 	SdlContext* _sdl;
 	Uint32 _lastWindowID;
 	std::map<uint32_t, uint32_t> _remapList;
@@ -73,4 +76,5 @@ class sdlInput
 	uint32_t _hotkeyResizable;
 	uint32_t _hotkeyGrab;
 	uint32_t _hotkeyDisconnect;
+	uint32_t _hotkeyMinimize;
 };

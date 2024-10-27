@@ -287,7 +287,7 @@ static UINT enumerator_process_message(enumerator_server* enumerator)
 		goto out;
 	}
 
-	if (WTSVirtualChannelRead(enumerator->enumerator_channel, 0, (PCHAR)Stream_Buffer(s),
+	if (WTSVirtualChannelRead(enumerator->enumerator_channel, 0, Stream_BufferAs(s, char),
 	                          (ULONG)Stream_Capacity(s), &BytesReturned) == FALSE)
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
@@ -418,7 +418,7 @@ static DWORD WINAPI enumerator_server_thread_func(LPVOID arg)
 		}
 	}
 
-	WTSVirtualChannelClose(enumerator->enumerator_channel);
+	(void)WTSVirtualChannelClose(enumerator->enumerator_channel);
 	enumerator->enumerator_channel = NULL;
 
 	if (error && enumerator->context.rdpcontext)
@@ -449,7 +449,7 @@ static UINT enumerator_server_open(CamDevEnumServerContext* context)
 		if (!enumerator->thread)
 		{
 			WLog_ERR(TAG, "CreateThread failed!");
-			CloseHandle(enumerator->stopEvent);
+			(void)CloseHandle(enumerator->stopEvent);
 			enumerator->stopEvent = NULL;
 			return ERROR_INTERNAL_ERROR;
 		}
@@ -468,7 +468,7 @@ static UINT enumerator_server_close(CamDevEnumServerContext* context)
 
 	if (!enumerator->externalThread && enumerator->thread)
 	{
-		SetEvent(enumerator->stopEvent);
+		(void)SetEvent(enumerator->stopEvent);
 
 		if (WaitForSingleObject(enumerator->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -477,8 +477,8 @@ static UINT enumerator_server_close(CamDevEnumServerContext* context)
 			return error;
 		}
 
-		CloseHandle(enumerator->thread);
-		CloseHandle(enumerator->stopEvent);
+		(void)CloseHandle(enumerator->thread);
+		(void)CloseHandle(enumerator->stopEvent);
 		enumerator->thread = NULL;
 		enumerator->stopEvent = NULL;
 	}
@@ -486,7 +486,7 @@ static UINT enumerator_server_close(CamDevEnumServerContext* context)
 	{
 		if (enumerator->state != ENUMERATOR_INITIAL)
 		{
-			WTSVirtualChannelClose(enumerator->enumerator_channel);
+			(void)WTSVirtualChannelClose(enumerator->enumerator_channel);
 			enumerator->enumerator_channel = NULL;
 			enumerator->state = ENUMERATOR_INITIAL;
 		}
@@ -531,7 +531,7 @@ static UINT enumerator_server_packet_send(CamDevEnumServerContext* context, wStr
 	UINT error = CHANNEL_RC_OK;
 	ULONG written = 0;
 
-	if (!WTSVirtualChannelWrite(enumerator->enumerator_channel, (PCHAR)Stream_Buffer(s),
+	if (!WTSVirtualChannelWrite(enumerator->enumerator_channel, Stream_BufferAs(s, char),
 	                            Stream_GetPosition(s), &written))
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelWrite failed!");

@@ -31,7 +31,12 @@ class sdlDispContext
 
   public:
 	explicit sdlDispContext(SdlContext* sdl);
+	sdlDispContext(const sdlDispContext& other) = delete;
+	sdlDispContext(sdlDispContext&& other) = delete;
 	~sdlDispContext();
+
+	sdlDispContext& operator=(const sdlDispContext& other) = delete;
+	sdlDispContext& operator=(sdlDispContext&& other) = delete;
 
 	BOOL init(DispClientContext* disp);
 	BOOL uninit(DispClientContext* disp);
@@ -52,18 +57,14 @@ class sdlDispContext
 
 	BOOL addTimer();
 
-  private:
 	static UINT DisplayControlCaps(DispClientContext* disp, UINT32 maxNumMonitors,
 	                               UINT32 maxMonitorAreaFactorA, UINT32 maxMonitorAreaFactorB);
 	static void OnActivated(void* context, const ActivatedEventArgs* e);
 	static void OnGraphicsReset(void* context, const GraphicsResetEventArgs* e);
-	static Uint32 SDLCALL OnTimer(Uint32 interval, void* param);
+	static Uint32 SDLCALL OnTimer(void* param, SDL_TimerID timerID, Uint32 interval);
 
-  private:
 	SdlContext* _sdl = nullptr;
 	DispClientContext* _disp = nullptr;
-	int _eventBase = -1;
-	int _errorBase = -1;
 	int _lastSentWidth = -1;
 	int _lastSentHeight = -1;
 	UINT64 _lastSentDate = 0;
@@ -71,7 +72,6 @@ class sdlDispContext
 	int _targetHeight = -1;
 	BOOL _activated = FALSE;
 	BOOL _waitingResize = FALSE;
-	BOOL _fullscreen = FALSE;
 	UINT16 _lastSentDesktopOrientation = 0;
 	UINT32 _lastSentDesktopScaleFactor = 0;
 	UINT32 _lastSentDeviceScaleFactor = 0;

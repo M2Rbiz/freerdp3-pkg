@@ -28,22 +28,19 @@
 #include "prim_alphaComp.h"
 
 #define ALPHA(_k_) (((_k_)&0xFF000000U) >> 24)
-#define RED(_k_) (((_k_)&0x00FF0000U) >> 16)
-#define GRN(_k_) (((_k_)&0x0000FF00U) >> 8)
-#define BLU(_k_) (((_k_)&0x000000FFU))
 
 /* ------------------------------------------------------------------------- */
 static pstatus_t general_alphaComp_argb(const BYTE* pSrc1, UINT32 src1Step, const BYTE* pSrc2,
                                         UINT32 src2Step, BYTE* pDst, UINT32 dstStep, UINT32 width,
                                         UINT32 height)
 {
-	for (UINT32 y = 0; y < height; y++)
+	for (size_t y = 0; y < height; y++)
 	{
 		const UINT32* sptr1 = (const UINT32*)(pSrc1 + y * src1Step);
 		const UINT32* sptr2 = (const UINT32*)(pSrc2 + y * src2Step);
 		UINT32* dptr = (UINT32*)(pDst + y * dstStep);
 
-		for (UINT32 x = 0; x < width; x++)
+		for (size_t x = 0; x < width; x++)
 		{
 			const UINT32 src1 = *sptr1++;
 			const UINT32 src2 = *sptr2++;
@@ -88,7 +85,7 @@ static pstatus_t general_alphaComp_argb(const BYTE* pSrc1, UINT32 src1Step, cons
 }
 
 /* ------------------------------------------------------------------------- */
-void primitives_init_alphaComp(primitives_t* prims)
+void primitives_init_alphaComp(primitives_t* WINPR_RESTRICT prims)
 {
 	prims->alphaComp_argb = general_alphaComp_argb;
 }

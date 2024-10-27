@@ -721,7 +721,7 @@ static BOOL clear_decompress_bands_data(CLEAR_CONTEXT* WINPR_RESTRICT clear,
 				if (!resize_vbar_entry(clear, vBarShortEntry))
 					return FALSE;
 
-				for (UINT32 y = 0; y < vBarShortPixelCount; y++)
+				for (size_t y = 0; y < vBarShortPixelCount; y++)
 				{
 					BYTE r = 0;
 					BYTE g = 0;
@@ -793,10 +793,13 @@ static BOOL clear_decompress_bands_data(CLEAR_CONTEXT* WINPR_RESTRICT clear,
 				if ((y + count) > vBarPixelCount)
 					count = (vBarPixelCount > y) ? (vBarPixelCount - y) : 0;
 
-				while (count--)
+				if (count > 0)
 				{
-					FreeRDPWriteColor(dstBuffer, clear->format, colorBkg);
-					dstBuffer += FreeRDPGetBytesPerPixel(clear->format);
+					while (count--)
+					{
+						FreeRDPWriteColor(dstBuffer, clear->format, colorBkg);
+						dstBuffer += FreeRDPGetBytesPerPixel(clear->format);
+					}
 				}
 
 				/*
@@ -820,7 +823,7 @@ static BOOL clear_decompress_bands_data(CLEAR_CONTEXT* WINPR_RESTRICT clear,
 						return FALSE;
 					}
 				}
-				for (UINT32 x = 0; x < count; x++)
+				for (size_t x = 0; x < count; x++)
 				{
 					UINT32 color = 0;
 					color = FreeRDPReadColor(&pSrcPixel[x * FreeRDPGetBytesPerPixel(clear->format)],
@@ -836,12 +839,15 @@ static BOOL clear_decompress_bands_data(CLEAR_CONTEXT* WINPR_RESTRICT clear,
 				y = vBarYOn + vBarShortPixelCount;
 				count = (vBarPixelCount > y) ? (vBarPixelCount - y) : 0;
 
-				while (count--)
+				if (count > 0)
 				{
-					if (!FreeRDPWriteColor(dstBuffer, clear->format, colorBkg))
-						return FALSE;
+					while (count--)
+					{
+						if (!FreeRDPWriteColor(dstBuffer, clear->format, colorBkg))
+							return FALSE;
 
-					dstBuffer += FreeRDPGetBytesPerPixel(clear->format);
+						dstBuffer += FreeRDPGetBytesPerPixel(clear->format);
+					}
 				}
 
 				vBarEntry->count = vBarPixelCount;

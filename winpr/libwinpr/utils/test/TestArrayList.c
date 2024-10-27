@@ -5,16 +5,14 @@
 
 int TestArrayList(int argc, char* argv[])
 {
-	int count = 0;
-	int rc = 0;
+	SSIZE_T rc = 0;
 	size_t val = 0;
-	wArrayList* arrayList = NULL;
 	const size_t elemsToInsert = 10;
 
 	WINPR_UNUSED(argc);
 	WINPR_UNUSED(argv);
 
-	arrayList = ArrayList_New(TRUE);
+	wArrayList* arrayList = ArrayList_New(TRUE);
 	if (!arrayList)
 		return -1;
 
@@ -24,9 +22,9 @@ int TestArrayList(int argc, char* argv[])
 			return -1;
 	}
 
-	count = ArrayList_Count(arrayList);
+	size_t count = ArrayList_Count(arrayList);
 
-	printf("ArrayList count: %d\n", count);
+	printf("ArrayList count: %" PRIuz "\n", count);
 
 	SSIZE_T index = ArrayList_IndexOf(arrayList, (void*)(size_t)6, -1, -1);
 
@@ -65,13 +63,13 @@ int TestArrayList(int argc, char* argv[])
 		}
 	}
 
-	rc = ArrayList_IndexOf(arrayList, (void*)(size_t)elemsToInsert, -1, -1);
+	rc = ArrayList_IndexOf(arrayList, (void*)elemsToInsert, -1, -1);
 	printf("ArrayList index: %d\n", rc);
 	if (rc != -1)
 		return -1;
 
 	count = ArrayList_Count(arrayList);
-	printf("ArrayList count: %d\n", count);
+	printf("ArrayList count: %" PRIuz "\n", count);
 	if (count != 0)
 		return -1;
 

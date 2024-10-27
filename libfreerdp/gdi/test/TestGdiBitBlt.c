@@ -407,7 +407,7 @@ static BOOL test_rop(HGDI_DC hdcDst, HGDI_DC hdcSrc, HGDI_BITMAP hBmpSrc, HGDI_B
 
 	success = TRUE;
 fail:
-	fprintf(stderr, "[%s] ROP=%s returned %d\n", __func__, gdi_rop_to_string(rop), success);
+	(void)fprintf(stderr, "[%s] ROP=%s returned %d\n", __func__, gdi_rop_to_string(rop), success);
 	return success;
 }
 
@@ -565,9 +565,9 @@ int TestGdiBitBlt(int argc, char* argv[])
 		{
 			if (!test_gdi_BitBlt(formatList[x], formatList[y]))
 			{
-				fprintf(stderr, "test_gdi_BitBlt(SrcFormat=%s, DstFormat=%s) failed!\n",
-				        FreeRDPGetColorFormatName(formatList[x]),
-				        FreeRDPGetColorFormatName(formatList[y]));
+				(void)fprintf(stderr, "test_gdi_BitBlt(SrcFormat=%s, DstFormat=%s) failed!\n",
+				              FreeRDPGetColorFormatName(formatList[x]),
+				              FreeRDPGetColorFormatName(formatList[y]));
 				rc = -1;
 			}
 		}

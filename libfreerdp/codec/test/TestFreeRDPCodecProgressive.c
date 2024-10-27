@@ -164,7 +164,7 @@ static void test_fill_image_alpha_channel(BYTE* data, int width, int height, BYT
 	{
 		for (int j = 0; j < width; j++)
 		{
-			pixel = (UINT32*)&data[((i * width) + j) * 4];
+			pixel = (UINT32*)&data[((1ULL * i * width) + j) * 4ULL];
 			*pixel = ((*pixel & 0x00FFFFFF) | (value << 24));
 		}
 	}
@@ -286,28 +286,28 @@ static BYTE* test_progressive_load_file(const char* path, const char* file, size
 	if (!fp)
 		return NULL;
 
-	_fseeki64(fp, 0, SEEK_END);
+	(void)_fseeki64(fp, 0, SEEK_END);
 	const INT64 pos = _ftelli64(fp);
 	WINPR_ASSERT(pos >= 0);
 	WINPR_ASSERT(pos <= SIZE_MAX);
 	*size = (size_t)pos;
-	_fseeki64(fp, 0, SEEK_SET);
+	(void)_fseeki64(fp, 0, SEEK_SET);
 	BYTE* buffer = (BYTE*)malloc(*size);
 
 	if (!buffer)
 	{
-		fclose(fp);
+		(void)fclose(fp);
 		return NULL;
 	}
 
 	if (fread(buffer, *size, 1, fp) != 1)
 	{
 		free(buffer);
-		fclose(fp);
+		(void)fclose(fp);
 		return NULL;
 	}
 
-	fclose(fp);
+	(void)fclose(fp);
 	return buffer;
 }
 
@@ -561,7 +561,7 @@ static BYTE* test_progressive_load_bitmap(char* path, char* file, size_t* size, 
 		return NULL;
 
 	buffer = image->data;
-	*size = image->height * image->scanline;
+	*size = 1ULL * image->height * image->scanline;
 	test_fill_image_alpha_channel(image->data, image->width, image->height, 0xFF);
 	test_image_fill_unused_quarters(image->data, image->scanline, image->width, image->height,
 	                                quarter, 0xFF000000);
@@ -951,7 +951,7 @@ static int test_progressive_ms_sample(char* ms_sample_path)
 
 	count = 4;
 	progressive = progressive_context_new(FALSE);
-	g_DstData = winpr_aligned_malloc(g_DstStep * g_Height, 16);
+	g_DstData = winpr_aligned_malloc(1LL * g_DstStep * g_Height, 16);
 	progressive_create_surface_context(progressive, 0, g_Width, g_Height);
 
 	/* image 1 */
@@ -1065,6 +1065,8 @@ static BOOL test_encode_decode(const char* path)
 	rc = progressive_compress(progressiveEnc, image->data, image->scanline * image->height,
 	                          ColorFormat, image->width, image->height, image->scanline, NULL,
 	                          &dstData, &dstSize);
+	if (rc < 0)
+		goto fail;
 
 	// Progressive decode
 	rc = progressive_create_surface_context(progressiveDec, 0, image->width, image->height);
@@ -1083,11 +1085,11 @@ static BOOL test_encode_decode(const char* path)
 		dstImage->data = resultData;
 		winpr_image_write(dstImage, "/tmp/test.bmp");
 	}
-	for (UINT32 y = 0; y < image->height; y++)
+	for (size_t y = 0; y < image->height; y++)
 	{
 		const BYTE* orig = &image->data[y * image->scanline];
 		const BYTE* dec = &resultData[y * image->scanline];
-		for (UINT32 x = 0; x < image->width; x++)
+		for (size_t x = 0; x < image->width; x++)
 		{
 			const BYTE* po = &orig[x * 4];
 			const BYTE* pd = &dec[x * 4];
@@ -1120,6 +1122,7 @@ static BOOL read_cmd(FILE* fp, RDPGFX_SURFACE_COMMAND* cmd, UINT32* frameId)
 	WINPR_ASSERT(cmd);
 	WINPR_ASSERT(frameId);
 
+	// NOLINTBEGIN(cert-err34-c)
 	if (1 != fscanf(fp, "frameid: %" PRIu32 "\n", frameId))
 		return FALSE;
 	if (1 != fscanf(fp, "surfaceId: %" PRIu32 "\n", &cmd->surfaceId))
@@ -1144,6 +1147,7 @@ static BOOL read_cmd(FILE* fp, RDPGFX_SURFACE_COMMAND* cmd, UINT32* frameId)
 		return FALSE;
 	if (1 != fscanf(fp, "length: %" PRIu32 "\n", &cmd->length))
 		return FALSE;
+	// NOLINTEND(cert-err34-c)
 
 	char* data = NULL;
 
@@ -1171,14 +1175,14 @@ static void free_cmd(RDPGFX_SURFACE_COMMAND* cmd)
 static WINPR_NORETURN(void usage(const char* name))
 {
 	FILE* fp = stdout;
-	fprintf(fp, "%s <directory> <width> <height>\n", name);
+	(void)fprintf(fp, "%s <directory> <width> <height>\n", name);
 	exit(-1);
 }
 
 static void print_codec_stats(const char* name, UINT64 timeNS)
 {
 	const double dectimems = timeNS / 1000000.0;
-	fprintf(stderr, "[%s] took %lf ms to decode\n", name, dectimems);
+	(void)fprintf(stderr, "[%s] took %lf ms to decode\n", name, dectimems);
 }
 
 static int test_dump(int argc, char* argv[])
@@ -1259,7 +1263,8 @@ static int test_dump(int argc, char* argv[])
 					const UINT64 end = winpr_GetTickCount64NS();
 					const UINT64 diff = end - start;
 					const double ddiff = diff / 1000000.0;
-					fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId, ddiff);
+					(void)fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId,
+					              ddiff);
 					CAPROGRESSIVE_dectime += diff;
 				}
 				break;
@@ -1280,7 +1285,8 @@ static int test_dump(int argc, char* argv[])
 					const UINT64 end = winpr_GetTickCount64NS();
 					const UINT64 diff = end - start;
 					const double ddiff = diff / 1000000.0;
-					fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId, ddiff);
+					(void)fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId,
+					              ddiff);
 					UNCOMPRESSED_dectime += diff;
 				}
 				break;
@@ -1294,7 +1300,8 @@ static int test_dump(int argc, char* argv[])
 					const UINT64 end = winpr_GetTickCount64NS();
 					const UINT64 diff = end - start;
 					const double ddiff = diff / 1000000.0;
-					fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId, ddiff);
+					(void)fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId,
+					              ddiff);
 					CAVIDEO_dectime += diff;
 				}
 				break;
@@ -1314,7 +1321,8 @@ static int test_dump(int argc, char* argv[])
 					const UINT64 end = winpr_GetTickCount64NS();
 					const UINT64 diff = end - start;
 					const double ddiff = diff / 1000000.0;
-					fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId, ddiff);
+					(void)fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId,
+					              ddiff);
 					CLEARCODEC_dectime += diff;
 				}
 				break;
@@ -1337,7 +1345,8 @@ static int test_dump(int argc, char* argv[])
 					const UINT64 end = winpr_GetTickCount64NS();
 					const UINT64 diff = end - start;
 					const double ddiff = diff / 1000000.0;
-					fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId, ddiff);
+					(void)fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId,
+					              ddiff);
 					PLANAR_dectime += diff;
 				}
 				break;
@@ -1348,7 +1357,8 @@ static int test_dump(int argc, char* argv[])
 					const UINT64 end = winpr_GetTickCount64NS();
 					const UINT64 diff = end - start;
 					const double ddiff = diff / 1000000.0;
-					fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId, ddiff);
+					(void)fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId,
+					              ddiff);
 					AVC420_dectime += diff;
 					success = -1;
 				}
@@ -1360,7 +1370,8 @@ static int test_dump(int argc, char* argv[])
 					const UINT64 end = winpr_GetTickCount64NS();
 					const UINT64 diff = end - start;
 					const double ddiff = diff / 1000000.0;
-					fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId, ddiff);
+					(void)fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId,
+					              ddiff);
 					ALPHA_dectime += diff;
 					success = -1;
 				}
@@ -1372,7 +1383,8 @@ static int test_dump(int argc, char* argv[])
 					const UINT64 end = winpr_GetTickCount64NS();
 					const UINT64 diff = end - start;
 					const double ddiff = diff / 1000000.0;
-					fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId, ddiff);
+					(void)fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId,
+					              ddiff);
 					AVC444_dectime += diff;
 					success = -1;
 				}
@@ -1384,14 +1396,15 @@ static int test_dump(int argc, char* argv[])
 					const UINT64 end = winpr_GetTickCount64NS();
 					const UINT64 diff = end - start;
 					const double ddiff = diff / 1000000.0;
-					fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId, ddiff);
+					(void)fprintf(stderr, "frame [%s] %" PRIu32 " took %lf ms\n", cname, frameId,
+					              ddiff);
 					AVC444v2_dectime += diff;
 					success = -1;
 				}
 				break;
 				default:
-					fprintf(stderr, "unexpected codec %s [0x%08" PRIx32 "]",
-					        rdpgfx_get_codec_id_string(cmd.codecId), cmd.codecId);
+					(void)fprintf(stderr, "unexpected codec %s [0x%08" PRIx32 "]",
+					              rdpgfx_get_codec_id_string(cmd.codecId), cmd.codecId);
 					success = -1;
 					break;
 			}
@@ -1415,13 +1428,13 @@ static int test_dump(int argc, char* argv[])
 				const UINT64 end = winpr_GetTickCount64NS();
 				const UINT64 diff = end - start;
 				const double ddiff = diff / 1000000.0;
-				fprintf(stderr, "frame %" PRIu32 " copy took %lf ms\n", frameId, ddiff);
+				(void)fprintf(stderr, "frame %" PRIu32 " copy took %lf ms\n", frameId, ddiff);
 				copytime += diff;
 			}
 			region16_clear(&invalid);
 		}
 		free_cmd(&cmd);
-		fclose(fp);
+		(void)fclose(fp);
 	}
 
 fail:
@@ -1464,11 +1477,11 @@ int TestFreeRDPCodecProgressive(int argc, char* argv[])
 	WINPR_UNUSED(argv);
 
 	GetSystemTime(&systemTime);
-	sprintf_s(name, sizeof(name),
-	          "EGFX_PROGRESSIVE_MS_SAMPLE-%04" PRIu16 "%02" PRIu16 "%02" PRIu16 "%02" PRIu16
-	          "%02" PRIu16 "%02" PRIu16 "%04" PRIu16,
-	          systemTime.wYear, systemTime.wMonth, systemTime.wDay, systemTime.wHour,
-	          systemTime.wMinute, systemTime.wSecond, systemTime.wMilliseconds);
+	(void)sprintf_s(name, sizeof(name),
+	                "EGFX_PROGRESSIVE_MS_SAMPLE-%04" PRIu16 "%02" PRIu16 "%02" PRIu16 "%02" PRIu16
+	                "%02" PRIu16 "%02" PRIu16 "%04" PRIu16,
+	                systemTime.wYear, systemTime.wMonth, systemTime.wDay, systemTime.wHour,
+	                systemTime.wMinute, systemTime.wSecond, systemTime.wMilliseconds);
 	ms_sample_path = _strdup(CMAKE_CURRENT_SOURCE_DIR);
 
 	if (!ms_sample_path)

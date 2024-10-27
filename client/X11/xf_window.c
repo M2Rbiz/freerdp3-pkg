@@ -77,27 +77,31 @@
 /* bit definitions for MwmHints.flags */
 #define MWM_HINTS_FUNCTIONS (1L << 0)
 #define MWM_HINTS_DECORATIONS (1L << 1)
-#define MWM_HINTS_INPUT_MODE (1L << 2)
-#define MWM_HINTS_STATUS (1L << 3)
+// #define MWM_HINTS_INPUT_MODE (1L << 2)
+// #define MWM_HINTS_STATUS (1L << 3)
 
 /* bit definitions for MwmHints.functions */
 #define MWM_FUNC_ALL (1L << 0)
-#define MWM_FUNC_RESIZE (1L << 1)
-#define MWM_FUNC_MOVE (1L << 2)
-#define MWM_FUNC_MINIMIZE (1L << 3)
-#define MWM_FUNC_MAXIMIZE (1L << 4)
-#define MWM_FUNC_CLOSE (1L << 5)
+// #define MWM_FUNC_RESIZE (1L << 1)
+// #define MWM_FUNC_MOVE (1L << 2)
+// #define MWM_FUNC_MINIMIZE (1L << 3)
+// #define MWM_FUNC_MAXIMIZE (1L << 4)
+// #define MWM_FUNC_CLOSE (1L << 5)
 
 /* bit definitions for MwmHints.decorations */
 #define MWM_DECOR_ALL (1L << 0)
-#define MWM_DECOR_BORDER (1L << 1)
-#define MWM_DECOR_RESIZEH (1L << 2)
-#define MWM_DECOR_TITLE (1L << 3)
-#define MWM_DECOR_MENU (1L << 4)
-#define MWM_DECOR_MINIMIZE (1L << 5)
-#define MWM_DECOR_MAXIMIZE (1L << 6)
+// #define MWM_DECOR_BORDER (1L << 1)
+// #define MWM_DECOR_RESIZEH (1L << 2)
+// #define MWM_DECOR_TITLE (1L << 3)
+// #define MWM_DECOR_MENU (1L << 4)
+// #define MWM_DECOR_MINIMIZE (1L << 5)
+// #define MWM_DECOR_MAXIMIZE (1L << 6)
 
 #define PROP_MOTIF_WM_HINTS_ELEMENTS 5
+
+#define ENTRY(x) \
+	case x:      \
+		return #x
 
 typedef struct
 {
@@ -107,6 +111,114 @@ typedef struct
 	long inputMode;
 	unsigned long status;
 } PropMotifWmHints;
+
+static void xf_XSetTransientForHint(xfContext* xfc, xfAppWindow* window);
+
+static const char* window_style_to_string(UINT32 style)
+{
+	switch (style)
+	{
+		ENTRY(WS_NONE);
+		ENTRY(WS_BORDER);
+		ENTRY(WS_CAPTION);
+		ENTRY(WS_CHILD);
+		ENTRY(WS_CLIPCHILDREN);
+		ENTRY(WS_CLIPSIBLINGS);
+		ENTRY(WS_DISABLED);
+		ENTRY(WS_DLGFRAME);
+		ENTRY(WS_GROUP);
+		ENTRY(WS_HSCROLL);
+		ENTRY(WS_MAXIMIZE);
+		ENTRY(WS_MAXIMIZEBOX);
+		ENTRY(WS_MINIMIZE);
+		ENTRY(WS_OVERLAPPEDWINDOW);
+		ENTRY(WS_POPUP);
+		ENTRY(WS_POPUPWINDOW);
+		ENTRY(WS_SIZEBOX);
+		ENTRY(WS_SYSMENU);
+		ENTRY(WS_VISIBLE);
+		ENTRY(WS_VSCROLL);
+		default:
+			return NULL;
+	}
+}
+
+const char* window_styles_to_string(UINT32 style, char* buffer, size_t length)
+{
+	(void)_snprintf(buffer, length, "style[0x%08" PRIx32 "] {", style);
+	const char* sep = "";
+	for (size_t x = 0; x < 32; x++)
+	{
+		const UINT32 val = 1 << x;
+		if ((style & val) != 0)
+		{
+			const char* str = window_style_to_string(val);
+			if (str)
+			{
+				winpr_str_append(str, buffer, length, sep);
+				sep = "|";
+			}
+		}
+	}
+	winpr_str_append("}", buffer, length, "");
+
+	return buffer;
+}
+
+static const char* window_style_ex_to_string(UINT32 styleEx)
+{
+	switch (styleEx)
+	{
+		ENTRY(WS_EX_ACCEPTFILES);
+		ENTRY(WS_EX_APPWINDOW);
+		ENTRY(WS_EX_CLIENTEDGE);
+		ENTRY(WS_EX_COMPOSITED);
+		ENTRY(WS_EX_CONTEXTHELP);
+		ENTRY(WS_EX_CONTROLPARENT);
+		ENTRY(WS_EX_DLGMODALFRAME);
+		ENTRY(WS_EX_LAYERED);
+		ENTRY(WS_EX_LAYOUTRTL);
+		ENTRY(WS_EX_LEFTSCROLLBAR);
+		ENTRY(WS_EX_MDICHILD);
+		ENTRY(WS_EX_NOACTIVATE);
+		ENTRY(WS_EX_NOINHERITLAYOUT);
+		ENTRY(WS_EX_NOPARENTNOTIFY);
+		ENTRY(WS_EX_OVERLAPPEDWINDOW);
+		ENTRY(WS_EX_PALETTEWINDOW);
+		ENTRY(WS_EX_RIGHT);
+		ENTRY(WS_EX_RIGHTSCROLLBAR);
+		ENTRY(WS_EX_RTLREADING);
+		ENTRY(WS_EX_STATICEDGE);
+		ENTRY(WS_EX_TOOLWINDOW);
+		ENTRY(WS_EX_TOPMOST);
+		ENTRY(WS_EX_TRANSPARENT);
+		ENTRY(WS_EX_WINDOWEDGE);
+		default:
+			return NULL;
+	}
+}
+
+const char* window_styles_ex_to_string(UINT32 styleEx, char* buffer, size_t length)
+{
+	(void)_snprintf(buffer, length, "styleEx[0x%08" PRIx32 "] {", styleEx);
+	const char* sep = "";
+	for (size_t x = 0; x < 32; x++)
+	{
+		const UINT32 val = 1UL << x;
+		if ((styleEx & val) != 0)
+		{
+			const char* str = window_style_ex_to_string(val);
+			if (str)
+			{
+				winpr_str_append(str, buffer, length, sep);
+				sep = "|";
+			}
+		}
+	}
+	winpr_str_append("}", buffer, length, "");
+
+	return buffer;
+}
 
 static void xf_SetWindowTitleText(xfContext* xfc, Window window, const char* name)
 {
@@ -295,14 +407,15 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 				if (xf_GetWindowProperty(xfc, window->handle, xfc->_NET_WM_STATE, 255, &nitems,
 				                         &bytes, &prop))
 				{
+					const Atom* aprop = (const Atom*)prop;
 					state = 0;
 
-					while (nitems-- > 0)
+					for (size_t x = 0; x < nitems; x++)
 					{
-						if (((Atom*)prop)[nitems] == xfc->_NET_WM_STATE_MAXIMIZED_VERT)
+						if (aprop[x] == xfc->_NET_WM_STATE_MAXIMIZED_VERT)
 							state |= 0x01;
 
-						if (((Atom*)prop)[nitems] == xfc->_NET_WM_STATE_MAXIMIZED_HORZ)
+						if (aprop[x] == xfc->_NET_WM_STATE_MAXIMIZED_HORZ)
 							state |= 0x02;
 					}
 
@@ -385,54 +498,88 @@ BOOL xf_GetWindowProperty(xfContext* xfc, Window window, Atom property, int leng
 	return TRUE;
 }
 
-BOOL xf_GetCurrentDesktop(xfContext* xfc)
+static BOOL xf_GetNumberOfDesktops(xfContext* xfc, Window root, unsigned* pval)
 {
-	BOOL status = 0;
 	unsigned long nitems = 0;
 	unsigned long bytes = 0;
-	unsigned char* prop = NULL;
-	status = xf_GetWindowProperty(xfc, DefaultRootWindow(xfc->display), xfc->_NET_CURRENT_DESKTOP,
-	                              1, &nitems, &bytes, &prop);
+	BYTE* bprop = NULL;
 
-	if (!status)
+	WINPR_ASSERT(xfc);
+	WINPR_ASSERT(pval);
+
+	const BOOL rc =
+	    xf_GetWindowProperty(xfc, root, xfc->_NET_NUMBER_OF_DESKTOPS, 1, &nitems, &bytes, &bprop);
+
+	long* prop = (long*)bprop;
+	*pval = 0;
+	if (!rc)
 		return FALSE;
 
-	xfc->current_desktop = (int)*prop;
-	free(prop);
+	*pval = *prop;
+	XFree(prop);
 	return TRUE;
+}
+
+static BOOL xf_GetCurrentDesktop(xfContext* xfc, Window root)
+{
+	unsigned long nitems = 0;
+	unsigned long bytes = 0;
+	BYTE* bprop = NULL;
+	unsigned max = 0;
+
+	if (!xf_GetNumberOfDesktops(xfc, root, &max))
+		return FALSE;
+	if (max < 1)
+		return FALSE;
+
+	const BOOL rc =
+	    xf_GetWindowProperty(xfc, root, xfc->_NET_CURRENT_DESKTOP, 1, &nitems, &bytes, &bprop);
+
+	long* prop = (long*)bprop;
+	xfc->current_desktop = 0;
+	if (!rc)
+		return FALSE;
+
+	xfc->current_desktop = (int)MIN(max - 1, *prop);
+	XFree(prop);
+	return TRUE;
+}
+
+static BOOL xf_GetWorkArea_NET_WORKAREA(xfContext* xfc, Window root)
+{
+	BOOL rc = FALSE;
+	unsigned long nitems = 0;
+	unsigned long bytes = 0;
+	BYTE* bprop = NULL;
+
+	const BOOL status =
+	    xf_GetWindowProperty(xfc, root, xfc->_NET_WORKAREA, INT_MAX, &nitems, &bytes, &bprop);
+	long* prop = (long*)bprop;
+
+	if (!status)
+		goto fail;
+
+	if ((xfc->current_desktop * 4 + 3) >= (INT64)nitems)
+		goto fail;
+
+	xfc->workArea.x = prop[xfc->current_desktop * 4 + 0];
+	xfc->workArea.y = prop[xfc->current_desktop * 4 + 1];
+	xfc->workArea.width = prop[xfc->current_desktop * 4 + 2];
+	xfc->workArea.height = prop[xfc->current_desktop * 4 + 3];
+
+	rc = TRUE;
+fail:
+	XFree(prop);
+	return rc;
 }
 
 BOOL xf_GetWorkArea(xfContext* xfc)
 {
-	long* plong = NULL;
-	BOOL status = 0;
-	unsigned long nitems = 0;
-	unsigned long bytes = 0;
-	unsigned char* prop = NULL;
-	status = xf_GetCurrentDesktop(xfc);
+	WINPR_ASSERT(xfc);
 
-	if (!status)
-		return FALSE;
-
-	status = xf_GetWindowProperty(xfc, DefaultRootWindow(xfc->display), xfc->_NET_WORKAREA, 32 * 4,
-	                              &nitems, &bytes, &prop);
-
-	if (!status)
-		return FALSE;
-
-	if ((xfc->current_desktop * 4 + 3) >= (INT64)nitems)
-	{
-		free(prop);
-		return FALSE;
-	}
-
-	plong = (long*)prop;
-	xfc->workArea.x = plong[xfc->current_desktop * 4 + 0];
-	xfc->workArea.y = plong[xfc->current_desktop * 4 + 1];
-	xfc->workArea.width = plong[xfc->current_desktop * 4 + 2];
-	xfc->workArea.height = plong[xfc->current_desktop * 4 + 3];
-	free(prop);
-	return TRUE;
+	Window root = DefaultRootWindow(xfc->display);
+	(void)xf_GetCurrentDesktop(xfc, root);
+	return xf_GetWorkArea_NET_WORKAREA(xfc, root);
 }
 
 void xf_SetWindowDecorations(xfContext* xfc, Window window, BOOL show)
@@ -471,7 +618,8 @@ static void xf_SetWindowPID(xfContext* xfc, Window window, pid_t pid)
 static const char* get_shm_id(void)
 {
 	static char shm_id[64];
-	sprintf_s(shm_id, sizeof(shm_id), "/com.freerdp.xfreerdp.tsmf_%016X", GetCurrentProcessId());
+	(void)sprintf_s(shm_id, sizeof(shm_id), "/com.freerdp.xfreerdp.tsmf_%016X",
+	                GetCurrentProcessId());
 	return shm_id;
 }
 
@@ -747,13 +895,27 @@ void xf_SetWindowStyle(xfContext* xfc, xfAppWindow* appWindow, UINT32 style, UIN
 		 * sees that as a focus out event from the window owning the
 		 * dropdown.
 		 */
-		XSetWindowAttributes attrs;
+		XSetWindowAttributes attrs = { 0 };
 		attrs.override_redirect = redirect ? True : False;
 		XChangeWindowAttributes(xfc->display, appWindow->handle, CWOverrideRedirect, &attrs);
 	}
 
 	LogTagAndXChangeProperty(TAG, xfc->display, appWindow->handle, xfc->_NET_WM_WINDOW_TYPE,
 	                         XA_ATOM, 32, PropModeReplace, (BYTE*)&window_type, 1);
+
+	if (ex_style & (WS_EX_CONTROLPARENT | WS_EX_TOOLWINDOW | WS_EX_DLGMODALFRAME))
+		xf_XSetTransientForHint(xfc, appWindow);
+
+	if (((ex_style & WS_EX_TOPMOST) != 0) && ((ex_style & WS_EX_TOOLWINDOW) == 0))
+	{
+		xf_SendClientEvent(xfc, appWindow->handle, xfc->_NET_WM_STATE, 4, _NET_WM_STATE_ADD,
+		                   xfc->_NET_WM_STATE_ABOVE, 0, 0);
+	}
+	else
+	{
+		xf_SendClientEvent(xfc, appWindow->handle, xfc->_NET_WM_STATE, 4, _NET_WM_STATE_REMOVE,
+		                   xfc->_NET_WM_STATE_ABOVE, 0, 0);
+	}
 }
 
 void xf_SetWindowActions(xfContext* xfc, xfAppWindow* appWindow)
@@ -1361,4 +1523,25 @@ BOOL xf_AppWindowResize(xfContext* xfc, xfAppWindow* appWindow)
 	xf_AppWindowDestroyImage(appWindow);
 
 	return appWindow->pixmap != 0;
+}
+
+void xf_XSetTransientForHint(xfContext* xfc, xfAppWindow* window)
+{
+	WINPR_ASSERT(xfc);
+	WINPR_ASSERT(window);
+
+	if (window->ownerWindowId == 0)
+		return;
+
+	xfAppWindow* parent = xf_rail_get_window(xfc, window->ownerWindowId);
+	if (!parent)
+		return;
+
+	const int rc = XSetTransientForHint(xfc->display, window->handle, parent->handle);
+	if (rc)
+	{
+		char buffer[128] = { 0 };
+		WLog_WARN(TAG, "XSetTransientForHint [%d]{%s}", rc,
+		          x11_error_to_string(xfc, rc, buffer, sizeof(buffer)));
+	}
 }
