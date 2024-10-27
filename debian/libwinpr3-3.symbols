@@ -1005,6 +1005,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  WINPR_JSON_AddArrayToObject@Base 3.6.2
  WINPR_JSON_AddBoolToObject@Base 3.6.2
  WINPR_JSON_AddFalseToObject@Base 3.6.2
+ WINPR_JSON_AddItemToArray@Base 3.9.0
  WINPR_JSON_AddNullToObject@Base 3.6.2
  WINPR_JSON_AddNumberToObject@Base 3.6.2
  WINPR_JSON_AddObjectToObject@Base 3.6.2
@@ -1336,6 +1337,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_EnterSynchronizationBarrier@Base 3.0.0
  winpr_FIPSMode@Base 3.0.0
  winpr_FreeLibraryWhenCallbackReturns@Base 3.0.0
+ winpr_GetConfigFilePath@Base 3.9.0
  winpr_GetTickCount64@Base 3.0.0
  winpr_GetTickCount64NS@Base 3.4.0
  winpr_GetUnixTimeNS@Base 3.4.0

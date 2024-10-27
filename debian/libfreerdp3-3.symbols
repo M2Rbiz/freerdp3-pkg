@@ -230,6 +230,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  er_write_sequence_tag@Base 3.0.0
  er_write_universal_tag@Base 3.0.0
  free_h264_metablock@Base 3.0.0
+ freerdp_GetConfigFilePath@Base 3.9.0
  freerdp_abort_connect@Base 3.0.0
  freerdp_abort_connect_context@Base 3.0.0
  freerdp_abort_event@Base 3.0.0
@@ -272,6 +273,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_certificate_data_get_host@Base 3.0.0
  freerdp_certificate_data_get_issuer@Base 3.0.0
  freerdp_certificate_data_get_pem@Base 3.0.0
+ freerdp_certificate_data_get_pem_ex@Base 3.9.0
  freerdp_certificate_data_get_port@Base 3.0.0
  freerdp_certificate_data_get_subject@Base 3.0.0
  freerdp_certificate_data_hash@Base 3.0.0
@@ -291,10 +293,12 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_certificate_get_issuer@Base 3.0.0
  freerdp_certificate_get_param@Base 3.0.0
  freerdp_certificate_get_pem@Base 3.0.0
+ freerdp_certificate_get_pem_ex@Base 3.9.0
  freerdp_certificate_get_public_key@Base 3.0.0
  freerdp_certificate_get_signature_alg@Base 3.0.0
  freerdp_certificate_get_subject@Base 3.0.0
  freerdp_certificate_get_upn@Base 3.0.0
+ freerdp_certificate_get_validity@Base 3.9.0
  freerdp_certificate_is_rdp_security_compatible@Base 3.0.0
  freerdp_certificate_is_rsa@Base 3.0.0
  freerdp_certificate_new@Base 3.0.0
@@ -326,6 +330,8 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_channels_process_pending_messages@Base 3.0.0
  freerdp_check_event_handles@Base 3.0.0
  freerdp_check_fds@Base 3.0.0
+ freerdp_client_channel_register@Base 3.9.0
+ freerdp_client_channel_unregister@Base 3.9.0
  freerdp_client_codecs_free@Base 3.6.2
  freerdp_client_codecs_new@Base 3.6.2
  freerdp_client_codecs_prepare@Base 3.0.0
@@ -364,6 +370,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_encryption_level_string@Base 3.0.0
  freerdp_encryption_methods_string@Base 3.0.0
  freerdp_error_info@Base 3.0.0
+ freerdp_extract_key_value@Base 3.9.0
  freerdp_focus_required@Base 3.0.0
  freerdp_free@Base 3.0.0
  freerdp_get_build_config@Base 3.0.0
@@ -461,6 +468,9 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_message_queue_process_pending_messages@Base 3.0.0
  freerdp_nego_get_routing_token@Base 3.0.0
  freerdp_new@Base 3.0.0
+ freerdp_nla_QueryContextAttributes@Base 3.9.0
+ freerdp_nla_decrypt@Base 3.9.0
+ freerdp_nla_encrypt@Base 3.9.0
  freerdp_nla_impersonate@Base 3.0.0
  freerdp_nla_revert_to_self@Base 3.0.0
  freerdp_passphrase_read@Base 3.0.0
@@ -721,6 +731,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  rdpdr_read_capset_header@Base 3.0.0
  rdpdr_write_capset_header@Base 3.0.0
  rdpdr_write_iocompletion_header@Base 3.0.0
+ rdpgfx_caps_version_str@Base 3.9.0
  rdpgfx_get_cmd_id_string@Base 3.0.0
  rdpgfx_get_codec_id_string@Base 3.0.0
  rectangle_is_empty@Base 3.0.0
@@ -873,6 +884,8 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  stream_dump_new@Base 3.0.0
  stream_dump_register_handlers@Base 3.0.0
  transport_get_context@Base 3.0.0
+ transport_layer_free@Base 3.9.0
+ transport_layer_new@Base 3.9.0
  transport_parse_pdu@Base 3.0.0
  utf8_string_to_rail_string@Base 3.0.0
  yuv420_context_decode@Base 3.0.0
