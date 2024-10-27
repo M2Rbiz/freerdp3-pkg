@@ -378,8 +378,8 @@ static DWORD WINAPI audin_server_thread_func(LPVOID arg)
 		if (!Stream_EnsureRemainingCapacity(s, BytesReturned))
 			break;
 
-		WINPR_ASSERT(Stream_Capacity(s) <= ULONG_MAX);
-		if (WTSVirtualChannelRead(audin->audin_channel, 0, (PCHAR)Stream_Buffer(s),
+		WINPR_ASSERT(Stream_Capacity(s) <= UINT32_MAX);
+		if (WTSVirtualChannelRead(audin->audin_channel, 0, Stream_BufferAs(s, char),
 		                          (ULONG)Stream_Capacity(s), &BytesReturned) == FALSE)
 		{
 			WLog_Print(audin->log, WLOG_ERROR, "WTSVirtualChannelRead failed!");
@@ -430,7 +430,7 @@ static DWORD WINAPI audin_server_thread_func(LPVOID arg)
 out_capacity:
 	Stream_Free(s, TRUE);
 out:
-	WTSVirtualChannelClose(audin->audin_channel);
+	(void)WTSVirtualChannelClose(audin->audin_channel);
 	audin->audin_channel = NULL;
 
 	if (error && audin->context.rdpcontext)
@@ -489,7 +489,7 @@ static BOOL audin_server_open(audin_server_context* context)
 		          CreateThread(NULL, 0, audin_server_thread_func, (void*)audin, 0, NULL)))
 		{
 			WLog_Print(audin->log, WLOG_ERROR, "CreateThread failed!");
-			CloseHandle(audin->stopEvent);
+			(void)CloseHandle(audin->stopEvent);
 			audin->stopEvent = NULL;
 			return FALSE;
 		}
@@ -516,7 +516,7 @@ static BOOL audin_server_close(audin_server_context* context)
 
 	if (audin->thread)
 	{
-		SetEvent(audin->stopEvent);
+		(void)SetEvent(audin->stopEvent);
 
 		if (WaitForSingleObject(audin->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -525,15 +525,15 @@ static BOOL audin_server_close(audin_server_context* context)
 			return FALSE;
 		}
 
-		CloseHandle(audin->thread);
-		CloseHandle(audin->stopEvent);
+		(void)CloseHandle(audin->thread);
+		(void)CloseHandle(audin->stopEvent);
 		audin->thread = NULL;
 		audin->stopEvent = NULL;
 	}
 
 	if (audin->audin_channel)
 	{
-		WTSVirtualChannelClose(audin->audin_channel);
+		(void)WTSVirtualChannelClose(audin->audin_channel);
 		audin->audin_channel = NULL;
 	}
 
@@ -572,7 +572,7 @@ static UINT audin_server_packet_send(audin_server_context* context, wStream* s)
 	if (pos > UINT32_MAX)
 		return ERROR_INVALID_PARAMETER;
 
-	if (!WTSVirtualChannelWrite(audin->audin_channel, (PCHAR)Stream_Buffer(s), (UINT32)pos,
+	if (!WTSVirtualChannelWrite(audin->audin_channel, Stream_BufferAs(s, char), (UINT32)pos,
 	                            &written))
 	{
 		WLog_Print(audin->log, WLOG_ERROR, "WTSVirtualChannelWrite failed!");

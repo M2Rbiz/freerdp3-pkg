@@ -33,8 +33,8 @@
 #include <freerdp/log.h>
 #define TAG CLIENT_TAG("sdl.disp")
 
-#define RESIZE_MIN_DELAY 200 /* minimum delay in ms between two resizes */
-#define MAX_RETRIES 5
+static constexpr UINT64 RESIZE_MIN_DELAY = 200; /* minimum delay in ms between two resizes */
+static constexpr unsigned MAX_RETRIES = 5;
 
 BOOL sdlDispContext::settings_changed()
 {
@@ -195,7 +195,7 @@ void sdlDispContext::OnGraphicsReset(void* context, const GraphicsResetEventArgs
 	}
 }
 
-Uint32 sdlDispContext::OnTimer(Uint32 interval, void* param)
+Uint32 sdlDispContext::OnTimer(void* param, SDL_TimerID timerID, Uint32 interval)
 {
 	auto ctx = static_cast<sdlDispContext*>(param);
 	if (!ctx)
@@ -298,7 +298,7 @@ UINT sdlDispContext::sendLayout(const rdpMonitor* monitors, size_t nmonitors)
 
 BOOL sdlDispContext::addTimer()
 {
-	if (SDL_WasInit(SDL_INIT_TIMER) == 0)
+	if (SDL_WasInit(SDL_INIT_EVENTS) == 0)
 		return FALSE;
 
 	SDL_RemoveTimer(_timer);
@@ -317,13 +317,13 @@ BOOL sdlDispContext::handle_display_event(const SDL_DisplayEvent* ev)
 	switch (ev->type)
 	{
 		case SDL_EVENT_DISPLAY_ADDED:
-			SDL_Log("A new display with id %d was connected", ev->displayID);
+			SDL_Log("A new display with id %u was connected", ev->displayID);
 			return TRUE;
 		case SDL_EVENT_DISPLAY_REMOVED:
-			SDL_Log("The display with id %d was disconnected", ev->displayID);
+			SDL_Log("The display with id %u was disconnected", ev->displayID);
 			return TRUE;
 		case SDL_EVENT_DISPLAY_ORIENTATION:
-			SDL_Log("The orientation of display with id %d was changed", ev->displayID);
+			SDL_Log("The orientation of display with id %u was changed", ev->displayID);
 			return TRUE;
 		default:
 			return TRUE;
@@ -334,9 +334,7 @@ BOOL sdlDispContext::handle_window_event(const SDL_WindowEvent* ev)
 {
 	WINPR_ASSERT(ev);
 
-	auto bordered = freerdp_settings_get_bool(_sdl->context()->settings, FreeRDP_Decorations)
-	                    ? SDL_TRUE
-	                    : SDL_FALSE;
+	auto bordered = freerdp_settings_get_bool(_sdl->context()->settings, FreeRDP_Decorations);
 
 	auto it = _sdl->windows.find(ev->windowID);
 	if (it != _sdl->windows.end())
@@ -365,14 +363,13 @@ BOOL sdlDispContext::handle_window_event(const SDL_WindowEvent* ev)
 
 		case SDL_EVENT_WINDOW_MOUSE_LEAVE:
 			WINPR_ASSERT(_sdl);
-			_sdl->input.keyboard_grab(ev->windowID, SDL_FALSE);
+			_sdl->input.keyboard_grab(ev->windowID, false);
 			return TRUE;
 		case SDL_EVENT_WINDOW_MOUSE_ENTER:
 			WINPR_ASSERT(_sdl);
-			_sdl->input.keyboard_grab(ev->windowID, SDL_TRUE);
+			_sdl->input.keyboard_grab(ev->windowID, true);
 			return _sdl->input.keyboard_focus_in();
 		case SDL_EVENT_WINDOW_FOCUS_GAINED:
-		case SDL_EVENT_WINDOW_TAKE_FOCUS:
 			return _sdl->input.keyboard_focus_in();
 
 		default:
@@ -442,9 +439,9 @@ BOOL sdlDispContext::uninit(DispClientContext* disp)
 	return TRUE;
 }
 
-sdlDispContext::sdlDispContext(SdlContext* sdl) : _sdl(sdl), _timer(0)
+sdlDispContext::sdlDispContext(SdlContext* sdl) : _sdl(sdl)
 {
-	SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO);
+	SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO);
 
 	WINPR_ASSERT(_sdl);
 	WINPR_ASSERT(_sdl->context()->settings);

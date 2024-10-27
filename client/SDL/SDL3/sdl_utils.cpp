@@ -50,7 +50,6 @@ const char* sdl_event_type_str(Uint32 type)
 		EV_CASE_STR(SDL_EVENT_DISPLAY_REMOVED);
 		EV_CASE_STR(SDL_EVENT_DISPLAY_MOVED);
 		EV_CASE_STR(SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED);
-		EV_CASE_STR(SDL_EVENT_DISPLAY_HDR_STATE_CHANGED);
 		EV_CASE_STR(SDL_EVENT_WINDOW_SHOWN);
 		EV_CASE_STR(SDL_EVENT_WINDOW_HIDDEN);
 		EV_CASE_STR(SDL_EVENT_WINDOW_EXPOSED);
@@ -65,7 +64,6 @@ const char* sdl_event_type_str(Uint32 type)
 		EV_CASE_STR(SDL_EVENT_WINDOW_FOCUS_GAINED);
 		EV_CASE_STR(SDL_EVENT_WINDOW_FOCUS_LOST);
 		EV_CASE_STR(SDL_EVENT_WINDOW_CLOSE_REQUESTED);
-		EV_CASE_STR(SDL_EVENT_WINDOW_TAKE_FOCUS);
 		EV_CASE_STR(SDL_EVENT_WINDOW_HIT_TEST);
 		EV_CASE_STR(SDL_EVENT_WINDOW_ICCPROF_CHANGED);
 		EV_CASE_STR(SDL_EVENT_WINDOW_DISPLAY_CHANGED);
@@ -74,8 +72,6 @@ const char* sdl_event_type_str(Uint32 type)
 		EV_CASE_STR(SDL_EVENT_WINDOW_ENTER_FULLSCREEN);
 		EV_CASE_STR(SDL_EVENT_WINDOW_LEAVE_FULLSCREEN);
 		EV_CASE_STR(SDL_EVENT_WINDOW_DESTROYED);
-		EV_CASE_STR(SDL_EVENT_WINDOW_PEN_ENTER);
-		EV_CASE_STR(SDL_EVENT_WINDOW_PEN_LEAVE);
 
 		EV_CASE_STR(SDL_EVENT_KEY_DOWN);
 		EV_CASE_STR(SDL_EVENT_KEY_UP);
@@ -162,6 +158,7 @@ const char* sdl_event_type_str(Uint32 type)
 		EV_CASE_STR(SDL_EVENT_USER_CREATE_WINDOWS);
 		EV_CASE_STR(SDL_EVENT_USER_WINDOW_RESIZEABLE);
 		EV_CASE_STR(SDL_EVENT_USER_WINDOW_FULLSCREEN);
+		EV_CASE_STR(SDL_EVENT_USER_WINDOW_MINIMIZE);
 		EV_CASE_STR(SDL_EVENT_USER_POINTER_NULL);
 		EV_CASE_STR(SDL_EVENT_USER_POINTER_DEFAULT);
 		EV_CASE_STR(SDL_EVENT_USER_POINTER_POSITION);
@@ -201,7 +198,7 @@ BOOL sdl_push_user_event(Uint32 type, ...)
 	SDL_Event ev = {};
 	SDL_UserEvent* event = &ev.user;
 
-	va_list ap;
+	va_list ap = {};
 	va_start(ap, type);
 	event->type = type;
 	switch (type)
@@ -269,6 +266,7 @@ BOOL sdl_push_user_event(Uint32 type, ...)
 			event->data1 = va_arg(ap, void*);
 			event->code = va_arg(ap, int);
 			break;
+		case SDL_EVENT_USER_WINDOW_MINIMIZE:
 		case SDL_EVENT_USER_QUIT:
 		case SDL_EVENT_USER_POINTER_NULL:
 		case SDL_EVENT_USER_POINTER_DEFAULT:
@@ -308,17 +306,17 @@ WinPREvent::WinPREvent(bool initial)
 
 WinPREvent::~WinPREvent()
 {
-	CloseHandle(_handle);
+	(void)CloseHandle(_handle);
 }
 
 void WinPREvent::set()
 {
-	SetEvent(_handle);
+	(void)SetEvent(_handle);
 }
 
 void WinPREvent::clear()
 {
-	ResetEvent(_handle);
+	(void)ResetEvent(_handle);
 }
 
 bool WinPREvent::isSet() const
@@ -333,7 +331,7 @@ HANDLE WinPREvent::handle() const
 
 bool sdl_push_quit()
 {
-	SDL_Event ev = { 0 };
+	SDL_Event ev = {};
 	ev.type = SDL_EVENT_QUIT;
 	SDL_PushEvent(&ev);
 	return true;

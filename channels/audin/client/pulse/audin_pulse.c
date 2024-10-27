@@ -112,9 +112,6 @@ static void audin_pulse_context_state_callback(pa_context* context, void* userda
 	switch (state)
 	{
 		case PA_CONTEXT_READY:
-			pa_threaded_mainloop_signal(pulse->mainloop, 0);
-			break;
-
 		case PA_CONTEXT_FAILED:
 		case PA_CONTEXT_TERMINATED:
 			pa_threaded_mainloop_signal(pulse->mainloop, 0);
@@ -283,14 +280,6 @@ static UINT audin_pulse_set_format(IAudinDevice* device, const AUDIO_FORMAT* for
 
 			break;
 
-		case WAVE_FORMAT_ALAW: /* A-LAW */
-			sample_spec.format = PA_SAMPLE_ALAW;
-			break;
-
-		case WAVE_FORMAT_MULAW: /* U-LAW */
-			sample_spec.format = PA_SAMPLE_ULAW;
-			break;
-
 		default:
 			return ERROR_INTERNAL_ERROR;
 	}
@@ -303,15 +292,14 @@ static UINT audin_pulse_set_format(IAudinDevice* device, const AUDIO_FORMAT* for
 static void audin_pulse_stream_state_callback(pa_stream* stream, void* userdata)
 {
 	AudinPulseDevice* pulse = (AudinPulseDevice*)userdata;
+	WINPR_ASSERT(pulse);
+
 	pa_stream_state_t state = pa_stream_get_state(stream);
 
 	WLog_Print(pulse->log, WLOG_DEBUG, "stream state %s", pulse_stream_state_string(state));
 	switch (state)
 	{
 		case PA_STREAM_READY:
-			pa_threaded_mainloop_signal(pulse->mainloop, 0);
-			break;
-
 		case PA_STREAM_FAILED:
 		case PA_STREAM_TERMINATED:
 			pa_threaded_mainloop_signal(pulse->mainloop, 0);
@@ -405,7 +393,9 @@ static UINT audin_pulse_open(IAudinDevice* device, AudinReceive receive, void* u
 	buffer_attr.prebuf = (UINT32)-1;
 	buffer_attr.minreq = (UINT32)-1;
 	/* 500ms latency */
-	buffer_attr.fragsize = pulse->bytes_per_frame * pulse->frames_per_packet;
+	const size_t frag = pulse->bytes_per_frame * pulse->frames_per_packet;
+	WINPR_ASSERT(frag <= UINT32_MAX);
+	buffer_attr.fragsize = (uint32_t)frag;
 
 	if (buffer_attr.fragsize % pulse->format.nBlockAlign)
 		buffer_attr.fragsize +=
@@ -420,7 +410,7 @@ static UINT audin_pulse_open(IAudinDevice* device, AudinReceive receive, void* u
 		return pa_context_errno(pulse->context);
 	}
 
-	for (;;)
+	while (pulse->stream)
 	{
 		state = pa_stream_get_state(pulse->stream);
 
@@ -455,7 +445,7 @@ static UINT audin_pulse_parse_addin_args(AudinPulseDevice* device, const ADDIN_A
 	int status = 0;
 	DWORD flags = 0;
 	const COMMAND_LINE_ARGUMENT_A* arg = NULL;
-	AudinPulseDevice* pulse = (AudinPulseDevice*)device;
+	AudinPulseDevice* pulse = device;
 	COMMAND_LINE_ARGUMENT_A audin_pulse_args[] = { { "dev", COMMAND_LINE_VALUE_REQUIRED, "<device>",
 		                                             NULL, NULL, -1, NULL, "audio device name" },
 		                                           { NULL, 0, NULL, NULL, NULL, -1, NULL, NULL } };
@@ -496,7 +486,7 @@ static UINT audin_pulse_parse_addin_args(AudinPulseDevice* device, const ADDIN_A
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-FREERDP_ENTRY_POINT(UINT pulse_freerdp_audin_client_subsystem_entry(
+FREERDP_ENTRY_POINT(UINT VCAPITYPE pulse_freerdp_audin_client_subsystem_entry(
     PFREERDP_AUDIN_DEVICE_ENTRY_POINTS pEntryPoints))
 {
 	const ADDIN_ARGV* args = NULL;

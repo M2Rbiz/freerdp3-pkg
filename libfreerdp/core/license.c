@@ -65,11 +65,11 @@ enum LicenseRequestType
 	ERROR_ALERT = 0xFF
 };
 
-#define LICENSE_PKT_CS_MASK \
-	(LICENSE_INFO | NEW_LICENSE_REQUEST | PLATFORM_CHALLENGE_RESPONSE | ERROR_ALERT)
-#define LICENSE_PKT_SC_MASK \
-	(LICENSE_REQUEST | PLATFORM_CHALLENGE | NEW_LICENSE | UPGRADE_LICENSE | ERROR_ALERT)
-#define LICENSE_PKT_MASK (LICENSE_PKT_CS_MASK | LICENSE_PKT_SC_MASK)
+// #define LICENSE_PKT_CS_MASK \
+//	(LICENSE_INFO | NEW_LICENSE_REQUEST | PLATFORM_CHALLENGE_RESPONSE | ERROR_ALERT)
+//#define LICENSE_PKT_SC_MASK \
+//	(LICENSE_REQUEST | PLATFORM_CHALLENGE | NEW_LICENSE | UPGRADE_LICENSE | ERROR_ALERT)
+//#define LICENSE_PKT_MASK (LICENSE_PKT_CS_MASK | LICENSE_PKT_SC_MASK)
 
 #define LICENSE_PREAMBLE_LENGTH 4
 
@@ -82,15 +82,15 @@ enum LicenseRequestType
 #define MAC_SALT_KEY_LENGTH 16
 #define LICENSING_ENCRYPTION_KEY_LENGTH 16
 #define HWID_PLATFORM_ID_LENGTH 4
-#define HWID_UNIQUE_DATA_LENGTH 16
+// #define HWID_UNIQUE_DATA_LENGTH 16
 #define HWID_LENGTH 20
-#define LICENSING_PADDING_SIZE 8
+// #define LICENSING_PADDING_SIZE 8
 
 /* Preamble Flags */
 
-#define PREAMBLE_VERSION_2_0 0x02
+// #define PREAMBLE_VERSION_2_0 0x02
 #define PREAMBLE_VERSION_3_0 0x03
-#define LicenseProtocolVersionMask 0x0F
+// #define LicenseProtocolVersionMask 0x0F
 #define EXTENDED_ERROR_MSG_SUPPORTED 0x80
 
 /** @brief binary Blob Types */
@@ -236,7 +236,7 @@ static const char* license_preferred_key_exchange_alg_string(UINT32 alg, char* b
 			break;
 	}
 
-	_snprintf(buffer, size, "%s [0x%08" PRIx32 "]", name, alg);
+	(void)_snprintf(buffer, size, "%s [0x%08" PRIx32 "]", name, alg);
 	return buffer;
 }
 
@@ -348,23 +348,22 @@ static state_run_t license_server_recv(rdpLicense* license, wStream* s);
 
 #ifdef WITH_DEBUG_LICENSE
 
-static const char* const error_codes[] = { "ERR_UNKNOWN",
-	                                       "ERR_INVALID_SERVER_CERTIFICATE",
-	                                       "ERR_NO_LICENSE",
-	                                       "ERR_INVALID_MAC",
-	                                       "ERR_INVALID_SCOPE",
-	                                       "ERR_UNKNOWN",
-	                                       "ERR_NO_LICENSE_SERVER",
-	                                       "STATUS_VALID_CLIENT",
-	                                       "ERR_INVALID_CLIENT",
-	                                       "ERR_UNKNOWN",
-	                                       "ERR_UNKNOWN",
-	                                       "ERR_INVALID_PRODUCT_ID",
-	                                       "ERR_INVALID_MESSAGE_LENGTH" };
+static const char* error_codes[] = { "ERR_UNKNOWN",
+	                                 "ERR_INVALID_SERVER_CERTIFICATE",
+	                                 "ERR_NO_LICENSE",
+	                                 "ERR_INVALID_MAC",
+	                                 "ERR_INVALID_SCOPE",
+	                                 "ERR_UNKNOWN",
+	                                 "ERR_NO_LICENSE_SERVER",
+	                                 "STATUS_VALID_CLIENT",
+	                                 "ERR_INVALID_CLIENT",
+	                                 "ERR_UNKNOWN",
+	                                 "ERR_UNKNOWN",
+	                                 "ERR_INVALID_PRODUCT_ID",
+	                                 "ERR_INVALID_MESSAGE_LENGTH" };
 
-static const char* const state_transitions[] = { "ST_UNKNOWN", "ST_TOTAL_ABORT", "ST_NO_TRANSITION",
-	                                             "ST_RESET_PHASE_TO_START",
-	                                             "ST_RESEND_LAST_MESSAGE" };
+static const char* state_transitions[] = { "ST_UNKNOWN", "ST_TOTAL_ABORT", "ST_NO_TRANSITION",
+	                                       "ST_RESET_PHASE_TO_START", "ST_RESEND_LAST_MESSAGE" };
 
 static void license_print_product_info(const LICENSE_PRODUCT_INFO* productInfo)
 {
@@ -491,7 +490,7 @@ static BOOL computeCalHash(const char* hostname, char* hashStr, size_t len)
 		goto out;
 
 	for (size_t i = 0; i < sizeof(hash); i++, hashStr += 2)
-		sprintf_s(hashStr, 3, "%.2x", hash[i]);
+		(void)sprintf_s(hashStr, 3, "%.2x", hash[i]);
 
 	ret = TRUE;
 out:
@@ -548,8 +547,8 @@ static BOOL saveCal(const rdpSettings* settings, const BYTE* data, size_t length
 
 	if (!computeCalHash(hostname, hash, sizeof(hash)))
 		goto out;
-	sprintf_s(filename, sizeof(filename) - 1, "%s.cal", hash);
-	sprintf_s(filenameNew, sizeof(filenameNew) - 1, "%s.cal.new", hash);
+	(void)sprintf_s(filename, sizeof(filename) - 1, "%s.cal", hash);
+	(void)sprintf_s(filenameNew, sizeof(filenameNew) - 1, "%s.cal.new", hash);
 
 	if (!(filepath = GetCombinedPath(licenseStorePath, filename)))
 	{
@@ -571,7 +570,7 @@ static BOOL saveCal(const rdpSettings* settings, const BYTE* data, size_t length
 	}
 
 	written = fwrite(data, length, 1, fp);
-	fclose(fp);
+	(void)fclose(fp);
 
 	if (written != 1)
 	{
@@ -612,7 +611,7 @@ static BYTE* loadCalFile(const rdpSettings* settings, const char* hostname, size
 		return NULL;
 	}
 
-	sprintf_s(calFilename, sizeof(calFilename) - 1, "%s.cal", hash);
+	(void)sprintf_s(calFilename, sizeof(calFilename) - 1, "%s.cal", hash);
 
 	if (!(licenseStorePath = GetCombinedPath(
 	          freerdp_settings_get_string(settings, FreeRDP_ConfigPath), licenseStore)))
@@ -625,9 +624,11 @@ static BYTE* loadCalFile(const rdpSettings* settings, const char* hostname, size
 	if (!fp)
 		goto error_open;
 
-	_fseeki64(fp, 0, SEEK_END);
+	if (_fseeki64(fp, 0, SEEK_END) != 0)
+		goto error_malloc;
 	length = _ftelli64(fp);
-	_fseeki64(fp, 0, SEEK_SET);
+	if (_fseeki64(fp, 0, SEEK_SET) != 0)
+		goto error_malloc;
 	if (length < 0)
 		goto error_malloc;
 
@@ -641,7 +642,7 @@ static BYTE* loadCalFile(const rdpSettings* settings, const char* hostname, size
 
 	*dataLen = (size_t)length;
 
-	fclose(fp);
+	(void)fclose(fp);
 	free(calPath);
 	free(licenseStorePath);
 	return ret;
@@ -1219,7 +1220,9 @@ static BOOL license_rc4_with_licenseKey(const rdpLicense* license, const BYTE* i
 		return FALSE;
 	}
 
-	BYTE* buffer = (BYTE*)realloc(target->data, len);
+	BYTE* buffer = NULL;
+	if (len > 0)
+		buffer = realloc(target->data, len);
 	if (!buffer)
 		goto error_buffer;
 
@@ -1468,7 +1471,9 @@ BOOL license_read_binary_blob_data(LICENSE_BLOB* blob, UINT16 wBlobType, const v
 	}
 
 	blob->type = wBlobType;
-	blob->data = (BYTE*)malloc(blob->length);
+	blob->data = NULL;
+	if (blob->length > 0)
+		blob->data = malloc(blob->length);
 	if (!blob->data)
 	{
 		WLog_ERR(TAG, "license binary blob::length=%" PRIu16 ", blob::data=%p", blob->length,
@@ -1613,7 +1618,7 @@ BOOL license_read_scope_list(wStream* s, SCOPE_LIST* scopeList)
 
 	Stream_Read_UINT32(s, scopeCount); /* ScopeCount (4 bytes) */
 
-	if (!license_check_stream_length(s, scopeCount * 4ull, "license scope list::count"))
+	if (!license_check_stream_length(s, 4ll * scopeCount, "license scope list::count"))
 		return FALSE;
 
 	if (!license_scope_list_resize(scopeList, scopeCount))
@@ -2847,8 +2852,9 @@ BOOL license_server_configure(rdpLicense* license)
 	    freerdp_settings_get_uint32(settings, FreeRDP_ServerLicenseProductVersion);
 	const UINT32 issuerCount =
 	    freerdp_settings_get_uint32(settings, FreeRDP_ServerLicenseProductIssuersCount);
-	const char* const* issuers = (const char* const*)freerdp_settings_get_pointer(
-	    settings, FreeRDP_ServerLicenseProductIssuers);
+
+	const void* ptr = freerdp_settings_get_pointer(settings, FreeRDP_ServerLicenseProductIssuers);
+	const char** issuers = WINPR_REINTERPRET_CAST(ptr, const void*, const char**);
 
 	WINPR_ASSERT(CompanyName);
 	WINPR_ASSERT(ProductName);

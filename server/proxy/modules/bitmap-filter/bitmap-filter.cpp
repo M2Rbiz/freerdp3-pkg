@@ -46,7 +46,7 @@ static const std::vector<std::string>& plugin_static_intercept()
 {
 	static std::vector<std::string> vec;
 	if (vec.empty())
-		vec.push_back(DRDYNVC_SVC_CHANNEL_NAME);
+		vec.emplace_back(DRDYNVC_SVC_CHANNEL_NAME);
 	return vec;
 }
 
@@ -54,7 +54,7 @@ static const std::vector<std::string>& plugin_dyn_intercept()
 {
 	static std::vector<std::string> vec;
 	if (vec.empty())
-		vec.push_back(RDPGFX_DVC_CHANNEL_NAME);
+		vec.emplace_back(RDPGFX_DVC_CHANNEL_NAME);
 	return vec;
 }
 
@@ -62,12 +62,12 @@ class DynChannelState
 {
 
   public:
-	bool skip() const
+	[[nodiscard]] bool skip() const
 	{
 		return _toSkip != 0;
 	}
 
-	bool skip(size_t s)
+	[[nodiscard]] bool skip(size_t s)
 	{
 		if (s > _toSkip)
 			_toSkip = 0;
@@ -76,12 +76,12 @@ class DynChannelState
 		return skip();
 	}
 
-	size_t remaining() const
+	[[nodiscard]] size_t remaining() const
 	{
 		return _toSkip;
 	}
 
-	size_t total() const
+	[[nodiscard]] size_t total() const
 	{
 		return _totalSkipSize;
 	}
@@ -91,7 +91,7 @@ class DynChannelState
 		_toSkip = _totalSkipSize = len;
 	}
 
-	bool drop() const
+	[[nodiscard]] bool drop() const
 	{
 		return _drop;
 	}
@@ -101,7 +101,7 @@ class DynChannelState
 		_drop = d;
 	}
 
-	uint32_t channelId() const
+	[[nodiscard]] uint32_t channelId() const
 	{
 		return _channelId;
 	}
@@ -198,7 +198,7 @@ static UINT32 drdynvc_read_variable_uint(wStream* s, UINT8 cbLen)
 	return val;
 }
 
-static BOOL drdynvc_try_read_header(wStream* s, size_t& channelId, size_t& length)
+static BOOL drdynvc_try_read_header(wStream* s, uint32_t& channelId, size_t& length)
 {
 	UINT8 value = 0;
 	Stream_SetPosition(s, 0);
@@ -350,7 +350,7 @@ static BOOL filter_dyn_channel_intercept(proxyPlugin* plugin, proxyData* pdata, 
 		{
 			if (data->first)
 			{
-				size_t channelId = 0;
+				uint32_t channelId = 0;
 				size_t length = 0;
 				if (drdynvc_try_read_header(data->data, channelId, length))
 				{
@@ -377,7 +377,9 @@ static BOOL filter_dyn_channel_intercept(proxyPlugin* plugin, proxyData* pdata, 
 
 		if (state->skip())
 		{
-			state->skip(inputDataLength);
+			if (!state->skip(inputDataLength))
+				return FALSE;
+
 			if (state->drop())
 			{
 				WLog_WARN(TAG,
@@ -403,7 +405,7 @@ static BOOL filter_dyn_channel_intercept(proxyPlugin* plugin, proxyData* pdata, 
 	return TRUE;
 }
 
-static BOOL filter_server_session_started(proxyPlugin* plugin, proxyData* pdata, void*)
+static BOOL filter_server_session_started(proxyPlugin* plugin, proxyData* pdata, void* /*unused*/)
 {
 	WINPR_ASSERT(plugin);
 	WINPR_ASSERT(pdata);
@@ -421,7 +423,7 @@ static BOOL filter_server_session_started(proxyPlugin* plugin, proxyData* pdata,
 	return TRUE;
 }
 
-static BOOL filter_server_session_end(proxyPlugin* plugin, proxyData* pdata, void*)
+static BOOL filter_server_session_end(proxyPlugin* plugin, proxyData* pdata, void* /*unused*/)
 {
 	WINPR_ASSERT(plugin);
 	WINPR_ASSERT(pdata);

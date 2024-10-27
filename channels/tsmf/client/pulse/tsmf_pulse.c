@@ -176,6 +176,8 @@ static void tsmf_pulse_wait_for_operation(TSMFPulseAudioDevice* pulse, pa_operat
 static void tsmf_pulse_stream_state_callback(pa_stream* stream, void* userdata)
 {
 	TSMFPulseAudioDevice* pulse = (TSMFPulseAudioDevice*)userdata;
+	WINPR_ASSERT(pulse);
+
 	pa_stream_state_t state = pa_stream_get_state(stream);
 
 	switch (state)
@@ -396,13 +398,16 @@ static void tsmf_pulse_free(ITSMFAudioDevice* audio)
 	free(pulse);
 }
 
-FREERDP_ENTRY_POINT(ITSMFAudioDevice* pulse_freerdp_tsmf_client_audio_subsystem_entry(void*))
+FREERDP_ENTRY_POINT(UINT VCAPITYPE pulse_freerdp_tsmf_client_audio_subsystem_entry(void* ptr))
 {
-	TSMFPulseAudioDevice* pulse = NULL;
-	pulse = (TSMFPulseAudioDevice*)calloc(1, sizeof(TSMFPulseAudioDevice));
+	ITSMFAudioDevice** sptr = (ITSMFAudioDevice**)ptr;
+	WINPR_ASSERT(sptr);
+	*sptr = NULL;
+
+	TSMFPulseAudioDevice* pulse = (TSMFPulseAudioDevice*)calloc(1, sizeof(TSMFPulseAudioDevice));
 
 	if (!pulse)
-		return NULL;
+		return ERROR_OUTOFMEMORY;
 
 	pulse->iface.Open = tsmf_pulse_open;
 	pulse->iface.SetFormat = tsmf_pulse_set_format;
@@ -410,5 +415,6 @@ FREERDP_ENTRY_POINT(ITSMFAudioDevice* pulse_freerdp_tsmf_client_audio_subsystem_
 	pulse->iface.GetLatency = tsmf_pulse_get_latency;
 	pulse->iface.Flush = tsmf_pulse_flush;
 	pulse->iface.Free = tsmf_pulse_free;
-	return (ITSMFAudioDevice*)pulse;
+	*sptr = &pulse->iface;
+	return CHANNEL_RC_OK;
 }

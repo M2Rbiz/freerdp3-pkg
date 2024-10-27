@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <errno.h>
+#include <math.h>
 #include <limits.h>
 #include <float.h>
 
@@ -253,21 +254,28 @@ static BOOL freerdp_client_settings_post_process(rdpSettings* settings)
 	 * that the rdp file also triggers this functionality */
 	if (freerdp_settings_get_bool(settings, FreeRDP_SpanMonitors))
 	{
-		freerdp_settings_set_bool(settings, FreeRDP_UseMultimon, TRUE);
-		freerdp_settings_set_bool(settings, FreeRDP_Fullscreen, TRUE);
+		if (!freerdp_settings_set_bool(settings, FreeRDP_UseMultimon, TRUE))
+			goto out_error;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_Fullscreen, TRUE))
+			goto out_error;
 	}
 	else if (freerdp_settings_get_bool(settings, FreeRDP_UseMultimon))
 	{
-		freerdp_settings_set_bool(settings, FreeRDP_Fullscreen, TRUE);
+		if (!freerdp_settings_set_bool(settings, FreeRDP_Fullscreen, TRUE))
+			goto out_error;
 	}
 
 	/* deal with the smartcard / smartcard logon stuff */
 	if (freerdp_settings_get_bool(settings, FreeRDP_SmartcardLogon))
 	{
-		freerdp_settings_set_bool(settings, FreeRDP_TlsSecurity, TRUE);
-		freerdp_settings_set_bool(settings, FreeRDP_RedirectSmartCards, TRUE);
-		freerdp_settings_set_bool(settings, FreeRDP_DeviceRedirection, TRUE);
-		freerdp_settings_set_bool(settings, FreeRDP_PasswordIsSmartcardPin, TRUE);
+		if (!freerdp_settings_set_bool(settings, FreeRDP_TlsSecurity, TRUE))
+			goto out_error;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_RedirectSmartCards, TRUE))
+			goto out_error;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_DeviceRedirection, TRUE))
+			goto out_error;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_PasswordIsSmartcardPin, TRUE))
+			goto out_error;
 	}
 
 	return TRUE;
@@ -277,6 +285,16 @@ out_error:
 
 int freerdp_client_settings_parse_command_line(rdpSettings* settings, int argc, char** argv,
                                                BOOL allowUnknown)
+
+{
+	return freerdp_client_settings_parse_command_line_ex(settings, argc, argv, allowUnknown, NULL,
+	                                                     0, NULL, NULL);
+}
+
+int freerdp_client_settings_parse_command_line_ex(
+    rdpSettings* settings, int argc, char** argv, BOOL allowUnknown, COMMAND_LINE_ARGUMENT_A* args,
+    size_t count, int (*handle_option)(const COMMAND_LINE_ARGUMENT_A* arg, void* custom),
+    void* handle_userdata)
 {
 	int status = 0;
 
@@ -286,8 +304,8 @@ int freerdp_client_settings_parse_command_line(rdpSettings* settings, int argc, 
 	if (!argv)
 		return -1;
 
-	status =
-	    freerdp_client_settings_parse_command_line_arguments(settings, argc, argv, allowUnknown);
+	status = freerdp_client_settings_parse_command_line_arguments_ex(
+	    settings, argc, argv, allowUnknown, args, count, handle_option, handle_userdata);
 
 	if (status < 0)
 		return status;
@@ -458,7 +476,7 @@ static BOOL client_cli_authenticate_raw(freerdp* instance, rdp_auth_reason reaso
 	{
 		size_t username_size = 0;
 		printf("%s", prompt[0]);
-		fflush(stdout);
+		(void)fflush(stdout);
 
 		if (freerdp_interruptible_get_line(instance->context, username, &username_size, stdin) < 0)
 		{
@@ -479,7 +497,7 @@ static BOOL client_cli_authenticate_raw(freerdp* instance, rdp_auth_reason reaso
 	{
 		size_t domain_size = 0;
 		printf("%s", prompt[1]);
-		fflush(stdout);
+		(void)fflush(stdout);
 
 		if (freerdp_interruptible_get_line(instance->context, domain, &domain_size, stdin) < 0)
 		{
@@ -579,7 +597,7 @@ BOOL client_cli_choose_smartcard(freerdp* instance, SmartcardCertInfo** cert_lis
 
 		printf("\nChoose a smartcard to use for %s (0 - %" PRIu32 "): ",
 		       gateway ? "gateway authentication" : "logon", count - 1);
-		fflush(stdout);
+		(void)fflush(stdout);
 		if (!fgets(input, 10, stdin))
 		{
 			WLog_ERR(TAG, "could not read from stdin");
@@ -623,25 +641,19 @@ static DWORD client_cli_accept_certificate(freerdp* instance)
 	const rdpSettings* settings = instance->context->settings;
 	WINPR_ASSERT(settings);
 
-	const BOOL fromStdin =
-	    freerdp_settings_get_bool(instance->context->settings, FreeRDP_CredentialsFromStdin);
+	const BOOL fromStdin = freerdp_settings_get_bool(settings, FreeRDP_CredentialsFromStdin);
 	if (fromStdin)
 		return 0;
 
 	while (1)
 	{
 		printf("Do you trust the above certificate? (Y/T/N) ");
-		fflush(stdout);
+		(void)fflush(stdout);
 		answer = freerdp_interruptible_getc(instance->context, stdin);
 
 		if ((answer == EOF) || feof(stdin))
 		{
-			printf("\nError: Could not read answer from stdin.");
-
-			if (fromStdin)
-				printf(" - Run without parameter \"--from-stdin\" to set trust.");
-
-			printf("\n");
+			printf("\nError: Could not read answer from stdin.\n");
 			return 0;
 		}
 
@@ -708,6 +720,30 @@ DWORD client_cli_verify_certificate(freerdp* instance, const char* common_name, 
 }
 #endif
 
+static char* client_cli_pem_cert(const char* pem)
+{
+	rdpCertificate* cert = freerdp_certificate_new_from_pem(pem);
+	if (!cert)
+		return NULL;
+
+	char* fp = freerdp_certificate_get_fingerprint(cert);
+	char* start = freerdp_certificate_get_validity(cert, TRUE);
+	char* end = freerdp_certificate_get_validity(cert, FALSE);
+	freerdp_certificate_free(cert);
+
+	char* str = NULL;
+	size_t slen = 0;
+	winpr_asprintf(&str, &slen,
+	               "\tValid from:  %s\n"
+	               "\tValid to:    %s\n"
+	               "\tThumbprint:  %s\n",
+	               start, end, fp);
+	free(fp);
+	free(start);
+	free(end);
+	return str;
+}
+
 /** Callback set in the rdp_freerdp structure, and used to make a certificate validation
  *  when the connection requires it.
  *  This function will actually be called by tls_verify_certificate().
@@ -748,9 +784,9 @@ DWORD client_cli_verify_certificate_ex(freerdp* instance, const char* host, UINT
 	 */
 	if (flags & VERIFY_CERT_FLAG_FP_IS_PEM)
 	{
-		printf("\t----------- Certificate --------------\n");
-		printf("%s\n", fingerprint);
-		printf("\t--------------------------------------\n");
+		char* str = client_cli_pem_cert(fingerprint);
+		printf("%s", str);
+		free(str);
 	}
 	else
 		printf("\tThumbprint:  %s\n", fingerprint);
@@ -854,9 +890,9 @@ DWORD client_cli_verify_changed_certificate_ex(freerdp* instance, const char* ho
 	 */
 	if (flags & VERIFY_CERT_FLAG_FP_IS_PEM)
 	{
-		printf("\t----------- Certificate --------------\n");
-		printf("%s\n", fingerprint);
-		printf("\t--------------------------------------\n");
+		char* str = client_cli_pem_cert(fingerprint);
+		printf("%s", str);
+		free(str);
 	}
 	else
 		printf("\tThumbprint:  %s\n", fingerprint);
@@ -869,9 +905,9 @@ DWORD client_cli_verify_changed_certificate_ex(freerdp* instance, const char* ho
 	 */
 	if (flags & VERIFY_CERT_FLAG_FP_IS_PEM)
 	{
-		printf("\t----------- Certificate --------------\n");
-		printf("%s\n", old_fingerprint);
-		printf("\t--------------------------------------\n");
+		char* str = client_cli_pem_cert(old_fingerprint);
+		printf("%s", str);
+		free(str);
 	}
 	else
 		printf("\tThumbprint:  %s\n", old_fingerprint);
@@ -924,7 +960,7 @@ BOOL client_cli_present_gateway_message(freerdp* instance, UINT32 type, BOOL isD
 	while (isConsentMandatory)
 	{
 		printf("I understand and agree to the terms of this policy (Y/N) \n");
-		fflush(stdout);
+		(void)fflush(stdout);
 		answer = freerdp_interruptible_getc(instance->context, stdin);
 
 		if ((answer == EOF) || feof(stdin))
@@ -944,7 +980,7 @@ BOOL client_cli_present_gateway_message(freerdp* instance, UINT32 type, BOOL isD
 
 			case 'n':
 			case 'N':
-				freerdp_interruptible_getc(instance->context, stdin);
+				(void)freerdp_interruptible_getc(instance->context, stdin);
 				return FALSE;
 
 			default:
@@ -971,9 +1007,7 @@ static char* extract_authorization_code(char* url)
 
 		end = strchr(p, '&');
 		if (end)
-			*end = 0;
-		else
-			end = strchr(p, '\0');
+			*end = '\0';
 
 		return p;
 	}
@@ -1093,7 +1127,7 @@ BOOL client_cli_get_access_token(freerdp* instance, AccessTokenType tokenType, c
 				          "ACCESS_TOKEN_TYPE_AAD expected 2 additional arguments, but got %" PRIuz
 				          ", ignoring",
 				          count);
-			va_list ap;
+			va_list ap = { 0 };
 			va_start(ap, count);
 			const char* scope = va_arg(ap, const char*);
 			const char* req_cnf = va_arg(ap, const char*);
@@ -1305,8 +1339,8 @@ int freerdp_client_common_stop(rdpContext* context)
 
 	if (cctx->thread)
 	{
-		WaitForSingleObject(cctx->thread, INFINITE);
-		CloseHandle(cctx->thread);
+		(void)WaitForSingleObject(cctx->thread, INFINITE);
+		(void)CloseHandle(cctx->thread);
 		cctx->thread = NULL;
 	}
 
@@ -1377,7 +1411,8 @@ client_encomsp_participant_created(EncomspClientContext* context,
 		/* if auto-request-control setting is enabled then only request control once upon connect,
 		 * otherwise it will auto request control again every time server turns off control which
 		 * is a bit annoying */
-		freerdp_settings_set_bool(settings, FreeRDP_RemoteAssistanceRequestControl, FALSE);
+		if (!freerdp_settings_set_bool(settings, FreeRDP_RemoteAssistanceRequestControl, FALSE))
+			return ERROR_INTERNAL_ERROR;
 	}
 
 	return CHANNEL_RC_OK;
@@ -1993,7 +2028,8 @@ BOOL freerdp_client_handle_pen(rdpClientContext* cctx, UINT32 flags, INT32 devic
 	if ((flags & FREERDP_PEN_HAS_PRESSURE) != 0)
 	{
 		const double pressure = va_arg(args, double);
-		normalizedpressure = (pressure * 1024) / pen->max_pressure;
+		const double np = (pressure * 1024.0) / pen->max_pressure;
+		normalizedpressure = (UINT32)lround(np);
 		WLog_DBG(TAG, "pen pressure %lf -> %" PRIu32, pressure, normalizedpressure);
 		fieldFlags |= RDPINPUT_PEN_CONTACT_PRESSURE_PRESENT;
 	}

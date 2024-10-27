@@ -174,7 +174,7 @@ static UINT telemetry_process_message(telemetry_server* telemetry)
 		goto out;
 	}
 
-	if (WTSVirtualChannelRead(telemetry->telemetry_channel, 0, (PCHAR)Stream_Buffer(s),
+	if (WTSVirtualChannelRead(telemetry->telemetry_channel, 0, Stream_BufferAs(s, char),
 	                          (ULONG)Stream_Capacity(s), &BytesReturned) == FALSE)
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
@@ -295,7 +295,7 @@ static DWORD WINAPI telemetry_server_thread_func(LPVOID arg)
 		}
 	}
 
-	WTSVirtualChannelClose(telemetry->telemetry_channel);
+	(void)WTSVirtualChannelClose(telemetry->telemetry_channel);
 	telemetry->telemetry_channel = NULL;
 
 	if (error && telemetry->context.rdpcontext)
@@ -325,7 +325,7 @@ static UINT telemetry_server_open(TelemetryServerContext* context)
 		if (!telemetry->thread)
 		{
 			WLog_ERR(TAG, "CreateThread failed!");
-			CloseHandle(telemetry->stopEvent);
+			(void)CloseHandle(telemetry->stopEvent);
 			telemetry->stopEvent = NULL;
 			return ERROR_INTERNAL_ERROR;
 		}
@@ -344,7 +344,7 @@ static UINT telemetry_server_close(TelemetryServerContext* context)
 
 	if (!telemetry->externalThread && telemetry->thread)
 	{
-		SetEvent(telemetry->stopEvent);
+		(void)SetEvent(telemetry->stopEvent);
 
 		if (WaitForSingleObject(telemetry->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -353,8 +353,8 @@ static UINT telemetry_server_close(TelemetryServerContext* context)
 			return error;
 		}
 
-		CloseHandle(telemetry->thread);
-		CloseHandle(telemetry->stopEvent);
+		(void)CloseHandle(telemetry->thread);
+		(void)CloseHandle(telemetry->stopEvent);
 		telemetry->thread = NULL;
 		telemetry->stopEvent = NULL;
 	}
@@ -362,7 +362,7 @@ static UINT telemetry_server_close(TelemetryServerContext* context)
 	{
 		if (telemetry->state != TELEMETRY_INITIAL)
 		{
-			WTSVirtualChannelClose(telemetry->telemetry_channel);
+			(void)WTSVirtualChannelClose(telemetry->telemetry_channel);
 			telemetry->telemetry_channel = NULL;
 			telemetry->state = TELEMETRY_INITIAL;
 		}

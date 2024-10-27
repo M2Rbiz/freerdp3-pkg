@@ -177,7 +177,7 @@ BOOL winpr_str_append(const char* what, char* buffer, size_t size, const char* s
 WINPR_ATTR_FORMAT_ARG(3, 4)
 int winpr_asprintf(char** s, size_t* slen, WINPR_FORMAT_ARG const char* templ, ...)
 {
-	va_list ap;
+	va_list ap = { 0 };
 
 	va_start(ap, templ);
 	int rc = winpr_vasprintf(s, slen, templ, ap);
@@ -188,7 +188,7 @@ int winpr_asprintf(char** s, size_t* slen, WINPR_FORMAT_ARG const char* templ, .
 WINPR_ATTR_FORMAT_ARG(3, 0)
 int winpr_vasprintf(char** s, size_t* slen, WINPR_FORMAT_ARG const char* templ, va_list oap)
 {
-	va_list ap;
+	va_list ap = { 0 };
 
 	*s = NULL;
 	*slen = 0;
@@ -207,7 +207,11 @@ int winpr_vasprintf(char** s, size_t* slen, WINPR_FORMAT_ARG const char* templ, 
 	const int plen = vsprintf(str, templ, ap);
 	va_end(ap);
 
-	WINPR_ASSERT(length == plen);
+	if (length != plen)
+	{
+		free(str);
+		return -1;
+	}
 	*s = str;
 	*slen = (size_t)length;
 	return length;
@@ -309,7 +313,7 @@ int _wcsncmp(const WCHAR* string1, const WCHAR* string2, size_t count)
 
 size_t _wcslen(const WCHAR* str)
 {
-	const WCHAR* p = (const WCHAR*)str;
+	const WCHAR* p = str;
 
 	WINPR_ASSERT(p);
 
@@ -343,13 +347,13 @@ WCHAR* _wcsstr(const WCHAR* str, const WCHAR* strSearch)
 	WINPR_ASSERT(strSearch);
 
 	if (strSearch[0] == '\0')
-		return (WCHAR*)str;
+		return WINPR_CAST_CONST_PTR_AWAY(str, WCHAR*);
 
 	const size_t searchLen = _wcslen(strSearch);
 	while (*str)
 	{
 		if (_wcsncmp(str, strSearch, searchLen) == 0)
-			return (WCHAR*)str;
+			return WINPR_CAST_CONST_PTR_AWAY(str, WCHAR*);
 		str++;
 	}
 	return NULL;
@@ -364,7 +368,7 @@ WCHAR* _wcschr(const WCHAR* str, WCHAR value)
 		const WCHAR* cc;
 		WCHAR* c;
 	} cnv;
-	const WCHAR* p = (const WCHAR*)str;
+	const WCHAR* p = str;
 
 	while (*p && (*p != value))
 		p++;
@@ -446,7 +450,7 @@ WCHAR* wcstok_s(WCHAR* strToken, const WCHAR* strDelimit, WCHAR** context)
  * http://msdn.microsoft.com/en-us/library/hh802935/
  */
 
-#include "casing.c"
+#include "casing.h"
 
 LPSTR CharUpperA(LPSTR lpsz)
 {
@@ -465,7 +469,7 @@ LPSTR CharUpperA(LPSTR lpsz)
 		char c = *lpsz;
 
 		if ((c >= 'a') && (c <= 'z'))
-			c = c - 'a' + 'A';
+			c = (char)(c - 'a' + 'A');
 
 		*lpsz = c;
 		return lpsz;
@@ -474,7 +478,7 @@ LPSTR CharUpperA(LPSTR lpsz)
 	for (size_t i = 0; i < length; i++)
 	{
 		if ((lpsz[i] >= 'a') && (lpsz[i] <= 'z'))
-			lpsz[i] = lpsz[i] - 'a' + 'A';
+			lpsz[i] = (char)(lpsz[i] - 'a' + 'A');
 	}
 
 	return lpsz;
@@ -520,7 +524,7 @@ DWORD CharUpperBuffA(LPSTR lpsz, DWORD cchLength)
 	for (DWORD i = 0; i < cchLength; i++)
 	{
 		if ((lpsz[i] >= 'a') && (lpsz[i] <= 'z'))
-			lpsz[i] = lpsz[i] - 'a' + 'A';
+			lpsz[i] = (char)(lpsz[i] - 'a' + 'A');
 	}
 
 	return cchLength;
@@ -557,7 +561,7 @@ LPSTR CharLowerA(LPSTR lpsz)
 		char c = *lpsz;
 
 		if ((c >= 'A') && (c <= 'Z'))
-			c = c - 'A' + 'a';
+			c = (char)(c - 'A' + 'a');
 
 		*lpsz = c;
 		return lpsz;
@@ -566,7 +570,7 @@ LPSTR CharLowerA(LPSTR lpsz)
 	for (size_t i = 0; i < length; i++)
 	{
 		if ((lpsz[i] >= 'A') && (lpsz[i] <= 'Z'))
-			lpsz[i] = lpsz[i] - 'A' + 'a';
+			lpsz[i] = (char)(lpsz[i] - 'A' + 'a');
 	}
 
 	return lpsz;
@@ -586,7 +590,7 @@ DWORD CharLowerBuffA(LPSTR lpsz, DWORD cchLength)
 	for (DWORD i = 0; i < cchLength; i++)
 	{
 		if ((lpsz[i] >= 'A') && (lpsz[i] <= 'Z'))
-			lpsz[i] = lpsz[i] - 'A' + 'a';
+			lpsz[i] = (char)(lpsz[i] - 'A' + 'a');
 	}
 
 	return cchLength;
@@ -827,6 +831,6 @@ const WCHAR* InitializeConstWCharFromUtf8(const char* str, WCHAR* buffer, size_t
 {
 	WINPR_ASSERT(str);
 	WINPR_ASSERT(buffer || (len == 0));
-	ConvertUtf8ToWChar(str, buffer, len);
+	(void)ConvertUtf8ToWChar(str, buffer, len);
 	return buffer;
 }

@@ -78,7 +78,7 @@ static void log_print(wLog* log, DWORD level, const char* file, const char* fkt,
 	if (!WLog_IsLevelActive(log, level))
 		return;
 
-	va_list ap;
+	va_list ap = { 0 };
 	va_start(ap, line);
 	WLog_PrintMessageVA(log, WLOG_MESSAGE_TEXT, level, line, file, fkt, ap);
 	va_end(ap);
@@ -94,15 +94,15 @@ static void log_timezone_(const TIME_ZONE_INFORMATION* tzif, DWORD result, const
 	wLog* log = WLog_Get(TIMEZONE_TAG);
 	log_print(log, level, file, fkt, line, "TIME_ZONE_INFORMATION {");
 	log_print(log, level, file, fkt, line, "  Bias=%" PRIu32, tzif->Bias);
-	ConvertWCharNToUtf8(tzif->StandardName, ARRAYSIZE(tzif->StandardName), buffer,
-	                    ARRAYSIZE(buffer));
+	(void)ConvertWCharNToUtf8(tzif->StandardName, ARRAYSIZE(tzif->StandardName), buffer,
+	                          ARRAYSIZE(buffer));
 	log_print(log, level, file, fkt, line, "  StandardName=%s", buffer);
 	log_print(log, level, file, fkt, line, "  StandardDate=%s",
 	          systemtime2str(&tzif->StandardDate, buffer, sizeof(buffer)));
 	log_print(log, level, file, fkt, line, "  StandardBias=%" PRIu32, tzif->StandardBias);
 
-	ConvertWCharNToUtf8(tzif->DaylightName, ARRAYSIZE(tzif->DaylightName), buffer,
-	                    ARRAYSIZE(buffer));
+	(void)ConvertWCharNToUtf8(tzif->DaylightName, ARRAYSIZE(tzif->DaylightName), buffer,
+	                          ARRAYSIZE(buffer));
 	log_print(log, level, file, fkt, line, "  DaylightName=%s", buffer);
 	log_print(log, level, file, fkt, line, "  DaylightDate=%s",
 	          systemtime2str(&tzif->DaylightDate, buffer, sizeof(buffer)));

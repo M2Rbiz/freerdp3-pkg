@@ -19,6 +19,7 @@
 
 #include <winpr/config.h>
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -44,8 +45,8 @@ typedef struct
 	size_t NameCount;
 } wLogFilter;
 
-#define WLOG_FILTER_NOT_FILTERED -1
-#define WLOG_FILTER_NOT_INITIALIZED -2
+#define WLOG_FILTER_NOT_FILTERED (-1)
+#define WLOG_FILTER_NOT_INITIALIZED (-2)
 /**
  * References for general logging concepts:
  *
@@ -58,7 +59,7 @@ typedef struct
 
 LPCSTR WLOG_LEVELS[7] = { "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF" };
 
-static INIT_ONCE _WLogInitialized = INIT_ONCE_STATIC_INIT;
+static INIT_ONCE g_WLogInitialized = INIT_ONCE_STATIC_INIT;
 static DWORD g_FilterCount = 0;
 static wLogFilter* g_Filters = NULL;
 static wLog* g_RootLog = NULL;
@@ -132,7 +133,7 @@ static BOOL CALLBACK WLog_InitializeRoot(PINIT_ONCE InitOnce, PVOID Parameter, P
 
 		if (GetEnvironmentVariableA(appender, env, nSize) != nSize - 1)
 		{
-			fprintf(stderr, "%s environment variable modified in my back", appender);
+			(void)fprintf(stderr, "%s environment variable modified in my back", appender);
 			free(env);
 			goto fail;
 		}
@@ -166,7 +167,7 @@ static BOOL CALLBACK WLog_InitializeRoot(PINIT_ONCE InitOnce, PVOID Parameter, P
 	if (!WLog_ParseFilters(g_RootLog))
 		goto fail;
 
-	atexit(WLog_Uninit_);
+	(void)atexit(WLog_Uninit_);
 
 	return TRUE;
 fail:
@@ -373,9 +374,12 @@ BOOL WLog_PrintMessageVA(wLog* log, DWORD type, DWORD level, size_t line, const 
 			{
 				char formattedLogMessage[WLOG_MAX_STRING_SIZE] = { 0 };
 
+				WINPR_PRAGMA_DIAG_PUSH
+				WINPR_PRAGMA_DIAG_IGNORED_FORMAT_NONLITERAL
 				if (vsnprintf(formattedLogMessage, WLOG_MAX_STRING_SIZE - 1, message.FormatString,
 				              args) < 0)
 					return FALSE;
+				WINPR_PRAGMA_DIAG_POP
 
 				message.TextString = formattedLogMessage;
 				status = WLog_Write(log, &message);
@@ -752,7 +756,8 @@ LONG WLog_GetFilterLogLevel(wLog* log)
 			if (_stricmp(filter->Names[j], "*") == 0)
 			{
 				match = TRUE;
-				log->FilterLevel = filter->Level;
+				assert(filter->Level <= INT32_MAX);
+				log->FilterLevel = (LONG)filter->Level;
 				break;
 			}
 
@@ -763,7 +768,10 @@ LONG WLog_GetFilterLogLevel(wLog* log)
 			{
 				match = log->NameCount == filter->NameCount;
 				if (match)
-					log->FilterLevel = filter->Level;
+				{
+					assert(filter->Level <= INT32_MAX);
+					log->FilterLevel = (LONG)filter->Level;
+				}
 				break;
 			}
 		}
@@ -868,7 +876,7 @@ wLog* WLog_New(LPCSTR name, wLog* rootLogger)
 
 			if (GetEnvironmentVariableA(level, env, nSize) != nSize - 1)
 			{
-				fprintf(stderr, "%s environment variable changed in my back !\n", level);
+				(void)fprintf(stderr, "%s environment variable changed in my back !\n", level);
 				free(env);
 				goto out_fail;
 			}
@@ -923,7 +931,7 @@ void WLog_Free(wLog* log)
 
 wLog* WLog_GetRoot(void)
 {
-	if (!InitOnceExecuteOnce(&_WLogInitialized, WLog_InitializeRoot, NULL, NULL))
+	if (!InitOnceExecuteOnce(&g_WLogInitialized, WLog_InitializeRoot, NULL, NULL))
 		return NULL;
 
 	return g_RootLog;

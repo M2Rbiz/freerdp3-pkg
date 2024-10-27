@@ -31,6 +31,7 @@
 #include <winpr/assert.h>
 #include <winpr/library.h>
 #include <winpr/registry.h>
+#include <winpr/sspi.h>
 
 #include <freerdp/log.h>
 
@@ -463,6 +464,8 @@ int credssp_auth_authenticate(rdpCredsspAuth* auth)
 		WINPR_ASSERT(auth->table->QueryContextAttributes);
 		status =
 		    auth->table->QueryContextAttributes(&auth->context, SECPKG_ATTR_SIZES, &auth->sizes);
+		WLog_DBG(TAG, "QueryContextAttributes returned %s [0x%08" PRIx32 "]",
+		         GetSecurityStatusString(status), status);
 		WLog_DBG(TAG, "Context sizes: cbMaxSignature=%d, cbSecurityTrailer=%d",
 		         auth->sizes.cbMaxSignature, auth->sizes.cbSecurityTrailer);
 
@@ -692,6 +695,17 @@ UINT32 credssp_auth_sspi_error(rdpCredsspAuth* auth)
 	return (UINT32)auth->sspi_error;
 }
 
+void credssp_auth_tableAndContext(rdpCredsspAuth* auth, SecurityFunctionTable** ptable,
+                                  CtxtHandle* pcontext)
+{
+	WINPR_ASSERT(auth);
+	WINPR_ASSERT(ptable);
+	WINPR_ASSERT(pcontext);
+
+	*ptable = auth->table;
+	*pcontext = auth->context;
+}
+
 void credssp_auth_free(rdpCredsspAuth* auth)
 {
 	SEC_WINPR_KERBEROS_SETTINGS* krb_settings = NULL;
@@ -796,7 +810,6 @@ static SecurityFunctionTable* auth_resolve_sspi_table(const rdpSettings* setting
 
 	if (sspi_module || settings->SspiModule)
 	{
-		INIT_SECURITY_INTERFACE InitSecurityInterface_ptr = NULL;
 		const char* module_name = sspi_module ? sspi_module : settings->SspiModule;
 #ifdef UNICODE
 		const char* proc_name = "InitSecurityInterfaceW";
@@ -815,8 +828,14 @@ static SecurityFunctionTable* auth_resolve_sspi_table(const rdpSettings* setting
 
 		WLog_INFO(TAG, "Using SSPI Module: %s", module_name);
 
-		InitSecurityInterface_ptr = (INIT_SECURITY_INTERFACE)GetProcAddress(hSSPI, proc_name);
-
+		INIT_SECURITY_INTERFACE InitSecurityInterface_ptr =
+		    GetProcAddressAs(hSSPI, proc_name, INIT_SECURITY_INTERFACE);
+		if (!InitSecurityInterface_ptr)
+		{
+			WLog_ERR(TAG, "Failed to load SSPI module: %s, no function %s", module_name, proc_name);
+			free(sspi_module);
+			return FALSE;
+		}
 		free(sspi_module);
 		return InitSecurityInterface_ptr();
 	}
@@ -947,7 +966,7 @@ BOOL credssp_auth_set_spn(rdpCredsspAuth* auth, const char* service, const char*
 		if (!spn)
 			return FALSE;
 
-		sprintf_s(spn, length, "%s/%s", service, hostname);
+		(void)sprintf_s(spn, length, "%s/%s", service, hostname);
 	}
 	if (!spn)
 		return FALSE;

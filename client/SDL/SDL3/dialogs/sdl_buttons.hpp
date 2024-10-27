@@ -9,11 +9,16 @@ class SdlButtonList
 {
   public:
 	SdlButtonList() = default;
-	virtual ~SdlButtonList() = default;
+	SdlButtonList(const SdlButtonList& other) = delete;
+	SdlButtonList(SdlButtonList&& other) = delete;
+	virtual ~SdlButtonList();
+
+	SdlButtonList& operator=(const SdlButtonList& other) = delete;
+	SdlButtonList& operator=(SdlButtonList&& other) = delete;
 
 	bool populate(SDL_Renderer* renderer, const std::vector<std::string>& labels,
 	              const std::vector<int>& ids, Sint32 total_width, Sint32 offsetY, Sint32 width,
-	              Sint32 heigth);
+	              Sint32 height);
 
 	bool update(SDL_Renderer* renderer);
 	SdlButton* get_selected(const SDL_MouseButtonEvent& button);
@@ -24,10 +29,6 @@ class SdlButtonList
 	bool set_mouseover(Sint32 x, Sint32 y);
 
 	void clear();
-
-  private:
-	SdlButtonList(const SdlButtonList& other) = delete;
-	SdlButtonList(SdlButtonList&& other) = delete;
 
   private:
 	std::vector<SdlButton> _list;

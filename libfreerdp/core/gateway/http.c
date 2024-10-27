@@ -43,7 +43,7 @@
 
 #define TAG FREERDP_TAG("core.gateway.http")
 
-#define RESPONSE_SIZE_LIMIT 64 * 1024 * 1024
+#define RESPONSE_SIZE_LIMIT (64ULL * 1024ULL * 1024ULL)
 
 #define WEBSOCKET_MAGIC_GUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
@@ -345,7 +345,7 @@ BOOL http_context_set_pragma(HttpContext* context, WINPR_FORMAT_ARG const char* 
 	free(context->Pragma);
 	context->Pragma = NULL;
 
-	va_list ap;
+	va_list ap = { 0 };
 	va_start(ap, Pragma);
 	return list_append(context, Pragma, ap);
 }
@@ -356,7 +356,7 @@ BOOL http_context_append_pragma(HttpContext* context, const char* Pragma, ...)
 	if (!context || !Pragma)
 		return FALSE;
 
-	va_list ap;
+	va_list ap = { 0 };
 	va_start(ap, Pragma);
 	return list_append(context, Pragma, ap);
 }
@@ -373,7 +373,7 @@ static char* guid2str(const GUID* guid)
 	if (rpcStatus != RPC_S_OK)
 		return NULL;
 
-	sprintf_s(bracedGuid, sizeof(bracedGuid), "{%s}", strguid);
+	(void)sprintf_s(bracedGuid, sizeof(bracedGuid), "{%s}", strguid);
 	RpcStringFreeA(&strguid);
 	return _strdup(bracedGuid);
 }
@@ -551,7 +551,7 @@ WINPR_ATTR_FORMAT_ARG(2, 3)
 static BOOL http_encode_print(wStream* s, WINPR_FORMAT_ARG const char* fmt, ...)
 {
 	char* str = NULL;
-	va_list ap;
+	va_list ap = { 0 };
 	int length = 0;
 	int used = 0;
 
@@ -588,7 +588,7 @@ static BOOL http_encode_body_line(wStream* s, const char* param, const char* val
 
 static BOOL http_encode_content_length_line(wStream* s, size_t ContentLength)
 {
-	return http_encode_print(s, "Content-Length: %" PRIdz "\r\n", ContentLength);
+	return http_encode_print(s, "Content-Length: %" PRIuz "\r\n", ContentLength);
 }
 
 static BOOL http_encode_header_line(wStream* s, const char* Method, const char* URI)
@@ -1427,8 +1427,8 @@ HttpResponse* http_response_recv(rdpTls* tls, BOOL readContentLength)
 	if (payloadOffset)
 	{
 		size_t count = 0;
-		char* buffer = (char*)Stream_Buffer(response->data);
-		char* line = (char*)Stream_Buffer(response->data);
+		char* buffer = Stream_BufferAs(response->data, char);
+		char* line = Stream_BufferAs(response->data, char);
 		char* context = NULL;
 
 		while ((line = string_strnstr(line, "\r\n", payloadOffset - (line - buffer) - 2UL)))

@@ -39,6 +39,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/)
 include(CommonConfigOptions)
 
 include(ConfigureFreeRDP)
+include(CXXCompilerFlags)
 
 option(WITH_DEBUG_SDL_EVENTS "[dangerous, not for release builds!] Debug SDL events" ${DEFAULT_DEBUG_OPTION})
 option(WITH_DEBUG_SDL_KBD_EVENTS "[dangerous, not for release builds!] Debug SDL keyboard events" ${DEFAULT_DEBUG_OPTION})
@@ -75,13 +76,6 @@ endif()
 
 if (NOT SDL2_FOUND AND NOT SDL3_FOUND)
 	message(FATAL_ERROR "No SDL library detected, giving up. Install SDL2 or SDL3 development package to fix")
-endif()
-
-# Configuration settings for manpages
-if (NOT WITH_FULL_CONFIG_PATH AND "${VENDOR}" STREQUAL "${PRODUCT}")
-	string(TOLOWER "${VENDOR}" VENDOR_PRODUCT)
-else()
-	set(VENDOR_PRODUCT "${VENDOR}/${PRODUCT}")
 endif()
 
 add_subdirectory(common)

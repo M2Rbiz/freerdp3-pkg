@@ -301,6 +301,8 @@ BOOL FreeEnvironmentStringsA(LPCH lpszEnvironmentBlock)
 
 BOOL FreeEnvironmentStringsW(LPWCH lpszEnvironmentBlock)
 {
+	free(lpszEnvironmentBlock);
+
 	return TRUE;
 }
 
@@ -563,7 +565,7 @@ BOOL SetEnvironmentVariableEBA(LPSTR* envBlock, LPCSTR lpName, LPCSTR lpValue)
 		if (!envstr)
 			return FALSE;
 
-		sprintf_s(envstr, length, "%s=%s", lpName, lpValue);
+		(void)sprintf_s(envstr, length, "%s=%s", lpName, lpValue);
 	}
 	else
 	{
@@ -573,7 +575,7 @@ BOOL SetEnvironmentVariableEBA(LPSTR* envBlock, LPCSTR lpName, LPCSTR lpValue)
 		if (!envstr)
 			return FALSE;
 
-		sprintf_s(envstr, length, "%s=", lpName);
+		(void)sprintf_s(envstr, length, "%s=", lpName);
 	}
 
 	envstr[length] = '\0';

@@ -25,6 +25,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(WITH_INPUT_FORMAT_MJPG)
+#include <libavcodec/avcodec.h>
+#endif
+
 #include <libswscale/swscale.h>
 #include <libavutil/imgutils.h>
 
@@ -54,7 +58,7 @@
  * for sample responses. Excessive size is to make sure any sample
  * will fit in, even with highest resolution.
  */
-#define ECAM_SAMPLE_RESPONSE_BUFFER_SIZE (1024 * 4050)
+#define ECAM_SAMPLE_RESPONSE_BUFFER_SIZE (1024ULL * 4050ULL)
 
 typedef struct s_ICamHal ICamHal;
 
@@ -94,8 +98,15 @@ typedef struct
 	wStream* sampleRespBuffer;
 
 	H264_CONTEXT* h264;
+
+#if defined(WITH_INPUT_FORMAT_MJPG)
+	AVCodecContext* avContext;
+	AVPacket* avInputPkt;
+	AVFrame* avOutFrame;
+#endif
+
+	/* sws_scale */
 	struct SwsContext* sws;
-	int srcLineSizes[4];
 
 } CameraDeviceStream;
 
@@ -160,7 +171,7 @@ typedef struct
 typedef FREERDP_CAMERA_HAL_ENTRY_POINTS* PFREERDP_CAMERA_HAL_ENTRY_POINTS;
 
 /* entry point called by addin manager */
-typedef UINT (*PFREERDP_CAMERA_HAL_ENTRY)(PFREERDP_CAMERA_HAL_ENTRY_POINTS pEntryPoints);
+typedef UINT(VCAPITYPE* PFREERDP_CAMERA_HAL_ENTRY)(PFREERDP_CAMERA_HAL_ENTRY_POINTS pEntryPoints);
 
 /* common functions */
 UINT ecam_channel_send_generic_msg(CameraPlugin* ecam, GENERIC_CHANNEL_CALLBACK* hchannel,
@@ -171,8 +182,10 @@ UINT ecam_channel_write(CameraPlugin* ecam, GENERIC_CHANNEL_CALLBACK* hchannel, 
                         wStream* out, BOOL freeStream);
 
 /* ecam device interface */
+void ecam_dev_destroy(CameraDevice* dev);
+
+WINPR_ATTR_MALLOC(ecam_dev_destroy, 1)
 CameraDevice* ecam_dev_create(CameraPlugin* ecam, const char* deviceId, const char* deviceName);
-void ecam_dev_destroy(void* dev);
 
 /* video encoding interface */
 BOOL ecam_encoder_context_init(CameraDeviceStream* stream);

@@ -232,7 +232,12 @@ static DWORD WINAPI encomsp_server_thread(LPVOID arg)
 			break;
 		}
 
-		WTSVirtualChannelRead(context->priv->ChannelHandle, 0, NULL, 0, &BytesReturned);
+		if (!WTSVirtualChannelRead(context->priv->ChannelHandle, 0, NULL, 0, &BytesReturned))
+		{
+			WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
+			error = ERROR_INTERNAL_ERROR;
+			break;
+		}
 
 		if (BytesReturned < 1)
 			continue;
@@ -244,8 +249,10 @@ static DWORD WINAPI encomsp_server_thread(LPVOID arg)
 			break;
 		}
 
-		if (!WTSVirtualChannelRead(context->priv->ChannelHandle, 0, (PCHAR)Stream_Buffer(s),
-		                           Stream_Capacity(s), &BytesReturned))
+		const size_t cap = Stream_Capacity(s);
+		if ((cap > UINT32_MAX) ||
+		    !WTSVirtualChannelRead(context->priv->ChannelHandle, 0, Stream_BufferAs(s, char),
+		                           (ULONG)cap, &BytesReturned))
 		{
 			WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
 			error = ERROR_INTERNAL_ERROR;
@@ -254,7 +261,7 @@ static DWORD WINAPI encomsp_server_thread(LPVOID arg)
 
 		if (Stream_GetPosition(s) >= ENCOMSP_ORDER_HEADER_SIZE)
 		{
-			header = (ENCOMSP_ORDER_HEADER*)Stream_Buffer(s);
+			header = Stream_BufferAs(s, ENCOMSP_ORDER_HEADER);
 
 			if (header->Length >= Stream_GetPosition(s))
 			{
@@ -306,7 +313,7 @@ static UINT encomsp_server_start(EncomspServerContext* context)
 	          CreateThread(NULL, 0, encomsp_server_thread, (void*)context, 0, NULL)))
 	{
 		WLog_ERR(TAG, "CreateThread failed!");
-		CloseHandle(context->priv->StopEvent);
+		(void)CloseHandle(context->priv->StopEvent);
 		context->priv->StopEvent = NULL;
 		return ERROR_INTERNAL_ERROR;
 	}
@@ -322,7 +329,7 @@ static UINT encomsp_server_start(EncomspServerContext* context)
 static UINT encomsp_server_stop(EncomspServerContext* context)
 {
 	UINT error = CHANNEL_RC_OK;
-	SetEvent(context->priv->StopEvent);
+	(void)SetEvent(context->priv->StopEvent);
 
 	if (WaitForSingleObject(context->priv->Thread, INFINITE) == WAIT_FAILED)
 	{
@@ -331,8 +338,8 @@ static UINT encomsp_server_stop(EncomspServerContext* context)
 		return error;
 	}
 
-	CloseHandle(context->priv->Thread);
-	CloseHandle(context->priv->StopEvent);
+	(void)CloseHandle(context->priv->Thread);
+	(void)CloseHandle(context->priv->StopEvent);
 	return error;
 }
 
@@ -364,7 +371,7 @@ void encomsp_server_context_free(EncomspServerContext* context)
 	if (context)
 	{
 		if (context->priv->ChannelHandle != INVALID_HANDLE_VALUE)
-			WTSVirtualChannelClose(context->priv->ChannelHandle);
+			(void)WTSVirtualChannelClose(context->priv->ChannelHandle);
 
 		free(context->priv);
 		free(context);

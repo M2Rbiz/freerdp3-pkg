@@ -38,10 +38,10 @@ if (WIN32)
     string(REPLACE "\\" "\\\\" NATIVE_FREERDP_PROXY_PLUGINDIR "${NATIVE_FREERDP_PROXY_PLUGINDIR}")
 endif()
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/freerdp/version.h)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config/build-config.h.in ${CMAKE_CURRENT_BINARY_DIR}/freerdp/build-config.h)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/freerdp/config.h)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config/buildflags.h.in ${CMAKE_CURRENT_BINARY_DIR}/freerdp/buildflags.h)
+cleaning_configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/freerdp/version.h)
+cleaning_configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config/build-config.h.in ${CMAKE_CURRENT_BINARY_DIR}/freerdp/build-config.h)
+cleaning_configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/freerdp/config.h)
+cleaning_configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config/buildflags.h.in ${CMAKE_CURRENT_BINARY_DIR}/freerdp/buildflags.h)
 
 file(STRINGS freerdp/settings_types_private.h SETTINGS_KEYS REGEX "ALIGN64[ \ta-zA-Z0-9]*")
 
@@ -127,7 +127,7 @@ string(REPLACE ";" ",\n\t" SETTINGS_KEYS_UINT64 "${SETTINGS_KEYS_UINT64}")
 string(REPLACE ";" ",\n\t" SETTINGS_KEYS_STRING "${SETTINGS_KEYS_STRING}")
 string(REPLACE ";" ",\n\t" SETTINGS_KEYS_POINTER "${SETTINGS_KEYS_POINTER}")
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config/settings_keys.h.in ${CMAKE_CURRENT_BINARY_DIR}/freerdp/settings_keys.h)
+cleaning_configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config/settings_keys.h.in ${CMAKE_CURRENT_BINARY_DIR}/freerdp/settings_keys.h)
 
 file(GLOB_RECURSE PUBLIC_COMMON_HEADERS
 	LIST_DIRECTORIES false
@@ -174,6 +174,11 @@ list(FILTER PUBLIC_COMMON_HEADERS EXCLUDE REGEX ".*freerdp/client.*")
 list(APPEND PUBLIC_COMMON_HEADERS ${PUBLIC_COMMON_BIN_HEADERS})
 set_property(TARGET freerdp APPEND PROPERTY SOURCES
     ${PUBLIC_COMMON_HEADERS}
+)
+
+add_library(freerdp-headers INTERFACE)
+target_sources(freerdp-headers INTERFACE
+	${PUBLIC_COMMON_HEADERS}
 )
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/freerdp

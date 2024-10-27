@@ -49,22 +49,23 @@ static const char* strsignal(int signum)
 }
 #endif
 
+// NOLINTBEGIN(bugprone-signal-handler,cert-msc54-cpp,cert-sig30-c)
 static void cleanup_handler(int signum)
 {
-	printf("\n");
 	WLog_INFO(TAG, "caught signal %s [%d], starting cleanup...", strsignal(signum), signum);
 
 	WLog_INFO(TAG, "stopping all connections.");
 	pf_server_stop(server);
 }
+// NOLINTEND(bugprone-signal-handler,cert-msc54-cpp,cert-sig30-c)
 
 static void pf_server_register_signal_handlers(void)
 {
-	signal(SIGINT, cleanup_handler);
-	signal(SIGTERM, cleanup_handler);
+	(void)signal(SIGINT, cleanup_handler);
+	(void)signal(SIGTERM, cleanup_handler);
 #ifndef _WIN32
-	signal(SIGQUIT, cleanup_handler);
-	signal(SIGKILL, cleanup_handler);
+	(void)signal(SIGQUIT, cleanup_handler);
+	(void)signal(SIGKILL, cleanup_handler);
 #endif
 }
 
@@ -96,8 +97,6 @@ static WINPR_NORETURN(void buildconfig(const char* app))
 
 int main(int argc, char* argv[])
 {
-	proxyConfig* config = NULL;
-	char* config_path = "config.ini";
 	int status = -1;
 
 	pf_server_register_signal_handlers();
@@ -110,31 +109,29 @@ int main(int argc, char* argv[])
 	if (argc < 2)
 		usage(argv[0]);
 
+	const char* arg = argv[1];
+
+	if (_stricmp(arg, "-h") == 0)
+		usage(argv[0]);
+	else if (_stricmp(arg, "--help") == 0)
+		usage(argv[0]);
+	else if (_stricmp(arg, "--buildconfig") == 0)
+		buildconfig(argv[0]);
+	else if (_stricmp(arg, "--dump-config") == 0)
 	{
-		const char* arg = argv[1];
-
-		if (_stricmp(arg, "-h") == 0)
+		if (argc <= 2)
 			usage(argv[0]);
-		else if (_stricmp(arg, "--help") == 0)
-			usage(argv[0]);
-		else if (_stricmp(arg, "--buildconfig") == 0)
-			buildconfig(argv[0]);
-		else if (_stricmp(arg, "--dump-config") == 0)
-		{
-			if (argc <= 2)
-				usage(argv[0]);
-			pf_server_config_dump(argv[2]);
-			status = 0;
-			goto fail;
-		}
-		else if (_stricmp(arg, "-v") == 0)
-			version(argv[0]);
-		else if (_stricmp(arg, "--version") == 0)
-			version(argv[0]);
-		config_path = argv[1];
+		pf_server_config_dump(argv[2]);
+		status = 0;
+		goto fail;
 	}
+	else if (_stricmp(arg, "-v") == 0)
+		version(argv[0]);
+	else if (_stricmp(arg, "--version") == 0)
+		version(argv[0]);
+	const char* config_path = argv[1];
 
-	config = pf_server_config_load_file(config_path);
+	proxyConfig* config = pf_server_config_load_file(config_path);
 	if (!config)
 		goto fail;
 

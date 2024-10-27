@@ -221,6 +221,7 @@ BOOL freerdp_http_request(const char* url, const char* body, long* status_code, 
 		goto out;
 	}
 
+	// NOLINTNEXTLINE(cert-err34-c)
 	if (sscanf(buffer, "HTTP/1.1 %li %*[^\r\n]\r\n", status_code) < 1)
 	{
 		WLog_Print(log, WLOG_ERROR, "invalid HTTP status line");
@@ -384,9 +385,9 @@ const char* freerdp_http_status_string(long status)
 	}
 }
 
-char* freerdp_http_status_string_format(long status, char* buffer, size_t size)
+const char* freerdp_http_status_string_format(long status, char* buffer, size_t size)
 {
 	const char* code = freerdp_http_status_string(status);
-	_snprintf(buffer, size, "%s [%ld]", code, status);
+	(void)_snprintf(buffer, size, "%s [%ld]", code, status);
 	return buffer;
 }

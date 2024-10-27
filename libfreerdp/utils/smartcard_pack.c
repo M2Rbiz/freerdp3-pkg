@@ -106,6 +106,7 @@ static LONG smartcard_ndr_read(wStream* s, BYTE** data, size_t min, size_t eleme
 	void* r = NULL;
 	size_t required = 0;
 
+	*data = NULL;
 	switch (type)
 	{
 		case NDR_PTR_FULL:
@@ -169,7 +170,10 @@ static LONG smartcard_ndr_read(wStream* s, BYTE** data, size_t min, size_t eleme
 
 	len *= elementSize;
 
-	r = calloc(len + 1, sizeof(CHAR));
+	/* Ensure proper '\0' termination for all kinds of unicode strings
+	 * as we do not know if the data from the wire contains one.
+	 */
+	r = calloc(len + sizeof(WCHAR), sizeof(CHAR));
 	if (!r)
 		return SCARD_E_NO_MEMORY;
 	Stream_Read(s, r, len);
@@ -479,7 +483,7 @@ static void smartcard_trace_context_and_string_call_w(const char* name,
 		return;
 
 	if (sz)
-		ConvertWCharToUtf8(sz, tmp, ARRAYSIZE(tmp));
+		(void)ConvertWCharToUtf8(sz, tmp, ARRAYSIZE(tmp));
 
 	WLog_LVL(TAG, g_LogLevel, "%s {", name);
 	smartcard_log_context(TAG, phContext);
@@ -532,7 +536,7 @@ static void smartcard_trace_get_status_change_w_call(const GetStatusChangeW_Call
 		const LPSCARD_READERSTATEW readerState = &call->rgReaderStates[index];
 		char szReaderA[1024] = { 0 };
 
-		ConvertWCharToUtf8(readerState->szReader, szReaderA, ARRAYSIZE(szReaderA));
+		(void)ConvertWCharToUtf8(readerState->szReader, szReaderA, ARRAYSIZE(szReaderA));
 
 		WLog_LVL(TAG, g_LogLevel, "\t[%" PRIu32 "]: szReader: %s cbAtr: %" PRIu32 "", index,
 		         szReaderA, readerState->cbAtr);
@@ -806,9 +810,9 @@ static void smartcard_trace_context_and_two_strings_w_call(const ContextAndTwoSt
 	if (!WLog_IsLevelActive(WLog_Get(TAG), g_LogLevel))
 		return;
 	if (call->sz1)
-		ConvertWCharToUtf8(call->sz1, sz1, ARRAYSIZE(sz1));
+		(void)ConvertWCharToUtf8(call->sz1, sz1, ARRAYSIZE(sz1));
 	if (call->sz2)
-		ConvertWCharToUtf8(call->sz2, sz2, ARRAYSIZE(sz2));
+		(void)ConvertWCharToUtf8(call->sz2, sz2, ARRAYSIZE(sz2));
 
 	WLog_LVL(TAG, g_LogLevel, "ContextAndTwoStringW_Call {");
 	smartcard_log_context(TAG, &call->handles.hContext);
@@ -836,7 +840,7 @@ static void smartcard_trace_write_cache_a_call(const WriteCacheA_Call* call)
 	if (!WLog_IsLevelActive(WLog_Get(TAG), g_LogLevel))
 		return;
 
-	WLog_LVL(TAG, g_LogLevel, "GetTransmitCount_Call {");
+	WLog_LVL(TAG, g_LogLevel, "WriteCacheA_Call {");
 
 	WLog_LVL(TAG, g_LogLevel, "  szLookupName=%s", call->szLookupName);
 
@@ -860,10 +864,10 @@ static void smartcard_trace_write_cache_w_call(const WriteCacheW_Call* call)
 	if (!WLog_IsLevelActive(WLog_Get(TAG), g_LogLevel))
 		return;
 
-	WLog_LVL(TAG, g_LogLevel, "GetTransmitCount_Call {");
+	WLog_LVL(TAG, g_LogLevel, "WriteCacheW_Call {");
 
 	if (call->szLookupName)
-		ConvertWCharToUtf8(call->szLookupName, tmp, ARRAYSIZE(tmp));
+		(void)ConvertWCharToUtf8(call->szLookupName, tmp, ARRAYSIZE(tmp));
 	WLog_LVL(TAG, g_LogLevel, "  szLookupName=%s", tmp);
 
 	smartcard_log_context(TAG, &call->Common.handles.hContext);
@@ -885,7 +889,7 @@ static void smartcard_trace_read_cache_a_call(const ReadCacheA_Call* call)
 	if (!WLog_IsLevelActive(WLog_Get(TAG), g_LogLevel))
 		return;
 
-	WLog_LVL(TAG, g_LogLevel, "GetTransmitCount_Call {");
+	WLog_LVL(TAG, g_LogLevel, "ReadCacheA_Call {");
 
 	WLog_LVL(TAG, g_LogLevel, "  szLookupName=%s", call->szLookupName);
 	smartcard_log_context(TAG, &call->Common.handles.hContext);
@@ -907,9 +911,9 @@ static void smartcard_trace_read_cache_w_call(const ReadCacheW_Call* call)
 	if (!WLog_IsLevelActive(WLog_Get(TAG), g_LogLevel))
 		return;
 
-	WLog_LVL(TAG, g_LogLevel, "GetTransmitCount_Call {");
+	WLog_LVL(TAG, g_LogLevel, "ReadCacheW_Call {");
 	if (call->szLookupName)
-		ConvertWCharToUtf8(call->szLookupName, tmp, ARRAYSIZE(tmp));
+		(void)ConvertWCharToUtf8(call->szLookupName, tmp, ARRAYSIZE(tmp));
 	WLog_LVL(TAG, g_LogLevel, "  szLookupName=%s", tmp);
 
 	smartcard_log_context(TAG, &call->Common.handles.hContext);
@@ -1011,7 +1015,7 @@ static void smartcard_trace_locate_cards_by_atr_w_call(const LocateCardsByATRW_C
 		    (const LPSCARD_READERSTATEW)&call->rgReaderStates[index];
 
 		if (readerState->szReader)
-			ConvertWCharToUtf8(readerState->szReader, tmp, ARRAYSIZE(tmp));
+			(void)ConvertWCharToUtf8(readerState->szReader, tmp, ARRAYSIZE(tmp));
 		WLog_LVL(TAG, g_LogLevel, "\t[%" PRIu32 "]: szReader: %s cbAtr: %" PRIu32 "", index, tmp,
 		         readerState->cbAtr);
 		szCurrentState = SCardGetReaderStateString(readerState->dwCurrentState);
@@ -1307,7 +1311,7 @@ static void smartcard_trace_connect_w_call(const ConnectW_Call* call)
 		return;
 
 	if (call->szReader)
-		ConvertWCharToUtf8(call->szReader, szReaderA, ARRAYSIZE(szReaderA));
+		(void)ConvertWCharToUtf8(call->szReader, szReaderA, ARRAYSIZE(szReaderA));
 	WLog_LVL(TAG, g_LogLevel, "ConnectW_Call {");
 	smartcard_log_context(TAG, &call->Common.handles.hContext);
 
@@ -2170,10 +2174,6 @@ LONG smartcard_unpack_hcard_and_disposition_call(wStream* s, HCardAndDisposition
 
 static void smartcard_trace_get_status_change_a_call(const GetStatusChangeA_Call* call)
 {
-	char* szEventState = NULL;
-	char* szCurrentState = NULL;
-	LPSCARD_READERSTATEA readerState = NULL;
-
 	if (!WLog_IsLevelActive(WLog_Get(TAG), g_LogLevel))
 		return;
 
@@ -2185,11 +2185,11 @@ static void smartcard_trace_get_status_change_a_call(const GetStatusChangeA_Call
 
 	for (UINT32 index = 0; index < call->cReaders; index++)
 	{
-		readerState = &call->rgReaderStates[index];
+		LPSCARD_READERSTATEA readerState = &call->rgReaderStates[index];
 		WLog_LVL(TAG, g_LogLevel, "\t[%" PRIu32 "]: szReader: %s cbAtr: %" PRIu32 "", index,
 		         readerState->szReader, readerState->cbAtr);
-		szCurrentState = SCardGetReaderStateString(readerState->dwCurrentState);
-		szEventState = SCardGetReaderStateString(readerState->dwEventState);
+		char* szCurrentState = SCardGetReaderStateString(readerState->dwCurrentState);
+		char* szEventState = SCardGetReaderStateString(readerState->dwEventState);
 		WLog_LVL(TAG, g_LogLevel, "\t[%" PRIu32 "]: dwCurrentState: %s (0x%08" PRIX32 ")", index,
 		         szCurrentState, readerState->dwCurrentState);
 		WLog_LVL(TAG, g_LogLevel, "\t[%" PRIu32 "]: dwEventState: %s (0x%08" PRIX32 ")", index,
@@ -2204,22 +2204,21 @@ static void smartcard_trace_get_status_change_a_call(const GetStatusChangeA_Call
 static LONG smartcard_unpack_reader_state_a(wStream* s, LPSCARD_READERSTATEA* ppcReaders,
                                             UINT32 cReaders, UINT32* ptrIndex)
 {
-	UINT32 len = 0;
 	LONG status = SCARD_E_NO_MEMORY;
-	LPSCARD_READERSTATEA rgReaderStates = NULL;
-	BOOL* states = NULL;
 
 	if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
 		return status;
 
-	Stream_Read_UINT32(s, len);
+	const UINT32 len = Stream_Get_UINT32(s);
 	if (len != cReaders)
 	{
 		WLog_ERR(TAG, "Count mismatch when reading LPSCARD_READERSTATEA");
 		return status;
 	}
-	rgReaderStates = (LPSCARD_READERSTATEA)calloc(cReaders, sizeof(SCARD_READERSTATEA));
-	states = calloc(cReaders, sizeof(BOOL));
+
+	LPSCARD_READERSTATEA rgReaderStates =
+	    (LPSCARD_READERSTATEA)calloc(cReaders, sizeof(SCARD_READERSTATEA));
+	BOOL* states = calloc(cReaders, sizeof(BOOL));
 	if (!rgReaderStates || !states)
 		goto fail;
 	status = ERROR_INVALID_DATA;
@@ -2277,23 +2276,21 @@ fail:
 static LONG smartcard_unpack_reader_state_w(wStream* s, LPSCARD_READERSTATEW* ppcReaders,
                                             UINT32 cReaders, UINT32* ptrIndex)
 {
-	UINT32 len = 0;
 	LONG status = SCARD_E_NO_MEMORY;
-	LPSCARD_READERSTATEW rgReaderStates = NULL;
-	BOOL* states = NULL;
 
 	if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
 		return status;
 
-	Stream_Read_UINT32(s, len);
+	const UINT32 len = Stream_Get_UINT32(s);
 	if (len != cReaders)
 	{
 		WLog_ERR(TAG, "Count mismatch when reading LPSCARD_READERSTATEW");
 		return status;
 	}
 
-	rgReaderStates = (LPSCARD_READERSTATEW)calloc(cReaders, sizeof(SCARD_READERSTATEW));
-	states = calloc(cReaders, sizeof(BOOL));
+	LPSCARD_READERSTATEW rgReaderStates =
+	    (LPSCARD_READERSTATEW)calloc(cReaders, sizeof(SCARD_READERSTATEW));
+	BOOL* states = calloc(cReaders, sizeof(BOOL));
 
 	if (!rgReaderStates || !states)
 		goto fail;

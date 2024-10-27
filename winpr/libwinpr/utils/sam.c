@@ -18,6 +18,7 @@
  */
 
 #include <winpr/config.h>
+#include <winpr/path.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,11 +36,6 @@
 #include <unistd.h>
 #endif
 
-#ifdef _WIN32
-#define WINPR_SAM_FILE "C:\\SAM"
-#else
-#define WINPR_SAM_FILE "/etc/winpr/SAM"
-#endif
 #define TAG WINPR_TAG("utils")
 
 struct winpr_sam
@@ -74,10 +70,20 @@ static BOOL SamAreEntriesEqual(const WINPR_SAM_ENTRY* a, const WINPR_SAM_ENTRY* 
 		return FALSE;
 	if (a->DomainLength != b->DomainLength)
 		return FALSE;
-	if (strncmp(a->User, b->User, a->UserLength) != 0)
-		return FALSE;
-	if (strncmp(a->Domain, b->Domain, a->DomainLength) != 0)
-		return FALSE;
+	if (a->UserLength > 0)
+	{
+		if (!a->User || !b->User)
+			return FALSE;
+		if (strncmp(a->User, b->User, a->UserLength) != 0)
+			return FALSE;
+	}
+	if (a->DomainLength > 0)
+	{
+		if (!a->Domain || !b->Domain)
+			return FALSE;
+		if (strncmp(a->Domain, b->Domain, a->DomainLength) != 0)
+			return FALSE;
+	}
 	return TRUE;
 }
 
@@ -85,9 +91,13 @@ WINPR_SAM* SamOpen(const char* filename, BOOL readOnly)
 {
 	FILE* fp = NULL;
 	WINPR_SAM* sam = NULL;
+	char* allocatedFileName = NULL;
 
 	if (!filename)
-		filename = WINPR_SAM_FILE;
+	{
+		allocatedFileName = winpr_GetConfigFilePath(TRUE, "SAM");
+		filename = allocatedFileName;
+	}
 
 	if (readOnly)
 		fp = winpr_fopen(filename, "r");
@@ -98,6 +108,7 @@ WINPR_SAM* SamOpen(const char* filename, BOOL readOnly)
 		if (!fp)
 			fp = winpr_fopen(filename, "w+");
 	}
+	free(allocatedFileName);
 
 	if (fp)
 	{
@@ -105,7 +116,7 @@ WINPR_SAM* SamOpen(const char* filename, BOOL readOnly)
 
 		if (!sam)
 		{
-			fclose(fp);
+			(void)fclose(fp);
 			return NULL;
 		}
 
@@ -129,9 +140,11 @@ static BOOL SamLookupStart(WINPR_SAM* sam)
 	if (!sam || !sam->fp)
 		return FALSE;
 
-	_fseeki64(sam->fp, 0, SEEK_END);
+	if (_fseeki64(sam->fp, 0, SEEK_END) != 0)
+		return FALSE;
 	fileSize = _ftelli64(sam->fp);
-	_fseeki64(sam->fp, 0, SEEK_SET);
+	if (_fseeki64(sam->fp, 0, SEEK_SET) != 0)
+		return FALSE;
 
 	if (fileSize < 1)
 		return FALSE;
@@ -360,7 +373,7 @@ void SamClose(WINPR_SAM* sam)
 	if (sam != NULL)
 	{
 		if (sam->fp)
-			fclose(sam->fp);
+			(void)fclose(sam->fp);
 		free(sam);
 	}
 }

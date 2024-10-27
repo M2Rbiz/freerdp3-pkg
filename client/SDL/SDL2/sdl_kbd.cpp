@@ -25,18 +25,19 @@
 
 #include <map>
 
+#include <freerdp/utils/string.h>
 #include <freerdp/scancode.h>
 
 #include <freerdp/log.h>
 #define TAG CLIENT_TAG("SDL.kbd")
 
-typedef struct
+using scancode_entry_t = struct
 {
 	Uint32 sdl;
 	const char* sdl_name;
 	UINT32 rdp;
 	const char* rdp_name;
-} scancode_entry_t;
+};
 
 #define STR(x) #x
 #define ENTRY(x, y)      \
@@ -292,7 +293,7 @@ static const scancode_entry_t map[] = {
 #endif
 };
 
-static UINT32 sdl_get_kbd_flags(void)
+static UINT32 sdl_get_kbd_flags()
 {
 	UINT32 flags = 0;
 
@@ -507,14 +508,7 @@ std::list<std::string> sdlInput::tokenize(const std::string& data, const std::st
 
 bool sdlInput::extract(const std::string& token, uint32_t& key, uint32_t& value)
 {
-	int rc = sscanf(token.c_str(), "%" PRIu32 "=%" PRIu32, &key, &value);
-	if (rc != 2)
-		rc = sscanf(token.c_str(), "%" PRIx32 "=%" PRIx32 "", &key, &value);
-	if (rc != 2)
-		rc = sscanf(token.c_str(), "%" PRIu32 "=%" PRIx32, &key, &value);
-	if (rc != 2)
-		rc = sscanf(token.c_str(), "%" PRIx32 "=%" PRIu32, &key, &value);
-	return (rc == 2);
+	return freerdp_extract_key_value(token.c_str(), &key, &value);
 }
 
 uint32_t sdlInput::remapScancode(uint32_t scancode)
@@ -581,6 +575,11 @@ BOOL sdlInput::keyboard_handle_event(const SDL_KeyboardEvent* ev)
 				freerdp_abort_connect_context(_sdl->context());
 				return TRUE;
 			}
+			if (ev->keysym.scancode == _hotkeyMinimize)
+			{
+				_sdl->update_minimize();
+				return TRUE;
+			}
 		}
 	}
 
@@ -623,11 +622,13 @@ BOOL sdlInput::mouse_grab(Uint32 windowID, SDL_bool enable)
 	return it->second.grabMouse(enable);
 }
 
-sdlInput::sdlInput(SdlContext* sdl) : _sdl(sdl), _lastWindowID(UINT32_MAX)
+sdlInput::sdlInput(SdlContext* sdl)
+    : _sdl(sdl), _lastWindowID(UINT32_MAX), _hotkeyModmask(prefToMask())
 {
-	_hotkeyModmask = prefToMask();
+
 	_hotkeyFullscreen = prefKeyValue("SDL_Fullscreen", SDL_SCANCODE_RETURN);
 	_hotkeyResizable = prefKeyValue("SDL_Resizeable", SDL_SCANCODE_R);
 	_hotkeyGrab = prefKeyValue("SDL_Grab", SDL_SCANCODE_G);
 	_hotkeyDisconnect = prefKeyValue("SDL_Disconnect", SDL_SCANCODE_D);
+	_hotkeyMinimize = prefKeyValue("SDL_Minimize", SDL_SCANCODE_M);
 }

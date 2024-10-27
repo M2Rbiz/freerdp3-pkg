@@ -20,6 +20,7 @@
  */
 #include <freerdp/config.h>
 
+#include <winpr/winpr.h>
 #include <winpr/library.h>
 #include <winpr/assert.h>
 
@@ -228,7 +229,7 @@ static int openh264_compress(H264_CONTEXT* WINPR_RESTRICT h264,
 			return status;
 		}
 
-		EUsageType usageType;
+		EUsageType usageType = SCREEN_CONTENT_REAL_TIME;
 
 		switch (h264->UsageType)
 		{
@@ -243,7 +244,6 @@ static int openh264_compress(H264_CONTEXT* WINPR_RESTRICT h264,
 				break;
 			case H264_SCREEN_CONTENT_REAL_TIME:
 			default:
-				usageType = SCREEN_CONTENT_REAL_TIME;
 				break;
 		}
 
@@ -381,9 +381,9 @@ static int openh264_compress(H264_CONTEXT* WINPR_RESTRICT h264,
 	pic.iStride[0] = (int)iStride[0];
 	pic.iStride[1] = (int)iStride[1];
 	pic.iStride[2] = (int)iStride[2];
-	pic.pData[0] = (unsigned char*)pYUVData[0];
-	pic.pData[1] = (unsigned char*)pYUVData[1];
-	pic.pData[2] = (unsigned char*)pYUVData[2];
+	pic.pData[0] = WINPR_CAST_CONST_PTR_AWAY(pYUVData[0], BYTE*);
+	pic.pData[1] = WINPR_CAST_CONST_PTR_AWAY(pYUVData[1], BYTE*);
+	pic.pData[2] = WINPR_CAST_CONST_PTR_AWAY(pYUVData[2], BYTE*);
 
 	WINPR_ASSERT((*sys->pEncoder)->EncodeFrame);
 	status = (*sys->pEncoder)->EncodeFrame(sys->pEncoder, &pic, &info);
@@ -467,15 +467,15 @@ static BOOL openh264_load_functionpointers(H264_CONTEXT* h264, const char* name)
 		return FALSE;
 
 	sysContexts->WelsGetCodecVersionEx =
-	    (pWelsGetCodecVersionEx)GetProcAddress(sysContexts->lib, "WelsGetCodecVersionEx");
+	    GetProcAddressAs(sysContexts->lib, "WelsGetCodecVersionEx", pWelsGetCodecVersionEx);
 	sysContexts->WelsCreateDecoder =
-	    (pWelsCreateDecoder)GetProcAddress(sysContexts->lib, "WelsCreateDecoder");
+	    GetProcAddressAs(sysContexts->lib, "WelsCreateDecoder", pWelsCreateDecoder);
 	sysContexts->WelsDestroyDecoder =
-	    (pWelsDestroyDecoder)GetProcAddress(sysContexts->lib, "WelsDestroyDecoder");
+	    GetProcAddressAs(sysContexts->lib, "WelsDestroyDecoder", pWelsDestroyDecoder);
 	sysContexts->WelsCreateSVCEncoder =
-	    (pWelsCreateSVCEncoder)GetProcAddress(sysContexts->lib, "WelsCreateSVCEncoder");
+	    GetProcAddressAs(sysContexts->lib, "WelsCreateSVCEncoder", pWelsCreateSVCEncoder);
 	sysContexts->WelsDestroySVCEncoder =
-	    (pWelsDestroySVCEncoder)GetProcAddress(sysContexts->lib, "WelsDestroySVCEncoder");
+	    GetProcAddressAs(sysContexts->lib, "WelsDestroySVCEncoder", pWelsDestroySVCEncoder);
 
 	if (!sysContexts->WelsCreateDecoder || !sysContexts->WelsDestroyDecoder ||
 	    !sysContexts->WelsCreateSVCEncoder || !sysContexts->WelsDestroySVCEncoder ||

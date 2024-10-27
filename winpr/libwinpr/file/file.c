@@ -83,7 +83,7 @@ static BOOL FileCloseHandle(HANDLE handle)
 		/* Don't close stdin/stdout/stderr */
 		if (fileno(file->fp) > 2)
 		{
-			fclose(file->fp);
+			(void)fclose(file->fp);
 			file->fp = NULL;
 		}
 	}
@@ -116,8 +116,10 @@ static BOOL FileSetEndOfFile(HANDLE hFile)
 	return TRUE;
 }
 
-static DWORD FileSetFilePointer(HANDLE hFile, LONG lDistanceToMove, PLONG lpDistanceToMoveHigh,
-                                DWORD dwMoveMethod)
+// NOLINTBEGIN(readability-non-const-parameter)
+static DWORD FileSetFilePointer(HANDLE hFile, LONG lDistanceToMove,
+                                const PLONG lpDistanceToMoveHigh, DWORD dwMoveMethod)
+// NOLINTEND(readability-non-const-parameter)
 {
 	WINPR_FILE* pFile = (WINPR_FILE*)hFile;
 	INT64 offset = 0;
@@ -371,13 +373,13 @@ static BOOL FileGetFileInformationByHandle(HANDLE hFile,
 #else
 	ft = STAT_TIME_TO_FILETIME(st.st_ctime);
 #endif
-	lpFileInformation->ftCreationTime.dwHighDateTime = ((UINT64)ft) >> 32ULL;
+	lpFileInformation->ftCreationTime.dwHighDateTime = (ft) >> 32ULL;
 	lpFileInformation->ftCreationTime.dwLowDateTime = ft & 0xFFFFFFFF;
 	ft = STAT_TIME_TO_FILETIME(st.st_mtime);
-	lpFileInformation->ftLastWriteTime.dwHighDateTime = ((UINT64)ft) >> 32ULL;
+	lpFileInformation->ftLastWriteTime.dwHighDateTime = (ft) >> 32ULL;
 	lpFileInformation->ftLastWriteTime.dwLowDateTime = ft & 0xFFFFFFFF;
 	ft = STAT_TIME_TO_FILETIME(st.st_atime);
-	lpFileInformation->ftLastAccessTime.dwHighDateTime = ((UINT64)ft) >> 32ULL;
+	lpFileInformation->ftLastAccessTime.dwHighDateTime = (ft) >> 32ULL;
 	lpFileInformation->ftLastAccessTime.dwLowDateTime = ft & 0xFFFFFFFF;
 	lpFileInformation->nFileSizeHigh = ((UINT64)st.st_size) >> 32ULL;
 	lpFileInformation->nFileSizeLow = st.st_size & 0xFFFFFFFF;
@@ -553,10 +555,10 @@ static BOOL FileUnlockFileEx(HANDLE hFile, DWORD dwReserved, DWORD nNumberOfByte
 	return TRUE;
 }
 
-static UINT64 FileTimeToUS(const FILETIME* ft)
+static INT64 FileTimeToUS(const FILETIME* ft)
 {
-	const UINT64 EPOCH_DIFF_US = EPOCH_DIFF * 1000000ULL;
-	UINT64 tmp = ((UINT64)ft->dwHighDateTime) << 32 | ft->dwLowDateTime;
+	const INT64 EPOCH_DIFF_US = EPOCH_DIFF * 1000000LL;
+	INT64 tmp = ((INT64)ft->dwHighDateTime) << 32 | ft->dwLowDateTime;
 	tmp /= 10; /* 100ns steps to 1us step */
 	tmp -= EPOCH_DIFF_US;
 	return tmp;
@@ -566,10 +568,10 @@ static UINT64 FileTimeToUS(const FILETIME* ft)
 static struct timespec filetimeToTimespec(const FILETIME* ftime)
 {
 	WINPR_ASSERT(ftime);
-	UINT64 tmp = FileTimeToUS(ftime);
+	INT64 tmp = FileTimeToUS(ftime);
 	struct timespec ts = { 0 };
-	ts.tv_sec = tmp / 1000000ULL;
-	ts.tv_nsec = (tmp % 1000000ULL) * 1000ULL;
+	ts.tv_sec = tmp / 1000000LL;
+	ts.tv_nsec = (tmp % 1000000LL) * 1000LL;
 	return ts;
 }
 
@@ -648,8 +650,8 @@ static BOOL FileSetFileTime(HANDLE hFile, const FILETIME* lpCreationTime,
 
 	// TODO: Creation time can not be handled!
 	{
-		const int rc = utimes(pFile->lpFileName, timevals);
-		if (rc != 0)
+		const int res = utimes(pFile->lpFileName, timevals);
+		if (res != 0)
 			return FALSE;
 	}
 
@@ -916,7 +918,7 @@ static HANDLE FileCreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dw
 		return INVALID_HANDLE_VALUE;
 	}
 
-	setvbuf(fp, NULL, _IONBF, 0);
+	(void)setvbuf(fp, NULL, _IONBF, 0);
 
 #ifdef __sun
 	lock.l_start = 0;
@@ -974,11 +976,11 @@ static BOOL IsFileDevice(LPCTSTR lpDeviceName)
 	return TRUE;
 }
 
-static HANDLE_CREATOR _FileHandleCreator = { IsFileDevice, FileCreateFileA };
+static const HANDLE_CREATOR FileHandleCreator = { IsFileDevice, FileCreateFileA };
 
-HANDLE_CREATOR* GetFileHandleCreator(void)
+const HANDLE_CREATOR* GetFileHandleCreator(void)
 {
-	return &_FileHandleCreator;
+	return &FileHandleCreator;
 }
 
 static WINPR_FILE* FileHandle_New(FILE* fp)
@@ -986,7 +988,7 @@ static WINPR_FILE* FileHandle_New(FILE* fp)
 	WINPR_FILE* pFile = NULL;
 	char name[MAX_PATH] = { 0 };
 
-	_snprintf(name, sizeof(name), "device_%d", fileno(fp));
+	(void)_snprintf(name, sizeof(name), "device_%d", fileno(fp));
 	pFile = (WINPR_FILE*)calloc(1, sizeof(WINPR_FILE));
 	if (!pFile)
 	{
@@ -1343,7 +1345,7 @@ DWORD GetFullPathNameA(LPCSTR lpFileName, DWORD nBufferLength, LPSTR lpBuffer, L
 
 	dwStatus = GetFullPathNameW(lpFileNameW, nBufferLengthW, lpBufferW, &lpFilePartW);
 
-	ConvertWCharNToUtf8(lpBufferW, nBufferLengthW / sizeof(WCHAR), lpBuffer, nBufferLength);
+	(void)ConvertWCharNToUtf8(lpBufferW, nBufferLengthW / sizeof(WCHAR), lpBuffer, nBufferLength);
 
 	if (lpFilePart)
 		lpFilePart = lpBuffer + (lpFilePartW - lpBufferW);
@@ -1454,7 +1456,7 @@ HANDLE GetFileHandleForFileDescriptor(int fd)
 	if (!fp)
 		return INVALID_HANDLE_VALUE;
 
-	setvbuf(fp, NULL, _IONBF, 0);
+	(void)setvbuf(fp, NULL, _IONBF, 0);
 
 	pFile = FileHandle_New(fp);
 	if (!pFile)

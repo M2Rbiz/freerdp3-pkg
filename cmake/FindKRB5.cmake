@@ -77,7 +77,7 @@ endfunction()
 
 function(GET_KRB5_BY_CONFIG KRB5_CONFIG)
   if (NOT KRB5_CONFIG)
-  find_file(KRB5_CONFIG
+  find_program(KRB5_CONFIG
     NAMES
     "krb5-config"
     "krb5-config.mit"
@@ -89,6 +89,9 @@ function(GET_KRB5_BY_CONFIG KRB5_CONFIG)
     REQUIRED
   )
   message("autodetected krb5-config at ${KRB5_CONFIG}")
+  if (NOT KRB5_CONFIG)
+  	return()
+  endif()
   else()
   message("using krb5-config ${KRB5_CONFIG} provided by KRB5_ROOT_CONFIG")
   endif()
@@ -195,17 +198,17 @@ elseif(KRB5_ANY_FOUND)
   GET_KRB5_VENDOR(ANY_VENDOR)
   PROVIDES_KRB5(NAME "${ANY_VENDOR}")
 else()
-  GET_KRB5_BY_CONFIG(${KRB5_ROOT_CONFIG})
+  GET_KRB5_BY_CONFIG("${KRB5_ROOT_CONFIG}")
 endif()
 
-#message("using KRB5_FOUND ${KRB5_FOUND} ")
-#message("using KRB5_VERSION ${KRB5_VERSION} ")
-#message("using KRB5_FLAVOUR ${KRB5_FLAVOUR} ")
-#message("using KRB5_CFLAGS ${KRB5_CFLAGS} ")
-#message("using KRB5_LDFLAGS ${KRB5_LDFLAGS} ")
-#message("using KRB5_INCLUDEDIR ${KRB5_INCLUDEDIR} ")
-#message("using KRB5_INCLUDE_DIRS ${KRB5_INCLUDEDIR} ")
-#message("using KRB5_LIBRARIES ${KRB5_LIBRARIES} ")
+message("using KRB5_FOUND ${KRB5_FOUND} ")
+message("using KRB5_VERSION ${KRB5_VERSION} ")
+message("using KRB5_FLAVOUR ${KRB5_FLAVOUR} ")
+message("using KRB5_CFLAGS ${KRB5_CFLAGS} ")
+message("using KRB5_LDFLAGS ${KRB5_LDFLAGS} ")
+message("using KRB5_INCLUDEDIR ${KRB5_INCLUDEDIR} ")
+message("using KRB5_INCLUDE_DIRS ${KRB5_INCLUDE_DIRS} ")
+message("using KRB5_LIBRARIES ${KRB5_LIBRARIES} ")
 
 include(FindPackageHandleStandardArgs)
 

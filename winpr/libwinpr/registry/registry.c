@@ -354,8 +354,10 @@ static LONG reg_read_int(const RegVal* pValue, LPBYTE lpData, LPDWORD lpcbData)
 	return ERROR_SUCCESS;
 }
 
+// NOLINTBEGIN(readability-non-const-parameter)
 LONG RegQueryValueExW(HKEY hKey, LPCWSTR lpValueName, LPDWORD lpReserved, LPDWORD lpType,
                       LPBYTE lpData, LPDWORD lpcbData)
+// NOLINTEND(readability-non-const-parameter)
 {
 	LONG status = ERROR_FILE_NOT_FOUND;
 	RegKey* key = NULL;
@@ -385,11 +387,13 @@ LONG RegQueryValueExW(HKEY hKey, LPCWSTR lpValueName, LPDWORD lpReserved, LPDWOR
 				case REG_DWORD_BIG_ENDIAN:
 				case REG_QWORD:
 				case REG_DWORD:
-					return reg_read_int(pValue, lpData, lpcbData);
+					status = reg_read_int(pValue, lpData, lpcbData);
+					goto end;
 				case REG_SZ:
 				{
 					const size_t length = strnlen(pValue->data.string, UINT32_MAX) * sizeof(WCHAR);
 
+					status = ERROR_SUCCESS;
 					if (lpData != NULL)
 					{
 						DWORD size = 0;
@@ -404,14 +408,13 @@ LONG RegQueryValueExW(HKEY hKey, LPCWSTR lpValueName, LPDWORD lpReserved, LPDWOR
 						size = *lpcbData;
 						*lpcbData = (DWORD)length;
 						if (size < length)
-							return ERROR_MORE_DATA;
+							status = ERROR_MORE_DATA;
 						if (ConvertUtf8NToWChar(pValue->data.string, length, cnv.wc, length) < 0)
-							return ERROR_OUTOFMEMORY;
+							status = ERROR_OUTOFMEMORY;
 					}
 					else if (lpcbData)
 						*lpcbData = (UINT32)length;
 
-					status = ERROR_SUCCESS;
 					goto end;
 				}
 				default:
@@ -430,8 +433,10 @@ end:
 	return status;
 }
 
+// NOLINTBEGIN(readability-non-const-parameter)
 LONG RegQueryValueExA(HKEY hKey, LPCSTR lpValueName, LPDWORD lpReserved, LPDWORD lpType,
                       LPBYTE lpData, LPDWORD lpcbData)
+// NOLINTEND(readability-non-const-parameter)
 {
 	RegKey* key = NULL;
 	RegVal* pValue = NULL;

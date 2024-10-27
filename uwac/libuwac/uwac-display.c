@@ -56,7 +56,7 @@ static bool uwac_default_error_handler(UwacDisplay* display, UwacReturnCode code
 {
 	va_list args;
 	va_start(args, msg);
-	vfprintf(stderr, "%s", args);
+	(void)vfprintf(stderr, "%s", args);
 	va_end(args);
 	return false;
 }
@@ -402,7 +402,9 @@ UwacDisplay* UwacOpenDisplay(const char* name, UwacReturnCode* err)
 
 	if (ret->display == NULL)
 	{
-		fprintf(stderr, "failed to connect to Wayland display %s: %s\n", name, strerror(errno));
+		char buffer[256] = { 0 };
+		(void)fprintf(stderr, "failed to connect to Wayland display %s: %s\n", name,
+		              uwac_strerror(errno, buffer, sizeof(buffer)));
 		*err = UWAC_ERROR_UNABLE_TO_CONNECT;
 		goto out_free;
 	}

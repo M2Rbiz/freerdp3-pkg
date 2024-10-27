@@ -187,7 +187,8 @@ static void StreamPool_ShiftAvailable(wStreamPool* pool, size_t index, INT64 cou
 
 wStream* StreamPool_Take(wStreamPool* pool, size_t size)
 {
-	SSIZE_T foundIndex = -1;
+	BOOL found = FALSE;
+	size_t foundIndex = 0;
 	wStream* s = NULL;
 
 	StreamPool_Lock(pool);
@@ -201,12 +202,13 @@ wStream* StreamPool_Take(wStreamPool* pool, size_t size)
 
 		if (Stream_Capacity(s) >= size)
 		{
+			found = TRUE;
 			foundIndex = index;
 			break;
 		}
 	}
 
-	if (foundIndex < 0)
+	if (!found)
 	{
 		s = Stream_New(NULL, size);
 		if (!s)
@@ -243,8 +245,8 @@ static void StreamPool_Remove(wStreamPool* pool, wStream* s)
 	for (size_t x = 0; x < pool->aSize; x++)
 	{
 		wStream* cs = pool->aArray[x];
-
-		WINPR_ASSERT(cs != s);
+		if (cs == s)
+			return;
 	}
 	pool->aArray[(pool->aSize)++] = s;
 	StreamPool_RemoveUsed(pool, s);
@@ -301,27 +303,26 @@ void Stream_Release(wStream* s)
  * Find stream in pool using pointer inside buffer
  */
 
-wStream* StreamPool_Find(wStreamPool* pool, BYTE* ptr)
+wStream* StreamPool_Find(wStreamPool* pool, const BYTE* ptr)
 {
 	wStream* s = NULL;
-	BOOL found = FALSE;
 
 	StreamPool_Lock(pool);
 
 	for (size_t index = 0; index < pool->uSize; index++)
 	{
-		s = pool->uArray[index];
+		wStream* cur = pool->uArray[index];
 
-		if ((ptr >= Stream_Buffer(s)) && (ptr < (Stream_Buffer(s) + Stream_Capacity(s))))
+		if ((ptr >= Stream_Buffer(cur)) && (ptr < (Stream_Buffer(cur) + Stream_Capacity(cur))))
 		{
-			found = TRUE;
+			s = cur;
 			break;
 		}
 	}
 
 	StreamPool_Unlock(pool);
 
-	return (found) ? s : NULL;
+	return s;
 }
 
 /**
@@ -400,9 +401,10 @@ char* StreamPool_GetStatistics(wStreamPool* pool, char* buffer, size_t size)
 
 	if (!buffer || (size < 1))
 		return NULL;
-	_snprintf(buffer, size - 1,
-	          "aSize    =%" PRIuz ", uSize    =%" PRIuz "aCapacity=%" PRIuz ", uCapacity=%" PRIuz,
-	          pool->aSize, pool->uSize, pool->aCapacity, pool->uCapacity);
+	(void)_snprintf(buffer, size - 1,
+	                "aSize    =%" PRIuz ", uSize    =%" PRIuz "aCapacity=%" PRIuz
+	                ", uCapacity=%" PRIuz,
+	                pool->aSize, pool->uSize, pool->aCapacity, pool->uCapacity);
 	buffer[size - 1] = '\0';
 	return buffer;
 }

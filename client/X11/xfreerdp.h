@@ -223,6 +223,7 @@ struct xf_context
 
 	Atom _NET_WM_ICON;
 	Atom _MOTIF_WM_HINTS;
+	Atom _NET_NUMBER_OF_DESKTOPS;
 	Atom _NET_CURRENT_DESKTOP;
 	Atom _NET_WORKAREA;
 
@@ -230,11 +231,18 @@ struct xf_context
 	Atom _NET_SUPPORTING_WM_CHECK;
 
 	Atom _NET_WM_STATE;
-	Atom _NET_WM_STATE_FULLSCREEN;
-	Atom _NET_WM_STATE_MAXIMIZED_HORZ;
+	Atom _NET_WM_STATE_MODAL;
+	Atom _NET_WM_STATE_STICKY;
 	Atom _NET_WM_STATE_MAXIMIZED_VERT;
+	Atom _NET_WM_STATE_MAXIMIZED_HORZ;
+	Atom _NET_WM_STATE_SHADED;
 	Atom _NET_WM_STATE_SKIP_TASKBAR;
 	Atom _NET_WM_STATE_SKIP_PAGER;
+	Atom _NET_WM_STATE_HIDDEN;
+	Atom _NET_WM_STATE_FULLSCREEN;
+	Atom _NET_WM_STATE_ABOVE;
+	Atom _NET_WM_STATE_BELOW;
+	Atom _NET_WM_STATE_DEMANDS_ATTENTION;
 
 	Atom _NET_WM_FULLSCREEN_MONITORS;
 
@@ -306,11 +314,13 @@ struct xf_context
 	BOOL xi_rawevent;
 	BOOL xi_event;
 	HANDLE pipethread;
+	wLog* log;
 };
 
 BOOL xf_create_window(xfContext* xfc);
 BOOL xf_create_image(xfContext* xfc);
 void xf_toggle_fullscreen(xfContext* xfc);
+void xf_minimize(xfContext* xfc);
 
 enum XF_EXIT_CODE
 {
@@ -396,6 +406,6 @@ void xf_draw_screen_(xfContext* xfc, int x, int y, int w, int h, const char* fkt
 
 BOOL xf_keyboard_update_modifier_map(xfContext* xfc);
 
-DWORD xf_exit_code_from_disconnect_reason(DWORD reason);
+int xf_exit_code_from_disconnect_reason(DWORD reason);
 
 #endif /* FREERDP_CLIENT_X11_FREERDP_H */

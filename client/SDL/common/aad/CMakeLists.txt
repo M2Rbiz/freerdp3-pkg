@@ -16,9 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 set(WITH_WEBVIEW_DEFAULT OFF)
-if (UNIX AND NOT APPLE)
-    set(WITH_WEBVIEW_DEFAULT ON)
-endif()
 
 option(WITH_WEBVIEW "Build with WebView support for AAD login popup browser" ${WITH_WEBVIEW_DEFAULT})
 if (WITH_WEBVIEW)
@@ -60,7 +57,7 @@ if (WITH_WEBVIEW)
       if (NOT WEBVIEW_GTK_FOUND)
         pkg_check_modules(WEBVIEW_GTK webkit2gtk-4.0 REQUIRED)
       endif()
-      include_directories(${WEBVIEW_GTK_INCLUDE_DIRS})
+      include_directories(SYSTEM ${WEBVIEW_GTK_INCLUDE_DIRS})
       list(APPEND LIBS
         ${WEBVIEW_GTK_LIBRARIES}
       )
@@ -72,7 +69,7 @@ else()
   )
 endif()
 
-configure_file(sdl_config.hpp.in sdl_config.hpp @ONLY)
+cleaning_configure_file(sdl_config.hpp.in sdl_config.hpp @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_library(sdl-common-aad-view STATIC

@@ -19,8 +19,6 @@
 
 #include <winpr/config.h>
 
-#if defined __linux__ && !defined ANDROID
-
 #include <winpr/assert.h>
 #include <errno.h>
 #include <termios.h>
@@ -44,7 +42,7 @@ BOOL _comm_set_permissive(HANDLE hDevice, BOOL permissive)
 }
 
 /* Computes VTIME in deciseconds from Ti in milliseconds */
-static UCHAR _vtime(ULONG Ti)
+static UCHAR svtime(ULONG Ti)
 {
 	/* FIXME: look for an equivalent math function otherwise let
 	 * do the compiler do the optimization */
@@ -77,7 +75,7 @@ BOOL CommReadFile(HANDLE hDevice, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
 	COMMTIMEOUTS* pTimeouts = NULL;
 	UCHAR vmin = 0;
 	UCHAR vtime = 0;
-	ULONGLONG Tmax = 0;
+	LONGLONG Tmax = 0;
 	struct timeval tmaxTimeout;
 	struct timeval* pTmaxTimeout = NULL;
 	struct termios currentTermios;
@@ -171,7 +169,7 @@ BOOL CommReadFile(HANDLE hDevice, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
 	if ((pTimeouts->ReadIntervalTimeout > 0) && (pTimeouts->ReadIntervalTimeout < MAXULONG))
 	{
 		/* Ti */
-		vtime = _vtime(pTimeouts->ReadIntervalTimeout);
+		vtime = svtime(pTimeouts->ReadIntervalTimeout);
 	}
 
 	/* TMAX */
@@ -186,8 +184,8 @@ BOOL CommReadFile(HANDLE hDevice, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
 	else
 	{
 		/* Tmax */
-		Tmax = 1ull * nNumberOfBytesToRead * pTimeouts->ReadTotalTimeoutMultiplier +
-		       1ull * pTimeouts->ReadTotalTimeoutConstant;
+		Tmax = 1ll * nNumberOfBytesToRead * pTimeouts->ReadTotalTimeoutMultiplier +
+		       1ll * pTimeouts->ReadTotalTimeoutConstant;
 
 		/* INDEFinitely */
 		if ((Tmax == 0) && (pTimeouts->ReadIntervalTimeout < MAXULONG) &&
@@ -227,7 +225,9 @@ BOOL CommReadFile(HANDLE hDevice, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
 	/* FIXME: had expected eventfd_write() to return EAGAIN when
 	 * there is no eventfd_read() but this not the case. */
 	/* discard a possible and no more relevant event */
+#if defined(WINPR_HAVE_SYS_EVENTFD_H)
 	eventfd_read(pComm->fd_read_event, NULL);
+#endif
 	biggestFd = pComm->fd_read;
 
 	if (pComm->fd_read_event > biggestFd)
@@ -260,6 +260,7 @@ BOOL CommReadFile(HANDLE hDevice, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
 
 	if (FD_ISSET(pComm->fd_read_event, &read_set))
 	{
+#if defined(WINPR_HAVE_SYS_EVENTFD_H)
 		eventfd_t event = 0;
 
 		if (eventfd_read(pComm->fd_read_event, &event) < 0)
@@ -288,6 +289,7 @@ BOOL CommReadFile(HANDLE hDevice, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
 		}
 
 		WINPR_ASSERT(event == WINPR_PURGE_RXABORT); /* no other expected event so far */
+#endif
 	}
 
 	if (FD_ISSET(pComm->fd_read, &read_set))
@@ -396,10 +398,14 @@ BOOL CommWriteFile(HANDLE hDevice, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite
 	/* FIXME: had expected eventfd_write() to return EAGAIN when
 	 * there is no eventfd_read() but this not the case. */
 	/* discard a possible and no more relevant event */
+
+#if defined(WINPR_HAVE_SYS_EVENTFD_H)
 	eventfd_read(pComm->fd_write_event, NULL);
+#endif
+
 	/* ms */
-	ULONGLONG Tmax = 1ull * nNumberOfBytesToWrite * pComm->timeouts.WriteTotalTimeoutMultiplier +
-	                 1ull * pComm->timeouts.WriteTotalTimeoutConstant;
+	LONGLONG Tmax = 1ll * nNumberOfBytesToWrite * pComm->timeouts.WriteTotalTimeoutMultiplier +
+	                1ll * pComm->timeouts.WriteTotalTimeoutConstant;
 	/* NB: select() may update the timeout argument to indicate
 	 * how much time was left. Keep the timeout variable out of
 	 * the while() */
@@ -458,6 +464,7 @@ BOOL CommWriteFile(HANDLE hDevice, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite
 
 		if (FD_ISSET(pComm->fd_write_event, &event_set))
 		{
+#if defined(WINPR_HAVE_SYS_EVENTFD_H)
 			eventfd_t event = 0;
 
 			if (eventfd_read(pComm->fd_write_event, &event) < 0)
@@ -486,6 +493,7 @@ BOOL CommWriteFile(HANDLE hDevice, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite
 			}
 
 			WINPR_ASSERT(event == WINPR_PURGE_TXABORT); /* no other expected event so far */
+#endif
 		}
 
 		/* write_set */
@@ -545,5 +553,3 @@ return_false:
 	LeaveCriticalSection(&pComm->WriteLock);
 	return FALSE;
 }
-
-#endif /* __linux__ */

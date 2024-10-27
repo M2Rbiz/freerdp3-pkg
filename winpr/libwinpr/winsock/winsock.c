@@ -736,8 +736,7 @@ BOOL WSAResetEvent(HANDLE hEvent)
 
 BOOL WSACloseEvent(HANDLE hEvent)
 {
-	BOOL status = 0;
-	status = CloseHandle(hEvent);
+	BOOL status = CloseHandle(hEvent);
 
 	if (!status)
 		SetLastError(6);
@@ -762,7 +761,7 @@ int WSAEventSelect(SOCKET s, WSAEVENT hEventObject, LONG lNetworkEvents)
 	if (lNetworkEvents & FD_WRITE)
 		mode |= WINPR_FD_WRITE;
 
-	if (SetEventFileDescriptor(hEventObject, s, mode) < 0)
+	if (SetEventFileDescriptor(hEventObject, (int)s, mode) < 0)
 		return SOCKET_ERROR;
 
 	return 0;
@@ -798,13 +797,13 @@ int WSAIoctl(SOCKET s, DWORD dwIoControlCode, LPVOID lpvInBuffer, DWORD cbInBuff
 	size_t offset = 0;
 	size_t ifreq_len = 0;
 	struct ifreq* ifreq = NULL;
-	struct ifconf ifconf;
-	char address[128];
-	char broadcast[128];
-	char netmask[128];
-	char buffer[4096];
-	int numInterfaces = 0;
-	int maxNumInterfaces = 0;
+	struct ifconf ifconf = { 0 };
+	char address[128] = { 0 };
+	char broadcast[128] = { 0 };
+	char netmask[128] = { 0 };
+	char buffer[4096] = { 0 };
+	size_t numInterfaces = 0;
+	size_t maxNumInterfaces = 0;
 	INTERFACE_INFO* pInterface = NULL;
 	INTERFACE_INFO* pInterfaces = NULL;
 	struct sockaddr_in* pAddress = NULL;
@@ -1007,7 +1006,7 @@ SOCKET _accept(SOCKET s, struct sockaddr* addr, int* addrlen)
 	int fd = (int)s;
 	socklen_t s_addrlen = (socklen_t)*addrlen;
 	status = accept(fd, addr, &s_addrlen);
-	*addrlen = (socklen_t)s_addrlen;
+	*addrlen = (int)s_addrlen;
 	return status;
 }
 
@@ -1043,6 +1042,7 @@ int _connect(SOCKET s, const struct sockaddr* name, int namelen)
 	return status;
 }
 
+// NOLINTNEXTLINE(readability-non-const-parameter)
 int _ioctlsocket(SOCKET s, long cmd, u_long* argp)
 {
 	int fd = (int)s;
@@ -1060,9 +1060,9 @@ int _ioctlsocket(SOCKET s, long cmd, u_long* argp)
 			return SOCKET_ERROR;
 
 		if (*argp)
-			fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+			(void)fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 		else
-			fcntl(fd, F_SETFL, flags & ~(O_NONBLOCK));
+			(void)fcntl(fd, F_SETFL, flags & ~(O_NONBLOCK));
 	}
 
 	return 0;
@@ -1094,7 +1094,7 @@ int _getsockopt(SOCKET s, int level, int optname, char* optval, int* optlen)
 	int fd = (int)s;
 	socklen_t s_optlen = (socklen_t)*optlen;
 	status = getsockopt(fd, level, optname, (void*)optval, &s_optlen);
-	*optlen = (socklen_t)s_optlen;
+	*optlen = (int)s_optlen;
 	return status;
 }
 

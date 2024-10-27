@@ -63,6 +63,7 @@ static const char* PTYPE_STRINGS[] = { "PTYPE_REQUEST",       "PTYPE_PING",
 
 static const char* client_in_state_str(CLIENT_IN_CHANNEL_STATE state)
 {
+	// NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
 	const char* str = "CLIENT_IN_CHANNEL_STATE_UNKNOWN";
 
 	switch (state)
@@ -94,12 +95,15 @@ static const char* client_in_state_str(CLIENT_IN_CHANNEL_STATE state)
 		case CLIENT_IN_CHANNEL_STATE_FINAL:
 			str = "CLIENT_IN_CHANNEL_STATE_FINAL";
 			break;
+		default:
+			break;
 	}
 	return str;
 }
 
 static const char* client_out_state_str(CLIENT_OUT_CHANNEL_STATE state)
 {
+	// NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
 	const char* str = "CLIENT_OUT_CHANNEL_STATE_UNKNOWN";
 
 	switch (state)
@@ -143,12 +147,15 @@ static const char* client_out_state_str(CLIENT_OUT_CHANNEL_STATE state)
 		case CLIENT_OUT_CHANNEL_STATE_FINAL:
 			str = "CLIENT_OUT_CHANNEL_STATE_FINAL";
 			break;
+		default:
+			break;
 	}
 	return str;
 }
 
 const char* rpc_vc_state_str(VIRTUAL_CONNECTION_STATE state)
 {
+	// NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
 	const char* str = "VIRTUAL_CONNECTION_STATE_UNKNOWN";
 
 	switch (state)
@@ -175,6 +182,8 @@ const char* rpc_vc_state_str(VIRTUAL_CONNECTION_STATE state)
 
 		case VIRTUAL_CONNECTION_STATE_FINAL:
 			str = "VIRTUAL_CONNECTION_STATE_FINAL";
+			break;
+		default:
 			break;
 	}
 	return str;
@@ -474,13 +483,10 @@ SSIZE_T rpc_channel_read(RpcChannel* channel, wStream* s, size_t length)
 
 SSIZE_T rpc_channel_write(RpcChannel* channel, const BYTE* data, size_t length)
 {
-	int status = 0;
-
-	if (!channel || (length > INT32_MAX))
+	if (!channel)
 		return -1;
 
-	status = freerdp_tls_write_all(channel->tls, data, (INT32)length);
-	return status;
+	return freerdp_tls_write_all(channel->tls, data, length);
 }
 
 BOOL rpc_in_channel_transition_to_state(RpcInChannel* inChannel, CLIENT_IN_CHANNEL_STATE state)
@@ -701,49 +707,42 @@ fail:
 
 static BOOL rpc_channel_tls_connect(RpcChannel* channel, UINT32 timeout)
 {
-	int sockfd = 0;
-	rdpTls* tls = NULL;
-	int tlsStatus = 0;
-	BIO* socketBio = NULL;
-	BIO* bufferedBio = NULL;
-	rdpContext* context = NULL;
-	rdpSettings* settings = NULL;
-	const char* proxyUsername = NULL;
-	const char* proxyPassword = NULL;
-
 	if (!channel || !channel->client || !channel->client->context ||
 	    !channel->client->context->settings)
 		return FALSE;
 
-	context = channel->client->context;
-	settings = context->settings;
-	proxyUsername = freerdp_settings_get_string(settings, FreeRDP_ProxyUsername);
-	proxyPassword = freerdp_settings_get_string(settings, FreeRDP_ProxyPassword);
-	{
-		sockfd =
-		    freerdp_tcp_connect(context, channel->client->host, channel->client->port, timeout);
+	rdpContext* context = channel->client->context;
+	WINPR_ASSERT(context);
 
-		if (sockfd < 0)
-			return FALSE;
-	}
-	socketBio = BIO_new(BIO_s_simple_socket());
+	rdpSettings* settings = context->settings;
+	WINPR_ASSERT(settings);
 
-	if (!socketBio)
+	const char* proxyUsername = freerdp_settings_get_string(settings, FreeRDP_ProxyUsername);
+	const char* proxyPassword = freerdp_settings_get_string(settings, FreeRDP_ProxyPassword);
+
+	rdpTransport* transport = freerdp_get_transport(context);
+	rdpTransportLayer* layer =
+	    transport_connect_layer(transport, channel->client->host, channel->client->port, timeout);
+
+	if (!layer)
+		return FALSE;
+
+	BIO* layerBio = BIO_new(BIO_s_transport_layer());
+	if (!layerBio)
 	{
-		closesocket(sockfd);
+		transport_layer_free(layer);
 		return FALSE;
 	}
+	BIO_set_data(layerBio, layer);
 
-	BIO_set_fd(socketBio, sockfd, BIO_CLOSE);
-	bufferedBio = BIO_new(BIO_s_buffered_socket());
-
+	BIO* bufferedBio = BIO_new(BIO_s_buffered_socket());
 	if (!bufferedBio)
 	{
-		BIO_free_all(socketBio);
+		BIO_free_all(layerBio);
 		return FALSE;
 	}
 
-	bufferedBio = BIO_push(bufferedBio, socketBio);
+	bufferedBio = BIO_push(bufferedBio, layerBio);
 
 	if (!BIO_set_nonblock(bufferedBio, TRUE))
 	{
@@ -753,7 +752,7 @@ static BOOL rpc_channel_tls_connect(RpcChannel* channel, UINT32 timeout)
 
 	if (channel->client->isProxy)
 	{
-		if (!proxy_connect(settings, bufferedBio, proxyUsername, proxyPassword,
+		if (!proxy_connect(context, bufferedBio, proxyUsername, proxyPassword,
 		                   settings->GatewayHostname, settings->GatewayPort))
 		{
 			BIO_free_all(bufferedBio);
@@ -762,15 +761,15 @@ static BOOL rpc_channel_tls_connect(RpcChannel* channel, UINT32 timeout)
 	}
 
 	channel->bio = bufferedBio;
-	tls = channel->tls = freerdp_tls_new(context);
+	rdpTls* tls = channel->tls = freerdp_tls_new(context);
 
 	if (!tls)
 		return FALSE;
 
 	tls->hostname = settings->GatewayHostname;
-	tls->port = settings->GatewayPort;
+	tls->port = MIN(UINT16_MAX, settings->GatewayPort);
 	tls->isGatewayTransport = TRUE;
-	tlsStatus = freerdp_tls_connect(tls, bufferedBio);
+	int tlsStatus = freerdp_tls_connect(tls, bufferedBio);
 
 	if (tlsStatus < 1)
 	{

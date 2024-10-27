@@ -43,8 +43,7 @@
 #include "../handle/handle.h"
 
 #include "../pipe/pipe.h"
-
-static HANDLE_CREATOR _NamedPipeClientHandleCreator;
+#include "namedPipeClient.h"
 
 static BOOL NamedPipeClientIsHandled(HANDLE handle)
 {
@@ -197,16 +196,16 @@ static HANDLE NamedPipeClientCreateFileA(LPCSTR lpFileName, DWORD dwDesiredAcces
 	pNamedPipe->serverfd = -1;
 	pNamedPipe->ServerMode = FALSE;
 	s.sun_family = AF_UNIX;
-	sprintf_s(s.sun_path, ARRAYSIZE(s.sun_path), "%s", pNamedPipe->lpFilePath);
+	(void)sprintf_s(s.sun_path, ARRAYSIZE(s.sun_path), "%s", pNamedPipe->lpFilePath);
 	status = connect(pNamedPipe->clientfd, (struct sockaddr*)&s, sizeof(struct sockaddr_un));
 	pNamedPipe->common.ops = &ops;
 
 	if (status != 0)
 	{
 		close(pNamedPipe->clientfd);
-		free((char*)pNamedPipe->name);
-		free((char*)pNamedPipe->lpFileName);
-		free((char*)pNamedPipe->lpFilePath);
+		free(pNamedPipe->name);
+		free(pNamedPipe->lpFileName);
+		free(pNamedPipe->lpFilePath);
 		free(pNamedPipe);
 		return INVALID_HANDLE_VALUE;
 	}
@@ -217,7 +216,7 @@ static HANDLE NamedPipeClientCreateFileA(LPCSTR lpFileName, DWORD dwDesiredAcces
 		int flags = fcntl(pNamedPipe->clientfd, F_GETFL);
 
 		if (flags != -1)
-			fcntl(pNamedPipe->clientfd, F_SETFL, flags | O_NONBLOCK);
+            (void)fcntl(pNamedPipe->clientfd, F_SETFL, flags | O_NONBLOCK);
 
 #endif
 	}
@@ -225,12 +224,12 @@ static HANDLE NamedPipeClientCreateFileA(LPCSTR lpFileName, DWORD dwDesiredAcces
 	return hNamedPipe;
 }
 
-extern HANDLE_CREATOR* GetNamedPipeClientHandleCreator(void);
-HANDLE_CREATOR* GetNamedPipeClientHandleCreator(void)
+const HANDLE_CREATOR* GetNamedPipeClientHandleCreator(void)
 {
-	_NamedPipeClientHandleCreator.IsHandled = IsNamedPipeFileNameA;
-	_NamedPipeClientHandleCreator.CreateFileA = NamedPipeClientCreateFileA;
-	return &_NamedPipeClientHandleCreator;
+	static const HANDLE_CREATOR NamedPipeClientHandleCreator = { .IsHandled = IsNamedPipeFileNameA,
+		                                                         .CreateFileA =
+		                                                             NamedPipeClientCreateFileA };
+	return &NamedPipeClientHandleCreator;
 }
 
 #endif
@@ -282,7 +281,7 @@ char* GetNamedPipeUnixDomainSocketFilePathA(LPCSTR lpName)
 	char* lpFilePath = NULL;
 	lpPipePath = GetNamedPipeUnixDomainSocketBaseFilePathA();
 	lpFileName = GetNamedPipeNameWithoutPrefixA(lpName);
-	lpFilePath = GetCombinedPath(lpPipePath, (char*)lpFileName);
+	lpFilePath = GetCombinedPath(lpPipePath, lpFileName);
 	free(lpPipePath);
 	free(lpFileName);
 	return lpFilePath;

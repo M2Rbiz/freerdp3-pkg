@@ -33,6 +33,7 @@
 #include <freerdp/client/tsmf.h>
 
 #include "xf_tsmf.h"
+#include "xf_utils.h"
 
 #ifdef WITH_XV
 
@@ -225,29 +226,30 @@ static int xf_tsmf_xv_video_frame_event(TsmfClientContext* tsmf, TSMF_VIDEO_FRAM
 			if (image->pitches[0] == event->frameWidth)
 			{
 				CopyMemory(image->data + image->offsets[0], event->frameData,
-				           event->frameWidth * event->frameHeight);
+				           1ULL * event->frameWidth * event->frameHeight);
 			}
 			else
 			{
 				for (int i = 0; i < event->frameHeight; i++)
 				{
-					CopyMemory(image->data + image->offsets[0] + i * image->pitches[0],
-					           event->frameData + i * event->frameWidth, event->frameWidth);
+					CopyMemory(image->data + 1ULL * image->offsets[0] +
+					               1ULL * i * image->pitches[0],
+					           event->frameData + 1ULL * i * event->frameWidth, event->frameWidth);
 				}
 			}
 			/* UV */
 			/* Conversion between I420 and YV12 is to simply swap U and V */
 			if (!converti420yv12)
 			{
-				data1 = event->frameData + event->frameWidth * event->frameHeight;
-				data2 = event->frameData + event->frameWidth * event->frameHeight +
-				        event->frameWidth * event->frameHeight / 4;
+				data1 = event->frameData + 1ULL * event->frameWidth * event->frameHeight;
+				data2 = event->frameData + 1ULL * event->frameWidth * event->frameHeight +
+				        1ULL * event->frameWidth * event->frameHeight / 4;
 			}
 			else
 			{
-				data2 = event->frameData + event->frameWidth * event->frameHeight;
-				data1 = event->frameData + event->frameWidth * event->frameHeight +
-				        event->frameWidth * event->frameHeight / 4;
+				data2 = event->frameData + 1ULL * event->frameWidth * event->frameHeight;
+				data1 = event->frameData + 1ULL * event->frameWidth * event->frameHeight +
+				        1ULL * event->frameWidth * event->frameHeight / 4;
 				image->id = pixfmt == RDP_PIXFMT_I420 ? RDP_PIXFMT_YV12 : RDP_PIXFMT_I420;
 			}
 
@@ -262,10 +264,12 @@ static int xf_tsmf_xv_video_frame_event(TsmfClientContext* tsmf, TSMF_VIDEO_FRAM
 			{
 				for (int i = 0; i < event->frameHeight / 2; i++)
 				{
-					CopyMemory(image->data + image->offsets[1] + i * image->pitches[1],
-					           data1 + i * event->frameWidth / 2, event->frameWidth / 2);
-					CopyMemory(image->data + image->offsets[2] + i * image->pitches[2],
-					           data2 + i * event->frameWidth / 2, event->frameWidth / 2);
+					CopyMemory(image->data + 1ULL * image->offsets[1] +
+					               1ULL * i * image->pitches[1],
+					           data1 + 1ULL * i * event->frameWidth / 2, event->frameWidth / 2);
+					CopyMemory(image->data + 1ULL * image->offsets[2] +
+					               1ULL * i * image->pitches[2],
+					           data2 + 1ULL * i * event->frameWidth / 2, event->frameWidth / 2);
 				}
 			}
 			break;
@@ -382,7 +386,10 @@ static int xf_tsmf_xv_init(xfContext* xfc, TsmfClientContext* tsmf)
 	{
 		if (strcmp(attr[i].name, "XV_COLORKEY") == 0)
 		{
-			xv->xv_colorkey_atom = XInternAtom(xfc->display, "XV_COLORKEY", FALSE);
+			static wLog* log = NULL;
+			if (!log)
+				log = WLog_Get(TAG);
+			xv->xv_colorkey_atom = Logging_XInternAtom(log, xfc->display, "XV_COLORKEY", FALSE);
 			XvSetPortAttribute(xfc->display, xv->xv_port, xv->xv_colorkey_atom,
 			                   attr[i].min_value + 1);
 			break;

@@ -236,11 +236,13 @@ static BOOL ArrayList_Shift(wArrayList* arrayList, size_t index, SSIZE_T count)
 	}
 	else if (count < 0)
 	{
-		INT64 chunk = arrayList->size - index + count;
-
-		if (chunk > 0)
+		const size_t off = index + (size_t)(-1 * count);
+		if (off < arrayList->size)
+		{
+			const size_t chunk = arrayList->size - off;
 			MoveMemory(&arrayList->array[index], &arrayList->array[index - count],
-			           (size_t)chunk * sizeof(void*));
+			           chunk * sizeof(void*));
+		}
 
 		arrayList->size += count;
 	}
@@ -430,22 +432,24 @@ BOOL ArrayList_RemoveAt(wArrayList* arrayList, size_t index)
 
 SSIZE_T ArrayList_IndexOf(wArrayList* arrayList, const void* obj, SSIZE_T startIndex, SSIZE_T count)
 {
-	SSIZE_T sindex = 0;
-	SSIZE_T cindex = 0;
 	BOOL found = FALSE;
 
 	WINPR_ASSERT(arrayList);
 	ArrayList_Lock_Conditional(arrayList);
 
-	sindex = (size_t)startIndex;
+	SSIZE_T sindex = startIndex;
 	if (startIndex < 0)
 		sindex = 0;
 
-	cindex = (size_t)count;
-	if (count < 0)
-		cindex = arrayList->size;
-
 	SSIZE_T index = sindex;
+	SSIZE_T cindex = count;
+	if (count < 0)
+	{
+		if (arrayList->size > SSIZE_MAX)
+			goto fail;
+		cindex = (SSIZE_T)arrayList->size;
+	}
+
 	for (; index < sindex + cindex; index++)
 	{
 		if (arrayList->object.fnObjectEquals(arrayList->array[index], obj))
@@ -455,6 +459,7 @@ SSIZE_T ArrayList_IndexOf(wArrayList* arrayList, const void* obj, SSIZE_T startI
 		}
 	}
 
+fail:
 	if (!found)
 		index = -1;
 
@@ -486,13 +491,16 @@ SSIZE_T ArrayList_LastIndexOf(wArrayList* arrayList, const void* obj, SSIZE_T st
 	WINPR_ASSERT(arrayList);
 	ArrayList_Lock_Conditional(arrayList);
 
-	sindex = (size_t)startIndex;
+	sindex = startIndex;
 	if (startIndex < 0)
 		sindex = 0;
 
-	cindex = (size_t)count;
+	cindex = count;
 	if (count < 0)
-		cindex = arrayList->size;
+	{
+		WINPR_ASSERT(arrayList->size <= SSIZE_MAX);
+		cindex = (SSIZE_T)arrayList->size;
+	}
 
 	SSIZE_T index = sindex + cindex;
 	for (; index > sindex; index--)
@@ -526,7 +534,7 @@ wObject* ArrayList_Object(wArrayList* arrayList)
 BOOL ArrayList_ForEach(wArrayList* arrayList, ArrayList_ForEachFkt fkt, ...)
 {
 	BOOL rc = 0;
-	va_list ap;
+	va_list ap = { 0 };
 	va_start(ap, fkt);
 	rc = ArrayList_ForEachAP(arrayList, fkt, ap);
 	va_end(ap);

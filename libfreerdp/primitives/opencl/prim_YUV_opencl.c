@@ -30,6 +30,7 @@
 #else
 #include <CL/cl.h>
 #endif
+#include "primitives-opencl-program.h"
 
 #include <freerdp/log.h>
 #define TAG FREERDP_TAG("primitives")
@@ -106,8 +107,8 @@ fail:
 	return NULL;
 }
 
-static BOOL cl_kernel_set_sources(primitives_cl_kernel* ctx,
-                                  const BYTE* const WINPR_RESTRICT pSrc[3], const UINT32 srcStep[3])
+static BOOL cl_kernel_set_sources(primitives_cl_kernel* ctx, const BYTE* WINPR_RESTRICT pSrc[3],
+                                  const UINT32 srcStep[3])
 {
 	const char* sourceNames[] = { "Y", "U", "V" };
 
@@ -118,8 +119,10 @@ static BOOL cl_kernel_set_sources(primitives_cl_kernel* ctx,
 	for (cl_uint i = 0; i < ARRAYSIZE(ctx->srcObjs); i++)
 	{
 		cl_int ret = CL_INVALID_VALUE;
+		const BYTE* csrc = pSrc[i];
+		void* WINPR_RESTRICT src = WINPR_CAST_CONST_PTR_AWAY(csrc, void* WINPR_RESTRICT);
 		ctx->srcObjs[i] = clCreateBuffer(ctx->cl->context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
-		                                 1ull * srcStep[i] * ctx->roi.height, pSrc[i], &ret);
+		                                 1ull * srcStep[i] * ctx->roi.height, src, &ret);
 		if (ret != CL_SUCCESS)
 		{
 			WLog_ERR(TAG, "unable to create %sobj", sourceNames[i]);
@@ -205,7 +208,7 @@ static BOOL cl_kernel_process(primitives_cl_kernel* ctx, BYTE* pDst)
 	return TRUE;
 }
 
-static pstatus_t opencl_YUVToRGB(const char* kernelName, const BYTE* const WINPR_RESTRICT pSrc[3],
+static pstatus_t opencl_YUVToRGB(const char* kernelName, const BYTE* WINPR_RESTRICT pSrc[3],
                                  const UINT32 srcStep[3], BYTE* WINPR_RESTRICT pDst, UINT32 dstStep,
                                  const prim_size_t* WINPR_RESTRICT roi)
 {
@@ -258,26 +261,20 @@ static pstatus_t primitives_uninit_opencl(void)
 	return PRIMITIVES_SUCCESS;
 }
 
-static const char openclProgram[] =
-#include "primitives.cl"
-    ;
-
-static BOOL primitives_init_opencl_context(primitives_opencl_context* cl)
+static BOOL primitives_init_opencl_context(primitives_opencl_context* WINPR_RESTRICT prims)
 {
-	cl_platform_id* platform_ids = NULL;
 	cl_uint ndevices = 0;
 	cl_uint nplatforms = 0;
 	cl_kernel kernel = NULL;
-	cl_int ret = 0;
 
 	BOOL gotGPU = FALSE;
 	size_t programLen = 0;
 
-	ret = clGetPlatformIDs(0, NULL, &nplatforms);
+	cl_int ret = clGetPlatformIDs(0, NULL, &nplatforms);
 	if (ret != CL_SUCCESS || nplatforms < 1)
 		return FALSE;
 
-	platform_ids = calloc(nplatforms, sizeof(*platform_ids));
+	cl_platform_id* platform_ids = calloc(nplatforms, sizeof(cl_platform_id));
 	if (!platform_ids)
 		return FALSE;
 
@@ -321,7 +318,11 @@ static BOOL primitives_init_opencl_context(primitives_opencl_context* cl)
 			continue;
 		}
 
-		cl->commandQueue = clCreateCommandQueue(context, device_id, 0, &ret);
+#if defined(CL_VERSION_2_0)
+		prims->commandQueue = clCreateCommandQueueWithProperties(context, device_id, NULL, &ret);
+#else
+		prims->commandQueue = clCreateCommandQueue(context, device_id, 0, &ret);
+#endif
 		if (ret != CL_SUCCESS)
 		{
 			WLog_ERR(TAG, "openCL: unable to create command queue");
@@ -332,9 +333,9 @@ static BOOL primitives_init_opencl_context(primitives_opencl_context* cl)
 
 		WLog_INFO(TAG, "openCL: using platform=%s device=%s", platformName, deviceName);
 
-		cl->platformId = platform_ids[i];
-		cl->deviceId = device_id;
-		cl->context = context;
+		prims->platformId = platform_ids[i];
+		prims->deviceId = device_id;
+		prims->context = context;
 		gotGPU = TRUE;
 	}
 
@@ -348,20 +349,20 @@ static BOOL primitives_init_opencl_context(primitives_opencl_context* cl)
 
 	programLen = strnlen(openclProgram, sizeof(openclProgram));
 	const char* ptr = openclProgram;
-	cl->program = clCreateProgramWithSource(cl->context, 1, &ptr, &programLen, &ret);
+	prims->program = clCreateProgramWithSource(prims->context, 1, &ptr, &programLen, &ret);
 	if (ret != CL_SUCCESS)
 	{
 		WLog_ERR(TAG, "openCL: unable to create program");
 		goto fail;
 	}
 
-	ret = clBuildProgram(cl->program, 1, &cl->deviceId, NULL, NULL, NULL);
+	ret = clBuildProgram(prims->program, 1, &prims->deviceId, NULL, NULL, NULL);
 	if (ret != CL_SUCCESS)
 	{
 		size_t length = 0;
 		char buffer[2048];
-		ret = clGetProgramBuildInfo(cl->program, cl->deviceId, CL_PROGRAM_BUILD_LOG, sizeof(buffer),
-		                            buffer, &length);
+		ret = clGetProgramBuildInfo(prims->program, prims->deviceId, CL_PROGRAM_BUILD_LOG,
+		                            sizeof(buffer), buffer, &length);
 		if (ret != CL_SUCCESS)
 		{
 			WLog_ERR(TAG,
@@ -375,7 +376,7 @@ static BOOL primitives_init_opencl_context(primitives_opencl_context* cl)
 		goto fail;
 	}
 
-	kernel = clCreateKernel(cl->program, "yuv420_to_bgra_1b", &ret);
+	kernel = clCreateKernel(prims->program, "yuv420_to_bgra_1b", &ret);
 	if (ret != CL_SUCCESS)
 	{
 		WLog_ERR(TAG, "openCL: unable to create yuv420_to_bgra_1b kernel");
@@ -383,15 +384,15 @@ static BOOL primitives_init_opencl_context(primitives_opencl_context* cl)
 	}
 	clReleaseKernel(kernel);
 
-	cl->support = TRUE;
+	prims->support = TRUE;
 	return TRUE;
 
 fail:
-	cl_context_free(cl);
+	cl_context_free(prims);
 	return FALSE;
 }
 
-static pstatus_t opencl_YUV420ToRGB_8u_P3AC4R(const BYTE* const WINPR_RESTRICT pSrc[3],
+static pstatus_t opencl_YUV420ToRGB_8u_P3AC4R(const BYTE* WINPR_RESTRICT pSrc[3],
                                               const UINT32 srcStep[3], BYTE* WINPR_RESTRICT pDst,
                                               UINT32 dstStep, UINT32 DstFormat,
                                               const prim_size_t* WINPR_RESTRICT roi)
@@ -436,7 +437,7 @@ static pstatus_t opencl_YUV420ToRGB_8u_P3AC4R(const BYTE* const WINPR_RESTRICT p
 	return opencl_YUVToRGB(kernel_name, pSrc, srcStep, pDst, dstStep, roi);
 }
 
-static pstatus_t opencl_YUV444ToRGB_8u_P3AC4R(const BYTE* const WINPR_RESTRICT pSrc[3],
+static pstatus_t opencl_YUV444ToRGB_8u_P3AC4R(const BYTE* WINPR_RESTRICT pSrc[3],
                                               const UINT32 srcStep[3], BYTE* WINPR_RESTRICT pDst,
                                               UINT32 dstStep, UINT32 DstFormat,
                                               const prim_size_t* WINPR_RESTRICT roi)
@@ -480,11 +481,9 @@ static pstatus_t opencl_YUV444ToRGB_8u_P3AC4R(const BYTE* const WINPR_RESTRICT p
 
 	return opencl_YUVToRGB(kernel_name, pSrc, srcStep, pDst, dstStep, roi);
 }
-#endif
 
 BOOL primitives_init_opencl(primitives_t* prims)
 {
-#if defined(WITH_OPENCL)
 	primitives_t* p = primitives_get_by_type(PRIMITIVES_ONLY_CPU);
 	if (!prims || !p)
 		return FALSE;
@@ -497,6 +496,6 @@ BOOL primitives_init_opencl(primitives_t* prims)
 	prims->YUV444ToRGB_8u_P3AC4R = opencl_YUV444ToRGB_8u_P3AC4R;
 	prims->flags |= PRIM_FLAGS_HAVE_EXTGPU;
 	prims->uninit = primitives_uninit_opencl;
-#endif
 	return TRUE;
 }
+#endif

@@ -75,7 +75,7 @@ UINT32 audio_format_compute_time_length(const AUDIO_FORMAT* format, size_t size)
 	return mstime;
 }
 
-char* audio_format_get_tag_string(UINT16 wFormatTag)
+const char* audio_format_get_tag_string(UINT16 wFormatTag)
 {
 	switch (wFormatTag)
 	{
@@ -111,9 +111,9 @@ char* audio_format_get_tag_string(UINT16 wFormatTag)
 
 		case WAVE_FORMAT_AAC_MS:
 			return "WAVE_FORMAT_AAC_MS";
+		default:
+			return "WAVE_FORMAT_UNKNOWN";
 	}
-
-	return "WAVE_FORMAT_UNKNOWN";
 }
 
 void audio_format_print(wLog* log, DWORD level, const AUDIO_FORMAT* format)

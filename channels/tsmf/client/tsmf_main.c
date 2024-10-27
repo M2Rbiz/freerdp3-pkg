@@ -167,7 +167,7 @@ static UINT tsmf_on_data_received(IWTSVirtualChannelCallback* pChannelCallback, 
 	ifman.output_pending = FALSE;
 	ifman.output_interface_id = InterfaceId;
 
-	// fprintf(stderr, "InterfaceId: 0x%08"PRIX32" MessageId: 0x%08"PRIX32" FunctionId:
+	// (void)fprintf(stderr, "InterfaceId: 0x%08"PRIX32" MessageId: 0x%08"PRIX32" FunctionId:
 	// 0x%08"PRIX32"\n", InterfaceId, MessageId, FunctionId);
 
 	switch (InterfaceId)
@@ -552,7 +552,7 @@ static UINT tsmf_process_addin_args(IWTSPlugin* pPlugin, const ADDIN_ARGV* args)
  *
  * @return 0 on success, otherwise a Win32 error code
  */
-FREERDP_ENTRY_POINT(UINT tsmf_DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints))
+FREERDP_ENTRY_POINT(UINT VCAPITYPE tsmf_DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints))
 {
 	UINT status = 0;
 	TSMF_PLUGIN* tsmf = NULL;

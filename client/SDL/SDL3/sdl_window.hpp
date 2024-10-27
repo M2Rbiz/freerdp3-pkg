@@ -27,8 +27,12 @@ class SdlWindow
   public:
 	SdlWindow(const std::string& title, Sint32 startupX, Sint32 startupY, Sint32 width,
 	          Sint32 height, Uint32 flags);
-	SdlWindow(SdlWindow&& other);
+	SdlWindow(SdlWindow&& other) noexcept;
+	SdlWindow(const SdlWindow& other) = delete;
 	~SdlWindow();
+
+	SdlWindow& operator=(const SdlWindow& other) = delete;
+	SdlWindow& operator=(SdlWindow&& other) = delete;
 
 	[[nodiscard]] Uint32 id() const;
 	[[nodiscard]] int displayIndex() const;
@@ -46,7 +50,8 @@ class SdlWindow
 	void setBordered(bool bordered);
 	void raise();
 	void resizeable(bool use);
-	void fullscreen(bool use);
+	void fullscreen(bool enter);
+	void minimize();
 
 	bool fill(Uint8 r = 0x00, Uint8 g = 0x00, Uint8 b = 0x00, Uint8 a = 0xff);
 	bool blit(SDL_Surface* surface, const SDL_Rect& src, SDL_Rect& dst);
@@ -56,7 +61,4 @@ class SdlWindow
 	SDL_Window* _window = nullptr;
 	Sint32 _offset_x = 0;
 	Sint32 _offset_y = 0;
-
-  private:
-	SdlWindow(const SdlWindow& other) = delete;
 };

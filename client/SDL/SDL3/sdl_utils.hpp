@@ -34,13 +34,18 @@ class CriticalSection
 {
   public:
 	CriticalSection();
+	CriticalSection(const CriticalSection& other) = delete;
+	CriticalSection(CriticalSection&& other) = delete;
 	~CriticalSection();
+
+	CriticalSection& operator=(const CriticalSection& other) = delete;
+	CriticalSection& operator=(CriticalSection&& other) = delete;
 
 	void lock();
 	void unlock();
 
   private:
-	CRITICAL_SECTION _section;
+	CRITICAL_SECTION _section{};
 };
 
 class WinPREvent
@@ -65,6 +70,7 @@ enum
 	SDL_EVENT_USER_CREATE_WINDOWS,
 	SDL_EVENT_USER_WINDOW_RESIZEABLE,
 	SDL_EVENT_USER_WINDOW_FULLSCREEN,
+	SDL_EVENT_USER_WINDOW_MINIMIZE,
 	SDL_EVENT_USER_POINTER_NULL,
 	SDL_EVENT_USER_POINTER_DEFAULT,
 	SDL_EVENT_USER_POINTER_POSITION,

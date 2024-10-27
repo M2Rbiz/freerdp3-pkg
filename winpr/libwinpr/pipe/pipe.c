@@ -331,7 +331,7 @@ BOOL NamedPipeRead(PVOID Object, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
 		lpOverlapped->Internal = 0;
 		lpOverlapped->InternalHigh = (ULONG_PTR)nNumberOfBytesToRead;
 		lpOverlapped->Pointer = (PVOID)lpBuffer;
-		SetEvent(lpOverlapped->hEvent);
+		(void)SetEvent(lpOverlapped->hEvent);
 #endif
 	}
 
@@ -426,7 +426,7 @@ BOOL NamedPipeWrite(PVOID Object, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite,
 			cnv.cpv = lpBuffer;
 			lpOverlapped->Pointer = cnv.pv;
 		}
-		SetEvent(lpOverlapped->hEvent);
+		(void)SetEvent(lpOverlapped->hEvent);
 #endif
 	}
 
@@ -653,7 +653,7 @@ HANDLE CreateNamedPipeA(LPCSTR lpName, DWORD dwOpenMode, DWORD dwPipeMode, DWORD
 		}
 
 		s.sun_family = AF_UNIX;
-		sprintf_s(s.sun_path, ARRAYSIZE(s.sun_path), "%s", pNamedPipe->lpFilePath);
+		(void)sprintf_s(s.sun_path, ARRAYSIZE(s.sun_path), "%s", pNamedPipe->lpFilePath);
 
 		if (bind(serverfd, (struct sockaddr*)&s, sizeof(struct sockaddr_un)) == -1)
 		{
@@ -781,7 +781,7 @@ BOOL ConnectNamedPipe(HANDLE hNamedPipe, LPOVERLAPPED lpOverlapped)
 		lpOverlapped->Internal = 2;
 		lpOverlapped->InternalHigh = (ULONG_PTR)0;
 		lpOverlapped->Pointer = (PVOID)NULL;
-		SetEvent(lpOverlapped->hEvent);
+		(void)SetEvent(lpOverlapped->hEvent);
 	}
 
 	return TRUE;
@@ -863,8 +863,10 @@ BOOL WaitNamedPipeW(LPCWSTR lpNamedPipeName, DWORD nTimeOut)
 	return FALSE;
 }
 
+// NOLINTBEGIN(readability-non-const-parameter)
 BOOL SetNamedPipeHandleState(HANDLE hNamedPipe, LPDWORD lpMode, LPDWORD lpMaxCollectionCount,
                              LPDWORD lpCollectDataTimeout)
+// NOLINTEND(readability-non-const-parameter)
 {
 	int fd = 0;
 	int flags = 0;

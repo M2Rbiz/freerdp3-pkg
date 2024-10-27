@@ -28,6 +28,9 @@
 #include <winpr/winpr.h>
 #include <winpr/wtypes.h>
 
+WINPR_PRAGMA_DIAG_PUSH
+WINPR_PRAGMA_DIAG_IGNORED_RESERVED_IDENTIFIER
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -258,7 +261,7 @@ extern "C"
 	 *
 	 * The function does string conversions of any '\0' terminated input string
 	 *
-	 * Supplying len = 0 will return the required size of the buffer in characters.
+	 * Supplying wlen = 0 will return the required size of the buffer in characters.
 	 *
 	 * \warning Supplying a buffer length smaller than required will result in
 	 * platform dependent (=undefined) behaviour!
@@ -276,7 +279,7 @@ extern "C"
 	 * The function does string conversions of any input string of len (or less)
 	 * characters until it reaches the first '\0'.
 	 *
-	 * Supplying len = 0 will return the required size of the buffer in characters.
+	 * Supplying wlen = 0 will return the required size of the buffer in characters.
 	 *
 	 * \warning Supplying a buffer length smaller than required will result in
 	 * platform dependent (=undefined) behaviour!
@@ -295,7 +298,7 @@ extern "C"
 	 * The function does string conversions of any input string of len characters.
 	 * Any character in the buffer (incuding any '\0') is converted.
 	 *
-	 * Supplying len = 0 will return the required size of the buffer in characters.
+	 * Supplying wlen = 0 will return the required size of the buffer in characters.
 	 *
 	 * \warning Supplying a buffer length smaller than required will result in
 	 * platform dependent (=undefined) behaviour!
@@ -430,5 +433,7 @@ extern "C"
 #ifdef __cplusplus
 }
 #endif
+
+WINPR_PRAGMA_DIAG_POP
 
 #endif /* WINPR_CRT_STRING_H */

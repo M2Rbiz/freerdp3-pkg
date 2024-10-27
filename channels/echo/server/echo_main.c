@@ -219,7 +219,7 @@ static DWORD WINAPI echo_server_thread_func(LPVOID arg)
 	if (!s)
 	{
 		WLog_ERR(TAG, "Stream_New failed!");
-		WTSVirtualChannelClose(echo->echo_channel);
+		(void)WTSVirtualChannelClose(echo->echo_channel);
 		ExitThread(ERROR_NOT_ENOUGH_MEMORY);
 		return ERROR_NOT_ENOUGH_MEMORY;
 	}
@@ -239,7 +239,12 @@ static DWORD WINAPI echo_server_thread_func(LPVOID arg)
 			break;
 
 		Stream_SetPosition(s, 0);
-		WTSVirtualChannelRead(echo->echo_channel, 0, NULL, 0, &BytesReturned);
+		if (!WTSVirtualChannelRead(echo->echo_channel, 0, NULL, 0, &BytesReturned))
+		{
+			WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
+			error = ERROR_INTERNAL_ERROR;
+			break;
+		}
 
 		if (BytesReturned < 1)
 			continue;
@@ -251,7 +256,7 @@ static DWORD WINAPI echo_server_thread_func(LPVOID arg)
 			break;
 		}
 
-		if (WTSVirtualChannelRead(echo->echo_channel, 0, (PCHAR)Stream_Buffer(s),
+		if (WTSVirtualChannelRead(echo->echo_channel, 0, Stream_BufferAs(s, char),
 		                          (ULONG)Stream_Capacity(s), &BytesReturned) == FALSE)
 		{
 			WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
@@ -259,8 +264,7 @@ static DWORD WINAPI echo_server_thread_func(LPVOID arg)
 			break;
 		}
 
-		IFCALLRET(echo->context.Response, error, &echo->context, (BYTE*)Stream_Buffer(s),
-		          BytesReturned);
+		IFCALLRET(echo->context.Response, error, &echo->context, Stream_Buffer(s), BytesReturned);
 
 		if (error)
 		{
@@ -270,7 +274,7 @@ static DWORD WINAPI echo_server_thread_func(LPVOID arg)
 	}
 
 	Stream_Free(s, TRUE);
-	WTSVirtualChannelClose(echo->echo_channel);
+	(void)WTSVirtualChannelClose(echo->echo_channel);
 	echo->echo_channel = NULL;
 out:
 
@@ -302,7 +306,7 @@ static UINT echo_server_open(echo_server_context* context)
 		if (!(echo->thread = CreateThread(NULL, 0, echo_server_thread_func, (void*)echo, 0, NULL)))
 		{
 			WLog_ERR(TAG, "CreateEvent failed!");
-			CloseHandle(echo->stopEvent);
+			(void)CloseHandle(echo->stopEvent);
 			echo->stopEvent = NULL;
 			return ERROR_INTERNAL_ERROR;
 		}
@@ -323,7 +327,7 @@ static UINT echo_server_close(echo_server_context* context)
 
 	if (echo->thread)
 	{
-		SetEvent(echo->stopEvent);
+		(void)SetEvent(echo->stopEvent);
 
 		if (WaitForSingleObject(echo->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -332,8 +336,8 @@ static UINT echo_server_close(echo_server_context* context)
 			return error;
 		}
 
-		CloseHandle(echo->thread);
-		CloseHandle(echo->stopEvent);
+		(void)CloseHandle(echo->thread);
+		(void)CloseHandle(echo->stopEvent);
 		echo->thread = NULL;
 		echo->stopEvent = NULL;
 	}

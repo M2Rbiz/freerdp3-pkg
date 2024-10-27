@@ -215,7 +215,7 @@ static UINT rdpdr_seal_send_free_request(RdpdrServerContext* context, wStream* s
 
 	Stream_SealLength(s);
 	length = Stream_Length(s);
-	WINPR_ASSERT(length <= ULONG_MAX);
+	WINPR_ASSERT(length <= UINT32_MAX);
 	Stream_SetPosition(s, 0);
 
 	if (length >= RDPDR_HEADER_LENGTH)
@@ -230,7 +230,7 @@ static UINT rdpdr_seal_send_free_request(RdpdrServerContext* context, wStream* s
 		           rdpdr_packetid_string(header.PacketId), header.PacketId);
 	}
 	winpr_HexLogDump(context->priv->log, WLOG_DEBUG, Stream_Buffer(s), Stream_Length(s));
-	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, (PCHAR)Stream_Buffer(s),
+	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, Stream_BufferAs(s, char),
 	                                (ULONG)length, &written);
 	Stream_Free(s, TRUE);
 	return status ? CHANNEL_RC_OK : ERROR_INTERNAL_ERROR;
@@ -463,13 +463,9 @@ static UINT rdpdr_server_read_general_capability_set(RdpdrServerContext* context
 	switch (VersionMinor)
 	{
 		case RDPDR_MINOR_RDP_VERSION_13:
-			break;
 		case RDPDR_MINOR_RDP_VERSION_6_X:
-			break;
 		case RDPDR_MINOR_RDP_VERSION_5_2:
-			break;
 		case RDPDR_MINOR_RDP_VERSION_5_1:
-			break;
 		case RDPDR_MINOR_RDP_VERSION_5_0:
 			break;
 		default:
@@ -1540,7 +1536,9 @@ static UINT rdpdr_server_receive_io_lock_control_request(RdpdrServerContext* con
 
 	WLog_Print(context->priv->log, WLOG_WARN,
 	           "[MS-RDPEFS] 2.2.3.3.12 Server Drive Lock Control Request (DR_DRIVE_LOCK_REQ) "
-	           "not implemented");
+	           "[Lock=0x%08" PRIx32 "]"
+	           "not implemented",
+	           Lock);
 	WLog_Print(context->priv->log, WLOG_WARN, "TODO");
 
 	return CHANNEL_RC_OK;
@@ -2079,8 +2077,8 @@ static DWORD WINAPI rdpdr_server_thread(LPVOID arg)
 			break;
 		}
 
-		capacity = MIN(Stream_Capacity(s), ULONG_MAX);
-		if (!WTSVirtualChannelRead(context->priv->ChannelHandle, 0, (PCHAR)Stream_Buffer(s),
+		capacity = MIN(Stream_Capacity(s), UINT32_MAX);
+		if (!WTSVirtualChannelRead(context->priv->ChannelHandle, 0, Stream_BufferAs(s, char),
 		                           (ULONG)capacity, &BytesReturned))
 		{
 			WLog_Print(context->priv->log, WLOG_ERROR, "WTSVirtualChannelRead failed!");
@@ -2149,7 +2147,7 @@ static UINT rdpdr_server_start(RdpdrServerContext* context)
 	          CreateThread(NULL, 0, rdpdr_server_thread, (void*)context, 0, NULL)))
 	{
 		WLog_Print(context->priv->log, WLOG_ERROR, "CreateThread failed!");
-		CloseHandle(context->priv->StopEvent);
+		(void)CloseHandle(context->priv->StopEvent);
 		context->priv->StopEvent = NULL;
 		return ERROR_INTERNAL_ERROR;
 	}
@@ -2170,7 +2168,7 @@ static UINT rdpdr_server_stop(RdpdrServerContext* context)
 
 	if (context->priv->StopEvent)
 	{
-		SetEvent(context->priv->StopEvent);
+		(void)SetEvent(context->priv->StopEvent);
 
 		if (WaitForSingleObject(context->priv->Thread, INFINITE) == WAIT_FAILED)
 		{
@@ -2180,15 +2178,15 @@ static UINT rdpdr_server_stop(RdpdrServerContext* context)
 			return error;
 		}
 
-		CloseHandle(context->priv->Thread);
+		(void)CloseHandle(context->priv->Thread);
 		context->priv->Thread = NULL;
-		CloseHandle(context->priv->StopEvent);
+		(void)CloseHandle(context->priv->StopEvent);
 		context->priv->StopEvent = NULL;
 	}
 
 	if (context->priv->ChannelHandle)
 	{
-		WTSVirtualChannelClose(context->priv->ChannelHandle);
+		(void)WTSVirtualChannelClose(context->priv->ChannelHandle);
 		context->priv->ChannelHandle = NULL;
 	}
 	return CHANNEL_RC_OK;

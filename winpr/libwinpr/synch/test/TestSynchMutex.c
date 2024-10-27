@@ -109,7 +109,7 @@ static DWORD WINAPI test_mutex_thread1(LPVOID lpParam)
 
 	if (WaitForSingleObject(hStartEvent, INFINITE) != WAIT_OBJECT_0)
 	{
-		fprintf(stderr, "%s: failed to wait for start event\n", __func__);
+		(void)fprintf(stderr, "%s: failed to wait for start event\n", __func__);
 		return 0;
 	}
 
@@ -125,10 +125,10 @@ static DWORD WINAPI test_mutex_thread1(LPVOID lpParam)
 
 	if (rc != WAIT_TIMEOUT)
 	{
-		fprintf(stderr,
-		        "%s: WaitForSingleObject on thread1_mutex1 unexpectedly returned %" PRIu32
-		        " instead of WAIT_TIMEOUT (%u)\n",
-		        __func__, rc, WAIT_TIMEOUT);
+		(void)fprintf(stderr,
+		              "%s: WaitForSingleObject on thread1_mutex1 unexpectedly returned %" PRIu32
+		              " instead of WAIT_TIMEOUT (%u)\n",
+		              __func__, rc, WAIT_TIMEOUT);
 		return 0;
 	}
 
@@ -136,16 +136,16 @@ static DWORD WINAPI test_mutex_thread1(LPVOID lpParam)
 
 	if (rc != WAIT_OBJECT_0)
 	{
-		fprintf(stderr,
-		        "%s: WaitForSingleObject on thread1_mutex2 unexpectedly returned %" PRIu32
-		        " instead of WAIT_OBJECT_0\n",
-		        __func__, rc);
+		(void)fprintf(stderr,
+		              "%s: WaitForSingleObject on thread1_mutex2 unexpectedly returned %" PRIu32
+		              " instead of WAIT_OBJECT_0\n",
+		              __func__, rc);
 		return 0;
 	}
 
 	if (!ReleaseMutex(thread1_mutex2))
 	{
-		fprintf(stderr, "%s: ReleaseMutex failed on thread1_mutex2\n", __func__);
+		(void)fprintf(stderr, "%s: ReleaseMutex failed on thread1_mutex2\n", __func__);
 		return 0;
 	}
 
@@ -172,7 +172,7 @@ static BOOL test_mutex_threading(void)
 
 	if (!(hStartEvent = CreateEvent(NULL, TRUE, FALSE, NULL)))
 	{
-		fprintf(stderr, "%s: error creating start event\n", __func__);
+		(void)fprintf(stderr, "%s: error creating start event\n", __func__);
 		goto fail;
 	}
 
@@ -180,7 +180,7 @@ static BOOL test_mutex_threading(void)
 
 	if (!(hThread = CreateThread(NULL, 0, test_mutex_thread1, (LPVOID)hStartEvent, 0, NULL)))
 	{
-		fprintf(stderr, "%s: error creating test_mutex_thread_1\n", __func__);
+		(void)fprintf(stderr, "%s: error creating test_mutex_thread_1\n", __func__);
 		goto fail;
 	}
 
@@ -188,21 +188,21 @@ static BOOL test_mutex_threading(void)
 
 	if (!thread1_failed)
 	{
-		fprintf(stderr, "%s: thread1 premature success\n", __func__);
+		(void)fprintf(stderr, "%s: thread1 premature success\n", __func__);
 		goto fail;
 	}
 
-	SetEvent(hStartEvent);
+	(void)SetEvent(hStartEvent);
 
 	if (WaitForSingleObject(hThread, 2000) != WAIT_OBJECT_0)
 	{
-		fprintf(stderr, "%s: thread1 premature success\n", __func__);
+		(void)fprintf(stderr, "%s: thread1 premature success\n", __func__);
 		goto fail;
 	}
 
 	if (thread1_failed)
 	{
-		fprintf(stderr, "%s: thread1 has not reported success\n", __func__);
+		(void)fprintf(stderr, "%s: thread1 has not reported success\n", __func__);
 		goto fail;
 	}
 
@@ -223,18 +223,18 @@ static BOOL test_mutex_threading(void)
 		goto fail;
 	}
 
-	CloseHandle(hThread);
-	CloseHandle(hStartEvent);
-	CloseHandle(thread1_mutex1);
-	CloseHandle(thread1_mutex2);
+	(void)CloseHandle(hThread);
+	(void)CloseHandle(hStartEvent);
+	(void)CloseHandle(thread1_mutex1);
+	(void)CloseHandle(thread1_mutex2);
 	return TRUE;
 fail:
-	ReleaseMutex(thread1_mutex1);
-	ReleaseMutex(thread1_mutex2);
-	CloseHandle(thread1_mutex1);
-	CloseHandle(thread1_mutex2);
-	CloseHandle(hStartEvent);
-	CloseHandle(hThread);
+	(void)ReleaseMutex(thread1_mutex1);
+	(void)ReleaseMutex(thread1_mutex2);
+	(void)CloseHandle(thread1_mutex1);
+	(void)CloseHandle(thread1_mutex2);
+	(void)CloseHandle(hStartEvent);
+	(void)CloseHandle(hThread);
 	return FALSE;
 }
 

@@ -33,10 +33,9 @@ static const SDL_Color errorcolor = { 0xf7, 0x22, 0x30, 0x60 };
 static const Uint32 vpadding = 5;
 static const Uint32 hpadding = 5;
 
-SDLConnectionDialog::SDLConnectionDialog(rdpContext* context)
-    : _context(context), _window(nullptr), _renderer(nullptr)
+SDLConnectionDialog::SDLConnectionDialog(rdpContext* context) : _context(context)
 {
-	SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO);
+	SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO);
 	hide();
 }
 
@@ -59,7 +58,7 @@ bool SDLConnectionDialog::visible() const
 bool SDLConnectionDialog::setTitle(const char* fmt, ...)
 {
 	std::lock_guard lock(_mux);
-	va_list ap;
+	va_list ap = {};
 	va_start(ap, fmt);
 	_title = print(fmt, ap);
 	va_end(ap);
@@ -69,7 +68,7 @@ bool SDLConnectionDialog::setTitle(const char* fmt, ...)
 
 bool SDLConnectionDialog::showInfo(const char* fmt, ...)
 {
-	va_list ap;
+	va_list ap = {};
 	va_start(ap, fmt);
 	auto rc = show(MSG_INFO, fmt, ap);
 	va_end(ap);
@@ -78,7 +77,7 @@ bool SDLConnectionDialog::showInfo(const char* fmt, ...)
 
 bool SDLConnectionDialog::showWarn(const char* fmt, ...)
 {
-	va_list ap;
+	va_list ap = {};
 	va_start(ap, fmt);
 	auto rc = show(MSG_WARN, fmt, ap);
 	va_end(ap);
@@ -87,10 +86,12 @@ bool SDLConnectionDialog::showWarn(const char* fmt, ...)
 
 bool SDLConnectionDialog::showError(const char* fmt, ...)
 {
-	va_list ap;
+	va_list ap = {};
 	va_start(ap, fmt);
 	auto rc = show(MSG_ERROR, fmt, ap);
 	va_end(ap);
+	if (!rc)
+		return rc;
 	return setTimer();
 }
 
@@ -147,7 +148,8 @@ bool SDLConnectionDialog::setModal()
 			return true;
 
 		auto parent = sdl->windows.begin()->second.window();
-		SDL_SetWindowModalFor(_window, parent);
+		SDL_SetWindowParent(_window, parent);
+		SDL_SetWindowModal(_window, true);
 		SDL_RaiseWindow(_window);
 	}
 	return true;
@@ -224,7 +226,7 @@ bool SDLConnectionDialog::handle(const SDL_Event& event)
 			{
 				auto& ev = reinterpret_cast<const SDL_KeyboardEvent&>(event);
 				update(_renderer);
-				switch (event.key.keysym.sym)
+				switch (event.key.key)
 				{
 					case SDLK_RETURN:
 					case SDLK_RETURN2:
@@ -453,10 +455,13 @@ std::string SDLConnectionDialog::print(const char* fmt, va_list ap)
 
 		va_list copy;
 		va_copy(copy, ap);
+		WINPR_PRAGMA_DIAG_PUSH
+		WINPR_PRAGMA_DIAG_IGNORED_FORMAT_NONLITERAL
 		size = vsnprintf(res.data(), res.size(), fmt, copy);
+		WINPR_PRAGMA_DIAG_POP
 		va_end(copy);
 
-	} while ((size > 0) && (size > res.size()));
+	} while ((size > 0) && (static_cast<size_t>(size) > res.size()));
 
 	return res;
 }
@@ -478,7 +483,7 @@ void SDLConnectionDialog::resetTimer()
 	_running = false;
 }
 
-Uint32 SDLConnectionDialog::timeout(Uint32 intervalMS, void* pvthis)
+Uint32 SDLConnectionDialog::timeout(void* pvthis, SDL_TimerID timerID, Uint32 intervalMS)
 {
 	auto ths = static_cast<SDLConnectionDialog*>(pvthis);
 	ths->hide();

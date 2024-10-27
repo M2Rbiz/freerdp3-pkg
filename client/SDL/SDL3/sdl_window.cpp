@@ -22,7 +22,6 @@
 
 SdlWindow::SdlWindow(const std::string& title, Sint32 startupX, Sint32 startupY, Sint32 width,
                      Sint32 height, Uint32 flags)
-    : _offset_x(0), _offset_y(0)
 {
 	auto props = SDL_CreateProperties();
 	SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, title.c_str());
@@ -35,7 +34,7 @@ SdlWindow::SdlWindow(const std::string& title, Sint32 startupX, Sint32 startupY,
 	SDL_DestroyProperties(props);
 }
 
-SdlWindow::SdlWindow(SdlWindow&& other)
+SdlWindow::SdlWindow(SdlWindow&& other) noexcept
     : _window(other._window), _offset_x(other._offset_x), _offset_y(other._offset_y)
 {
 	other._window = nullptr;
@@ -100,7 +99,7 @@ bool SdlWindow::grabKeyboard(bool enable)
 {
 	if (!_window)
 		return false;
-	SDL_SetWindowKeyboardGrab(_window, enable ? SDL_TRUE : SDL_FALSE);
+	SDL_SetWindowKeyboardGrab(_window, enable);
 	return true;
 }
 
@@ -108,14 +107,14 @@ bool SdlWindow::grabMouse(bool enable)
 {
 	if (!_window)
 		return false;
-	SDL_SetWindowMouseGrab(_window, enable ? SDL_TRUE : SDL_FALSE);
+	SDL_SetWindowMouseGrab(_window, enable);
 	return true;
 }
 
 void SdlWindow::setBordered(bool bordered)
 {
 	if (_window)
-		SDL_SetWindowBordered(_window, bordered ? SDL_TRUE : SDL_FALSE);
+		SDL_SetWindowBordered(_window, bordered);
 }
 
 void SdlWindow::raise()
@@ -125,7 +124,7 @@ void SdlWindow::raise()
 
 void SdlWindow::resizeable(bool use)
 {
-	SDL_SetWindowResizable(_window, use ? SDL_TRUE : SDL_FALSE);
+	SDL_SetWindowResizable(_window, use);
 }
 
 void SdlWindow::fullscreen(bool enter)
@@ -141,9 +140,9 @@ void SdlWindow::fullscreen(bool enter)
 
 			SDL_RestoreWindow(_window); // Maximize so we can see the caption and
 			                            // bits
-			SDL_SetWindowBordered(_window, SDL_FALSE);
+			SDL_SetWindowBordered(_window, false);
 			SDL_SetWindowPosition(_window, 0, 0);
-			SDL_SetWindowAlwaysOnTop(_window, SDL_TRUE);
+			SDL_SetWindowAlwaysOnTop(_window, true);
 			SDL_RaiseWindow(_window);
 			if (mode)
 				SDL_SetWindowSize(_window, mode->w, mode->h);
@@ -154,13 +153,18 @@ void SdlWindow::fullscreen(bool enter)
 		if (curFlags & SDL_WINDOW_BORDERLESS)
 		{
 
-			SDL_SetWindowBordered(_window, SDL_TRUE);
-			SDL_SetWindowAlwaysOnTop(_window, SDL_FALSE);
+			SDL_SetWindowBordered(_window, true);
+			SDL_SetWindowAlwaysOnTop(_window, false);
 			SDL_RaiseWindow(_window);
 			SDL_MinimizeWindow(_window); // Maximize so we can see the caption and bits
 			SDL_MaximizeWindow(_window); // Maximize so we can see the caption and bits
 		}
 	}
+}
+
+void SdlWindow::minimize()
+{
+	SDL_MinimizeWindow(_window);
 }
 
 bool SdlWindow::fill(Uint8 r, Uint8 g, Uint8 b, Uint8 a)
@@ -169,7 +173,7 @@ bool SdlWindow::fill(Uint8 r, Uint8 g, Uint8 b, Uint8 a)
 	if (!surface)
 		return false;
 	SDL_Rect rect = { 0, 0, surface->w, surface->h };
-	auto color = SDL_MapRGBA(surface->format, r, g, b, a);
+	auto color = SDL_MapSurfaceRGBA(surface, r, g, b, a);
 
 	SDL_FillSurfaceRect(surface, &rect, color);
 	return true;
@@ -184,12 +188,12 @@ bool SdlWindow::blit(SDL_Surface* surface, const SDL_Rect& srcRect, SDL_Rect& ds
 		return true;
 	if (!SDL_SetSurfaceClipRect(screen, &dstRect))
 		return true;
-	auto rc = SDL_BlitSurfaceScaled(surface, &srcRect, screen, &dstRect, SDL_SCALEMODE_BEST);
-	if (rc != 0)
+	if (!SDL_BlitSurfaceScaled(surface, &srcRect, screen, &dstRect, SDL_SCALEMODE_LINEAR))
 	{
-		SDL_LogError(SDL_LOG_CATEGORY_RENDER, "SDL_BlitScaled: %s [%d]", sdl_error_string(rc), rc);
+		SDL_LogError(SDL_LOG_CATEGORY_RENDER, "SDL_BlitScaled: %s", SDL_GetError());
+		return false;
 	}
-	return rc == 0;
+	return true;
 }
 
 void SdlWindow::updateSurface()

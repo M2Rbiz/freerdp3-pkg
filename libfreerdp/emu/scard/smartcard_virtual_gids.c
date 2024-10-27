@@ -37,11 +37,11 @@
 
 #define VGIDS_EFID_MASTER 0xA000
 #define VGIDS_EFID_COMMON 0xA010
-#define VGIDS_EFID_CARDCF VGIDS_EFID_COMMON
-#define VGIDS_EFID_CARDAPPS VGIDS_EFID_COMMON
-#define VGIDS_EFID_CMAPFILE VGIDS_EFID_COMMON
+// #define VGIDS_EFID_CARDCF VGIDS_EFID_COMMON
+// #define VGIDS_EFID_CARDAPPS VGIDS_EFID_COMMON
+// #define VGIDS_EFID_CMAPFILE VGIDS_EFID_COMMON
 #define VGIDS_EFID_CARDID 0xA012
-#define VGIDS_EFID_KXC00 VGIDS_EFID_COMMON
+// #define VGIDS_EFID_KXC00 VGIDS_EFID_COMMON
 #define VGIDS_EFID_CURRENTDF 0x3FFF
 
 #define VGIDS_DO_FILESYSTEMTABLE 0xDF1F
@@ -58,23 +58,23 @@
 #define VGIDS_DEFAULT_RETRY_COUNTER 3
 
 #define VGIDS_KEY_TYPE_KEYEXCHANGE 0x9A
-#define VGIDS_KEY_TYPE_SIGNATURE 0x9C
+// #define VGIDS_KEY_TYPE_SIGNATURE 0x9C
 
 #define VGIDS_ALGID_RSA_1024 0x06
 #define VGIDS_ALGID_RSA_2048 0x07
 #define VGIDS_ALGID_RSA_3072 0x08
 #define VGIDS_ALGID_RSA_4096 0x09
 
-#define VGIDS_SE_CRT_AUTH 0xA4
+// #define VGIDS_SE_CRT_AUTH 0xA4
 #define VGIDS_SE_CRT_SIGN 0xB6
 #define VGIDS_SE_CRT_CONF 0xB8
 
 #define VGIDS_SE_ALGOID_CT_PAD_PKCS1 0x40
 #define VGIDS_SE_ALGOID_CT_PAD_OAEP 0x80
-#define VGIDS_SE_ALGOID_CT_RSA_1024 0x06
-#define VGIDS_SE_ALGOID_CT_RSA_2048 0x07
-#define VGIDS_SE_ALGOID_CT_RSA_3072 0x08
-#define VGIDS_SE_ALGOID_CT_RSA_4096 0x09
+// #define VGIDS_SE_ALGOID_CT_RSA_1024 0x06
+// #define VGIDS_SE_ALGOID_CT_RSA_2048 0x07
+// #define VGIDS_SE_ALGOID_CT_RSA_3072 0x08
+// #define VGIDS_SE_ALGOID_CT_RSA_4096 0x09
 
 #define VGIDS_SE_ALGOID_DST_PAD_PKCS1 0x40
 #define VGIDS_SE_ALGOID_DST_RSA_1024 0x06
@@ -401,7 +401,8 @@ static BOOL vgids_ef_read_do(vgidsEF* ef, UINT16 doID, BYTE** data, DWORD* dataS
 		else
 		{
 			/* Skip DO */
-			Stream_SafeSeek(ef->data, doSize);
+			if (!Stream_SafeSeek(ef->data, doSize))
+				return FALSE;
 		}
 	}
 
@@ -501,7 +502,7 @@ handle_error:
 	return FALSE;
 }
 
-static int get_rsa_key_size(const rdpPrivateKey* privateKey)
+static size_t get_rsa_key_size(const rdpPrivateKey* privateKey)
 {
 	WINPR_ASSERT(privateKey);
 
@@ -1256,8 +1257,8 @@ static BOOL vgids_ins_perform_security_operation(vgidsContext* context, wStream*
 		if (!context->commandData)
 			return FALSE;
 	}
-	else
-		Stream_EnsureRemainingCapacity(context->commandData, lc);
+	else if (!Stream_EnsureRemainingCapacity(context->commandData, lc))
+		return FALSE;
 
 	Stream_Write(context->commandData, Stream_Pointer(s), lc);
 	Stream_SealLength(context->commandData);
@@ -1522,11 +1523,8 @@ BOOL vgids_init(vgidsContext* ctx, const char* cert, const char* privateKey, con
 		goto init_failed;
 
 	/* write container map DO */
-	const int size = get_rsa_key_size(ctx->privateKey);
-	if (size <= 0)
-		goto init_failed;
-
-	if (size <= 0)
+	const size_t size = get_rsa_key_size(ctx->privateKey);
+	if ((size == 0) || (size > UINT16_MAX / 8))
 		goto init_failed;
 
 	cmrec.wKeyExchangeKeySizeBits = (WORD)size * 8;

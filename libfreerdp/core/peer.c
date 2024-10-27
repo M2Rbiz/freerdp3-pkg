@@ -449,27 +449,13 @@ static state_run_t peer_recv_tpkt_pdu(freerdp_peer* client, wStream* s)
 
 	if (rdp_get_state(rdp) <= CONNECTION_STATE_LICENSING)
 	{
-		if (!rdp_read_security_header(rdp, s, &securityFlags, &length))
+		if (!rdp_handle_message_channel(rdp, s, channelId, length))
 			return STATE_RUN_FAILED;
-		if (securityFlags & SEC_ENCRYPT)
-		{
-			if (!rdp_decrypt(rdp, s, &length, securityFlags))
-				return STATE_RUN_FAILED;
-		}
-		return rdp_recv_message_channel_pdu(rdp, s, securityFlags);
+		return STATE_RUN_SUCCESS;
 	}
 
-	if (settings->UseRdpSecurityLayer)
-	{
-		if (!rdp_read_security_header(rdp, s, &securityFlags, &length))
-			return STATE_RUN_FAILED;
-
-		if (securityFlags & SEC_ENCRYPT)
-		{
-			if (!rdp_decrypt(rdp, s, &length, securityFlags))
-				return STATE_RUN_FAILED;
-		}
-	}
+	if (!rdp_handle_optional_rdp_decryption(rdp, s, &length, &securityFlags))
+		return STATE_RUN_FAILED;
 
 	if (channelId == MCS_GLOBAL_CHANNEL_ID)
 	{
@@ -754,9 +740,6 @@ static state_run_t rdp_peer_handle_state_active(freerdp_peer* client)
 
 	WINPR_ASSERT(client);
 	WINPR_ASSERT(client->context);
-
-	rdpRdp* rdp = client->context->rdp;
-	WINPR_ASSERT(rdp);
 
 	if (!client->connected)
 	{
@@ -1131,8 +1114,11 @@ static state_run_t peer_recv_callback_internal(rdpTransport* transport, wStream*
 				{
 					if (!rdp_server_transition_to_state(rdp, CONNECTION_STATE_ACTIVE))
 						ret = STATE_RUN_FAILED;
-					update_reset_state(rdp->update);
-					ret = STATE_RUN_CONTINUE;
+					else
+					{
+						update_reset_state(rdp->update);
+						ret = STATE_RUN_CONTINUE;
+					}
 				}
 				else
 					ret = peer_unexpected_client_message(rdp, FINALIZE_CS_FONT_LIST_PDU);
@@ -1340,7 +1326,7 @@ void freerdp_peer_context_free(freerdp_peer* client)
 	{
 		rdpContext* ctx = client->context;
 
-		CloseHandle(ctx->channelErrorEvent);
+		(void)CloseHandle(ctx->channelErrorEvent);
 		ctx->channelErrorEvent = NULL;
 		free(ctx->errorDescription);
 		ctx->errorDescription = NULL;
@@ -1458,7 +1444,11 @@ freerdp_peer* freerdp_peer_new(int sockfd)
 	if (sockfd >= 0)
 	{
 		if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (void*)&option_value, option_len) < 0)
-			goto fail;
+		{
+			/* local unix sockets don't have the TCP_NODELAY implemented, so don't make this
+			 * error fatal */
+			WLog_DBG(TAG, "can't set TCP_NODELAY, continuing anyway");
+		}
 	}
 
 	if (client)
@@ -1490,10 +1480,6 @@ freerdp_peer* freerdp_peer_new(int sockfd)
 	}
 
 	return client;
-
-fail:
-	freerdp_peer_free(client);
-	return NULL;
 }
 
 void freerdp_peer_free(freerdp_peer* client)

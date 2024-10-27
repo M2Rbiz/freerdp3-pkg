@@ -75,7 +75,6 @@ else()
 	set(WITH_INTERNAL_MD5_DEFAULT OFF)
 endif()
 
-option(WITH_VERBOSE_WINPR_ASSERT "Compile with verbose WINPR_ASSERT." ON)
 option(WITH_WINPR_TOOLS "Build WinPR helper binaries" ${TOOLS_DEFAULT})
 option(WITH_WINPR_DEPRECATED "Build WinPR deprecated symbols" OFF)
 option(WITH_DEBUG_THREADS "Print thread debug messages, enables handle dump" ${DEFAULT_DEBUG_OPTION})
@@ -110,11 +109,6 @@ if (WITH_WINPR_DEPRECATED)
 	add_definitions(-DWITH_WINPR_DEPRECATED)
 endif()
 
-if (WITH_VERBOSE_WINPR_ASSERT)
-	add_definitions(-DWITH_VERBOSE_WINPR_ASSERT)
-endif()
-
-
 # Include cmake modules
 include(CheckIncludeFiles)
 include(CheckLibraryExists)
@@ -137,7 +131,7 @@ endif()
 
 # Soname versioning
 set(VERSION_REGEX "^(.*)([0-9]+)\\.([0-9]+)\\.([0-9]+)-?(.*)")
-set(RAW_VERSION_STRING "3.6.3")
+set(RAW_VERSION_STRING "3.9.0")
 if(EXISTS "${PROJECT_SOURCE_DIR}/.source_tag")
 	file(READ ${PROJECT_SOURCE_DIR}/.source_tag RAW_VERSION_STRING)
 elseif(USE_VERSION_FROM_GIT_TAG)
@@ -163,6 +157,10 @@ if (WINPR_VERSION_SUFFIX)
 else()
 	set(WINPR_VERSION_FULL "${WINPR_VERSION}")
 endif()
+
+include(CheckTypeSize)
+check_type_size(ssize_t SSIZE_T)
+set(WINPR_HAVE_SSIZE_T ${HAVE_SSIZE_T})
 
 if(NOT IOS)
 	CHECK_SYMBOL_EXISTS(strndup string.h WINPR_HAVE_STRNDUP)
@@ -221,6 +219,7 @@ if(NOT IOS)
 	endif()
 
 	include(CheckFunctionExists)
+	check_function_exists(strerror_r WINPR_HAVE_STRERROR_R)
 	check_function_exists(getlogin_r WINPR_HAVE_GETLOGIN_R)
 	check_function_exists(getpwuid_r WINPR_HAVE_GETPWUID_R)
 	check_struct_has_member("struct tm" tm_gmtoff time.h WINPR_HAVE_TM_GMTOFF)
@@ -360,5 +359,5 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/WinPRConfig.cmake ${CMAKE_CURRENT_BINA
 install(EXPORT WinPRTargets DESTINATION ${WINPR_CMAKE_INSTALL_DIR})
 
 include(pkg-config-install-prefix)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/winpr.pc.in ${CMAKE_CURRENT_BINARY_DIR}/winpr${WINPR_VERSION_MAJOR}.pc @ONLY)
+cleaning_configure_file(${CMAKE_CURRENT_SOURCE_DIR}/winpr.pc.in ${CMAKE_CURRENT_BINARY_DIR}/winpr${WINPR_VERSION_MAJOR}.pc @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/winpr${WINPR_VERSION_MAJOR}.pc DESTINATION ${PKG_CONFIG_PC_INSTALL_DIR})

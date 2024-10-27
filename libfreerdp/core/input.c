@@ -40,8 +40,6 @@
 #define INPUT_EVENT_MOUSEX 0x8002
 #define INPUT_EVENT_MOUSEREL 0x8004
 
-#define RDP_CLIENT_INPUT_PDU_HEADER_LENGTH 4
-
 static void rdp_write_client_input_pdu_header(wStream* s, UINT16 number)
 {
 	WINPR_ASSERT(s);
@@ -382,7 +380,7 @@ static BOOL input_send_fastpath_keyboard_event(rdpInput* input, UINT16 flags, UI
 		return FALSE;
 
 	WINPR_ASSERT(code <= UINT8_MAX);
-	Stream_Write_UINT8(s, (UINT8)code); /* keyCode (1 byte) */
+	Stream_Write_UINT8(s, code); /* keyCode (1 byte) */
 	return fastpath_send_input_pdu(rdp->fastpath, s);
 }
 

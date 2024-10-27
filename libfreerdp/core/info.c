@@ -41,9 +41,8 @@
 #define logonInfoV2ReservedSize 558
 #define logonInfoV2TotalSize (logonInfoV2Size + logonInfoV2ReservedSize)
 
-static const char* const INFO_TYPE_LOGON_STRINGS[4] = { "Logon Info V1", "Logon Info V2",
-	                                                    "Logon Plain Notify",
-	                                                    "Logon Extended Info" };
+static const char* INFO_TYPE_LOGON_STRINGS[4] = { "Logon Info V1", "Logon Info V2",
+	                                              "Logon Plain Notify", "Logon Extended Info" };
 
 /* This define limits the length of the strings in the label field. */
 #define MAX_LABEL_LENGTH 40
@@ -645,7 +644,7 @@ static BOOL rdp_read_info_string(rdpSettings* settings, FreeRDP_Settings_Keys_St
 	if (terminator.w != L'\0')
 	{
 		WLog_ERR(TAG, "protocol error: Domain must be null terminated");
-		freerdp_settings_set_string(settings, id, NULL);
+		(void)freerdp_settings_set_string(settings, id, NULL);
 		return FALSE;
 	}
 
@@ -915,11 +914,11 @@ static BOOL rdp_write_info_packet(rdpRdp* rdp, wStream* s)
 
 	Stream_Write_UINT32(s, settings->KeyboardCodePage); /* CodePage (4 bytes) */
 	Stream_Write_UINT32(s, flags);                      /* flags (4 bytes) */
-	Stream_Write_UINT16(s, (UINT32)cbDomain);           /* cbDomain (2 bytes) */
-	Stream_Write_UINT16(s, (UINT32)cbUserName);         /* cbUserName (2 bytes) */
-	Stream_Write_UINT16(s, (UINT32)cbPassword);         /* cbPassword (2 bytes) */
-	Stream_Write_UINT16(s, (UINT32)cbAlternateShell);   /* cbAlternateShell (2 bytes) */
-	Stream_Write_UINT16(s, (UINT32)cbWorkingDir);       /* cbWorkingDir (2 bytes) */
+	Stream_Write_UINT16(s, (UINT16)cbDomain);           /* cbDomain (2 bytes) */
+	Stream_Write_UINT16(s, (UINT16)cbUserName);         /* cbUserName (2 bytes) */
+	Stream_Write_UINT16(s, (UINT16)cbPassword);         /* cbPassword (2 bytes) */
+	Stream_Write_UINT16(s, (UINT16)cbAlternateShell);   /* cbAlternateShell (2 bytes) */
+	Stream_Write_UINT16(s, (UINT16)cbWorkingDir);       /* cbWorkingDir (2 bytes) */
 
 	Stream_Write(s, domainW, cbDomain);
 
@@ -1394,32 +1393,43 @@ static BOOL rdp_write_logon_info_v1(wStream* s, logon_info* info)
 	const size_t userCharLen = 512 / sizeof(WCHAR);
 
 	size_t sz = 4 + 52 + 4 + 512 + 4;
-	size_t len = 0;
 
 	if (!Stream_EnsureRemainingCapacity(s, sz))
 		return FALSE;
 
 	/* domain */
-	WINPR_ASSERT(info);
-	if (!info->domain || !info->username)
-		return FALSE;
+	{
+		WINPR_ASSERT(info);
+		if (!info->domain || !info->username)
+			return FALSE;
+		const size_t len = strnlen(info->domain, charLen + 1);
+		if (len > charLen)
+			return FALSE;
 
-	len = strnlen(info->domain, charLen + 1);
-	if (len > charLen)
-		return FALSE;
+		const size_t wlen = len * sizeof(WCHAR);
+		if (wlen > UINT32_MAX)
+			return FALSE;
 
-	Stream_Write_UINT32(s, len * sizeof(WCHAR));
-	if (Stream_Write_UTF16_String_From_UTF8(s, charLen, info->domain, len, TRUE) < 0)
-		return FALSE;
+		Stream_Write_UINT32(s, (UINT32)wlen);
+		if (Stream_Write_UTF16_String_From_UTF8(s, charLen, info->domain, len, TRUE) < 0)
+			return FALSE;
+	}
 
 	/* username */
-	len = strnlen(info->username, userCharLen + 1);
-	if (len > userCharLen)
-		return FALSE;
+	{
+		const size_t len = strnlen(info->username, userCharLen + 1);
+		if (len > userCharLen)
+			return FALSE;
 
-	Stream_Write_UINT32(s, len * sizeof(WCHAR));
-	if (Stream_Write_UTF16_String_From_UTF8(s, userCharLen, info->username, len, TRUE) < 0)
-		return FALSE;
+		const size_t wlen = len * sizeof(WCHAR);
+		if (wlen > UINT32_MAX)
+			return FALSE;
+
+		Stream_Write_UINT32(s, (UINT32)wlen);
+
+		if (Stream_Write_UTF16_String_From_UTF8(s, userCharLen, info->username, len, TRUE) < 0)
+			return FALSE;
+	}
 
 	/* sessionId */
 	Stream_Write_UINT32(s, info->sessionId);

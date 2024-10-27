@@ -49,6 +49,7 @@
 #endif
 #include <winpr/stream.h>
 
+#include "image.h"
 #include "../log.h"
 #define TAG WINPR_TAG("utils.image")
 
@@ -59,7 +60,7 @@ static SSIZE_T winpr_convert_from_png(const BYTE* comp_data, size_t comp_data_by
 static SSIZE_T winpr_convert_from_webp(const BYTE* comp_data, size_t comp_data_bytes, UINT32* width,
                                        UINT32* height, UINT32* bpp, BYTE** ppdecomp_data);
 
-static BOOL writeBitmapFileHeader(wStream* s, const WINPR_BITMAP_FILE_HEADER* bf)
+BOOL writeBitmapFileHeader(wStream* s, const WINPR_BITMAP_FILE_HEADER* bf)
 {
 	if (!Stream_EnsureRemainingCapacity(s, sizeof(WINPR_BITMAP_FILE_HEADER)))
 		return FALSE;
@@ -73,9 +74,14 @@ static BOOL writeBitmapFileHeader(wStream* s, const WINPR_BITMAP_FILE_HEADER* bf
 	return TRUE;
 }
 
-static BOOL readBitmapFileHeader(wStream* s, WINPR_BITMAP_FILE_HEADER* bf)
+BOOL readBitmapFileHeader(wStream* s, WINPR_BITMAP_FILE_HEADER* bf)
 {
-	if (!s || !bf || (!Stream_CheckAndLogRequiredLength(TAG, s, sizeof(WINPR_BITMAP_FILE_HEADER))))
+	static wLog* log = NULL;
+	if (!log)
+		log = WLog_Get(TAG);
+
+	if (!s || !bf ||
+	    (!Stream_CheckAndLogRequiredLengthWLog(log, s, sizeof(WINPR_BITMAP_FILE_HEADER))))
 		return FALSE;
 
 	Stream_Read_UINT8(s, bf->bfType[0]);
@@ -87,15 +93,22 @@ static BOOL readBitmapFileHeader(wStream* s, WINPR_BITMAP_FILE_HEADER* bf)
 
 	if (bf->bfSize < sizeof(WINPR_BITMAP_FILE_HEADER))
 	{
-		WLog_ERR(TAG, "");
+		WLog_Print(log, WLOG_ERROR, "Invalid bitmap::bfSize=%" PRIu32 ", require at least %" PRIuz,
+		           bf->bfSize, sizeof(WINPR_BITMAP_FILE_HEADER));
 		return FALSE;
 	}
 
-	return Stream_CheckAndLogRequiredCapacity(TAG, s,
-	                                          bf->bfSize - sizeof(WINPR_BITMAP_FILE_HEADER));
+	if ((bf->bfType[0] != 'B') || (bf->bfType[1] != 'M'))
+	{
+		WLog_Print(log, WLOG_ERROR, "Invalid bitmap header [%c%c], expected [BM]", bf->bfType[0],
+		           bf->bfType[1]);
+		return FALSE;
+	}
+	return Stream_CheckAndLogRequiredCapacityWLog(log, s,
+	                                              bf->bfSize - sizeof(WINPR_BITMAP_FILE_HEADER));
 }
 
-static BOOL writeBitmapInfoHeader(wStream* s, const WINPR_BITMAP_INFO_HEADER* bi)
+BOOL writeBitmapInfoHeader(wStream* s, const WINPR_BITMAP_INFO_HEADER* bi)
 {
 	if (!Stream_EnsureRemainingCapacity(s, sizeof(WINPR_BITMAP_INFO_HEADER)))
 		return FALSE;
@@ -114,7 +127,7 @@ static BOOL writeBitmapInfoHeader(wStream* s, const WINPR_BITMAP_INFO_HEADER* bi
 	return TRUE;
 }
 
-static BOOL readBitmapInfoHeader(wStream* s, WINPR_BITMAP_INFO_HEADER* bi, size_t* poffset)
+BOOL readBitmapInfoHeader(wStream* s, WINPR_BITMAP_INFO_HEADER* bi, size_t* poffset)
 {
 	if (!s || !bi || (!Stream_CheckAndLogRequiredLength(TAG, s, sizeof(WINPR_BITMAP_INFO_HEADER))))
 		return FALSE;
@@ -273,7 +286,7 @@ static void* winpr_bitmap_write_buffer(const BYTE* data, size_t size, UINT32 wid
 		goto fail;
 	Stream_Write(s, bmp_header, WINPR_IMAGE_BMP_HEADER_LEN);
 
-	if (!Stream_EnsureRemainingCapacity(s, stride * height * 1ull))
+	if (!Stream_EnsureRemainingCapacity(s, 1ULL * stride * height))
 		goto fail;
 
 	for (size_t y = 0; y < height; y++)
@@ -323,9 +336,10 @@ int winpr_bitmap_write_ex(const char* filename, const BYTE* data, size_t stride,
 	if (fwrite(bmpdata, bmpsize, 1, fp) != 1)
 		goto fail;
 
+	ret = 0;
 fail:
 	if (fp)
-		fclose(fp);
+		(void)fclose(fp);
 	free(bmpdata);
 	return ret;
 }
@@ -341,7 +355,7 @@ static int write_and_free(const char* filename, void* data, size_t size)
 		goto fail;
 
 	size_t w = fwrite(data, 1, size, fp);
-	fclose(fp);
+	(void)fclose(fp);
 
 	status = (w == size) ? 1 : -1;
 fail:
@@ -430,7 +444,8 @@ static int winpr_image_bitmap_read_buffer(wImage* image, const BYTE* buffer, siz
 
 	image->bitsPerPixel = bi.biBitCount;
 	image->bytesPerPixel = (image->bitsPerPixel / 8);
-	image->scanline = ((((bi.biWidth * bi.biBitCount) + 31) & ~31) >> 3);
+	const size_t bpp = (bi.biBitCount + 7) / 8;
+	image->scanline = bi.biWidth * bpp;
 	const size_t bmpsize = 1ull * image->scanline * image->height;
 	if (bmpsize != bi.biSizeImage)
 		WLog_WARN(TAG, "bmpsize=%" PRIuz " != bi.biSizeImage=%" PRIu32, bmpsize, bi.biSizeImage);
@@ -478,9 +493,9 @@ int winpr_image_read(wImage* image, const char* filename)
 		return -1;
 	}
 
-	fseek(fp, 0, SEEK_END);
+	(void)fseek(fp, 0, SEEK_END);
 	INT64 pos = _ftelli64(fp);
-	fseek(fp, 0, SEEK_SET);
+	(void)fseek(fp, 0, SEEK_SET);
 
 	if (pos > 0)
 	{
@@ -495,7 +510,7 @@ int winpr_image_read(wImage* image, const char* filename)
 		}
 		free(buffer);
 	}
-	fclose(fp);
+	(void)fclose(fp);
 	return status;
 }
 
@@ -611,7 +626,8 @@ static void* winpr_convert_to_jpeg(const void* data, size_t size, UINT32 width, 
 
 	cinfo.image_width = width;
 	cinfo.image_height = height;
-	cinfo.input_components = (bpp + 7) / 8;
+	WINPR_ASSERT(bpp <= INT32_MAX / 8);
+	cinfo.input_components = (int)(bpp + 7) / 8;
 	cinfo.in_color_space = (bpp > 24) ? JCS_EXT_BGRA : JCS_EXT_BGR;
 	cinfo.data_precision = 8;
 
@@ -629,7 +645,7 @@ static void* winpr_convert_to_jpeg(const void* data, size_t size, UINT32 width, 
 
 		/* libjpeg is not const correct, we must cast here to avoid issues
 		 * with newer C compilers type check errors */
-		JSAMPLE* coffset = (JSAMPLE*)&cdata[offset];
+		JSAMPLE* coffset = WINPR_CAST_CONST_PTR_AWAY(&cdata[offset], JSAMPLE*);
 		if (jpeg_write_scanlines(&cinfo, &coffset, 1) != 1)
 			goto fail;
 	}
@@ -643,8 +659,10 @@ fail:
 #endif
 }
 
+// NOLINTBEGIN(readability-non-const-parameter)
 SSIZE_T winpr_convert_from_jpeg(const BYTE* comp_data, size_t comp_data_bytes, UINT32* width,
                                 UINT32* height, UINT32* bpp, BYTE** ppdecomp_data)
+// NOLINTEND(readability-non-const-parameter)
 {
 	WINPR_ASSERT(comp_data || (comp_data_bytes == 0));
 	WINPR_ASSERT(width);
@@ -676,7 +694,7 @@ SSIZE_T winpr_convert_from_jpeg(const BYTE* comp_data, size_t comp_data_bytes, U
 	if (!jpeg_start_decompress(&cinfo))
 		goto fail;
 
-	size_t stride = cinfo.image_width * cinfo.num_components;
+	size_t stride = 1ULL * cinfo.image_width * cinfo.num_components;
 
 	decomp_data = calloc(stride, cinfo.image_height);
 	if (decomp_data)
@@ -687,7 +705,9 @@ SSIZE_T winpr_convert_from_jpeg(const BYTE* comp_data, size_t comp_data_bytes, U
 			if (jpeg_read_scanlines(&cinfo, &row, 1) != 1)
 				goto fail;
 		}
-		size = stride * cinfo.image_height;
+		const size_t ssize = stride * cinfo.image_height;
+		WINPR_ASSERT(ssize < SSIZE_MAX);
+		size = (SSIZE_T)ssize;
 	}
 	jpeg_finish_decompress(&cinfo);
 
@@ -711,13 +731,16 @@ static void* winpr_convert_to_webp(const void* data, size_t size, UINT32 width, 
 #else
 	size_t dstSize = 0;
 	uint8_t* pDstData = NULL;
+	WINPR_ASSERT(width <= INT32_MAX);
+	WINPR_ASSERT(height <= INT32_MAX);
+	WINPR_ASSERT(stride <= INT32_MAX);
 	switch (bpp)
 	{
 		case 32:
-			dstSize = WebPEncodeLosslessBGRA(data, width, height, stride, &pDstData);
+			dstSize = WebPEncodeLosslessBGRA(data, (int)width, (int)height, (int)stride, &pDstData);
 			break;
 		case 24:
-			dstSize = WebPEncodeLosslessBGR(data, width, height, stride, &pDstData);
+			dstSize = WebPEncodeLosslessBGR(data, (int)width, (int)height, (int)stride, &pDstData);
 			break;
 		default:
 			return NULL;
@@ -804,7 +827,7 @@ static void png_flush(png_structp png_ptr)
 static SSIZE_T save_png_to_buffer(UINT32 bpp, UINT32 width, UINT32 height, const uint8_t* data,
                                   size_t size, void** pDstData)
 {
-	int rc = -1;
+	SSIZE_T rc = -1;
 	png_structp png_ptr = NULL;
 	png_infop info_ptr = NULL;
 	png_byte** row_pointers = NULL;
@@ -878,7 +901,9 @@ static SSIZE_T save_png_to_buffer(UINT32 bpp, UINT32 width, UINT32 height, const
 	png_free(png_ptr, row_pointers);
 
 	/* Finish writing. */
-	rc = state.size;
+	if (state.size > SSIZE_MAX)
+		goto fail;
+	rc = (SSIZE_T)state.size;
 	*pDstData = state.buffer;
 fail:
 	png_destroy_write_struct(&png_ptr, &info_ptr);
@@ -926,7 +951,7 @@ static void* winpr_read_png_from_buffer(const void* data, size_t SrcSize, size_t
 	if (!info_ptr)
 		goto fail;
 
-	memory_reader_state.buffer = (png_bytep)data;
+	memory_reader_state.buffer = WINPR_CAST_CONST_PTR_AWAY(data, png_bytep);
 	memory_reader_state.bufsize = SrcSize;
 	memory_reader_state.current_pos = 0;
 
@@ -939,14 +964,16 @@ static void* winpr_read_png_from_buffer(const void* data, size_t SrcSize, size_t
 	                 NULL, NULL) != 1)
 		goto fail;
 
-	size_t bpp = PNG_IMAGE_PIXEL_SIZE(color_type);
+	WINPR_ASSERT(bit_depth >= 0);
+	const png_byte channelcount = png_get_channels(png_ptr, info_ptr);
+	const size_t bpp = channelcount * (size_t)bit_depth;
 
 	row_pointers = png_get_rows(png_ptr, info_ptr);
 	if (row_pointers)
 	{
-		const size_t stride = width * bpp;
+		const size_t stride = 1ULL * width * bpp / 8ull;
 		const size_t png_stride = png_get_rowbytes(png_ptr, info_ptr);
-		const size_t size = width * height * bpp;
+		const size_t size = 1ULL * width * height * bpp / 8ull;
 		const size_t copybytes = stride > png_stride ? png_stride : stride;
 
 		rc = malloc(size);
@@ -961,7 +988,7 @@ static void* winpr_read_png_from_buffer(const void* data, size_t SrcSize, size_t
 			*pSize = size;
 			*pWidth = width;
 			*pHeight = height;
-			*pBpp = bpp * 8;
+			*pBpp = bpp;
 		}
 	}
 fail:

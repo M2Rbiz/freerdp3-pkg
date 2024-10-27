@@ -87,7 +87,7 @@ static UINT rdpsnd_server_send_formats(RdpsndServerContext* context)
 	Stream_SetPosition(s, pos);
 
 	WINPR_ASSERT(context->priv);
-	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, (PCHAR)Stream_Buffer(s),
+	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, Stream_BufferAs(s, char),
 	                                Stream_GetPosition(s), &written);
 	Stream_SetPosition(s, 0);
 fail:
@@ -376,7 +376,7 @@ static UINT rdpsnd_server_select_format(RdpsndServerContext* context, UINT16 cli
 	switch (format->wFormatTag)
 	{
 		case WAVE_FORMAT_DVI_ADPCM:
-			bs = (format->nBlockAlign - 4 * format->nChannels) * 4;
+			bs = 4ULL * (format->nBlockAlign - 4ULL * format->nChannels);
 			context->priv->out_frames -= context->priv->out_frames % bs;
 
 			if (context->priv->out_frames < bs)
@@ -391,6 +391,8 @@ static UINT rdpsnd_server_select_format(RdpsndServerContext* context, UINT16 cli
 			if (context->priv->out_frames < bs)
 				context->priv->out_frames = bs;
 
+			break;
+		default:
 			break;
 	}
 
@@ -456,7 +458,7 @@ static UINT rdpsnd_server_training(RdpsndServerContext* context, UINT16 timestam
 	Stream_SetPosition(s, 2);
 	Stream_Write_UINT16(s, end - 4);
 
-	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, (PCHAR)Stream_Buffer(s), end,
+	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, Stream_BufferAs(s, char), end,
 	                                &written);
 
 	Stream_SetPosition(s, 0);
@@ -537,7 +539,7 @@ static UINT rdpsnd_server_send_wave_pdu(RdpsndServerContext* context, UINT16 wTi
 		Stream_Write_UINT16(s, end - start + 8);
 		Stream_SetPosition(s, end);
 
-		if (!WTSVirtualChannelWrite(context->priv->ChannelHandle, (PCHAR)Stream_Buffer(s),
+		if (!WTSVirtualChannelWrite(context->priv->ChannelHandle, Stream_BufferAs(s, char),
 		                            start + 4, &written))
 		{
 			WLog_ERR(TAG, "WTSVirtualChannelWrite failed!");
@@ -637,7 +639,7 @@ static UINT rdpsnd_server_send_wave2_pdu(RdpsndServerContext* context, UINT16 fo
 	Stream_SetPosition(s, 2);
 	Stream_Write_UINT16(s, end - 4);
 
-	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, (PCHAR)Stream_Buffer(s), end,
+	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, Stream_BufferAs(s, char), end,
 	                                &written);
 
 	if (!status || (end != written))
@@ -776,7 +778,7 @@ static UINT rdpsnd_server_set_volume(RdpsndServerContext* context, UINT16 left, 
 	Stream_Write_UINT16(s, right);
 	len = Stream_GetPosition(s);
 
-	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, (PCHAR)Stream_Buffer(s),
+	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, Stream_BufferAs(s, char),
 	                                (ULONG)len, &written);
 	Stream_SetPosition(s, 0);
 	return status ? CHANNEL_RC_OK : ERROR_INTERNAL_ERROR;
@@ -827,7 +829,7 @@ static UINT rdpsnd_server_close(RdpsndServerContext* context)
 	Stream_SetPosition(s, 2);
 	Stream_Write_UINT16(s, pos - 4);
 	Stream_SetPosition(s, pos);
-	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, (PCHAR)Stream_Buffer(s),
+	status = WTSVirtualChannelWrite(context->priv->ChannelHandle, Stream_BufferAs(s, char),
 	                                Stream_GetPosition(s), &written);
 	Stream_SetPosition(s, 0);
 	return status ? CHANNEL_RC_OK : ERROR_INTERNAL_ERROR;
@@ -862,8 +864,8 @@ static UINT rdpsnd_server_start(RdpsndServerContext* context)
 		{
 			priv->SessionId = (DWORD)*pSessionId;
 			WTSFreeMemory(pSessionId);
-			priv->ChannelHandle = (HANDLE)WTSVirtualChannelOpenEx(
-			    priv->SessionId, RDPSND_DVC_CHANNEL_NAME, WTS_CHANNEL_OPTION_DYNAMIC);
+			priv->ChannelHandle = WTSVirtualChannelOpenEx(priv->SessionId, RDPSND_DVC_CHANNEL_NAME,
+			                                              WTS_CHANNEL_OPTION_DYNAMIC);
 			if (!priv->ChannelHandle)
 			{
 				WLog_ERR(TAG, "Open audio dynamic virtual channel (%s) failed!",
@@ -957,7 +959,7 @@ static UINT rdpsnd_server_start(RdpsndServerContext* context)
 
 	return CHANNEL_RC_OK;
 out_stopEvent:
-	CloseHandle(context->priv->StopEvent);
+	(void)CloseHandle(context->priv->StopEvent);
 	context->priv->StopEvent = NULL;
 out_lock:
 	DeleteCriticalSection(&context->priv->lock);
@@ -965,7 +967,7 @@ out_pdu:
 	Stream_Free(context->priv->rdpsnd_pdu, TRUE);
 	context->priv->rdpsnd_pdu = NULL;
 out_close:
-	WTSVirtualChannelClose(context->priv->ChannelHandle);
+	(void)WTSVirtualChannelClose(context->priv->ChannelHandle);
 	context->priv->ChannelHandle = NULL;
 	return error;
 }
@@ -989,7 +991,7 @@ static UINT rdpsnd_server_stop(RdpsndServerContext* context)
 	{
 		if (context->priv->StopEvent)
 		{
-			SetEvent(context->priv->StopEvent);
+			(void)SetEvent(context->priv->StopEvent);
 
 			if (WaitForSingleObject(context->priv->Thread, INFINITE) == WAIT_FAILED)
 			{
@@ -998,8 +1000,8 @@ static UINT rdpsnd_server_stop(RdpsndServerContext* context)
 				return error;
 			}
 
-			CloseHandle(context->priv->Thread);
-			CloseHandle(context->priv->StopEvent);
+			(void)CloseHandle(context->priv->Thread);
+			(void)CloseHandle(context->priv->StopEvent);
 			context->priv->Thread = NULL;
 			context->priv->StopEvent = NULL;
 		}
@@ -1015,7 +1017,7 @@ static UINT rdpsnd_server_stop(RdpsndServerContext* context)
 
 	if (context->priv->ChannelHandle)
 	{
-		WTSVirtualChannelClose(context->priv->ChannelHandle);
+		(void)WTSVirtualChannelClose(context->priv->ChannelHandle);
 		context->priv->ChannelHandle = NULL;
 	}
 

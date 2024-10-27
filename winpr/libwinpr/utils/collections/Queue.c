@@ -131,7 +131,7 @@ void Queue_Clear(wQueue* queue)
 
 	queue->size = 0;
 	queue->head = queue->tail = 0;
-	ResetEvent(queue->event);
+	(void)ResetEvent(queue->event);
 	Queue_Unlock(queue);
 }
 
@@ -215,8 +215,12 @@ BOOL Queue_Enqueue(wQueue* queue, const void* obj)
 		queue->array[queue->tail] = cnv.v;
 	}
 	queue->tail = (queue->tail + 1) % queue->capacity;
+
+	const BOOL signalSet = queue->size == 0;
 	queue->size++;
-	SetEvent(queue->event);
+
+	if (signalSet)
+		(void)SetEvent(queue->event);
 out:
 
 	Queue_Unlock(queue);
@@ -243,7 +247,7 @@ void* Queue_Dequeue(wQueue* queue)
 	}
 
 	if (queue->size < 1)
-		ResetEvent(queue->event);
+		(void)ResetEvent(queue->event);
 
 	Queue_Unlock(queue);
 
@@ -339,7 +343,7 @@ void Queue_Free(wQueue* queue)
 		Queue_Clear(queue);
 		DeleteCriticalSection(&queue->lock);
 	}
-	CloseHandle(queue->event);
+	(void)CloseHandle(queue->event);
 	free(queue->array);
 	free(queue);
 }

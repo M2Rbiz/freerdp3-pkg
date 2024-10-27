@@ -80,7 +80,7 @@ static
 		return FALSE;
 
 	if (pOffset)
-		_fseeki64(fp, *pOffset, SEEK_SET);
+		(void)_fseeki64(fp, *pOffset, SEEK_SET);
 
 	r = fread(&ts, 1, sizeof(ts), fp);
 	if (r != sizeof(ts))
@@ -223,7 +223,7 @@ SSIZE_T stream_dump_append(const rdpContext* context, UINT32 flags, wStream* s, 
 	*offset = (size_t)rc;
 fail:
 	if (fp)
-		fclose(fp);
+		(void)fclose(fp);
 	return rc;
 }
 
@@ -249,7 +249,7 @@ SSIZE_T stream_dump_get(const rdpContext* context, UINT32* flags, wStream* s, si
 	rc = _ftelli64(fp);
 fail:
 	if (fp)
-		fclose(fp);
+		(void)fclose(fp);
 	return rc;
 }
 
@@ -335,7 +335,7 @@ static int stream_dump_replay_transport_read(rdpTransport* transport, wStream* s
 	rdpContext* ctx = transport_get_context(transport);
 
 	size_t size = 0;
-	time_t slp = 0;
+	UINT64 slp = 0;
 	UINT64 ts = 0;
 	UINT32 flags = 0;
 
@@ -386,6 +386,16 @@ static int stream_dump_replay_transport_tcp_connect(rdpContext* context, rdpSett
 	return 42;
 }
 
+static rdpTransportLayer* stream_dump_replay_transport_connect_layer(rdpTransport* transport,
+                                                                     const char* hostname, int port,
+                                                                     DWORD timeout)
+{
+	WINPR_ASSERT(transport);
+	WINPR_ASSERT(hostname);
+
+	return NULL;
+}
+
 static BOOL stream_dump_replay_transport_tls_connect(rdpTransport* transport)
 {
 	WINPR_ASSERT(transport);
@@ -425,6 +435,7 @@ static BOOL stream_dump_register_read_handlers(rdpContext* context)
 	dump.TCPConnect = stream_dump_replay_transport_tcp_connect;
 	dump.TLSAccept = stream_dump_replay_transport_accept;
 	dump.TLSConnect = stream_dump_replay_transport_tls_connect;
+	dump.ConnectLayer = stream_dump_replay_transport_connect_layer;
 	if (!freerdp_set_io_callbacks(context, &dump))
 		return FALSE;
 	return freerdp_io_callback_set_event(context, TRUE);

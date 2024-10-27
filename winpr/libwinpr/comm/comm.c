@@ -22,13 +22,14 @@
 
 #include <winpr/config.h>
 
-#if defined __linux__ && !defined ANDROID
-
 #include <winpr/assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdarg.h>
+#if defined(WINPR_HAVE_SYS_EVENTFD_H)
+#include <sys/eventfd.h>
+#endif
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -43,6 +44,9 @@
 
 #include "comm_ioctl.h"
 
+#include "../log.h"
+#define TAG WINPR_TAG("comm")
+
 /**
  * Communication Resources:
  * http://msdn.microsoft.com/en-us/library/windows/desktop/aa363196/
@@ -50,7 +54,7 @@
 
 #include "comm.h"
 
-static wLog* _Log = NULL;
+static wLog* sLog = NULL;
 
 struct comm_device
 {
@@ -63,12 +67,10 @@ typedef struct comm_device COMM_DEVICE;
 /* FIXME: get a clever data structure, see also io.h functions */
 /* _CommDevices is a NULL-terminated array with a maximun of COMM_DEVICE_MAX COMM_DEVICE */
 #define COMM_DEVICE_MAX 128
-static COMM_DEVICE** _CommDevices = NULL;
-static CRITICAL_SECTION _CommDevicesLock;
+static COMM_DEVICE** sCommDevices = NULL;
+static CRITICAL_SECTION sCommDevicesLock = { 0 };
 
-static HANDLE_CREATOR _CommHandleCreator;
-
-static pthread_once_t _CommInitialized = PTHREAD_ONCE_INIT;
+static pthread_once_t sCommInitialized = PTHREAD_ONCE_INIT;
 
 static int CommGetFd(HANDLE handle)
 {
@@ -80,32 +82,36 @@ static int CommGetFd(HANDLE handle)
 	return comm->fd;
 }
 
-HANDLE_CREATOR* GetCommHandleCreator(void)
+const HANDLE_CREATOR* GetCommHandleCreator(void)
 {
-	_CommHandleCreator.IsHandled = IsCommDevice;
-	_CommHandleCreator.CreateFileA = CommCreateFileA;
-	return &_CommHandleCreator;
+#if defined(WINPR_HAVE_SERIAL_SUPPORT)
+	static const HANDLE_CREATOR sCommHandleCreator = { .IsHandled = IsCommDevice,
+		                                               .CreateFileA = CommCreateFileA };
+	return &sCommHandleCreator;
+#else
+	return NULL;
+#endif
 }
 
-static void _CommInit(void)
+static void CommInit(void)
 {
 	/* NB: error management to be done outside of this function */
-	WINPR_ASSERT(_Log == NULL);
-	WINPR_ASSERT(_CommDevices == NULL);
-	_CommDevices = (COMM_DEVICE**)calloc(COMM_DEVICE_MAX + 1, sizeof(COMM_DEVICE*));
+	WINPR_ASSERT(sLog == NULL);
+	WINPR_ASSERT(sCommDevices == NULL);
+	sCommDevices = (COMM_DEVICE**)calloc(COMM_DEVICE_MAX + 1, sizeof(COMM_DEVICE*));
 
-	if (!_CommDevices)
+	if (!sCommDevices)
 		return;
 
-	if (!InitializeCriticalSectionEx(&_CommDevicesLock, 0, 0))
+	if (!InitializeCriticalSectionEx(&sCommDevicesLock, 0, 0))
 	{
-		free(_CommDevices);
-		_CommDevices = NULL;
+		free(sCommDevices);
+		sCommDevices = NULL;
 		return;
 	}
 
-	_Log = WLog_Get("com.winpr.comm");
-	WINPR_ASSERT(_Log != NULL);
+	sLog = WLog_Get(TAG);
+	WINPR_ASSERT(sLog != NULL);
 }
 
 /**
@@ -114,7 +120,7 @@ static void _CommInit(void)
  */
 static BOOL CommInitialized(void)
 {
-	if (pthread_once(&_CommInitialized, _CommInit) != 0)
+	if (pthread_once(&sCommInitialized, CommInit) != 0)
 	{
 		SetLastError(ERROR_DLL_INIT_FAILED);
 		return FALSE;
@@ -128,9 +134,9 @@ void CommLog_Print(DWORD level, ...)
 	if (!CommInitialized())
 		return;
 
-	va_list ap;
+	va_list ap = { 0 };
 	va_start(ap, level);
-	WLog_PrintVA(_Log, level, ap);
+	WLog_PrintVA(sLog, level, ap);
 	va_end(ap);
 }
 
@@ -938,9 +944,9 @@ BOOL DefineCommDevice(/* DWORD dwFlags,*/ LPCTSTR lpDeviceName, LPCTSTR lpTarget
 	if (!CommInitialized())
 		return FALSE;
 
-	EnterCriticalSection(&_CommDevicesLock);
+	EnterCriticalSection(&sCommDevicesLock);
 
-	if (_CommDevices == NULL)
+	if (sCommDevices == NULL)
 	{
 		SetLastError(ERROR_DLL_INIT_FAILED);
 		goto error_handle;
@@ -965,31 +971,31 @@ BOOL DefineCommDevice(/* DWORD dwFlags,*/ LPCTSTR lpDeviceName, LPCTSTR lpTarget
 	int i = 0;
 	for (; i < COMM_DEVICE_MAX; i++)
 	{
-		if (_CommDevices[i] != NULL)
+		if (sCommDevices[i] != NULL)
 		{
-			if (_tcscmp(_CommDevices[i]->name, storedDeviceName) == 0)
+			if (_tcscmp(sCommDevices[i]->name, storedDeviceName) == 0)
 			{
 				/* take over the emplacement */
-				free(_CommDevices[i]->name);
-				free(_CommDevices[i]->path);
-				_CommDevices[i]->name = storedDeviceName;
-				_CommDevices[i]->path = storedTargetPath;
+				free(sCommDevices[i]->name);
+				free(sCommDevices[i]->path);
+				sCommDevices[i]->name = storedDeviceName;
+				sCommDevices[i]->path = storedTargetPath;
 				break;
 			}
 		}
 		else
 		{
 			/* new emplacement */
-			_CommDevices[i] = (COMM_DEVICE*)calloc(1, sizeof(COMM_DEVICE));
+			sCommDevices[i] = (COMM_DEVICE*)calloc(1, sizeof(COMM_DEVICE));
 
-			if (_CommDevices[i] == NULL)
+			if (sCommDevices[i] == NULL)
 			{
 				SetLastError(ERROR_OUTOFMEMORY);
 				goto error_handle;
 			}
 
-			_CommDevices[i]->name = storedDeviceName;
-			_CommDevices[i]->path = storedTargetPath;
+			sCommDevices[i]->name = storedDeviceName;
+			sCommDevices[i]->path = storedTargetPath;
 			break;
 		}
 	}
@@ -1000,12 +1006,12 @@ BOOL DefineCommDevice(/* DWORD dwFlags,*/ LPCTSTR lpDeviceName, LPCTSTR lpTarget
 		goto error_handle;
 	}
 
-	LeaveCriticalSection(&_CommDevicesLock);
+	LeaveCriticalSection(&sCommDevicesLock);
 	return TRUE;
 error_handle:
 	free(storedDeviceName);
 	free(storedTargetPath);
-	LeaveCriticalSection(&_CommDevicesLock);
+	LeaveCriticalSection(&sCommDevicesLock);
 	return FALSE;
 }
 
@@ -1033,7 +1039,7 @@ DWORD QueryCommDevice(LPCTSTR lpDeviceName, LPTSTR lpTargetPath, DWORD ucchMax)
 	if (!CommInitialized())
 		return 0;
 
-	if (_CommDevices == NULL)
+	if (sCommDevices == NULL)
 	{
 		SetLastError(ERROR_DLL_INIT_FAILED);
 		return 0;
@@ -1045,16 +1051,16 @@ DWORD QueryCommDevice(LPCTSTR lpDeviceName, LPTSTR lpTargetPath, DWORD ucchMax)
 		return 0;
 	}
 
-	EnterCriticalSection(&_CommDevicesLock);
+	EnterCriticalSection(&sCommDevicesLock);
 	storedTargetPath = NULL;
 
 	for (int i = 0; i < COMM_DEVICE_MAX; i++)
 	{
-		if (_CommDevices[i] != NULL)
+		if (sCommDevices[i] != NULL)
 		{
-			if (_tcscmp(_CommDevices[i]->name, lpDeviceName) == 0)
+			if (_tcscmp(sCommDevices[i]->name, lpDeviceName) == 0)
 			{
-				storedTargetPath = _CommDevices[i]->path;
+				storedTargetPath = sCommDevices[i]->path;
 				break;
 			}
 
@@ -1064,7 +1070,7 @@ DWORD QueryCommDevice(LPCTSTR lpDeviceName, LPTSTR lpTargetPath, DWORD ucchMax)
 		break;
 	}
 
-	LeaveCriticalSection(&_CommDevicesLock);
+	LeaveCriticalSection(&sCommDevicesLock);
 
 	if (storedTargetPath == NULL)
 	{
@@ -1072,15 +1078,16 @@ DWORD QueryCommDevice(LPCTSTR lpDeviceName, LPTSTR lpTargetPath, DWORD ucchMax)
 		return 0;
 	}
 
-	if (_tcslen(storedTargetPath) + 2 > ucchMax)
+	const size_t size = _tcsnlen(storedTargetPath, ucchMax);
+	if (size + 2 > ucchMax)
 	{
 		SetLastError(ERROR_INSUFFICIENT_BUFFER);
 		return 0;
 	}
 
-	_tcscpy(lpTargetPath, storedTargetPath);
-	lpTargetPath[_tcslen(storedTargetPath) + 1] = '\0'; /* 2nd final '\0' */
-	return _tcslen(lpTargetPath) + 2;
+	_tcsncpy(lpTargetPath, storedTargetPath, size + 1);
+	lpTargetPath[size + 2] = '\0'; /* 2nd final '\0' */
+	return size + 2;
 }
 
 /**
@@ -1260,8 +1267,10 @@ HANDLE CommCreateFileA(LPCSTR lpDeviceName, DWORD dwDesiredAccess, DWORD dwShare
 		goto error_handle;
 	}
 
+#if defined(WINPR_HAVE_SYS_EVENTFD_H)
 	pComm->fd_read_event = eventfd(
 	    0, EFD_NONBLOCK); /* EFD_NONBLOCK required because a read() is not always expected */
+#endif
 
 	if (pComm->fd_read_event < 0)
 	{
@@ -1280,8 +1289,10 @@ HANDLE CommCreateFileA(LPCSTR lpDeviceName, DWORD dwDesiredAccess, DWORD dwShare
 		goto error_handle;
 	}
 
+#if defined(WINPR_HAVE_SYS_EVENTFD_H)
 	pComm->fd_write_event = eventfd(
 	    0, EFD_NONBLOCK); /* EFD_NONBLOCK required because a read() is not always expected */
+#endif
 
 	if (pComm->fd_write_event < 0)
 	{
@@ -1295,6 +1306,7 @@ HANDLE CommCreateFileA(LPCSTR lpDeviceName, DWORD dwDesiredAccess, DWORD dwShare
 	pComm->serverSerialDriverId = SerialDriverUnknown;
 	InitializeCriticalSection(&pComm->EventsLock);
 
+#if defined(WINPR_HAVE_COMM_COUNTERS)
 	if (ioctl(pComm->fd, TIOCGICOUNT, &(pComm->counters)) < 0)
 	{
 		char ebuffer[256] = { 0 };
@@ -1309,6 +1321,7 @@ HANDLE CommCreateFileA(LPCSTR lpDeviceName, DWORD dwDesiredAccess, DWORD dwShare
 		 */
 		ZeroMemory(&(pComm->counters), sizeof(struct serial_icounter_struct));
 	}
+#endif
 
 	/* The binary/raw mode is required for the redirection but
 	 * only flags that are not handle somewhere-else, except
@@ -1344,8 +1357,7 @@ HANDLE CommCreateFileA(LPCSTR lpDeviceName, DWORD dwDesiredAccess, DWORD dwShare
 	return (HANDLE)pComm;
 error_handle:
 	WINPR_PRAGMA_DIAG_PUSH
-	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
-	CloseHandle(pComm);
+	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC(void) CloseHandle(pComm);
 	WINPR_PRAGMA_DIAG_POP
 	return INVALID_HANDLE_VALUE;
 }
@@ -1378,19 +1390,6 @@ BOOL CommCloseHandle(HANDLE handle)
 	if (!CommIsHandled(handle))
 		return FALSE;
 
-	if (pComm->PendingEvents & SERIAL_EV_WINPR_WAITING)
-	{
-		ULONG WaitMask = 0;
-		DWORD BytesReturned = 0;
-
-		/* ensures to gracefully stop the WAIT_ON_MASK's loop */
-		if (!CommDeviceIoControl(handle, IOCTL_SERIAL_SET_WAIT_MASK, &WaitMask, sizeof(ULONG), NULL,
-		                         0, &BytesReturned, NULL))
-		{
-			CommLog_Print(WLOG_WARN, "failure to WAIT_ON_MASK's loop!");
-		}
-	}
-
 	DeleteCriticalSection(&pComm->ReadLock);
 	DeleteCriticalSection(&pComm->WriteLock);
 	DeleteCriticalSection(&pComm->EventsLock);
@@ -1414,6 +1413,7 @@ BOOL CommCloseHandle(HANDLE handle)
 	return TRUE;
 }
 
+#if defined(WINPR_HAVE_SYS_EVENTFD_H)
 #ifndef WITH_EVENTFD_READ_WRITE
 int eventfd_read(int fd, eventfd_t* value)
 {
@@ -1425,5 +1425,4 @@ int eventfd_write(int fd, eventfd_t value)
 	return (write(fd, &value, sizeof(value)) == sizeof(value)) ? 0 : -1;
 }
 #endif
-
-#endif /* __linux__ */
+#endif

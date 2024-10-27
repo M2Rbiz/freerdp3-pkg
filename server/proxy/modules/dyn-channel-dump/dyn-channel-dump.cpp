@@ -24,6 +24,8 @@
 #include <fstream>
 #include <iostream>
 #include <regex>
+#include <limits>
+#include <utility>
 #include <vector>
 #include <sstream>
 #include <string>
@@ -59,7 +61,7 @@ static const std::vector<std::string>& plugin_static_intercept()
 {
 	static std::vector<std::string> vec;
 	if (vec.empty())
-		vec.push_back(DRDYNVC_SVC_CHANNEL_NAME);
+		vec.emplace_back(DRDYNVC_SVC_CHANNEL_NAME);
 	return vec;
 }
 
@@ -69,11 +71,11 @@ static constexpr char key_channels[] = "channels";
 class PluginData
 {
   public:
-	PluginData(proxyPluginsManager* mgr) : _mgr(mgr), _sessionid(0)
+	explicit PluginData(proxyPluginsManager* mgr) : _mgr(mgr)
 	{
 	}
 
-	proxyPluginsManager* mgr() const
+	[[nodiscard]] proxyPluginsManager* mgr() const
 	{
 		return _mgr;
 	}
@@ -85,17 +87,17 @@ class PluginData
 
   private:
 	proxyPluginsManager* _mgr;
-	uint64_t _sessionid;
+	uint64_t _sessionid{ 0 };
 };
 
 class ChannelData
 {
   public:
-	ChannelData(const std::string& base, const std::vector<std::string>& list, uint64_t sessionid)
-	    : _base(base), _channels_to_dump(list), _session_id(sessionid)
+	ChannelData(const std::string& base, std::vector<std::string> list, uint64_t sessionid)
+	    : _base(base), _channels_to_dump(std::move(list)), _session_id(sessionid)
 	{
 		char str[64] = {};
-		_snprintf(str, sizeof(str), "session-%016" PRIx64, _session_id);
+		(void)_snprintf(str, sizeof(str), "session-%016" PRIx64, _session_id);
 		_base /= str;
 	}
 
@@ -120,7 +122,7 @@ class ChannelData
 		return std::ofstream(path);
 	}
 
-	bool dump_enabled(const std::string& name) const
+	[[nodiscard]] bool dump_enabled(const std::string& name) const
 	{
 		if (name.empty())
 		{
@@ -166,24 +168,24 @@ class ChannelData
 		return true;
 	}
 
-	uint64_t session() const
+	[[nodiscard]] uint64_t session() const
 	{
 		return _session_id;
 	}
 
   private:
-	fs::path filepath(const std::string& channel, bool back, uint64_t count) const
+	[[nodiscard]] fs::path filepath(const std::string& channel, bool back, uint64_t count) const
 	{
 		auto name = idstr(channel, back);
 		char cstr[32] = {};
-		_snprintf(cstr, sizeof(cstr), "%016" PRIx64 "-", count);
+		(void)_snprintf(cstr, sizeof(cstr), "%016" PRIx64 "-", count);
 		auto path = _base / cstr;
 		path += name;
 		path += ".dump";
 		return path;
 	}
 
-	std::string idstr(const std::string& name, bool back) const
+	[[nodiscard]] static std::string idstr(const std::string& name, bool back)
 	{
 		std::stringstream ss;
 		ss << name << ".";
@@ -194,7 +196,6 @@ class ChannelData
 		return ss.str();
 	}
 
-  private:
 	fs::path _base;
 	std::vector<std::string> _channels_to_dump;
 
@@ -332,7 +333,13 @@ static BOOL dump_dyn_channel_intercept(proxyPlugin* plugin, proxyData* pdata, vo
 			WLog_ERR(TAG, "Could not write to stream");
 			return FALSE;
 		}
-		stream.write(buffer, Stream_Length(data->data));
+		const auto s = Stream_Length(data->data);
+		if (s > std::numeric_limits<std::streamsize>::max())
+		{
+			WLog_ERR(TAG, "Stream length %" PRIuz " exceeds std::streamsize::max", s);
+			return FALSE;
+		}
+		stream.write(buffer, static_cast<std::streamsize>(s));
 		if (stream.fail())
 		{
 			WLog_ERR(TAG, "Could not write to stream");
@@ -353,7 +360,7 @@ static std::vector<std::string> split(const std::string& input, const std::strin
 	return { first, last };
 }
 
-static BOOL dump_session_started(proxyPlugin* plugin, proxyData* pdata, void*)
+static BOOL dump_session_started(proxyPlugin* plugin, proxyData* pdata, void* /*unused*/)
 {
 	WINPR_ASSERT(plugin);
 	WINPR_ASSERT(pdata);
@@ -382,7 +389,7 @@ static BOOL dump_session_started(proxyPlugin* plugin, proxyData* pdata, void*)
 	std::string path(cpath);
 	std::string channels(cchannels);
 	std::vector<std::string> list = split(channels, "[;,]");
-	auto cfg = new ChannelData(path, list, custom->session());
+	auto cfg = new ChannelData(path, std::move(list), custom->session());
 	if (!cfg || !cfg->create())
 	{
 		delete cfg;
@@ -395,7 +402,7 @@ static BOOL dump_session_started(proxyPlugin* plugin, proxyData* pdata, void*)
 	return TRUE;
 }
 
-static BOOL dump_session_end(proxyPlugin* plugin, proxyData* pdata, void*)
+static BOOL dump_session_end(proxyPlugin* plugin, proxyData* pdata, void* /*unused*/)
 {
 	WINPR_ASSERT(plugin);
 	WINPR_ASSERT(pdata);

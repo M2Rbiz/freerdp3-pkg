@@ -10,22 +10,22 @@ typedef BOOL (*validate_settings_pr)(rdpSettings* settings);
 
 #define printref() printf("%s:%d: in function %-40s:", __FILE__, __LINE__, __func__)
 
-#define TEST_ERROR(format, ...)                 \
-	do                                          \
-	{                                           \
-		fprintf(stderr, format, ##__VA_ARGS__); \
-		printref();                             \
-		printf(format, ##__VA_ARGS__);          \
-		fflush(stdout);                         \
+#define TEST_ERROR(format, ...)                       \
+	do                                                \
+	{                                                 \
+		(void)fprintf(stderr, format, ##__VA_ARGS__); \
+		printref();                                   \
+		(void)printf(format, ##__VA_ARGS__);          \
+		(void)fflush(stdout);                         \
 	} while (0)
 
-#define TEST_FAILURE(format, ...)      \
-	do                                 \
-	{                                  \
-		printref();                    \
-		printf(" FAILURE ");           \
-		printf(format, ##__VA_ARGS__); \
-		fflush(stdout);                \
+#define TEST_FAILURE(format, ...)            \
+	do                                       \
+	{                                        \
+		printref();                          \
+		(void)printf(" FAILURE ");           \
+		(void)printf(format, ##__VA_ARGS__); \
+		(void)fflush(stdout);                \
 	} while (0)
 
 static void print_test_title(int argc, char** argv)
@@ -46,7 +46,10 @@ static INLINE BOOL testcase(const char* name, char** argv, size_t argc, int expe
 	int status = 0;
 	BOOL valid_settings = TRUE;
 	rdpSettings* settings = freerdp_settings_new(0);
-	print_test_title(argc, argv);
+
+	WINPR_ASSERT(argc <= INT_MAX);
+
+	print_test_title((int)argc, argv);
 
 	if (!settings)
 	{
@@ -54,7 +57,7 @@ static INLINE BOOL testcase(const char* name, char** argv, size_t argc, int expe
 		return FALSE;
 	}
 
-	status = freerdp_client_settings_parse_command_line(settings, argc, argv, FALSE);
+	status = freerdp_client_settings_parse_command_line(settings, (int)argc, argv, FALSE);
 
 	if (validate_settings)
 	{
@@ -116,6 +119,7 @@ typedef struct
 	} modified_arguments[8];
 } test;
 
+// NOLINTBEGIN(bugprone-suspicious-missing-comma)
 static const test tests[] = {
 	{ COMMAND_LINE_STATUS_PRINT_HELP,
 	  check_settings_smartcard_no_redirection,
@@ -208,6 +212,7 @@ static const test tests[] = {
 	},
 #endif
 };
+// NOLINTEND(bugprone-suspicious-missing-comma)
 
 static void check_modified_arguments(const test* test, char** command_line, int* rc)
 {
@@ -223,7 +228,7 @@ static void check_modified_arguments(const test* test, char** command_line, int*
 			printref();
 			printf("Failure: overridden argument %d is %s but it should be %s\n", index,
 			       actual_argument, expected_argument);
-			fflush(stdout);
+			(void)fflush(stdout);
 			*rc = -1;
 		}
 	}

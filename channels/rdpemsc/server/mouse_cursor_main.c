@@ -252,7 +252,7 @@ static UINT mouse_cursor_process_message(mouse_cursor_server* mouse_cursor)
 		goto out;
 	}
 
-	if (WTSVirtualChannelRead(mouse_cursor->mouse_cursor_channel, 0, (PCHAR)Stream_Buffer(s),
+	if (WTSVirtualChannelRead(mouse_cursor->mouse_cursor_channel, 0, Stream_BufferAs(s, char),
 	                          (ULONG)Stream_Capacity(s), &BytesReturned) == FALSE)
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
@@ -375,7 +375,7 @@ static DWORD WINAPI mouse_cursor_server_thread_func(LPVOID arg)
 		}
 	}
 
-	WTSVirtualChannelClose(mouse_cursor->mouse_cursor_channel);
+	(void)WTSVirtualChannelClose(mouse_cursor->mouse_cursor_channel);
 	mouse_cursor->mouse_cursor_channel = NULL;
 
 	if (error && mouse_cursor->context.rdpcontext)
@@ -406,7 +406,7 @@ static UINT mouse_cursor_server_open(MouseCursorServerContext* context)
 		if (!mouse_cursor->thread)
 		{
 			WLog_ERR(TAG, "CreateThread failed!");
-			CloseHandle(mouse_cursor->stopEvent);
+			(void)CloseHandle(mouse_cursor->stopEvent);
 			mouse_cursor->stopEvent = NULL;
 			return ERROR_INTERNAL_ERROR;
 		}
@@ -425,7 +425,7 @@ static UINT mouse_cursor_server_close(MouseCursorServerContext* context)
 
 	if (!mouse_cursor->externalThread && mouse_cursor->thread)
 	{
-		SetEvent(mouse_cursor->stopEvent);
+		(void)SetEvent(mouse_cursor->stopEvent);
 
 		if (WaitForSingleObject(mouse_cursor->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -434,8 +434,8 @@ static UINT mouse_cursor_server_close(MouseCursorServerContext* context)
 			return error;
 		}
 
-		CloseHandle(mouse_cursor->thread);
-		CloseHandle(mouse_cursor->stopEvent);
+		(void)CloseHandle(mouse_cursor->thread);
+		(void)CloseHandle(mouse_cursor->stopEvent);
 		mouse_cursor->thread = NULL;
 		mouse_cursor->stopEvent = NULL;
 	}
@@ -443,7 +443,7 @@ static UINT mouse_cursor_server_close(MouseCursorServerContext* context)
 	{
 		if (mouse_cursor->state != MOUSE_CURSOR_INITIAL)
 		{
-			WTSVirtualChannelClose(mouse_cursor->mouse_cursor_channel);
+			(void)WTSVirtualChannelClose(mouse_cursor->mouse_cursor_channel);
 			mouse_cursor->mouse_cursor_channel = NULL;
 			mouse_cursor->state = MOUSE_CURSOR_INITIAL;
 		}
@@ -511,8 +511,11 @@ static UINT mouse_cursor_server_packet_send(MouseCursorServerContext* context, w
 	WINPR_ASSERT(mouse_cursor);
 	WINPR_ASSERT(s);
 
-	if (!WTSVirtualChannelWrite(mouse_cursor->mouse_cursor_channel, (PCHAR)Stream_Buffer(s),
-	                            Stream_GetPosition(s), &written))
+	const size_t pos = Stream_GetPosition(s);
+	if (pos > UINT32_MAX)
+		return ERROR_OUTOFMEMORY;
+	if (!WTSVirtualChannelWrite(mouse_cursor->mouse_cursor_channel, Stream_BufferAs(s, char),
+	                            (ULONG)pos, &written))
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelWrite failed!");
 		error = ERROR_INTERNAL_ERROR;

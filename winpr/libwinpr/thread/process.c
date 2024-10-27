@@ -150,12 +150,12 @@ static char* FindApplicationPath(char* application)
 static HANDLE CreateProcessHandle(pid_t pid);
 static BOOL ProcessHandleCloseHandle(HANDLE handle);
 
-static BOOL _CreateProcessExA(HANDLE hToken, DWORD dwLogonFlags, LPCSTR lpApplicationName,
-                              LPSTR lpCommandLine, LPSECURITY_ATTRIBUTES lpProcessAttributes,
-                              LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles,
-                              DWORD dwCreationFlags, LPVOID lpEnvironment,
-                              LPCSTR lpCurrentDirectory, LPSTARTUPINFOA lpStartupInfo,
-                              LPPROCESS_INFORMATION lpProcessInformation)
+static BOOL CreateProcessExA(HANDLE hToken, DWORD dwLogonFlags, LPCSTR lpApplicationName,
+                             LPSTR lpCommandLine, LPSECURITY_ATTRIBUTES lpProcessAttributes,
+                             LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles,
+                             DWORD dwCreationFlags, LPVOID lpEnvironment, LPCSTR lpCurrentDirectory,
+                             LPSTARTUPINFOA lpStartupInfo,
+                             LPPROCESS_INFORMATION lpProcessInformation)
 {
 	pid_t pid = 0;
 	int numArgs = 0;
@@ -263,7 +263,12 @@ static BOOL _CreateProcessExA(HANDLE hToken, DWORD dwLogonFlags, LPCSTR lpApplic
 #ifdef F_MAXFD // on some BSD derivates
 		maxfd = fcntl(0, F_MAXFD);
 #else
-		maxfd = sysconf(_SC_OPEN_MAX);
+		{
+			const long rc = sysconf(_SC_OPEN_MAX);
+			if ((rc < INT32_MIN) || (rc > INT32_MAX))
+				goto finish;
+			maxfd = (int)rc;
+		}
 #endif
 
 		for (int fd = 3; fd < maxfd; fd++)
@@ -367,9 +372,9 @@ BOOL CreateProcessA(LPCSTR lpApplicationName, LPSTR lpCommandLine,
                     DWORD dwCreationFlags, LPVOID lpEnvironment, LPCSTR lpCurrentDirectory,
                     LPSTARTUPINFOA lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation)
 {
-	return _CreateProcessExA(NULL, 0, lpApplicationName, lpCommandLine, lpProcessAttributes,
-	                         lpThreadAttributes, bInheritHandles, dwCreationFlags, lpEnvironment,
-	                         lpCurrentDirectory, lpStartupInfo, lpProcessInformation);
+	return CreateProcessExA(NULL, 0, lpApplicationName, lpCommandLine, lpProcessAttributes,
+	                        lpThreadAttributes, bInheritHandles, dwCreationFlags, lpEnvironment,
+	                        lpCurrentDirectory, lpStartupInfo, lpProcessInformation);
 }
 
 BOOL CreateProcessW(LPCWSTR lpApplicationName, LPWSTR lpCommandLine,
@@ -387,9 +392,9 @@ BOOL CreateProcessAsUserA(HANDLE hToken, LPCSTR lpApplicationName, LPSTR lpComma
                           DWORD dwCreationFlags, LPVOID lpEnvironment, LPCSTR lpCurrentDirectory,
                           LPSTARTUPINFOA lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation)
 {
-	return _CreateProcessExA(hToken, 0, lpApplicationName, lpCommandLine, lpProcessAttributes,
-	                         lpThreadAttributes, bInheritHandles, dwCreationFlags, lpEnvironment,
-	                         lpCurrentDirectory, lpStartupInfo, lpProcessInformation);
+	return CreateProcessExA(hToken, 0, lpApplicationName, lpCommandLine, lpProcessAttributes,
+	                        lpThreadAttributes, bInheritHandles, dwCreationFlags, lpEnvironment,
+	                        lpCurrentDirectory, lpStartupInfo, lpProcessInformation);
 }
 
 BOOL CreateProcessAsUserW(HANDLE hToken, LPCWSTR lpApplicationName, LPWSTR lpCommandLine,
@@ -424,9 +429,9 @@ BOOL CreateProcessWithTokenA(HANDLE hToken, DWORD dwLogonFlags, LPCSTR lpApplica
                              LPCSTR lpCurrentDirectory, LPSTARTUPINFOA lpStartupInfo,
                              LPPROCESS_INFORMATION lpProcessInformation)
 {
-	return _CreateProcessExA(NULL, 0, lpApplicationName, lpCommandLine, NULL, NULL, FALSE,
-	                         dwCreationFlags, lpEnvironment, lpCurrentDirectory, lpStartupInfo,
-	                         lpProcessInformation);
+	return CreateProcessExA(NULL, 0, lpApplicationName, lpCommandLine, NULL, NULL, FALSE,
+	                        dwCreationFlags, lpEnvironment, lpCurrentDirectory, lpStartupInfo,
+	                        lpProcessInformation);
 }
 
 BOOL CreateProcessWithTokenW(HANDLE hToken, DWORD dwLogonFlags, LPCWSTR lpApplicationName,
@@ -544,7 +549,7 @@ static HANDLE_OPS ops = { ProcessHandleIsHandle,
 	                      NULL,
 	                      NULL };
 
-static int _pidfd_open(pid_t pid)
+static int pidfd_open(pid_t pid)
 {
 #ifdef __linux__
 #if !defined(__NR_pidfd_open)
@@ -555,24 +560,26 @@ static int _pidfd_open(pid_t pid)
 #define PIDFD_NONBLOCK O_NONBLOCK
 #endif /* PIDFD_NONBLOCK */
 
-	int fd = syscall(__NR_pidfd_open, pid, PIDFD_NONBLOCK);
+	long fd = syscall(__NR_pidfd_open, pid, PIDFD_NONBLOCK);
 	if (fd < 0 && errno == EINVAL)
 	{
 		/* possibly PIDFD_NONBLOCK is not supported, let's try to create a pidfd and set it
 		 * non blocking afterward */
 		int flags = 0;
 		fd = syscall(__NR_pidfd_open, pid, 0);
-		if (fd < 0)
+		if ((fd < 0) || (fd > INT32_MAX))
 			return -1;
 
-		flags = fcntl(fd, F_GETFL);
-		if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
+		flags = fcntl((int)fd, F_GETFL);
+		if ((flags < 0) || fcntl((int)fd, F_SETFL, flags | O_NONBLOCK) < 0)
 		{
-			close(fd);
+			close((int)fd);
 			fd = -1;
 		}
 	}
-	return fd;
+	if ((fd < 0) || (fd > INT32_MAX))
+		return -1;
+	return (int)fd;
 #else
 	return -1;
 #endif
@@ -589,7 +596,7 @@ HANDLE CreateProcessHandle(pid_t pid)
 	process->pid = pid;
 	process->common.Type = HANDLE_TYPE_PROCESS;
 	process->common.ops = &ops;
-	process->fd = _pidfd_open(pid);
+	process->fd = pidfd_open(pid);
 	if (process->fd >= 0)
 		process->common.Mode = WINPR_FD_READ;
 	return (HANDLE)process;

@@ -24,6 +24,7 @@
 #include <winpr/user.h>
 #include <winpr/image.h>
 
+#include "../utils/image.h"
 #include "clipboard.h"
 
 static const char* mime_bitmap[] = { "image/bmp", "image/x-bmp", "image/x-MS-bmp",
@@ -164,37 +165,31 @@ static void* clipboard_synthesize_cf_unicodetext(wClipboard* clipboard, UINT32 f
 static void* clipboard_synthesize_utf8_string(wClipboard* clipboard, UINT32 formatId,
                                               const void* data, UINT32* pSize)
 {
-	size_t size = 0;
-	char* pDstData = NULL;
-
 	if (formatId == CF_UNICODETEXT)
 	{
-		pDstData = ConvertWCharNToUtf8Alloc(data, *pSize / sizeof(WCHAR), &size);
+		size_t size = 0;
+		char* pDstData = ConvertWCharNToUtf8Alloc(data, *pSize / sizeof(WCHAR), &size);
 
 		if (!pDstData)
 			return NULL;
 
-		size = ConvertLineEndingToLF(pDstData, size);
-		*pSize = (UINT32)size;
+		const size_t rc = ConvertLineEndingToLF(pDstData, size);
+		WINPR_ASSERT(rc <= UINT32_MAX);
+		*pSize = (UINT32)rc;
 		return pDstData;
 	}
 	else if ((formatId == CF_TEXT) || (formatId == CF_OEMTEXT) ||
 	         (formatId == ClipboardGetFormatId(clipboard, mime_text_plain)))
 	{
-		int rc = 0;
-		size = *pSize;
-		pDstData = (char*)malloc(size);
+		const size_t size = *pSize;
+		char* pDstData = calloc(size + 1, sizeof(char));
 
 		if (!pDstData)
 			return NULL;
 
 		CopyMemory(pDstData, data, size);
-		rc = ConvertLineEndingToLF(pDstData, size);
-		if (rc < 0)
-		{
-			free(pDstData);
-			return NULL;
-		}
+		const size_t rc = ConvertLineEndingToLF(pDstData, size);
+		WINPR_ASSERT(rc <= UINT32_MAX);
 		*pSize = (UINT32)rc;
 		return pDstData;
 	}
@@ -234,14 +229,10 @@ static void* clipboard_synthesize_cf_dib(wClipboard* clipboard, UINT32 formatId,
 	}
 	else if (is_format_bitmap(clipboard, formatId))
 	{
-		const BITMAPFILEHEADER* pFileHeader = NULL;
-
-		if (SrcSize < (sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)))
-			return NULL;
-
-		pFileHeader = (const BITMAPFILEHEADER*)data;
-
-		if (pFileHeader->bfType != 0x4D42)
+		WINPR_BITMAP_FILE_HEADER pFileHeader = { 0 };
+		wStream sbuffer = { 0 };
+		wStream* s = Stream_StaticConstInit(&sbuffer, data, SrcSize);
+		if (!readBitmapFileHeader(s, &pFileHeader))
 			return NULL;
 
 		DstSize = SrcSize - sizeof(BITMAPFILEHEADER);
@@ -278,8 +269,8 @@ static void* clipboard_synthesize_cf_dibv5(wClipboard* clipboard, UINT32 formatI
 	return NULL;
 }
 
-static void* clipboard_prepend_bmp_header(const BITMAPINFOHEADER* pInfoHeader, const void* data,
-                                          size_t size, UINT32* pSize)
+static void* clipboard_prepend_bmp_header(const WINPR_BITMAP_INFO_HEADER* pInfoHeader,
+                                          const void* data, size_t size, UINT32* pSize)
 {
 	WINPR_ASSERT(pInfoHeader);
 	WINPR_ASSERT(pSize);
@@ -288,22 +279,34 @@ static void* clipboard_prepend_bmp_header(const BITMAPINFOHEADER* pInfoHeader, c
 	if ((pInfoHeader->biBitCount < 1) || (pInfoHeader->biBitCount > 32))
 		return NULL;
 
-	const size_t DstSize = sizeof(BITMAPFILEHEADER) + size;
-	BYTE* pDstData = (BYTE*)malloc(DstSize);
-
-	if (!pDstData)
+	const size_t DstSize = sizeof(WINPR_BITMAP_FILE_HEADER) + size;
+	wStream* s = Stream_New(NULL, DstSize);
+	if (!s)
 		return NULL;
 
-	BITMAPFILEHEADER* pFileHeader = (BITMAPFILEHEADER*)pDstData;
-	pFileHeader->bfType = 0x4D42;
-	pFileHeader->bfSize = DstSize;
-	pFileHeader->bfReserved1 = 0;
-	pFileHeader->bfReserved2 = 0;
-	pFileHeader->bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
-	unsigned char* pDst = &pDstData[sizeof(BITMAPFILEHEADER)];
-	CopyMemory(pDst, data, size);
+	WINPR_BITMAP_FILE_HEADER fileHeader = { 0 };
+	fileHeader.bfType[0] = 'B';
+	fileHeader.bfType[1] = 'M';
+	fileHeader.bfSize = DstSize;
+	fileHeader.bfOffBits = sizeof(WINPR_BITMAP_FILE_HEADER) + sizeof(WINPR_BITMAP_INFO_HEADER);
+	if (!writeBitmapFileHeader(s, &fileHeader))
+		goto fail;
+
+	if (!Stream_EnsureRemainingCapacity(s, size))
+		goto fail;
+	Stream_Write(s, data, size);
+	const size_t len = Stream_GetPosition(s);
+	if (len != DstSize)
+		goto fail;
 	*pSize = DstSize;
-	return pDstData;
+
+	BYTE* dst = Stream_Buffer(s);
+	Stream_Free(s, FALSE);
+	return dst;
+
+fail:
+	Stream_Free(s, TRUE);
+	return NULL;
 }
 
 /**
@@ -322,8 +325,14 @@ static void* clipboard_synthesize_image_bmp(wClipboard* clipboard, UINT32 format
 		if (SrcSize < sizeof(BITMAPINFOHEADER))
 			return NULL;
 
-		const BITMAPINFOHEADER* pInfoHeader = (const BITMAPINFOHEADER*)data;
-		return clipboard_prepend_bmp_header(pInfoHeader, data, SrcSize, pSize);
+		wStream sbuffer = { 0 };
+		size_t offset = 0;
+		WINPR_BITMAP_INFO_HEADER header = { 0 };
+		wStream* s = Stream_StaticConstInit(&sbuffer, data, SrcSize);
+		if (!readBitmapInfoHeader(s, &header, &offset))
+			return NULL;
+
+		return clipboard_prepend_bmp_header(&header, data, SrcSize, pSize);
 	}
 	else if (formatId == CF_DIBV5)
 	{
@@ -332,6 +341,8 @@ static void* clipboard_synthesize_image_bmp(wClipboard* clipboard, UINT32 format
 	return NULL;
 }
 
+#if defined(WINPR_UTILS_IMAGE_PNG) || defined(WINPR_UTILS_IMAGE_WEBP) || \
+    defined(WINPR_UTILS_IMAGE_JPEG)
 static void* clipboard_synthesize_image_bmp_to_format(wClipboard* clipboard, UINT32 formatId,
                                                       UINT32 bmpFormat, const void* data,
                                                       UINT32* pSize)
@@ -363,6 +374,7 @@ fail:
 	winpr_image_free(img, TRUE);
 	return result;
 }
+#endif
 
 #if defined(WINPR_UTILS_IMAGE_PNG)
 static void* clipboard_synthesize_image_bmp_to_png(wClipboard* clipboard, UINT32 formatId,
@@ -507,19 +519,19 @@ static void* clipboard_synthesize_html_format(wClipboard* clipboard, UINT32 form
 		if (!pDstData)
 			goto fail;
 
-		sprintf_s(pDstData, DstSize,
-		          "Version:0.9\r\n"
-		          "StartHTML:0000000000\r\n"
-		          "EndHTML:0000000000\r\n"
-		          "StartFragment:0000000000\r\n"
-		          "EndFragment:0000000000\r\n");
+		(void)sprintf_s(pDstData, DstSize,
+		                "Version:0.9\r\n"
+		                "StartHTML:0000000000\r\n"
+		                "EndHTML:0000000000\r\n"
+		                "StartFragment:0000000000\r\n"
+		                "EndFragment:0000000000\r\n");
 		body = strstr(pSrcData.cpc, "<body");
 
 		if (!body)
 			body = strstr(pSrcData.cpc, "<BODY");
 
 		/* StartHTML */
-		sprintf_s(num, sizeof(num), "%010" PRIuz "", strnlen(pDstData, DstSize));
+		(void)sprintf_s(num, sizeof(num), "%010" PRIuz "", strnlen(pDstData, DstSize));
 		CopyMemory(&pDstData[23], num, 10);
 
 		if (!body)
@@ -532,14 +544,14 @@ static void* clipboard_synthesize_html_format(wClipboard* clipboard, UINT32 form
 			goto fail;
 
 		/* StartFragment */
-		sprintf_s(num, sizeof(num), "%010" PRIuz "", strnlen(pDstData, SrcSize + 200));
+		(void)sprintf_s(num, sizeof(num), "%010" PRIuz "", strnlen(pDstData, SrcSize + 200));
 		CopyMemory(&pDstData[69], num, 10);
 
 		if (!winpr_str_append(pSrcData.cpc, pDstData, DstSize, NULL))
 			goto fail;
 
 		/* EndFragment */
-		sprintf_s(num, sizeof(num), "%010" PRIuz "", strnlen(pDstData, SrcSize + 200));
+		(void)sprintf_s(num, sizeof(num), "%010" PRIuz "", strnlen(pDstData, SrcSize + 200));
 		CopyMemory(&pDstData[93], num, 10);
 
 		if (!winpr_str_append("<!--EndFragment-->", pDstData, DstSize, NULL))
@@ -552,7 +564,7 @@ static void* clipboard_synthesize_html_format(wClipboard* clipboard, UINT32 form
 		}
 
 		/* EndHTML */
-		sprintf_s(num, sizeof(num), "%010" PRIuz "", strnlen(pDstData, DstSize));
+		(void)sprintf_s(num, sizeof(num), "%010" PRIuz "", strnlen(pDstData, DstSize));
 		CopyMemory(&pDstData[43], num, 10);
 		*pSize = (UINT32)strnlen(pDstData, DstSize) + 1;
 	}
@@ -570,49 +582,43 @@ fail:
 static void* clipboard_synthesize_text_html(wClipboard* clipboard, UINT32 formatId,
                                             const void* data, UINT32* pSize)
 {
-	long beg = 0;
-	long end = 0;
-	const char* str = NULL;
-	char* begStr = NULL;
-	char* endStr = NULL;
-	long DstSize = -1;
-	BYTE* pDstData = NULL;
+	char* pDstData = NULL;
 
 	if (formatId == ClipboardGetFormatId(clipboard, "HTML Format"))
 	{
-		INT64 SrcSize = 0;
-		str = (const char*)data;
-		SrcSize = (INT64)*pSize;
-		begStr = strstr(str, "StartHTML:");
-		endStr = strstr(str, "EndHTML:");
+		const char* str = (const char*)data;
+		const size_t SrcSize = (INT64)*pSize;
+		const char* begStr = strstr(str, "StartHTML:");
+		const char* endStr = strstr(str, "EndHTML:");
 
 		if (!begStr || !endStr)
 			return NULL;
 
 		errno = 0;
-		beg = strtol(&begStr[10], NULL, 10);
+		const long beg = strtol(&begStr[10], NULL, 10);
 
 		if (errno != 0)
 			return NULL;
 
-		end = strtol(&endStr[8], NULL, 10);
+		const long end = strtol(&endStr[8], NULL, 10);
 
 		if (beg < 0 || end < 0 || (beg > SrcSize) || (end > SrcSize) || (beg >= end) ||
 		    (errno != 0))
 			return NULL;
 
-		DstSize = end - beg;
-		pDstData = (BYTE*)malloc((size_t)(SrcSize - beg + 1));
+		const size_t DstSize = (size_t)(end - beg);
+		pDstData = calloc(DstSize + 1, sizeof(char));
 
 		if (!pDstData)
 			return NULL;
 
 		CopyMemory(pDstData, &str[beg], DstSize);
-		DstSize = ConvertLineEndingToLF((char*)pDstData, DstSize);
-		*pSize = (UINT32)DstSize;
+		const size_t rc = ConvertLineEndingToLF(pDstData, DstSize);
+		WINPR_ASSERT(rc <= UINT32_MAX);
+		*pSize = (UINT32)rc;
 	}
 
-	return (void*)pDstData;
+	return pDstData;
 }
 
 BOOL ClipboardInitSynthesizers(wClipboard* clipboard)

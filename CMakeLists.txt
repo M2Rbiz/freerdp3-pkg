@@ -84,6 +84,7 @@ include(CMakePackageConfigHelpers)
 include(InstallFreeRDPMan)
 include(GetGitRevisionDescription)
 include(SetFreeRDPCMakeInstallDir)
+include(Doxygen)
 
 # Soname versioning
 set(BUILD_NUMBER 0)
@@ -92,7 +93,7 @@ if ($ENV{BUILD_NUMBER})
 endif()
 
 set(VERSION_REGEX "^(.*)([0-9]+)\\.([0-9]+)\\.([0-9]+)-?(.*)")
-set(RAW_VERSION_STRING "3.6.3")
+set(RAW_VERSION_STRING "3.9.0")
 if(EXISTS "${PROJECT_SOURCE_DIR}/.source_tag")
 	file(READ ${PROJECT_SOURCE_DIR}/.source_tag RAW_VERSION_STRING)
 elseif(USE_VERSION_FROM_GIT_TAG)
@@ -422,8 +423,13 @@ if(ANDROID)
 	endif()
 
 	if(ANDROID_ABI STREQUAL arm64-v8a)
-		# https://github.com/android/ndk/issues/910
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=softfp")
+		include (CheckCCompilerFlag)
+		check_c_compiler_flag("-mfloat-abi=softfp" ABI_SOFTFP_SUPPORTED)
+
+		if (ABI_SOFTFP_SUPPORTED)
+			# https://github.com/android/ndk/issues/910
+			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=softfp")
+		endif()
 	endif()
 
 	if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
@@ -491,10 +497,6 @@ set(PCSC_FEATURE_TYPE "RECOMMENDED")
 set(PCSC_FEATURE_PURPOSE "smart card")
 set(PCSC_FEATURE_DESCRIPTION "smart card device redirection")
 
-set(FFMPEG_FEATURE_TYPE "RECOMMENDED")
-set(FFMPEG_FEATURE_PURPOSE "multimedia")
-set(FFMPEG_FEATURE_DESCRIPTION "multimedia redirection, audio and video playback")
-
 set(OPENH264_FEATURE_TYPE "OPTIONAL")
 set(OPENH264_FEATURE_PURPOSE "codec")
 set(OPENH264_FEATURE_DESCRIPTION "use OpenH264 library")
@@ -526,11 +528,9 @@ set(SOXR_FEATURE_DESCRIPTION "SOX audio resample library")
 if(WIN32)
 	set(WAYLAND_FEATURE_TYPE "DISABLED")
 	set(PCSC_FEATURE_TYPE "DISABLED")
-	set(FFMPEG_FEATURE_TYPE "OPTIONAL")
 endif()
 
 if(APPLE)
-	set(FFMPEG_FEATURE_TYPE "OPTIONAL")
 	set(WAYLAND_FEATURE_TYPE "DISABLED")
 	if(IOS)
 		set(PCSC_FEATURE_TYPE "DISABLED")
@@ -547,7 +547,7 @@ find_feature(Wayland ${WAYLAND_FEATURE_TYPE} ${WAYLAND_FEATURE_PURPOSE} ${WAYLAN
 option(WITH_LIBRESSL "build with LibreSSL" OFF)
 if (WITH_LIBRESSL)
 	find_package(LibreSSL REQUIRED)
-	include_directories(${LibreSSL_INCLUDE_DIRS})
+    include_directories(SYSTEM ${LibreSSL_INCLUDE_DIRS})
 	set(OPENSSL_INCLUDE_DIR ${LIBRESSL_INCLUDE_DIR})
 	set(OPENSSL_LIBRARIES ${LIBRESSL_LIBRARIES})
 	set(OPENSSL_CRYPTO_LIBRARIES ${LIBRESSL_LIBRARIES})
@@ -563,10 +563,8 @@ endif()
 find_feature(PCSC ${PCSC_FEATURE_TYPE} ${PCSC_FEATURE_PURPOSE} ${PCSC_FEATURE_DESCRIPTION})
 
 if (WITH_DSP_FFMPEG OR WITH_VIDEO_FFMPEG OR WITH_FFMPEG)
-	set(FFMPEG_FEATURE_TYPE "REQUIRED" )
+	find_package(FFmpeg REQUIRED COMPONENTS AVUTIL AVCODEC)
 endif()
-
-find_feature(FFmpeg ${FFMPEG_FEATURE_TYPE} ${FFMPEG_FEATURE_PURPOSE} ${FFMPEG_FEATURE_DESCRIPTION})
 
 find_feature(OpenH264 ${OPENH264_FEATURE_TYPE} ${OPENH264_FEATURE_PURPOSE} ${OPENH264_FEATURE_DESCRIPTION})
 find_feature(OpenCL ${OPENCL_FEATURE_TYPE} ${OPENCL_FEATURE_PURPOSE} ${OPENCL_FEATURE_DESCRIPTION})
@@ -583,29 +581,6 @@ endif (WITH_OPENH264 AND NOT WITH_OPENH264_LOADING)
 # Version check, if we have detected FFMPEG but the version is too old
 # deactivate it as sound backend.
 if (WITH_DSP_FFMPEG)
-	# Deactivate FFmpeg backend for sound, if the version is too old.
-	# See libfreerdp/codec/dsp_ffmpeg.h
-	file(STRINGS "${AVCODEC_INCLUDE_DIR}/libavcodec/version.h" AV_VERSION_FILE REGEX "LIBAVCODEC_VERSION_M[A-Z]+[\t ]*[0-9]+")
-	if (EXISTS "${AVCODEC_INCLUDE_DIR}/libavcodec/version_major.h")
-		file(STRINGS "${AVCODEC_INCLUDE_DIR}/libavcodec/version_major.h" AV_VERSION_FILE2 REGEX "LIBAVCODEC_VERSION_M[A-Z]+[\t ]*[0-9]+")
-		list(APPEND AV_VERSION_FILE ${AV_VERSION_FILE2})
-	endif()
-
-	FOREACH(item ${AV_VERSION_FILE})
-	  STRING(REGEX MATCH "LIBAVCODEC_VERSION_M[A-Z]+[\t ]*[0-9]+" litem ${item})
-		IF(litem)
-				string(REGEX REPLACE "[ \t]+" ";" VSPLIT_LINE ${litem})
-				list(LENGTH VSPLIT_LINE VSPLIT_LINE_LEN)
-				if (NOT "${VSPLIT_LINE_LEN}" EQUAL "2")
-					message(ERROR "invalid entry in libavcodec version header ${item}")
-				endif(NOT "${VSPLIT_LINE_LEN}" EQUAL "2")
-				list(GET VSPLIT_LINE 0 VNAME)
-				list(GET VSPLIT_LINE 1 VVALUE)
-				set(${VNAME} ${VVALUE})
-		ENDIF(litem)
-	ENDFOREACH(item ${AV_VERSION_FILE})
-
-	set(AVCODEC_VERSION "${LIBAVCODEC_VERSION_MAJOR}.${LIBAVCODEC_VERSION_MINOR}.${LIBAVCODEC_VERSION_MICRO}")
 	if (AVCODEC_VERSION VERSION_LESS "57.48.101")
 		message(WARNING "FFmpeg version detected (${AVCODEC_VERSION}) is too old. (Require at least 57.48.101 for sound). Deactivating")
 		set(WITH_DSP_FFMPEG OFF)
@@ -620,7 +595,7 @@ set(WITH_OPENH264 ${OPENH264_FOUND})
 if(OPENSSL_FOUND)
 	add_definitions("-DWITH_OPENSSL")
 	message(STATUS "Using OpenSSL Version: ${OPENSSL_VERSION}")
-	include_directories(${OPENSSL_INCLUDE_DIR})
+    include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 endif()
 
 if(MBEDTLS_FOUND)
@@ -682,7 +657,7 @@ if(ANDROID)
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pg")
 		set(PROFILER_LIBRARIES
 			"${FREERDP_EXTERNAL_PROFILER_PATH}/obj/local/${ANDROID_ABI}/libandroid-ndk-profiler.a")
-		include_directories("${FREERDP_EXTERNAL_PROFILER_PATH}")
+        include_directories(SYSTEM "${FREERDP_EXTERNAL_PROFILER_PATH}")
 	endif()
 endif()
 
@@ -702,13 +677,6 @@ endif()
 
 include(CommonConfigOptions)
 
-# WinPR
-# We want to control the winpr assert for the whole project
-option(WITH_VERBOSE_WINPR_ASSERT "Compile with verbose WINPR_ASSERT." ON)
-if (WITH_VERBOSE_WINPR_ASSERT)
-	add_definitions(-DWITH_VERBOSE_WINPR_ASSERT)
-endif()
-
 if (FREERDP_UNIFIED_BUILD)
 	add_subdirectory(winpr)
 	if (WITH_WAYLAND)
@@ -725,7 +693,7 @@ if (FREERDP_UNIFIED_BUILD)
 	include_directories(${PROJECT_BINARY_DIR}/winpr/include)
 else()
 	find_package(WinPR 3 REQUIRED)
-	include_directories(${WinPR_INCLUDE_DIR})
+    include_directories(SYSTEM ${WinPR_INCLUDE_DIR})
 endif()
 
 option(WITH_AAD "Compile with support for Azure AD authentication" ${WITH_WINPR_JSON})
@@ -740,7 +708,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 if(WITH_THIRD_PARTY)
 	add_subdirectory(third-party)
 	if (NOT "${THIRD_PARTY_INCLUDES}" STREQUAL "")
-		include_directories(${THIRD_PARTY_INCLUDES})
+        include_directories(SYSTEM ${THIRD_PARTY_INCLUDES})
 	endif()
 endif()
 

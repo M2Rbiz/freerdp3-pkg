@@ -161,23 +161,19 @@ static char* rdtk_font_load_descriptor_file(const char* filename, size_t* pSize)
 	if (!fp)
 		return NULL;
 
-	_fseeki64(fp, 0, SEEK_END);
+	if (_fseeki64(fp, 0, SEEK_END) != 0)
+		goto fail;
 	fileSize.i64 = _ftelli64(fp);
-	_fseeki64(fp, 0, SEEK_SET);
+	if (_fseeki64(fp, 0, SEEK_SET) != 0)
+		goto fail;
 
 	if (fileSize.i64 < 1)
-	{
-		fclose(fp);
-		return NULL;
-	}
+		goto fail;
 
 	uint8_t* buffer = (uint8_t*)malloc(fileSize.s + 2);
 
 	if (!buffer)
-	{
-		fclose(fp);
-		return NULL;
-	}
+		goto fail;
 
 	size_t readSize = fread(buffer, fileSize.s, 1, fp);
 	if (readSize == 0)
@@ -186,7 +182,7 @@ static char* rdtk_font_load_descriptor_file(const char* filename, size_t* pSize)
 			readSize = fileSize.s;
 	}
 
-	fclose(fp);
+	(void)fclose(fp);
 
 	if (readSize < 1)
 	{
@@ -198,6 +194,10 @@ static char* rdtk_font_load_descriptor_file(const char* filename, size_t* pSize)
 	buffer[fileSize.s + 1] = '\0';
 	*pSize = fileSize.s;
 	return (char*)buffer;
+
+fail:
+	(void)fclose(fp);
+	return NULL;
 }
 
 static int rdtk_font_convert_descriptor_code_to_utf8(const char* str, uint8_t* utf8)
@@ -277,10 +277,10 @@ static int rdtk_font_parse_descriptor_buffer(rdtkFont* font, uint8_t* buffer, si
 	{
 		long val = strtol(p, NULL, 0);
 
-		if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
+		if ((errno != 0) || (val == 0) || (val > UINT32_MAX))
 			return -1;
 
-		font->size = val;
+		font->size = (UINT32)val;
 	}
 	*q = '"';
 
@@ -429,12 +429,12 @@ static int rdtk_font_parse_descriptor_buffer(rdtkFont* font, uint8_t* buffer, si
 		*q = '\0';
 		errno = 0;
 		{
-			long val = strtoul(p, NULL, 0);
+			long val = strtol(p, NULL, 0);
 
 			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
 				return -1;
 
-			glyph->width = val;
+			glyph->width = (INT32)val;
 		}
 		*q = '"';
 
@@ -471,7 +471,7 @@ static int rdtk_font_parse_descriptor_buffer(rdtkFont* font, uint8_t* buffer, si
 			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
 				return -1;
 
-			glyph->offsetX = val;
+			glyph->offsetX = (INT32)val;
 		}
 		{
 			long val = strtol(tok[1], NULL, 0);
@@ -479,7 +479,7 @@ static int rdtk_font_parse_descriptor_buffer(rdtkFont* font, uint8_t* buffer, si
 			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
 				return -1;
 
-			glyph->offsetY = val;
+			glyph->offsetY = (INT32)val;
 		}
 		*q = '"';
 		p = q + 1;
@@ -525,7 +525,7 @@ static int rdtk_font_parse_descriptor_buffer(rdtkFont* font, uint8_t* buffer, si
 			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
 				return -1;
 
-			glyph->rectX = val;
+			glyph->rectX = (INT32)val;
 		}
 		{
 			long val = strtol(tok[1], NULL, 0);
@@ -533,7 +533,7 @@ static int rdtk_font_parse_descriptor_buffer(rdtkFont* font, uint8_t* buffer, si
 			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
 				return -1;
 
-			glyph->rectY = val;
+			glyph->rectY = (INT32)val;
 		}
 		{
 			long val = strtol(tok[2], NULL, 0);
@@ -541,7 +541,7 @@ static int rdtk_font_parse_descriptor_buffer(rdtkFont* font, uint8_t* buffer, si
 			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
 				return -1;
 
-			glyph->rectWidth = val;
+			glyph->rectWidth = (INT32)val;
 		}
 		{
 			long val = strtol(tok[3], NULL, 0);
@@ -549,7 +549,7 @@ static int rdtk_font_parse_descriptor_buffer(rdtkFont* font, uint8_t* buffer, si
 			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
 				return -1;
 
-			glyph->rectHeight = val;
+			glyph->rectHeight = (INT32)val;
 		}
 		*q = '"';
 		p = q + 1;

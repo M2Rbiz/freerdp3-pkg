@@ -33,8 +33,8 @@
 #include <freerdp/log.h>
 #define TAG CLIENT_TAG("sdl.disp")
 
-#define RESIZE_MIN_DELAY 200 /* minimum delay in ms between two resizes */
-#define MAX_RETRIES 5
+static constexpr UINT64 RESIZE_MIN_DELAY = 200; /* minimum delay in ms between two resizes */
+static constexpr unsigned MAX_RETRIES = 5;
 
 BOOL sdlDispContext::settings_changed()
 {
@@ -319,14 +319,14 @@ BOOL sdlDispContext::handle_display_event(const SDL_DisplayEvent* ev)
 	{
 #if SDL_VERSION_ATLEAST(2, 0, 14)
 		case SDL_DISPLAYEVENT_CONNECTED:
-			SDL_Log("A new display with id %d was connected", ev->display);
+			SDL_Log("A new display with id %u was connected", ev->display);
 			return TRUE;
 		case SDL_DISPLAYEVENT_DISCONNECTED:
-			SDL_Log("The display with id %d was disconnected", ev->display);
+			SDL_Log("The display with id %u was disconnected", ev->display);
 			return TRUE;
 #endif
 		case SDL_DISPLAYEVENT_ORIENTATION:
-			SDL_Log("The orientation of display with id %d was changed", ev->display);
+			SDL_Log("The orientation of display with id %u was changed", ev->display);
 			return TRUE;
 		default:
 			return TRUE;
@@ -337,7 +337,10 @@ BOOL sdlDispContext::handle_display_event(const SDL_DisplayEvent* ev)
 BOOL sdlDispContext::handle_window_event(const SDL_WindowEvent* ev)
 {
 	WINPR_ASSERT(ev);
-
+#if defined(WITH_DEBUG_SDL_EVENTS)
+	SDL_Log("got windowEvent %s [0x%08" PRIx32 "]", sdl_window_event_str(ev->event).c_str(),
+	        ev->event);
+#endif
 	auto bordered = freerdp_settings_get_bool(_sdl->context()->settings, FreeRDP_Decorations)
 	                    ? SDL_TRUE
 	                    : SDL_FALSE;
@@ -351,7 +354,6 @@ BOOL sdlDispContext::handle_window_event(const SDL_WindowEvent* ev)
 		case SDL_WINDOWEVENT_HIDDEN:
 		case SDL_WINDOWEVENT_MINIMIZED:
 			gdi_send_suppress_output(_sdl->context()->gdi, TRUE);
-
 			return TRUE;
 
 		case SDL_WINDOWEVENT_EXPOSED:
@@ -446,7 +448,7 @@ BOOL sdlDispContext::uninit(DispClientContext* disp)
 	return TRUE;
 }
 
-sdlDispContext::sdlDispContext(SdlContext* sdl) : _sdl(sdl), _timer(0)
+sdlDispContext::sdlDispContext(SdlContext* sdl) : _sdl(sdl)
 {
 	SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO);
 

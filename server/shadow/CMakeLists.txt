@@ -55,7 +55,7 @@ set(SRCS
 
 if (NOT FREERDP_UNIFIED_BUILD)
 	find_package(rdtk 0 REQUIRED)
-	include_directories(${RDTK_INCLUDE_DIR})
+	include_directories(SYSTEM ${RDTK_INCLUDE_DIR})
 else()
 	if (NOT WITH_RDTK)
 		message(FATAL_ERROR "-DWITH_RDTK=ON is required for unified FreeRDP build with shadow server")
@@ -143,7 +143,7 @@ install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT ser
 set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "Server/shadow")
 
 include(pkg-config-install-prefix)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/freerdp-shadow.pc.in ${CMAKE_CURRENT_BINARY_DIR}/freerdp-shadow${FREERDP_VERSION_MAJOR}.pc @ONLY)
+cleaning_configure_file(${CMAKE_CURRENT_SOURCE_DIR}/freerdp-shadow.pc.in ${CMAKE_CURRENT_BINARY_DIR}/freerdp-shadow${FREERDP_VERSION_MAJOR}.pc @ONLY)
 
 generate_and_install_freerdp_man_from_template(${MODULE_NAME} "1" "${FREERDP_API_VERSION}")
 

@@ -19,6 +19,7 @@
  */
 
 #include <winpr/config.h>
+#include <winpr/build-config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,6 +43,7 @@
 #endif
 
 #if defined(WIN32)
+#include <windows.h>
 #include <shlobj.h>
 #else
 #include <errno.h>
@@ -153,7 +155,7 @@ static char* GetPath_XDG_DATA_HOME(void)
 		return NULL;
 	}
 
-	sprintf_s(path, size, "%s%s", home, "/.local/share");
+	(void)sprintf_s(path, size, "%s%s", home, "/.local/share");
 	free(home);
 #endif
 	return path;
@@ -209,8 +211,29 @@ static char* GetPath_XDG_CONFIG_HOME(void)
 		return NULL;
 	}
 
-	sprintf_s(path, size, "%s%s", home, "/.config");
+	(void)sprintf_s(path, size, "%s%s", home, "/.config");
 	free(home);
+#endif
+	return path;
+}
+
+static char* GetPath_SYSTEM_CONFIG_HOME(void)
+{
+	char* path = NULL;
+#if defined(WIN32) && !defined(_UWP)
+
+	WCHAR* wpath = NULL;
+	if (FAILED(SHGetKnownFolderPath(&FOLDERID_ProgramData, 0, -1, &wpath)))
+		return NULL;
+
+	if (wpath)
+		path = ConvertWCharToUtf8Alloc(wpath, NULL);
+	CoTaskMemFree(wpath);
+
+#elif defined(__IOS__)
+	path = ios_get_data();
+#else
+	path = _strdup(WINPR_INSTALL_SYSCONFDIR);
 #endif
 	return path;
 }
@@ -218,20 +241,21 @@ static char* GetPath_XDG_CONFIG_HOME(void)
 static char* GetPath_XDG_CACHE_HOME(void)
 {
 	char* path = NULL;
-	char* home = NULL;
 #if defined(WIN32)
-	home = GetPath_XDG_RUNTIME_DIR();
-
-	if (home)
 	{
-		path = GetCombinedPath(home, "cache");
+		char* home = GetPath_XDG_RUNTIME_DIR();
 
-		if (!winpr_PathFileExists(path))
-			if (!CreateDirectoryA(path, NULL))
-				path = NULL;
+		if (home)
+		{
+			path = GetCombinedPath(home, "cache");
+
+			if (!winpr_PathFileExists(path))
+				if (!CreateDirectoryA(path, NULL))
+					path = NULL;
+		}
+
+		free(home);
 	}
-
-	free(home);
 #elif defined(__IOS__)
 	path = ios_get_cache();
 #else
@@ -249,7 +273,7 @@ static char* GetPath_XDG_CACHE_HOME(void)
 	if (path)
 		return path;
 
-	home = GetPath_HOME();
+	char* home = GetPath_HOME();
 
 	if (!home)
 		return NULL;
@@ -263,7 +287,7 @@ static char* GetPath_XDG_CACHE_HOME(void)
 		return NULL;
 	}
 
-	sprintf_s(path, size, "%s%s", home, "/.cache");
+	(void)sprintf_s(path, size, "%s%s", home, "/.cache");
 	free(home);
 #endif
 	return path;
@@ -326,7 +350,7 @@ char* GetPath_XDG_RUNTIME_DIR(void)
 	return path;
 }
 
-char* GetKnownPath(int id)
+char* GetKnownPath(eKnownPathTypes id)
 {
 	char* path = NULL;
 
@@ -356,6 +380,10 @@ char* GetKnownPath(int id)
 			path = GetPath_XDG_RUNTIME_DIR();
 			break;
 
+		case KNOWN_PATH_SYSTEM_CONFIG_HOME:
+			path = GetPath_SYSTEM_CONFIG_HOME();
+			break;
+
 		default:
 			path = NULL;
 			break;
@@ -366,16 +394,13 @@ char* GetKnownPath(int id)
 	return path;
 }
 
-char* GetKnownSubPath(int id, const char* path)
+char* GetKnownSubPath(eKnownPathTypes id, const char* path)
 {
-	char* subPath = NULL;
-	char* knownPath = NULL;
-	knownPath = GetKnownPath(id);
-
+	char* knownPath = GetKnownPath(id);
 	if (!knownPath)
 		return NULL;
 
-	subPath = GetCombinedPath(knownPath, path);
+	char* subPath = GetCombinedPath(knownPath, path);
 	free(knownPath);
 	return subPath;
 }

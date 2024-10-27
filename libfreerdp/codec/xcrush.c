@@ -29,8 +29,6 @@
 #include <freerdp/log.h>
 #include "xcrush.h"
 
-#define TAG FREERDP_TAG("codec")
-
 #pragma pack(push, 1)
 
 typedef struct
@@ -334,7 +332,6 @@ static int xcrush_find_next_matching_chunk(XCRUSH_CONTEXT* WINPR_RESTRICT xcrush
                                            XCRUSH_CHUNK* WINPR_RESTRICT chunk,
                                            XCRUSH_CHUNK** WINPR_RESTRICT pNextChunk)
 {
-	UINT32 index = 0;
 	XCRUSH_CHUNK* next = NULL;
 
 	WINPR_ASSERT(xcrush);
@@ -344,8 +341,12 @@ static int xcrush_find_next_matching_chunk(XCRUSH_CONTEXT* WINPR_RESTRICT xcrush
 
 	if (chunk->next)
 	{
-		index = (chunk - xcrush->Chunks) / sizeof(XCRUSH_CHUNK);
+		// NOLINTNEXTLINE(bugprone-sizeof-expression)
+		const intptr_t diff = (chunk - xcrush->Chunks);
+		if (diff < 0)
+			return -4011;
 
+		const size_t index = (size_t)diff / sizeof(XCRUSH_CHUNK);
 		if (index >= 65534)
 			return -4002; /* error */
 

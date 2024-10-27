@@ -648,7 +648,6 @@ static BOOL freerdp_get_system_language_and_country_codes(char* language, size_t
 
 #if defined(__APPLE__)
 	{
-		CFIndex strSize;
 		CFStringRef langRef, countryRef;
 		CFLocaleRef localeRef = CFLocaleCopyCurrent();
 		if (!localeRef)
@@ -774,7 +773,7 @@ static const SYSTEM_LOCALE* get_locale_from_str(const char* name)
 		char buffer[LOCALE_LANGUAGE_LEN + LOCALE_COUNTRY_LEN + 2] = { 0 };
 		const SYSTEM_LOCALE* current = &SYSTEM_LOCALE_TABLE[i];
 
-		_snprintf(buffer, sizeof(buffer), "%s_%s", current->language, current->country);
+		(void)_snprintf(buffer, sizeof(buffer), "%s_%s", current->language, current->country);
 		/* full match, e.g. en_US */
 		if ((strcmp(name, buffer) == 0))
 			return current;
@@ -789,7 +788,7 @@ static INT64 get_layout_from_locale(const SYSTEM_LOCALE* locale)
 {
 	for (size_t i = 0; i < ARRAYSIZE(LOCALE_KEYBOARD_LAYOUTS_TABLE); i++)
 	{
-		const LOCALE_KEYBOARD_LAYOUTS* const current = &LOCALE_KEYBOARD_LAYOUTS_TABLE[i];
+		const LOCALE_KEYBOARD_LAYOUTS* current = &LOCALE_KEYBOARD_LAYOUTS_TABLE[i];
 		WINPR_ASSERT(current);
 
 		if (current->locale == locale->code)
@@ -826,7 +825,7 @@ const char* freerdp_get_system_locale_name_from_id(DWORD localeId)
 {
 	for (size_t index = 0; index < ARRAYSIZE(LOCALE_NAME_TABLE); index++)
 	{
-		const LOCALE_NAME* const current = &LOCALE_NAME_TABLE[index];
+		const LOCALE_NAME* current = &LOCALE_NAME_TABLE[index];
 
 		if (localeId == current->localeId)
 			return current->name;
@@ -881,7 +880,7 @@ DWORD freerdp_get_keyboard_default_layout_for_locale(DWORD locale)
 {
 	for (size_t x = 0; x < ARRAYSIZE(LOCALE_KEYBOARD_LAYOUTS_TABLE); x++)
 	{
-		const LOCALE_KEYBOARD_LAYOUTS* const cur = &LOCALE_KEYBOARD_LAYOUTS_TABLE[x];
+		const LOCALE_KEYBOARD_LAYOUTS* cur = &LOCALE_KEYBOARD_LAYOUTS_TABLE[x];
 		if (cur->locale == locale)
 			return cur->keyboardLayouts[0];
 	}

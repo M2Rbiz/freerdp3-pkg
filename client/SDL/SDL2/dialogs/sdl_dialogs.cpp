@@ -33,8 +33,6 @@
 #include "sdl_select.hpp"
 #include "sdl_selectlist.hpp"
 
-#define TAG CLIENT_TAG("SDL.dialogs")
-
 enum
 {
 	SHOW_DIALOG_ACCEPT_REJECT = 1,
@@ -55,7 +53,7 @@ static const char* type_str_for_flags(UINT32 flags)
 
 static BOOL sdl_wait_for_result(rdpContext* context, Uint32 type, SDL_Event* result)
 {
-	const SDL_Event empty = { 0 };
+	const SDL_Event empty = {};
 
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(result);
@@ -74,7 +72,7 @@ static BOOL sdl_wait_for_result(rdpContext* context, Uint32 type, SDL_Event* res
 static int sdl_show_dialog(rdpContext* context, const char* title, const char* message,
                            Sint32 flags)
 {
-	SDL_Event event = { 0 };
+	SDL_Event event = {};
 
 	if (!sdl_push_user_event(SDL_USEREVENT_SHOW_DIALOG, title, message, flags))
 		return 0;
@@ -88,7 +86,7 @@ static int sdl_show_dialog(rdpContext* context, const char* title, const char* m
 BOOL sdl_authenticate_ex(freerdp* instance, char** username, char** password, char** domain,
                          rdp_auth_reason reason)
 {
-	SDL_Event event = { 0 };
+	SDL_Event event = {};
 	BOOL res = FALSE;
 
 	SDLConnectionDialogHider hider(instance);
@@ -119,6 +117,7 @@ BOOL sdl_authenticate_ex(freerdp* instance, char** username, char** password, ch
 	size_t titlesize = 0;
 	winpr_asprintf(&title, &titlesize, "Credentials required for %s", target);
 
+	std::unique_ptr<char, decltype(&free)> scope(title, free);
 	char* u = nullptr;
 	char* d = nullptr;
 	char* p = nullptr;
@@ -132,26 +131,22 @@ BOOL sdl_authenticate_ex(freerdp* instance, char** username, char** password, ch
 	p = *password;
 
 	if (!sdl_push_user_event(SDL_USEREVENT_AUTH_DIALOG, title, u, d, p, reason))
-		goto fail;
+		return res;
 
 	if (!sdl_wait_for_result(instance->context, SDL_USEREVENT_AUTH_RESULT, &event))
-		goto fail;
-	else
-	{
-		auto arg = reinterpret_cast<SDL_UserAuthArg*>(event.padding);
+		return res;
 
-		res = arg->result > 0 ? TRUE : FALSE;
+	auto arg = reinterpret_cast<SDL_UserAuthArg*>(event.padding);
 
-		free(*username);
-		free(*domain);
-		free(*password);
-		*username = arg->user;
-		*domain = arg->domain;
-		*password = arg->password;
-	}
+	res = arg->result > 0 ? TRUE : FALSE;
 
-fail:
-	free(title);
+	free(*username);
+	free(*domain);
+	free(*password);
+	*username = arg->user;
+	*domain = arg->domain;
+	*password = arg->password;
+
 	return res;
 }
 
@@ -190,20 +185,19 @@ BOOL sdl_choose_smartcard(freerdp* instance, SmartcardCertInfo** cert_list, DWOR
 		list.push_back(m.c_str());
 	}
 
-	SDL_Event event = { 0 };
+	SDL_Event event = {};
 	const char* title = "Select a logon smartcard certificate";
 	if (gateway)
 		title = "Select a gateway logon smartcard certificate";
 	if (!sdl_push_user_event(SDL_USEREVENT_SCARD_DIALOG, title, list.data(), count))
-		goto fail;
+		return res;
 
 	if (!sdl_wait_for_result(instance->context, SDL_USEREVENT_SCARD_RESULT, &event))
-		goto fail;
+		return res;
 
 	res = (event.user.code >= 0) ? TRUE : FALSE;
 	*choice = static_cast<DWORD>(event.user.code);
 
-fail:
 	return res;
 }
 
@@ -214,8 +208,11 @@ SSIZE_T sdl_retry_dialog(freerdp* instance, const char* what, size_t current, vo
 	WINPR_ASSERT(what);
 
 	auto sdl = get_context(instance->context);
+	auto settings = instance->context->settings;
+	const size_t delay = freerdp_settings_get_uint32(settings, FreeRDP_TcpConnectTimeout);
 	std::lock_guard<CriticalSection> lock(sdl->critical);
-	WINPR_ASSERT(sdl->connection_dialog);
+	if (!sdl->connection_dialog)
+		return delay;
 
 	sdl->connection_dialog->setTitle("Retry connection to %s",
 	                                 freerdp_settings_get_server_name(instance->context->settings));
@@ -233,7 +230,6 @@ SSIZE_T sdl_retry_dialog(freerdp* instance, const char* what, size_t current, vo
 			                                 what);
 	}
 
-	auto settings = instance->context->settings;
 	const BOOL enabled = freerdp_settings_get_bool(settings, FreeRDP_AutoReconnectionEnabled);
 
 	if (!enabled)
@@ -244,7 +240,7 @@ SSIZE_T sdl_retry_dialog(freerdp* instance, const char* what, size_t current, vo
 	}
 
 	const size_t max = freerdp_settings_get_uint32(settings, FreeRDP_AutoReconnectMaxRetries);
-	const size_t delay = freerdp_settings_get_uint32(settings, FreeRDP_TcpConnectTimeout);
+
 	if (current >= max)
 	{
 		sdl->connection_dialog->showError(
@@ -321,10 +317,34 @@ static DWORD sdl_show_ceritifcate_dialog(rdpContext* context, const char* title,
 	if (!sdl_push_user_event(SDL_USEREVENT_CERT_DIALOG, title, message))
 		return 0;
 
-	SDL_Event event = { 0 };
+	SDL_Event event = {};
 	if (!sdl_wait_for_result(context, SDL_USEREVENT_CERT_RESULT, &event))
 		return 0;
 	return static_cast<DWORD>(event.user.code);
+}
+
+static char* sdl_pem_cert(const char* pem)
+{
+	rdpCertificate* cert = freerdp_certificate_new_from_pem(pem);
+	if (!cert)
+		return nullptr;
+
+	char* fp = freerdp_certificate_get_fingerprint(cert);
+	char* start = freerdp_certificate_get_validity(cert, TRUE);
+	char* end = freerdp_certificate_get_validity(cert, FALSE);
+	freerdp_certificate_free(cert);
+
+	char* str = nullptr;
+	size_t slen = 0;
+	winpr_asprintf(&str, &slen,
+	               "Valid from:  %s\n"
+	               "Valid to:    %s\n"
+	               "Thumbprint:  %s\n",
+	               start, end, fp);
+	free(fp);
+	free(start);
+	free(end);
+	return str;
 }
 
 DWORD sdl_verify_changed_certificate_ex(freerdp* instance, const char* host, UINT16 port,
@@ -346,13 +366,7 @@ DWORD sdl_verify_changed_certificate_ex(freerdp* instance, const char* host, UIN
 	char* new_fp_str = nullptr;
 	size_t len = 0;
 	if (flags & VERIFY_CERT_FLAG_FP_IS_PEM)
-	{
-		winpr_asprintf(&new_fp_str, &len,
-		               "----------- Certificate --------------\n"
-		               "%s\n"
-		               "--------------------------------------\n",
-		               new_fingerprint);
-	}
+		new_fp_str = sdl_pem_cert(new_fingerprint);
 	else
 		winpr_asprintf(&new_fp_str, &len, "Thumbprint:  %s\n", new_fingerprint);
 
@@ -362,13 +376,7 @@ DWORD sdl_verify_changed_certificate_ex(freerdp* instance, const char* host, UIN
 	char* old_fp_str = nullptr;
 	size_t olen = 0;
 	if (flags & VERIFY_CERT_FLAG_FP_IS_PEM)
-	{
-		winpr_asprintf(&old_fp_str, &olen,
-		               "----------- Certificate --------------\n"
-		               "%s\n"
-		               "--------------------------------------\n",
-		               old_fingerprint);
-	}
+		old_fp_str = sdl_pem_cert(old_fingerprint);
 	else
 		winpr_asprintf(&old_fp_str, &olen, "Thumbprint:  %s\n", old_fingerprint);
 
@@ -429,13 +437,7 @@ DWORD sdl_verify_certificate_ex(freerdp* instance, const char* host, UINT16 port
 	char* fp_str = nullptr;
 	size_t len = 0;
 	if (flags & VERIFY_CERT_FLAG_FP_IS_PEM)
-	{
-		winpr_asprintf(&fp_str, &len,
-		               "----------- Certificate --------------\n"
-		               "%s\n"
-		               "--------------------------------------\n",
-		               fingerprint);
-	}
+		fp_str = sdl_pem_cert(fingerprint);
 	else
 		winpr_asprintf(&fp_str, &len, "Thumbprint:  %s\n", fingerprint);
 

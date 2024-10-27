@@ -176,8 +176,8 @@ static UINT ainput_server_send_version(ainput_server* ainput)
 	Stream_Write_UINT32(s, AINPUT_VERSION_MAJOR); /* Version (4 bytes) */
 	Stream_Write_UINT32(s, AINPUT_VERSION_MINOR); /* Version (4 bytes) */
 
-	WINPR_ASSERT(Stream_GetPosition(s) <= ULONG_MAX);
-	if (!WTSVirtualChannelWrite(ainput->ainput_channel, (PCHAR)Stream_Buffer(s),
+	WINPR_ASSERT(Stream_GetPosition(s) <= UINT32_MAX);
+	if (!WTSVirtualChannelWrite(ainput->ainput_channel, Stream_BufferAs(s, char),
 	                            (ULONG)Stream_GetPosition(s), &written))
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelWrite failed!");
@@ -292,7 +292,7 @@ static DWORD WINAPI ainput_server_thread_func(LPVOID arg)
 		}
 	}
 
-	WTSVirtualChannelClose(ainput->ainput_channel);
+	(void)WTSVirtualChannelClose(ainput->ainput_channel);
 	ainput->ainput_channel = NULL;
 
 	if (error && ainput->context.rdpcontext)
@@ -327,7 +327,7 @@ static UINT ainput_server_open(ainput_server_context* context)
 		if (!ainput->thread)
 		{
 			WLog_ERR(TAG, "CreateEvent failed!");
-			CloseHandle(ainput->stopEvent);
+			(void)CloseHandle(ainput->stopEvent);
 			ainput->stopEvent = NULL;
 			return ERROR_INTERNAL_ERROR;
 		}
@@ -351,7 +351,7 @@ static UINT ainput_server_close(ainput_server_context* context)
 
 	if (!ainput->externalThread && ainput->thread)
 	{
-		SetEvent(ainput->stopEvent);
+		(void)SetEvent(ainput->stopEvent);
 
 		if (WaitForSingleObject(ainput->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -360,8 +360,8 @@ static UINT ainput_server_close(ainput_server_context* context)
 			return error;
 		}
 
-		CloseHandle(ainput->thread);
-		CloseHandle(ainput->stopEvent);
+		(void)CloseHandle(ainput->thread);
+		(void)CloseHandle(ainput->stopEvent);
 		ainput->thread = NULL;
 		ainput->stopEvent = NULL;
 	}
@@ -369,7 +369,7 @@ static UINT ainput_server_close(ainput_server_context* context)
 	{
 		if (ainput->state != AINPUT_INITIAL)
 		{
-			WTSVirtualChannelClose(ainput->ainput_channel);
+			(void)WTSVirtualChannelClose(ainput->ainput_channel);
 			ainput->ainput_channel = NULL;
 			ainput->state = AINPUT_INITIAL;
 		}
@@ -467,7 +467,7 @@ static UINT ainput_process_message(ainput_server* ainput)
 		goto out;
 	}
 
-	if (WTSVirtualChannelRead(ainput->ainput_channel, 0, (PCHAR)Stream_Buffer(s),
+	if (WTSVirtualChannelRead(ainput->ainput_channel, 0, Stream_BufferAs(s, char),
 	                          (ULONG)Stream_Capacity(s), &ActualBytesReturned) == FALSE)
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelRead failed!");

@@ -884,7 +884,6 @@ static BOOL nego_read_request_token_or_cookie(rdpNego* nego, wStream* s)
 	 * Cookie:[space]mstshash=[ANSISTRING][\x0D\x0A]
 	 */
 	UINT16 crlf = 0;
-	size_t len = 0;
 	BOOL result = FALSE;
 	BOOL isToken = FALSE;
 	size_t remain = Stream_GetRemainingLength(s);
@@ -904,8 +903,11 @@ static BOOL nego_read_request_token_or_cookie(rdpNego* nego, wStream* s)
 		{
 			if (memcmp(Stream_ConstPointer(s), "tsv:", 4) != 0)
 			{
-				/* remaining bytes are neither a token nor a cookie */
-				return TRUE;
+				if (memcmp(Stream_ConstPointer(s), "mth://", 6) != 0)
+				{
+					/* remaining bytes are neither a token nor a cookie */
+					return TRUE;
+				}
 			}
 		}
 		isToken = TRUE;
@@ -932,13 +934,16 @@ static BOOL nego_read_request_token_or_cookie(rdpNego* nego, wStream* s)
 	if (crlf == 0x0A0D)
 	{
 		Stream_Rewind(s, 2);
-		len = Stream_GetPosition(s) - pos;
+		const size_t len = Stream_GetPosition(s) - pos;
 		Stream_Write_UINT16(s, 0);
+
+		if (len > UINT32_MAX)
+			return FALSE;
 
 		if (strnlen(str, len) == len)
 		{
 			if (isToken)
-				result = nego_set_routing_token(nego, str, len);
+				result = nego_set_routing_token(nego, str, (UINT32)len);
 			else
 				result = nego_set_cookie(nego, str);
 		}
@@ -1279,7 +1284,7 @@ static const char* nego_rdp_neg_rsp_flags_str(UINT32 flags)
 {
 	static char buffer[1024] = { 0 };
 
-	_snprintf(buffer, ARRAYSIZE(buffer), "[0x%02" PRIx32 "] ", flags);
+	(void)_snprintf(buffer, ARRAYSIZE(buffer), "[0x%02" PRIx32 "] ", flags);
 	if (flags & EXTENDED_CLIENT_DATA_SUPPORTED)
 		winpr_str_append("EXTENDED_CLIENT_DATA_SUPPORTED", buffer, sizeof(buffer), "|");
 	if (flags & DYNVC_GFX_PROTOCOL_SUPPORTED)

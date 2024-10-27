@@ -50,8 +50,12 @@ class SdlWidget
   public:
 	SdlWidget(SDL_Renderer* renderer, const SDL_FRect& rect, bool input);
 	SdlWidget(SDL_Renderer* renderer, const SDL_FRect& rect, SDL_IOStream* ops);
+	SdlWidget(const SdlWidget& other) = delete;
 	SdlWidget(SdlWidget&& other) noexcept;
 	virtual ~SdlWidget();
+
+	SdlWidget& operator=(const SdlWidget& other) = delete;
+	SdlWidget& operator=(SdlWidget&& other) = delete;
 
 	bool fill(SDL_Renderer* renderer, SDL_Color color);
 	bool fill(SDL_Renderer* renderer, const std::vector<SDL_Color>& colors);
@@ -59,24 +63,20 @@ class SdlWidget
 	bool update_text(SDL_Renderer* renderer, const std::string& text, SDL_Color fgcolor,
 	                 SDL_Color bgcolor);
 
-	bool wrap() const;
+	[[nodiscard]] bool wrap() const;
 	bool set_wrap(bool wrap = true, size_t width = 0);
-	const SDL_FRect& rect() const;
+	[[nodiscard]] const SDL_FRect& rect() const;
 
-  public:
 #define widget_log_error(res, what) SdlWidget::error_ex(res, what, __FILE__, __LINE__, __func__)
 	static bool error_ex(Uint32 res, const char* what, const char* file, size_t line,
 	                     const char* fkt);
 
   private:
-	SdlWidget(const SdlWidget& other) = delete;
-
 	SDL_Texture* render_text(SDL_Renderer* renderer, const std::string& text, SDL_Color fgcolor,
 	                         SDL_FRect& src, SDL_FRect& dst);
 	SDL_Texture* render_text_wrapped(SDL_Renderer* renderer, const std::string& text,
 	                                 SDL_Color fgcolor, SDL_FRect& src, SDL_FRect& dst);
 
-  private:
 	TTF_Font* _font = nullptr;
 	SDL_Texture* _image = nullptr;
 	SDL_FRect _rect;

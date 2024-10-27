@@ -426,7 +426,7 @@ static UINT device_process_message(device_server* device)
 		goto out;
 	}
 
-	if (WTSVirtualChannelRead(device->device_channel, 0, (PCHAR)Stream_Buffer(s),
+	if (WTSVirtualChannelRead(device->device_channel, 0, Stream_BufferAs(s, char),
 	                          (ULONG)Stream_Capacity(s), &BytesReturned) == FALSE)
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelRead failed!");
@@ -571,7 +571,7 @@ static DWORD WINAPI device_server_thread_func(LPVOID arg)
 		}
 	}
 
-	WTSVirtualChannelClose(device->device_channel);
+	(void)WTSVirtualChannelClose(device->device_channel);
 	device->device_channel = NULL;
 
 	if (error && device->context.rdpcontext)
@@ -601,7 +601,7 @@ static UINT device_server_open(CameraDeviceServerContext* context)
 		if (!device->thread)
 		{
 			WLog_ERR(TAG, "CreateThread failed!");
-			CloseHandle(device->stopEvent);
+			(void)CloseHandle(device->stopEvent);
 			device->stopEvent = NULL;
 			return ERROR_INTERNAL_ERROR;
 		}
@@ -620,7 +620,7 @@ static UINT device_server_close(CameraDeviceServerContext* context)
 
 	if (!device->externalThread && device->thread)
 	{
-		SetEvent(device->stopEvent);
+		(void)SetEvent(device->stopEvent);
 
 		if (WaitForSingleObject(device->thread, INFINITE) == WAIT_FAILED)
 		{
@@ -629,8 +629,8 @@ static UINT device_server_close(CameraDeviceServerContext* context)
 			return error;
 		}
 
-		CloseHandle(device->thread);
-		CloseHandle(device->stopEvent);
+		(void)CloseHandle(device->thread);
+		(void)CloseHandle(device->stopEvent);
 		device->thread = NULL;
 		device->stopEvent = NULL;
 	}
@@ -638,7 +638,7 @@ static UINT device_server_close(CameraDeviceServerContext* context)
 	{
 		if (device->state != CAMERA_DEVICE_INITIAL)
 		{
-			WTSVirtualChannelClose(device->device_channel);
+			(void)WTSVirtualChannelClose(device->device_channel);
 			device->device_channel = NULL;
 			device->state = CAMERA_DEVICE_INITIAL;
 		}
@@ -704,7 +704,7 @@ static UINT device_server_packet_send(CameraDeviceServerContext* context, wStrea
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(s);
 
-	if (!WTSVirtualChannelWrite(device->device_channel, (PCHAR)Stream_Buffer(s),
+	if (!WTSVirtualChannelWrite(device->device_channel, Stream_BufferAs(s, char),
 	                            Stream_GetPosition(s), &written))
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelWrite failed!");

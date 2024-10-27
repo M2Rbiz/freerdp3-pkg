@@ -57,7 +57,7 @@ static void delete_file(char* path)
 			int rs = _fseeki64(fp, 0, SEEK_END);
 			if (rs == 0)
 				size = _ftelli64(fp);
-			_fseeki64(fp, 0, SEEK_SET);
+			(void)_fseeki64(fp, 0, SEEK_SET);
 
 			for (INT64 x = 0; x < size; x += sizeof(buffer))
 			{
@@ -68,7 +68,7 @@ static void delete_file(char* path)
 					break;
 			}
 
-			fclose(fp);
+			(void)fclose(fp);
 		}
 	}
 
@@ -138,11 +138,15 @@ static BOOL add_cert_to_list(SmartcardCertInfo*** certInfoList, size_t* count,
 		}
 	}
 
-	curInfoList = realloc(curInfoList, sizeof(SmartcardCertInfo*) * (curCount + 1));
-	if (!curInfoList)
 	{
-		WLog_ERR(TAG, "unable to reallocate certs");
-		return FALSE;
+		SmartcardCertInfo** tmpInfoList =
+		    realloc(curInfoList, sizeof(SmartcardCertInfo*) * (curCount + 1));
+		if (!tmpInfoList)
+		{
+			WLog_ERR(TAG, "unable to reallocate certs");
+			return FALSE;
+		}
+		curInfoList = tmpInfoList;
 	}
 
 	curInfoList[curCount++] = certInfo;
@@ -543,9 +547,9 @@ out:
 	{
 		char cspa[128] = { 0 };
 
-		ConvertWCharToUtf8(csp, cspa, sizeof(cspa));
+		(void)ConvertWCharToUtf8(csp, cspa, sizeof(cspa));
 		char scopea[128] = { 0 };
-		ConvertWCharToUtf8(scope, scopea, sizeof(scopea));
+		(void)ConvertWCharToUtf8(scope, scopea, sizeof(scopea));
 		WLog_WARN(TAG, "%s [%s] no certificates found", cspa, scopea);
 	}
 	*pcount = count;
@@ -577,7 +581,7 @@ static BOOL smartcard_hw_enumerateCerts(const rdpSettings* settings, LPCWSTR csp
 		if (!scopeStr)
 			goto out;
 
-		_snprintf(scopeStr, readerSz + 5, "\\\\.\\%s\\", reader);
+		(void)_snprintf(scopeStr, readerSz + 5, "\\\\.\\%s\\", reader);
 		scope = ConvertUtf8NToWCharAlloc(scopeStr, readerSz + 5, NULL);
 		free(scopeStr);
 
@@ -664,7 +668,7 @@ static BOOL smartcard_hw_enumerateCerts(const rdpSettings* settings, LPCWSTR csp
 
 			if (ConvertWCharToUtf8(name->pszName, providerNameStr, ARRAYSIZE(providerNameStr)) < 0)
 			{
-				_snprintf(providerNameStr, sizeof(providerNameStr), "<unknown>");
+				(void)_snprintf(providerNameStr, sizeof(providerNameStr), "<unknown>");
 				WLog_ERR(TAG, "unable to convert provider name to char*, will show it as '%s'",
 				         providerNameStr);
 			}

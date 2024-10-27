@@ -41,20 +41,20 @@ static pstatus_t general_YCoCgToRGB_8u_AC4R(const BYTE* pSrc, INT32 srcStep, BYT
 	const DWORD formatSize = FreeRDPGetBytesPerPixel(DstFormat);
 	fkt_writePixel writePixel = getPixelWriteFunction(DstFormat, TRUE);
 
-	for (UINT32 y = 0; y < height; y++)
+	for (size_t y = 0; y < height; y++)
 	{
-		const BYTE* sptr = &pSrc[srcStep * y];
-		BYTE* dptr = &pDst[dstStep * y];
-		for (UINT32 x = 0; x < width; x++)
+		const BYTE* sptr = &pSrc[y * srcStep];
+		BYTE* dptr = &pDst[y * dstStep];
+		for (size_t x = 0; x < width; x++)
 		{
 			/* Note: shifts must be done before sign-conversion. */
 			const INT16 Cg = convert(*sptr++, shift);
 			const INT16 Co = convert(*sptr++, shift);
 			const INT16 Y = *sptr++; /* UINT8->INT16 */
-			const INT16 T = Y - Cg;
-			const INT16 B = T + Co;
-			const INT16 G = Y + Cg;
-			const INT16 R = T - Co;
+			const INT16 T = (INT16)(Y - Cg);
+			const INT16 B = (INT16)(T + Co);
+			const INT16 G = (INT16)(Y + Cg);
+			const INT16 R = (INT16)(T - Co);
 			BYTE A = *sptr++;
 
 			if (!withAlpha)
@@ -68,7 +68,7 @@ static pstatus_t general_YCoCgToRGB_8u_AC4R(const BYTE* pSrc, INT32 srcStep, BYT
 }
 
 /* ------------------------------------------------------------------------- */
-void primitives_init_YCoCg(primitives_t* prims)
+void primitives_init_YCoCg(primitives_t* WINPR_RESTRICT prims)
 {
 	prims->YCoCgToRGB_8u_AC4R = general_YCoCgToRGB_8u_AC4R;
 }

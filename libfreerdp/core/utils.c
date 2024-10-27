@@ -257,7 +257,7 @@ BOOL utils_str_is_empty(const char* str)
 {
 	if (!str)
 		return TRUE;
-	if (strlen(str) == 0)
+	if (*str == '\0')
 		return TRUE;
 	return FALSE;
 }
@@ -283,7 +283,7 @@ HANDLE utils_get_abort_event(rdpRdp* rdp)
 	return rdp->abortEvent;
 }
 
-BOOL utils_abort_event_is_set(rdpRdp* rdp)
+BOOL utils_abort_event_is_set(const rdpRdp* rdp)
 {
 	DWORD status = 0;
 	WINPR_ASSERT(rdp);
@@ -457,7 +457,7 @@ char* utils_redir_flags_to_string(UINT32 flags, char* buffer, size_t size)
 		winpr_str_append("DISABLE_PNP", buffer, size, "|");
 
 	char fbuffer[16] = { 0 };
-	_snprintf(fbuffer, sizeof(fbuffer), "[0x%08" PRIx32 "]", flags);
+	(void)_snprintf(fbuffer, sizeof(fbuffer), "[0x%08" PRIx32 "]", flags);
 
 	winpr_str_append(fbuffer, buffer, size, " ");
 	winpr_str_append("{", buffer, size, "}");

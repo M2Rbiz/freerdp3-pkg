@@ -174,32 +174,29 @@
  * Asynchronous I/O User Guide:
  * http://code.google.com/p/kernel/wiki/AIOUserGuide
  */
-static wArrayList* _HandleCreators;
+static wArrayList* HandleCreators;
 
-static pthread_once_t _HandleCreatorsInitialized = PTHREAD_ONCE_INIT;
+static pthread_once_t HandleCreatorsInitialized = PTHREAD_ONCE_INIT;
 
-extern HANDLE_CREATOR* GetNamedPipeClientHandleCreator(void);
-
-#if defined __linux__ && !defined ANDROID
 #include "../comm/comm.h"
-#endif /* __linux__ && !defined ANDROID */
+#include "namedPipeClient.h"
 
-static void _HandleCreatorsInit(void)
+static void HandleCreatorsInit(void)
 {
-	WINPR_ASSERT(_HandleCreators == NULL);
-	_HandleCreators = ArrayList_New(TRUE);
+	WINPR_ASSERT(HandleCreators == NULL);
+	HandleCreators = ArrayList_New(TRUE);
 
-	if (!_HandleCreators)
+	if (!HandleCreators)
 		return;
 
 	/*
 	 * Register all file handle creators.
 	 */
-	ArrayList_Append(_HandleCreators, GetNamedPipeClientHandleCreator());
-#if defined __linux__ && !defined ANDROID
-	ArrayList_Append(_HandleCreators, GetCommHandleCreator());
-#endif /* __linux__ && !defined ANDROID */
-	ArrayList_Append(_HandleCreators, GetFileHandleCreator());
+	ArrayList_Append(HandleCreators, GetNamedPipeClientHandleCreator());
+	const HANDLE_CREATOR* serial = GetCommHandleCreator();
+	if (serial)
+		ArrayList_Append(HandleCreators, serial);
+	ArrayList_Append(HandleCreators, GetFileHandleCreator());
 }
 
 #ifdef WINPR_HAVE_AIO_H
@@ -236,35 +233,35 @@ HANDLE CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
 	if (!lpFileName)
 		return INVALID_HANDLE_VALUE;
 
-	if (pthread_once(&_HandleCreatorsInitialized, _HandleCreatorsInit) != 0)
+	if (pthread_once(&HandleCreatorsInitialized, HandleCreatorsInit) != 0)
 	{
 		SetLastError(ERROR_DLL_INIT_FAILED);
 		return INVALID_HANDLE_VALUE;
 	}
 
-	if (_HandleCreators == NULL)
+	if (HandleCreators == NULL)
 	{
 		SetLastError(ERROR_DLL_INIT_FAILED);
 		return INVALID_HANDLE_VALUE;
 	}
 
-	ArrayList_Lock(_HandleCreators);
+	ArrayList_Lock(HandleCreators);
 
-	for (size_t i = 0; i <= ArrayList_Count(_HandleCreators); i++)
+	for (size_t i = 0; i <= ArrayList_Count(HandleCreators); i++)
 	{
-		HANDLE_CREATOR* creator = ArrayList_GetItem(_HandleCreators, i);
+		const HANDLE_CREATOR* creator = ArrayList_GetItem(HandleCreators, i);
 
 		if (creator && creator->IsHandled(lpFileName))
 		{
 			HANDLE newHandle =
 			    creator->CreateFileA(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
 			                         dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-			ArrayList_Unlock(_HandleCreators);
+			ArrayList_Unlock(HandleCreators);
 			return newHandle;
 		}
 	}
 
-	ArrayList_Unlock(_HandleCreators);
+	ArrayList_Unlock(HandleCreators);
 	return INVALID_HANDLE_VALUE;
 }
 
@@ -604,16 +601,17 @@ static const char* flagsToStr(char* buffer, size_t size, DWORD flags)
 	if (flags & FILE_ATTRIBUTE_VIRTUAL)
 		append(buffer, size, "FILE_ATTRIBUTE_VIRTUAL");
 
-	_snprintf(strflags, sizeof(strflags), " [0x%08" PRIx32 "]", flags);
+	(void)_snprintf(strflags, sizeof(strflags), " [0x%08" PRIx32 "]", flags);
 	winpr_str_append(strflags, buffer, size, NULL);
 	return buffer;
 }
 
 BOOL SetFileAttributesA(LPCSTR lpFileName, DWORD dwFileAttributes)
 {
-	struct stat st;
-	int fd = 0;
 	BOOL rc = FALSE;
+#ifdef WINPR_HAVE_FCNTL_H
+	struct stat st = { 0 };
+	int fd = 0;
 
 	if (dwFileAttributes & ~FILE_ATTRIBUTE_READONLY)
 	{
@@ -645,6 +643,7 @@ BOOL SetFileAttributesA(LPCSTR lpFileName, DWORD dwFileAttributes)
 	rc = TRUE;
 fail:
 	close(fd);
+#endif
 	return rc;
 }
 
@@ -879,6 +878,7 @@ typedef struct
 
 static const char file_search_magic[] = "file_srch_magic";
 
+WINPR_ATTR_MALLOC(FindClose, 1)
 static WIN32_FILE_SEARCH* file_search_new(const char* name, size_t namelen, const char* pattern,
                                           size_t patternlen)
 {
@@ -976,13 +976,13 @@ static BOOL FindDataFromStat(const char* path, const struct stat* fileStat,
 #else
 	ft = STAT_TIME_TO_FILETIME(fileStat->st_ctime);
 #endif
-	lpFindFileData->ftCreationTime.dwHighDateTime = ((UINT64)ft) >> 32ULL;
+	lpFindFileData->ftCreationTime.dwHighDateTime = (ft) >> 32ULL;
 	lpFindFileData->ftCreationTime.dwLowDateTime = ft & 0xFFFFFFFF;
 	ft = STAT_TIME_TO_FILETIME(fileStat->st_mtime);
-	lpFindFileData->ftLastWriteTime.dwHighDateTime = ((UINT64)ft) >> 32ULL;
+	lpFindFileData->ftLastWriteTime.dwHighDateTime = (ft) >> 32ULL;
 	lpFindFileData->ftLastWriteTime.dwLowDateTime = ft & 0xFFFFFFFF;
 	ft = STAT_TIME_TO_FILETIME(fileStat->st_atime);
-	lpFindFileData->ftLastAccessTime.dwHighDateTime = ((UINT64)ft) >> 32ULL;
+	lpFindFileData->ftLastAccessTime.dwHighDateTime = (ft) >> 32ULL;
 	lpFindFileData->ftLastAccessTime.dwLowDateTime = ft & 0xFFFFFFFF;
 	lpFindFileData->nFileSizeHigh = ((UINT64)fileStat->st_size) >> 32ULL;
 	lpFindFileData->nFileSizeLow = fileStat->st_size & 0xFFFFFFFF;

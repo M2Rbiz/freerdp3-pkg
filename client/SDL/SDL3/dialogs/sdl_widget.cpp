@@ -71,8 +71,8 @@ SdlWidget::SdlWidget(SDL_Renderer* renderer, const SDL_FRect& rect, SDL_IOStream
 #endif
 
 SdlWidget::SdlWidget(SdlWidget&& other) noexcept
-    : _font(std::move(other._font)), _image(other._image), _rect(std::move(other._rect)),
-      _input(other._input), _wrap(other._wrap), _text_width(other._text_width)
+    : _font(other._font), _image(other._image), _rect(other._rect), _input(other._input),
+      _wrap(other._wrap), _text_width(other._text_width)
 {
 	other._font = nullptr;
 	other._image = nullptr;
@@ -81,7 +81,7 @@ SdlWidget::SdlWidget(SdlWidget&& other) noexcept
 SDL_Texture* SdlWidget::render_text(SDL_Renderer* renderer, const std::string& text,
                                     SDL_Color fgcolor, SDL_FRect& src, SDL_FRect& dst)
 {
-	auto surface = TTF_RenderUTF8_Blended(_font, text.c_str(), fgcolor);
+	auto surface = TTF_RenderText_Blended(_font, text.c_str(), 0, fgcolor);
 	if (!surface)
 	{
 		widget_log_error(-1, "TTF_RenderText_Blended");
@@ -96,9 +96,29 @@ SDL_Texture* SdlWidget::render_text(SDL_Renderer* renderer, const std::string& t
 		return nullptr;
 	}
 
+	std::unique_ptr<TTF_TextEngine, decltype(&TTF_DestroySurfaceTextEngine)> engine(
+	    TTF_CreateRendererTextEngine(renderer), TTF_DestroySurfaceTextEngine);
+	if (!engine)
+	{
+		widget_log_error(-1, "TTF_CreateRendererTextEngine");
+		return nullptr;
+	}
+
+	std::unique_ptr<TTF_Text, decltype(&TTF_DestroyText)> txt(
+	    TTF_CreateText(engine.get(), _font, text.c_str(), text.size()), TTF_DestroyText);
+
+	if (!txt)
+	{
+		widget_log_error(-1, "TTF_CreateText");
+		return nullptr;
+	}
 	int w = 0;
 	int h = 0;
-	TTF_SizeUTF8(_font, text.c_str(), &w, &h);
+	if (!TTF_GetTextSize(txt.get(), &w, &h))
+	{
+		widget_log_error(-1, "TTF_GetTextSize");
+		return nullptr;
+	}
 
 	src.w = w;
 	src.h = h;
@@ -123,13 +143,17 @@ SDL_Texture* SdlWidget::render_text(SDL_Renderer* renderer, const std::string& t
 	return texture;
 }
 
+static float scale(float dw, float dh)
+{
+	const auto scale = dh / dw;
+	const auto dr = dh * scale;
+	return dr;
+}
+
 SDL_Texture* SdlWidget::render_text_wrapped(SDL_Renderer* renderer, const std::string& text,
                                             SDL_Color fgcolor, SDL_FRect& src, SDL_FRect& dst)
 {
-	Sint32 w = 0;
-	Sint32 h = 0;
-	TTF_SizeUTF8(_font, " ", &w, &h);
-	auto surface = TTF_RenderUTF8_Blended_Wrapped(_font, text.c_str(), fgcolor, _text_width);
+	auto surface = TTF_RenderText_Blended_Wrapped(_font, text.c_str(), 0, fgcolor, _text_width);
 	if (!surface)
 	{
 		widget_log_error(-1, "TTF_RenderText_Blended");
@@ -155,8 +179,7 @@ SDL_Texture* SdlWidget::render_text_wrapped(SDL_Renderer* renderer, const std::s
 	dst = _rect;
 	dst.x += hpadding;
 	dst.w -= 2 * hpadding;
-	const float scale = static_cast<float>(src.h) / static_cast<float>(src.w);
-	auto dh = src.h * scale;
+	auto dh = scale(src.w, src.h);
 	if (dh < dst.h)
 		dst.h = dh;
 
@@ -251,13 +274,13 @@ bool SdlWidget::update_text(SDL_Renderer* renderer, const std::string& text, SDL
 	{
 		texture = _image;
 		dst = _rect;
-		int w = 0;
-		int h = 0;
-		auto rc = SDL_QueryTexture(_image, nullptr, nullptr, &w, &h);
+		auto propId = SDL_GetTextureProperties(_image);
+		int w = SDL_GetNumberProperty(propId, SDL_PROP_TEXTURE_WIDTH_NUMBER, -1);
+		int h = SDL_GetNumberProperty(propId, SDL_PROP_TEXTURE_HEIGHT_NUMBER, -1);
+		if (w < 0 || h < 0)
+			widget_log_error(-1, "SDL_GetTextureProperties");
 		src.w = w;
 		src.h = h;
-		if (rc < 0)
-			widget_log_error(rc, "SDL_QueryTexture");
 	}
 	else if (_wrap)
 		texture = render_text_wrapped(renderer, text, fgcolor, src, dst);

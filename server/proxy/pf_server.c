@@ -137,9 +137,15 @@ static BOOL pf_server_get_target_info(rdpContext* context, rdpSettings* settings
 			WINPR_ASSERT(config);
 
 			if (config->TargetPort > 0)
-				freerdp_settings_set_uint32(settings, FreeRDP_ServerPort, config->TargetPort);
+			{
+				if (!freerdp_settings_set_uint32(settings, FreeRDP_ServerPort, config->TargetPort))
+					return FALSE;
+			}
 			else
-				freerdp_settings_set_uint32(settings, FreeRDP_ServerPort, 3389);
+			{
+				if (!freerdp_settings_set_uint32(settings, FreeRDP_ServerPort, 3389))
+					return FALSE;
+			}
 
 			if (!freerdp_settings_set_uint32(settings, FreeRDP_TlsSecLevel,
 			                                 config->TargetTlsSecLevel))
@@ -152,13 +158,23 @@ static BOOL pf_server_get_target_info(rdpContext* context, rdpSettings* settings
 			}
 
 			if (config->TargetUser)
-				freerdp_settings_set_string(settings, FreeRDP_Username, config->TargetUser);
+			{
+				if (!freerdp_settings_set_string(settings, FreeRDP_Username, config->TargetUser))
+					return FALSE;
+			}
 
 			if (config->TargetDomain)
-				freerdp_settings_set_string(settings, FreeRDP_Domain, config->TargetDomain);
+			{
+				if (!freerdp_settings_set_string(settings, FreeRDP_Domain, config->TargetDomain))
+					return FALSE;
+			}
 
 			if (config->TargetPassword)
-				freerdp_settings_set_string(settings, FreeRDP_Password, config->TargetPassword);
+			{
+				if (!freerdp_settings_set_string(settings, FreeRDP_Password,
+				                                 config->TargetPassword))
+					return FALSE;
+			}
 
 			return TRUE;
 		}
@@ -213,7 +229,8 @@ static BOOL pf_server_setup_channels(freerdp_peer* peer)
 			goto fail;
 		}
 
-		if (strcmp(cname, DRDYNVC_SVC_CHANNEL_NAME) == 0)
+		if ((strcmp(cname, DRDYNVC_SVC_CHANNEL_NAME) == 0) &&
+		    (channelContext->channelMode == PF_UTILS_CHANNEL_INTERCEPT))
 		{
 			if (!pf_channel_setup_drdynvc(ps->pdata, channelContext))
 			{
@@ -678,7 +695,7 @@ static DWORD WINAPI pf_server_handle_peer(LPVOID arg)
 			case DRDYNVC_STATE_READY:
 				if (WaitForSingleObject(ps->dynvcReady, 0) == WAIT_TIMEOUT)
 				{
-					SetEvent(ps->dynvcReady);
+					(void)SetEvent(ps->dynvcReady);
 				}
 
 				break;
@@ -712,7 +729,7 @@ out_free_peer:
 	if (pdata && pdata->client_thread)
 	{
 		proxy_data_abort_connect(pdata);
-		WaitForSingleObject(pdata->client_thread, INFINITE);
+		(void)WaitForSingleObject(pdata->client_thread, INFINITE);
 	}
 
 	{
@@ -755,7 +772,7 @@ static BOOL pf_server_start_peer(freerdp_peer* client)
 	args->thread = hThread;
 	if (!ArrayList_Append(server->peer_list, hThread))
 	{
-		CloseHandle(hThread);
+		(void)CloseHandle(hThread);
 		return FALSE;
 	}
 
@@ -904,7 +921,7 @@ static BOOL are_all_required_modules_loaded(proxyModule* module, const proxyConf
 static void peer_free(void* obj)
 {
 	HANDLE hdl = (HANDLE)obj;
-	CloseHandle(hdl);
+	(void)CloseHandle(hdl);
 }
 
 proxyServer* pf_server_new(const proxyConfig* config)
@@ -1028,7 +1045,7 @@ void pf_server_stop(proxyServer* server)
 		return;
 
 	/* signal main thread to stop and wait for the thread to exit */
-	SetEvent(server->stopEvent);
+	(void)SetEvent(server->stopEvent);
 }
 
 void pf_server_free(proxyServer* server)
@@ -1056,7 +1073,7 @@ void pf_server_free(proxyServer* server)
 	freerdp_listener_free(server->listener);
 
 	if (server->stopEvent)
-		CloseHandle(server->stopEvent);
+		(void)CloseHandle(server->stopEvent);
 
 	pf_server_config_free(server->config);
 	pf_modules_free(server->module);

@@ -76,7 +76,8 @@ static int transport_bio_named_write(BIO* bio, const char* buf, int size)
 		return 0;
 	}
 
-	return written;
+	WINPR_ASSERT(written <= INT32_MAX);
+	return (int)written;
 }
 
 static BOOL treatReadResult(WINPR_BIO_NAMED* ptr, DWORD readBytes)
@@ -211,11 +212,17 @@ static int transport_bio_named_read(BIO* bio, char* buf, int size)
 		}
 	}
 
-	int ret = MIN(size, ringbuffer_used(&ptr->readBuffer));
-	if (ret)
+	SSIZE_T ret = -1;
+	if (size >= 0)
 	{
-		DataChunk chunks[2];
-		int nchunks = ringbuffer_peek(&ptr->readBuffer, chunks, ret);
+		size_t rsize = ringbuffer_used(&ptr->readBuffer);
+		if (rsize <= SSIZE_MAX)
+			ret = MIN(size, (SSIZE_T)rsize);
+	}
+	if ((size >= 0) && ret)
+	{
+		DataChunk chunks[2] = { 0 };
+		const int nchunks = ringbuffer_peek(&ptr->readBuffer, chunks, ret);
 		for (int i = 0; i < nchunks; i++)
 		{
 			memcpy(buf, chunks[i].data, chunks[i].size);
@@ -224,11 +231,7 @@ static int transport_bio_named_read(BIO* bio, char* buf, int size)
 
 		ringbuffer_commit_read_bytes(&ptr->readBuffer, ret);
 
-		WLog_VRB(TAG, "(%d)=%d nchunks=%d", size, ret, nchunks);
-	}
-	else
-	{
-		ret = -1;
+		WLog_VRB(TAG, "(%d)=%" PRIdz " nchunks=%d", size, ret, nchunks);
 	}
 
 	if (!ringbuffer_used(&ptr->readBuffer))
@@ -243,7 +246,8 @@ static int transport_bio_named_read(BIO* bio, char* buf, int size)
 	if (ret <= 0)
 		BIO_set_flags(bio, (BIO_FLAGS_SHOULD_RETRY | BIO_FLAGS_READ));
 
-	return ret;
+	WINPR_ASSERT(ret <= INT32_MAX);
+	return (int)ret;
 }
 
 static int transport_bio_named_puts(BIO* bio, const char* str)
@@ -251,7 +255,7 @@ static int transport_bio_named_puts(BIO* bio, const char* str)
 	WINPR_ASSERT(bio);
 	WINPR_ASSERT(str);
 
-	return transport_bio_named_write(bio, str, strlen(str));
+	return transport_bio_named_write(bio, str, (int)strnlen(str, INT32_MAX));
 }
 
 static int transport_bio_named_gets(BIO* bio, char* str, int size)
@@ -346,13 +350,13 @@ static void BIO_NAMED_free(WINPR_BIO_NAMED* ptr)
 
 	if (ptr->hFile)
 	{
-		CloseHandle(ptr->hFile);
+		(void)CloseHandle(ptr->hFile);
 		ptr->hFile = NULL;
 	}
 
 	if (ptr->readEvent)
 	{
-		CloseHandle(ptr->readEvent);
+		(void)CloseHandle(ptr->readEvent);
 		ptr->readEvent = NULL;
 	}
 
@@ -468,9 +472,8 @@ static BOOL createChildSessionTransport(HANDLE* pFile)
 	WCHAR pipePath[0x80] = { 0 };
 	char pipePathA[0x80] = { 0 };
 
-	WinStationCreateChildSessionTransportFn createChildSessionFn =
-	    (WinStationCreateChildSessionTransportFn)GetProcAddress(
-	        hModule, "WinStationCreateChildSessionTransport");
+	WinStationCreateChildSessionTransportFn createChildSessionFn = GetProcAddressAs(
+	    hModule, "WinStationCreateChildSessionTransport", WinStationCreateChildSessionTransportFn);
 	if (!createChildSessionFn)
 	{
 		WLog_ERR(TAG, "unable to retrieve WinStationCreateChildSessionTransport function");
@@ -485,7 +488,7 @@ static BOOL createChildSessionTransport(HANDLE* pFile)
 	}
 
 	const BYTE startOfPath[] = { '\\', 0, '\\', 0, '.', 0, '\\', 0 };
-	if (_wcsncmp(pipePath, (WCHAR*)startOfPath, 4))
+	if (_wcsncmp(pipePath, (const WCHAR*)startOfPath, 4))
 	{
 		/* when compiled under 32 bits, the path may miss "\\.\" at the beginning of the string
 		 * so add it if it's not there
@@ -501,7 +504,7 @@ static BOOL createChildSessionTransport(HANDLE* pFile)
 		memcpy(pipePath, startOfPath, 8);
 	}
 
-	ConvertWCharNToUtf8(pipePath, 0x80, pipePathA, sizeof(pipePathA));
+	(void)ConvertWCharNToUtf8(pipePath, 0x80, pipePathA, sizeof(pipePathA));
 	WLog_DBG(TAG, "child session is at '%s'", pipePathA);
 
 	HANDLE f = CreateFileW(pipePath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
@@ -529,7 +532,7 @@ BIO* createChildSessionBio(void)
 	BIO* lowLevelBio = BIO_new(BIO_s_namedpipe());
 	if (!lowLevelBio)
 	{
-		CloseHandle(f);
+		(void)CloseHandle(f);
 		return NULL;
 	}
 
