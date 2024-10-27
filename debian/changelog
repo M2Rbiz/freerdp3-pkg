@@ -1,3 +1,11 @@
+freerdp3 (3.9.0+dfsg1-1~exp1) experimental; urgency=medium
+
+  * new upstream release
+  * remove 2000-skip-failing-test.patch
+  * d/*.symbols: add new symbols
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 27 Oct 2024 12:36:53 +0300
+
 freerdp3 (3.6.3+dfsg1-2) unstable; urgency=medium
 
   * Revert "Add Build-Depends: libmp3lame-dev for MP3 audio codec support":
