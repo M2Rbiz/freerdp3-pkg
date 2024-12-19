@@ -115,6 +115,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  CommandLineParseArgumentsW@Base 3.0.0
  CommandLineParseCommaSeparatedValues@Base 3.0.0
  CommandLineParseCommaSeparatedValuesEx@Base 3.0.0
+ CommandLineParserFree@Base 3.10.2
  CommandLineToArgvA@Base 3.0.0
  CommandLineToArgvW@Base 3.0.0
  CommandLineToCommaSeparatedValues@Base 3.0.0
@@ -935,6 +936,8 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  StreamPool_New@Base 3.0.0
  StreamPool_Return@Base 3.0.0
  StreamPool_Take@Base 3.0.0
+ StreamPool_UsedCount@Base 3.10.2
+ StreamPool_WaitForReturn@Base 3.10.2
  Stream_AddRef@Base 3.0.0
  Stream_CheckAndLogRequiredCapacityEx@Base 3.0.0
  Stream_CheckAndLogRequiredCapacityExVa@Base 3.0.0
@@ -1294,6 +1297,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  string_list_length@Base 3.0.0
  string_list_print@Base 3.0.0
  strtok_s@Base 3.0.0
+ wcsndup@Base 3.10.2
  wcstok_s@Base 3.0.0
  winpr_BinToHexString@Base 3.0.0
  winpr_BinToHexStringBuffer@Base 3.0.0
@@ -1304,6 +1308,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_Cipher_Final@Base 3.0.0
  winpr_Cipher_Free@Base 3.0.0
  winpr_Cipher_New@Base 3.0.0
+ winpr_Cipher_NewEx@Base 3.10.2
  winpr_Cipher_SetPadding@Base 3.0.0
  winpr_Cipher_Update@Base 3.0.0
  winpr_CleanupSSL@Base 3.0.0
@@ -1409,6 +1414,8 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_bitmap_construct_header@Base 3.0.0
  winpr_bitmap_write@Base 3.0.0
  winpr_bitmap_write_ex@Base 3.0.0
+ winpr_cipher_type_from_string@Base 3.10.2
+ winpr_cipher_type_to_string@Base 3.10.2
  winpr_fopen@Base 3.0.0
  winpr_get_build_config@Base 3.0.0
  winpr_get_build_revision@Base 3.0.0

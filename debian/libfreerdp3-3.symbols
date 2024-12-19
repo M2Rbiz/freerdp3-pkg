@@ -563,6 +563,11 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_target_net_addresses_free@Base 3.0.0
  freerdp_update_gateway_usage_method@Base 3.0.0
  (optional)freerdp_utils_aad_get_access_token@Base 3.0.0
+ freerdp_utils_aad_get_wellknown_custom_object@Base 3.10.2
+ freerdp_utils_aad_get_wellknown_custom_string@Base 3.10.2
+ freerdp_utils_aad_get_wellknown_object@Base 3.10.2
+ freerdp_utils_aad_get_wellknown_string@Base 3.10.2
+ freerdp_utils_aad_wellknwon_value_name@Base 3.10.2
  freerdp_write_four_byte_float@Base 3.4.0
  freerdp_write_four_byte_signed_integer@Base 3.4.0
  gdi_BitBlt@Base 3.0.0
