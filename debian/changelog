@@ -1,9 +1,18 @@
-freerdp3 (3.10.2+dfsg-1~exp1) UNRELEASED; urgency=medium
+freerdp3 (3.10.2+dfsg-1) unstable; urgency=medium
 
   * Team upload
-  * New upstream release
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Thu, 19 Dec 2024 08:35:36 -0500
+  [ Jeremy Bícha ]
+  * New upstream release
+  * Update install file
+  * Add new symbols to symbols files
+  * Cherry-pick 2 patches from future 3.10.3
+  * Release to unstable
+
+  [ Adrien Nader ]
+  * d/tests/connect: use /cert:tofu to avoid errors with proxies
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Thu, 19 Dec 2024 14:29:08 -0500
 
 freerdp3 (3.9.0+dfsg1-1~exp1) experimental; urgency=medium
 
