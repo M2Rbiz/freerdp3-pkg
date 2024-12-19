@@ -60,7 +60,7 @@
  * and lower quality.
  *
  * This is the default values being use by the MS RDP server, and we will also
- * use it as our default values for the encoder. It can be overrided by setting
+ * use it as our default values for the encoder. It can be overridden by setting
  * the context->num_quants and context->quants member.
  *
  * The order of the values are:
@@ -257,7 +257,7 @@ RFX_CONTEXT* rfx_context_new_ex(BOOL encoder, UINT32 ThreadingFlags)
 	 * that are actually in front/beyond the buffer. Offset calculations are
 	 * performed at the BufferPool_Take function calls in rfx_encode/decode.c.
 	 *
-	 * We then multiply by 3 to use a single, partioned buffer for all 3 channels.
+	 * We then multiply by 3 to use a single, partionned buffer for all 3 channels.
 	 */
 	priv->BufferPool = BufferPool_New(TRUE, (8192ULL + 32ULL) * 3ULL, 16);
 
@@ -372,7 +372,7 @@ void rfx_context_free(RFX_CONTEXT* context)
 			if (priv->ThreadPool)
 				CloseThreadpool(priv->ThreadPool);
 			DestroyThreadpoolEnvironment(&priv->ThreadPoolEnv);
-			winpr_aligned_free(priv->workObjects);
+			winpr_aligned_free((void*)priv->workObjects);
 			winpr_aligned_free(priv->tileWorkParams);
 #ifdef WITH_PROFILER
 			WLog_VRB(
@@ -813,7 +813,8 @@ static INLINE BOOL rfx_allocate_tiles(RFX_MESSAGE* WINPR_RESTRICT message, size_
 {
 	WINPR_ASSERT(message);
 
-	RFX_TILE** tmpTiles = winpr_aligned_recalloc(message->tiles, count, sizeof(RFX_TILE*), 32);
+	RFX_TILE** tmpTiles =
+	    (RFX_TILE**)winpr_aligned_recalloc((void*)message->tiles, count, sizeof(RFX_TILE*), 32);
 	if (!tmpTiles && (count != 0))
 		return FALSE;
 
@@ -952,7 +953,7 @@ static INLINE BOOL rfx_process_message_tileset(RFX_CONTEXT* WINPR_RESTRICT conte
 
 		if (!params)
 		{
-			winpr_aligned_free(work_objects);
+			winpr_aligned_free((void*)work_objects);
 			return FALSE;
 		}
 	}
@@ -1112,7 +1113,7 @@ static INLINE BOOL rfx_process_message_tileset(RFX_CONTEXT* WINPR_RESTRICT conte
 		}
 	}
 
-	winpr_aligned_free(work_objects);
+	winpr_aligned_free((void*)work_objects);
 	winpr_aligned_free(params);
 
 	for (size_t i = 0; i < message->numTiles; i++)
@@ -1547,12 +1548,13 @@ static INLINE size_t rfx_tile_length(const RFX_TILE* WINPR_RESTRICT tile)
 static INLINE BOOL rfx_write_tile(wStream* WINPR_RESTRICT s, const RFX_TILE* WINPR_RESTRICT tile)
 {
 	const size_t blockLen = rfx_tile_length(tile);
-
+	if (blockLen > UINT32_MAX)
+		return FALSE;
 	if (!Stream_EnsureRemainingCapacity(s, blockLen))
 		return FALSE;
 
 	Stream_Write_UINT16(s, CBT_TILE);           /* BlockT.blockType (2 bytes) */
-	Stream_Write_UINT32(s, blockLen);           /* BlockT.blockLen (4 bytes) */
+	Stream_Write_UINT32(s, (UINT32)blockLen);   /* BlockT.blockLen (4 bytes) */
 	Stream_Write_UINT8(s, tile->quantIdxY);     /* quantIdxY (1 byte) */
 	Stream_Write_UINT8(s, tile->quantIdxCb);    /* quantIdxCb (1 byte) */
 	Stream_Write_UINT8(s, tile->quantIdxCr);    /* quantIdxCr (1 byte) */
@@ -1617,7 +1619,7 @@ static INLINE BOOL setupWorkers(RFX_CONTEXT* WINPR_RESTRICT context, size_t nbTi
 	if (!context->priv->UseThreads)
 		return TRUE;
 
-	if (!(pmem = winpr_aligned_recalloc(priv->workObjects, nbTiles, sizeof(PTP_WORK), 32)))
+	if (!(pmem = winpr_aligned_recalloc((void*)priv->workObjects, nbTiles, sizeof(PTP_WORK), 32)))
 		return FALSE;
 
 	priv->workObjects = (PTP_WORK*)pmem;
@@ -1929,8 +1931,8 @@ static INLINE RFX_MESSAGE* rfx_split_message(RFX_CONTEXT* WINPR_RESTRICT context
 	if (!messages)
 		return NULL;
 
-	size_t j = 0;
-	for (size_t i = 0; i < message->numTiles; i++)
+	UINT32 j = 0;
+	for (UINT16 i = 0; i < message->numTiles; i++)
 	{
 		RFX_TILE* tile = message->tiles[i];
 		RFX_MESSAGE* msg = &messages[j];
@@ -1962,7 +1964,7 @@ static INLINE RFX_MESSAGE* rfx_split_message(RFX_CONTEXT* WINPR_RESTRICT context
 		message->tiles[i] = NULL;
 	}
 
-	*numMessages = j + 1;
+	*numMessages = j + 1ULL;
 	context->frameIdx += j;
 	message->numTiles = 0;
 	return messages;
@@ -2106,18 +2108,20 @@ static INLINE BOOL rfx_write_message_region(RFX_CONTEXT* WINPR_RESTRICT context,
 	WINPR_ASSERT(message);
 
 	const size_t blockLen = 15 + (message->numRects * 8);
+	if (blockLen > UINT32_MAX)
+		return FALSE;
 
 	if (!Stream_EnsureRemainingCapacity(s, blockLen))
 		return FALSE;
 
 	Stream_Write_UINT16(s, WBT_REGION);        /* CodecChannelT.blockType (2 bytes) */
-	Stream_Write_UINT32(s, blockLen);          /* set CodecChannelT.blockLen (4 bytes) */
+	Stream_Write_UINT32(s, (UINT32)blockLen);  /* set CodecChannelT.blockLen (4 bytes) */
 	Stream_Write_UINT8(s, 1);                  /* CodecChannelT.codecId (1 byte) */
 	Stream_Write_UINT8(s, 0);                  /* CodecChannelT.channelId (1 byte) */
 	Stream_Write_UINT8(s, 1);                  /* regionFlags (1 byte) */
 	Stream_Write_UINT16(s, message->numRects); /* numRects (2 bytes) */
 
-	for (size_t i = 0; i < message->numRects; i++)
+	for (UINT16 i = 0; i < message->numRects; i++)
 	{
 		const RFX_RECT* rect = rfx_message_get_rect_const(message, i);
 		WINPR_ASSERT(rect);

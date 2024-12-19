@@ -120,6 +120,9 @@ static int freerdp_connect_begin(freerdp* instance)
 
 	freerdp_settings_print_warnings(settings);
 	if (status)
+		status = freerdp_settings_enforce_monitor_exists(settings);
+
+	if (status)
 		status = freerdp_settings_check_client_after_preconnect(settings);
 
 	if (status)
@@ -156,7 +159,8 @@ static int freerdp_connect_begin(freerdp* instance)
 		WINPR_ASSERT(context);
 		freerdp_set_last_error_if_not(context, FREERDP_ERROR_PRE_CONNECT_FAILED);
 
-		WLog_Print(context->log, WLOG_ERROR, "freerdp_pre_connect failed");
+		WLog_Print(context->log, WLOG_ERROR, "freerdp_pre_connect failed: %s",
+		           rdp_client_connection_state_string(instance->ConnectionCallbackState));
 		return 0;
 	}
 
@@ -189,13 +193,8 @@ BOOL freerdp_connect(freerdp* instance)
 	WINPR_ASSERT(rdp);
 	WINPR_ASSERT(rdp->settings);
 
-	if (rc < 0)
-		return FALSE;
-
-	if (rc == 0)
-		goto freerdp_connect_finally;
-
-	/* Pointers might have changed inbetween */
+	if (rc > 0)
+	/* Pointers might have changed in between */
 	{
 		rdp_update_internal* up = update_cast(rdp->update);
 
@@ -207,10 +206,7 @@ BOOL freerdp_connect(freerdp* instance)
 			if (up->pcap_rfx)
 				up->dump_rfx = TRUE;
 		}
-	}
 
-	if (rc > 0)
-	{
 		pointer_cache_register_callbacks(instance->context->update);
 		status = IFCALLRESULT(TRUE, instance->PostConnect, instance);
 		instance->ConnectionCallbackState = CLIENT_STATE_POSTCONNECT_PASSED;
@@ -504,6 +500,8 @@ wMessageQueue* freerdp_get_message_queue(freerdp* instance, DWORD id)
 			queue = input->queue;
 		}
 		break;
+		default:
+			break;
 	}
 
 	return queue;
@@ -539,6 +537,8 @@ int freerdp_message_queue_process_message(freerdp* instance, DWORD id, wMessage*
 		case FREERDP_INPUT_MESSAGE_QUEUE:
 			status = input_message_queue_process_message(context->input, message);
 			break;
+		default:
+			break;
 	}
 
 	return status;
@@ -562,6 +562,8 @@ int freerdp_message_queue_process_pending_messages(freerdp* instance, DWORD id)
 
 		case FREERDP_INPUT_MESSAGE_QUEUE:
 			status = input_message_queue_process_pending_messages(context->input);
+			break;
+		default:
 			break;
 	}
 
@@ -1071,14 +1073,14 @@ void freerdp_set_last_error_ex(rdpContext* context, UINT32 lastError, const char
 	if (lastError == FREERDP_ERROR_SUCCESS)
 	{
 		if (WLog_IsLevelActive(context->log, WLOG_DEBUG))
-			WLog_PrintMessage(context->log, WLOG_MESSAGE_TEXT, WLOG_DEBUG, line, file, fkt,
+			WLog_PrintMessage(context->log, WLOG_MESSAGE_TEXT, WLOG_DEBUG, (size_t)line, file, fkt,
 			                  "resetting error state");
 	}
 	else if (context->LastError != FREERDP_ERROR_SUCCESS)
 	{
 		if (WLog_IsLevelActive(context->log, WLOG_ERROR))
 		{
-			WLog_PrintMessage(context->log, WLOG_MESSAGE_TEXT, WLOG_ERROR, line, file, fkt,
+			WLog_PrintMessage(context->log, WLOG_MESSAGE_TEXT, WLOG_ERROR, (size_t)line, file, fkt,
 			                  "TODO: Trying to set error code %s, but %s already set!",
 			                  freerdp_get_last_error_name(lastError),
 			                  freerdp_get_last_error_name(context->LastError));

@@ -206,7 +206,11 @@ static krb5_error_code krb5_prompter(krb5_context context, void* data, const cha
 		if (type && (type == KRB5_PROMPT_TYPE_PREAUTH || type == KRB5_PROMPT_TYPE_PASSWORD) && data)
 		{
 			prompts[i].reply->data = _strdup((const char*)data);
-			prompts[i].reply->length = strlen((const char*)data);
+
+			const size_t len = strlen((const char*)data);
+			if (len > UINT32_MAX)
+				return KRB5KRB_ERR_GENERIC;
+			prompts[i].reply->length = (UINT32)len;
 		}
 	}
 	return 0;
@@ -659,116 +663,198 @@ cleanup:
 	return ret;
 }
 
+static BOOL append(char* dst, size_t dstSize, const char* src)
+{
+	const size_t dlen = strnlen(dst, dstSize);
+	const size_t slen = strlen(src);
+	if (dlen + slen >= dstSize)
+		return FALSE;
+	if (!strncat(dst, src, slen))
+		return FALSE;
+	return TRUE;
+}
+
+static BOOL kerberos_rd_tgt_req_tag2(WinPrAsn1Decoder* dec, char* buf, size_t len)
+{
+	BOOL rc = FALSE;
+	WinPrAsn1Decoder seq = { 0 };
+
+	/* server-name [2] PrincipalName (SEQUENCE) */
+	if (!WinPrAsn1DecReadSequence(dec, &seq))
+		goto end;
+
+	/* name-type [0] INTEGER */
+	BOOL error = FALSE;
+	WinPrAsn1_INTEGER val = 0;
+	if (!WinPrAsn1DecReadContextualInteger(&seq, 0, &error, &val))
+		goto end;
+
+	/* name-string [1] SEQUENCE OF GeneralString */
+	if (!WinPrAsn1DecReadContextualSequence(&seq, 1, &error, dec))
+		goto end;
+
+	WinPrAsn1_tag tag = 0;
+	BOOL first = TRUE;
+	while (WinPrAsn1DecPeekTag(dec, &tag))
+	{
+		BOOL success = FALSE;
+		char* lstr = NULL;
+		if (!WinPrAsn1DecReadGeneralString(dec, &lstr))
+			goto fail;
+
+		if (!first)
+		{
+			if (!append(buf, len, "/"))
+				goto fail;
+		}
+		first = FALSE;
+
+		if (!append(buf, len, lstr))
+			goto fail;
+
+		success = TRUE;
+	fail:
+		free(lstr);
+		if (!success)
+			goto end;
+	}
+
+	rc = TRUE;
+end:
+	return rc;
+}
+
+static BOOL kerberos_rd_tgt_req_tag3(WinPrAsn1Decoder* dec, char* buf, size_t len)
+{
+	/* realm [3] Realm */
+	BOOL rc = FALSE;
+	WinPrAsn1_STRING str = NULL;
+	if (!WinPrAsn1DecReadGeneralString(dec, &str))
+		goto end;
+
+	if (!append(buf, len, "@"))
+		goto end;
+	if (!append(buf, len, str))
+		goto end;
+
+	rc = TRUE;
+end:
+	free(str);
+	return rc;
+}
+
+static BOOL kerberos_rd_tgt_req(WinPrAsn1Decoder* dec, char** target)
+{
+	BOOL rc = FALSE;
+
+	if (!target)
+		return FALSE;
+	*target = NULL;
+
+	wStream s = WinPrAsn1DecGetStream(dec);
+	const size_t len = Stream_Length(&s);
+	if (len == 0)
+		return TRUE;
+
+	WinPrAsn1Decoder dec2 = { 0 };
+	WinPrAsn1_tagId tag = 0;
+	if (WinPrAsn1DecReadContextualTag(dec, &tag, &dec2) == 0)
+		return FALSE;
+
+	char* buf = calloc(len + 1, sizeof(char));
+	if (!buf)
+		return FALSE;
+
+	/* We expect ASN1 context tag values 2 or 3.
+	 *
+	 * In case we got value 2 an (optional) context tag value 3 might follow.
+	 */
+	BOOL checkForTag3 = TRUE;
+	if (tag == 2)
+	{
+		rc = kerberos_rd_tgt_req_tag2(&dec2, buf, len);
+		if (rc)
+		{
+			const size_t res = WinPrAsn1DecReadContextualTag(dec, &tag, dec);
+			if (res == 0)
+				checkForTag3 = FALSE;
+		}
+	}
+
+	if (checkForTag3)
+	{
+		if (tag == 3)
+			rc = kerberos_rd_tgt_req_tag3(&dec2, buf, len);
+		else
+			rc = FALSE;
+	}
+
+	if (rc)
+		*target = buf;
+	else
+		free(buf);
+	return rc;
+}
+
+static BOOL kerberos_rd_tgt_rep(WinPrAsn1Decoder* dec, krb5_data* ticket)
+{
+	if (!ticket)
+		return FALSE;
+
+	/* ticket [2] Ticket */
+	WinPrAsn1Decoder asnTicket = { 0 };
+	WinPrAsn1_tagId tag = 0;
+	if (WinPrAsn1DecReadContextualTag(dec, &tag, &asnTicket) == 0)
+		return FALSE;
+
+	if (tag != 2)
+		return FALSE;
+
+	wStream s = WinPrAsn1DecGetStream(&asnTicket);
+	ticket->data = Stream_BufferAs(&s, char);
+
+	const size_t len = Stream_Length(&s);
+	if (len > UINT32_MAX)
+		return FALSE;
+	ticket->length = (UINT32)len;
+	return TRUE;
+}
+
 static BOOL kerberos_rd_tgt_token(const sspi_gss_data* token, char** target, krb5_data* ticket)
 {
-	WinPrAsn1Decoder dec;
-	WinPrAsn1Decoder dec2;
 	BOOL error = 0;
-	WinPrAsn1_tagId tag = 0;
 	WinPrAsn1_INTEGER val = 0;
-	size_t len = 0;
-	wStream s;
-	char* buf = NULL;
-	char* str = NULL;
 
 	WINPR_ASSERT(token);
 
-	WinPrAsn1Decoder_InitMem(&dec, WINPR_ASN1_DER, (BYTE*)token->data, token->length);
+	if (target)
+		*target = NULL;
+
+	WinPrAsn1Decoder der = { 0 };
+	WinPrAsn1Decoder_InitMem(&der, WINPR_ASN1_DER, (BYTE*)token->data, token->length);
 
 	/* KERB-TGT-REQUEST (SEQUENCE) */
-	if (!WinPrAsn1DecReadSequence(&dec, &dec2))
+	WinPrAsn1Decoder seq = { 0 };
+	if (!WinPrAsn1DecReadSequence(&der, &seq))
 		return FALSE;
-	dec = dec2;
 
 	/* pvno [0] INTEGER */
-	if (!WinPrAsn1DecReadContextualInteger(&dec, 0, &error, &val) || val != 5)
+	if (!WinPrAsn1DecReadContextualInteger(&seq, 0, &error, &val) || val != 5)
 		return FALSE;
 
 	/* msg-type [1] INTEGER */
-	if (!WinPrAsn1DecReadContextualInteger(&dec, 1, &error, &val))
+	if (!WinPrAsn1DecReadContextualInteger(&seq, 1, &error, &val))
 		return FALSE;
 
-	if (val == KRB_TGT_REQ)
+	switch (val)
 	{
-		if (!target)
-			return FALSE;
-		*target = NULL;
-
-		s = WinPrAsn1DecGetStream(&dec);
-		len = Stream_Length(&s);
-		if (len == 0)
-			return TRUE;
-
-		buf = malloc(len);
-		if (!buf)
-			return FALSE;
-
-		*buf = 0;
-		*target = buf;
-
-		if (!WinPrAsn1DecReadContextualTag(&dec, &tag, &dec2))
-			goto fail;
-
-		if (tag == 2)
-		{
-			WinPrAsn1Decoder seq;
-			/* server-name [2] PrincipalName (SEQUENCE) */
-			if (!WinPrAsn1DecReadSequence(&dec2, &seq))
-				goto fail;
-
-			/* name-type [0] INTEGER */
-			if (!WinPrAsn1DecReadContextualInteger(&seq, 0, &error, &val))
-				goto fail;
-
-			/* name-string [1] SEQUENCE OF GeneralString */
-			if (!WinPrAsn1DecReadContextualSequence(&seq, 1, &error, &dec2))
-				goto fail;
-
-			while (WinPrAsn1DecPeekTag(&dec2, &tag))
-			{
-				if (!WinPrAsn1DecReadGeneralString(&dec2, &str))
-					goto fail;
-
-				if (buf != *target)
-					*buf++ = '/';
-				buf = stpcpy(buf, str);
-				free(str);
-			}
-
-			if (!WinPrAsn1DecReadContextualTag(&dec, &tag, &dec2))
-				return TRUE;
-		}
-
-		/* realm [3] Realm */
-		if (tag != 3 || !WinPrAsn1DecReadGeneralString(&dec2, &str))
-			goto fail;
-
-		*buf++ = '@';
-		strcpy(buf, str);
-		free(str);
-		return TRUE;
+		case KRB_TGT_REQ:
+			return kerberos_rd_tgt_req(&seq, target);
+		case KRB_TGT_REP:
+			return kerberos_rd_tgt_rep(&seq, ticket);
+		default:
+			break;
 	}
-	else if (val == KRB_TGT_REP)
-	{
-		if (!ticket)
-			return FALSE;
-
-		/* ticket [2] Ticket */
-		if (!WinPrAsn1DecReadContextualTag(&dec, &tag, &dec2) || tag != 2)
-			return FALSE;
-
-		s = WinPrAsn1DecGetStream(&dec2);
-		ticket->data = Stream_BufferAs(&s, char);
-		ticket->length = Stream_Length(&s);
-		return TRUE;
-	}
-	else
-		return FALSE;
-
-fail:
-	free(buf);
-	if (target)
-		*target = NULL;
 	return FALSE;
 }
 
@@ -778,11 +864,11 @@ static BOOL kerberos_hash_channel_bindings(WINPR_DIGEST_CTX* md5, SEC_CHANNEL_BI
 {
 	BYTE buf[4];
 
-	Data_Write_UINT32(buf, bindings->dwInitiatorAddrType);
+	winpr_Data_Write_UINT32(buf, bindings->dwInitiatorAddrType);
 	if (!winpr_Digest_Update(md5, buf, 4))
 		return FALSE;
 
-	Data_Write_UINT32(buf, bindings->cbInitiatorLength);
+	winpr_Data_Write_UINT32(buf, bindings->cbInitiatorLength);
 	if (!winpr_Digest_Update(md5, buf, 4))
 		return FALSE;
 
@@ -791,11 +877,11 @@ static BOOL kerberos_hash_channel_bindings(WINPR_DIGEST_CTX* md5, SEC_CHANNEL_BI
 	                         bindings->cbInitiatorLength))
 		return FALSE;
 
-	Data_Write_UINT32(buf, bindings->dwAcceptorAddrType);
+	winpr_Data_Write_UINT32(buf, bindings->dwAcceptorAddrType);
 	if (!winpr_Digest_Update(md5, buf, 4))
 		return FALSE;
 
-	Data_Write_UINT32(buf, bindings->cbAcceptorLength);
+	winpr_Data_Write_UINT32(buf, bindings->cbAcceptorLength);
 	if (!winpr_Digest_Update(md5, buf, 4))
 		return FALSE;
 
@@ -804,7 +890,7 @@ static BOOL kerberos_hash_channel_bindings(WINPR_DIGEST_CTX* md5, SEC_CHANNEL_BI
 	                         bindings->cbAcceptorLength))
 		return FALSE;
 
-	Data_Write_UINT32(buf, bindings->cbApplicationDataLength);
+	winpr_Data_Write_UINT32(buf, bindings->cbApplicationDataLength);
 	if (!winpr_Digest_Update(md5, buf, 4))
 		return FALSE;
 
@@ -990,8 +1076,8 @@ static SECURITY_STATUS SEC_ENTRY kerberos_InitializeSecurityContextA(
 			/* Write the checksum (delegation not implemented) */
 			cksum.data = cksum_contents;
 			cksum.length = sizeof(cksum_contents);
-			Data_Write_UINT32(cksum_contents, 16);
-			Data_Write_UINT32((cksum_contents + 20), context->flags);
+			winpr_Data_Write_UINT32(cksum_contents, 16);
+			winpr_Data_Write_UINT32((cksum_contents + 20), context->flags);
 
 			if (bindings_buffer)
 			{
@@ -1779,17 +1865,18 @@ static SECURITY_STATUS SEC_ENTRY kerberos_EncryptMessage(PCtxtHandle phContext, 
 	encrypt_iov[1].data.data = data_buffer->pvBuffer;
 
 	/* Write the GSS header with 0 in RRC */
-	Data_Write_UINT16_BE(header, TOK_ID_WRAP);
+	winpr_Data_Write_UINT16_BE(header, TOK_ID_WRAP);
 	header[2] = flags;
 	header[3] = (char)0xFF;
-	Data_Write_UINT32(header + 4, 0);
-	Data_Write_UINT64_BE(header + 8, (context->local_seq + MessageSeqNo));
+	winpr_Data_Write_UINT32(header + 4, 0);
+	winpr_Data_Write_UINT64_BE(header + 8, (context->local_seq + MessageSeqNo));
 
 	/* Copy header to be encrypted */
 	CopyMemory(encrypt_iov[2].data.data, header, 16);
 
 	/* Set the correct RRC */
-	Data_Write_UINT16_BE(header + 6, 16 + encrypt_iov[3].data.length + encrypt_iov[4].data.length);
+	winpr_Data_Write_UINT16_BE(header + 6,
+	                           16 + encrypt_iov[3].data.length + encrypt_iov[4].data.length);
 
 	if (krb_log_exec(krb5glue_encrypt_iov, creds->ctx, key, usage, encrypt_iov,
 	                 ARRAYSIZE(encrypt_iov)))
@@ -1839,11 +1926,11 @@ static SECURITY_STATUS SEC_ENTRY kerberos_DecryptMessage(PCtxtHandle phContext,
 
 	/* Read in header information */
 	header = sig_buffer->pvBuffer;
-	Data_Read_UINT16_BE(header, tok_id);
+	tok_id = winpr_Data_Get_UINT16_BE(header);
 	flags = header[2];
-	Data_Read_UINT16_BE((header + 4), ec);
-	Data_Read_UINT16_BE((header + 6), rrc);
-	Data_Read_UINT64_BE((header + 8), seq_no);
+	ec = winpr_Data_Get_UINT16_BE((header + 4));
+	rrc = winpr_Data_Get_UINT16_BE((header + 6));
+	seq_no = winpr_Data_Get_UINT64_BE((header + 8));
 
 	/* Check that the header is valid */
 	if (tok_id != TOK_ID_WRAP || (BYTE)header[3] != 0xFF)
@@ -1892,8 +1979,8 @@ static SECURITY_STATUS SEC_ENTRY kerberos_DecryptMessage(PCtxtHandle phContext,
 		return SEC_E_INTERNAL_ERROR;
 
 	/* Validate the encrypted header */
-	Data_Write_UINT16_BE(iov[2].data.data + 4, ec);
-	Data_Write_UINT16_BE(iov[2].data.data + 6, rrc);
+	winpr_Data_Write_UINT16_BE(iov[2].data.data + 4, ec);
+	winpr_Data_Write_UINT16_BE(iov[2].data.data + 6, rrc);
 	if (memcmp(iov[2].data.data, header, 16) != 0)
 		return SEC_E_MESSAGE_ALTERED;
 
@@ -1955,10 +2042,10 @@ static SECURITY_STATUS SEC_ENTRY kerberos_MakeSignature(PCtxtHandle phContext, U
 
 	/* Write the header */
 	header = sig_buffer->pvBuffer;
-	Data_Write_UINT16_BE(header, TOK_ID_MIC);
+	winpr_Data_Write_UINT16_BE(header, TOK_ID_MIC);
 	header[2] = flags;
 	memset(header + 3, 0xFF, 5);
-	Data_Write_UINT64_BE(header + 8, (context->local_seq + MessageSeqNo));
+	winpr_Data_Write_UINT64_BE(header + 8, (context->local_seq + MessageSeqNo));
 
 	/* Set up the iov array */
 	iov[0].data.data = data_buffer->pvBuffer;
@@ -2010,9 +2097,9 @@ static SECURITY_STATUS SEC_ENTRY kerberos_VerifySignature(PCtxtHandle phContext,
 
 	/* Read in header info */
 	header = sig_buffer->pvBuffer;
-	Data_Read_UINT16_BE(header, tok_id);
+	tok_id = winpr_Data_Get_UINT16_BE(header);
 	flags = header[2];
-	Data_Read_UINT64_BE((header + 8), seq_no);
+	seq_no = winpr_Data_Get_UINT64_BE((header + 8));
 
 	/* Validate header */
 	if (tok_id != TOK_ID_MIC)

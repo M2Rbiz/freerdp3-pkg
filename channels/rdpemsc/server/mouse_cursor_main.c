@@ -305,6 +305,8 @@ static UINT mouse_cursor_server_context_poll_int(MouseCursorServerContext* conte
 		case MOUSE_CURSOR_OPENED:
 			error = mouse_cursor_process_message(mouse_cursor);
 			break;
+		default:
+			break;
 	}
 
 	return error;
@@ -322,7 +324,7 @@ static HANDLE mouse_cursor_server_get_channel_handle(mouse_cursor_server* mouse_
 	                           &BytesReturned) == TRUE)
 	{
 		if (BytesReturned == sizeof(HANDLE))
-			CopyMemory(&ChannelEvent, buffer, sizeof(HANDLE));
+			ChannelEvent = *(HANDLE*)buffer;
 
 		WTSFreeMemory(buffer);
 	}
@@ -371,6 +373,8 @@ static DWORD WINAPI mouse_cursor_server_thread_func(LPVOID arg)
 						error = ERROR_INTERNAL_ERROR;
 						break;
 				}
+				break;
+			default:
 				break;
 		}
 	}
@@ -495,8 +499,11 @@ static wStream* mouse_cursor_server_packet_new(size_t size, RDP_MOUSE_CURSOR_PDU
 		return NULL;
 	}
 
-	Stream_Write_UINT8(s, pduType);
-	Stream_Write_UINT8(s, header->updateType);
+	WINPR_ASSERT(pduType <= UINT8_MAX);
+	Stream_Write_UINT8(s, (BYTE)pduType);
+
+	WINPR_ASSERT(header->updateType <= UINT8_MAX);
+	Stream_Write_UINT8(s, (BYTE)header->updateType);
 	Stream_Write_UINT16(s, header->reserved);
 
 	return s;
@@ -512,8 +519,8 @@ static UINT mouse_cursor_server_packet_send(MouseCursorServerContext* context, w
 	WINPR_ASSERT(s);
 
 	const size_t pos = Stream_GetPosition(s);
-	if (pos > UINT32_MAX)
-		return ERROR_OUTOFMEMORY;
+
+	WINPR_ASSERT(pos <= UINT32_MAX);
 	if (!WTSVirtualChannelWrite(mouse_cursor->mouse_cursor_channel, Stream_BufferAs(s, char),
 	                            (ULONG)pos, &written))
 	{

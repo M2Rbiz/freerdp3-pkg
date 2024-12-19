@@ -501,6 +501,8 @@ static UINT device_server_context_poll_int(CameraDeviceServerContext* context)
 		case CAMERA_DEVICE_OPENED:
 			error = device_process_message(device);
 			break;
+		default:
+			break;
 	}
 
 	return error;
@@ -518,7 +520,7 @@ static HANDLE device_server_get_channel_handle(device_server* device)
 	                           &BytesReturned) == TRUE)
 	{
 		if (BytesReturned == sizeof(HANDLE))
-			CopyMemory(&ChannelEvent, buffer, sizeof(HANDLE));
+			ChannelEvent = *(HANDLE*)buffer;
 
 		WTSFreeMemory(buffer);
 	}
@@ -567,6 +569,8 @@ static DWORD WINAPI device_server_thread_func(LPVOID arg)
 						error = ERROR_INTERNAL_ERROR;
 						break;
 				}
+				break;
+			default:
 				break;
 		}
 	}
@@ -704,8 +708,10 @@ static UINT device_server_packet_send(CameraDeviceServerContext* context, wStrea
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(s);
 
-	if (!WTSVirtualChannelWrite(device->device_channel, Stream_BufferAs(s, char),
-	                            Stream_GetPosition(s), &written))
+	const size_t len = Stream_GetPosition(s);
+	WINPR_ASSERT(len <= UINT32_MAX);
+	if (!WTSVirtualChannelWrite(device->device_channel, Stream_BufferAs(s, char), (UINT32)len,
+	                            &written))
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelWrite failed!");
 		error = ERROR_INTERNAL_ERROR;

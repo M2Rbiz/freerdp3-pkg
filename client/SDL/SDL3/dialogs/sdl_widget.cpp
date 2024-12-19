@@ -20,6 +20,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <algorithm>
 
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
@@ -120,8 +121,8 @@ SDL_Texture* SdlWidget::render_text(SDL_Renderer* renderer, const std::string& t
 		return nullptr;
 	}
 
-	src.w = w;
-	src.h = h;
+	src.w = static_cast<float>(w);
+	src.h = static_cast<float>(h);
 	/* Do some magic:
 	 * - Add padding before and after text
 	 * - if text is too long only show the last elements
@@ -153,15 +154,18 @@ static float scale(float dw, float dh)
 SDL_Texture* SdlWidget::render_text_wrapped(SDL_Renderer* renderer, const std::string& text,
                                             SDL_Color fgcolor, SDL_FRect& src, SDL_FRect& dst)
 {
-	auto surface = TTF_RenderText_Blended_Wrapped(_font, text.c_str(), 0, fgcolor, _text_width);
+	assert(_text_width < INT32_MAX);
+
+	auto surface = TTF_RenderText_Blended_Wrapped(_font, text.c_str(), 0, fgcolor,
+	                                              static_cast<int>(_text_width));
 	if (!surface)
 	{
 		widget_log_error(-1, "TTF_RenderText_Blended");
 		return nullptr;
 	}
 
-	src.w = surface->w;
-	src.h = surface->h;
+	src.w = static_cast<float>(surface->w);
+	src.h = static_cast<float>(surface->h);
 
 	auto texture = SDL_CreateTextureFromSurface(renderer, surface);
 	SDL_DestroySurface(surface);
@@ -180,8 +184,7 @@ SDL_Texture* SdlWidget::render_text_wrapped(SDL_Renderer* renderer, const std::s
 	dst.x += hpadding;
 	dst.w -= 2 * hpadding;
 	auto dh = scale(src.w, src.h);
-	if (dh < dst.h)
-		dst.h = dh;
+	dst.h = std::min<float>(dh, dst.h);
 
 	return texture;
 }
@@ -275,12 +278,12 @@ bool SdlWidget::update_text(SDL_Renderer* renderer, const std::string& text, SDL
 		texture = _image;
 		dst = _rect;
 		auto propId = SDL_GetTextureProperties(_image);
-		int w = SDL_GetNumberProperty(propId, SDL_PROP_TEXTURE_WIDTH_NUMBER, -1);
-		int h = SDL_GetNumberProperty(propId, SDL_PROP_TEXTURE_HEIGHT_NUMBER, -1);
+		auto w = SDL_GetNumberProperty(propId, SDL_PROP_TEXTURE_WIDTH_NUMBER, -1);
+		auto h = SDL_GetNumberProperty(propId, SDL_PROP_TEXTURE_HEIGHT_NUMBER, -1);
 		if (w < 0 || h < 0)
 			widget_log_error(-1, "SDL_GetTextureProperties");
-		src.w = w;
-		src.h = h;
+		src.w = static_cast<float>(w);
+		src.h = static_cast<float>(h);
 	}
 	else if (_wrap)
 		texture = render_text_wrapped(renderer, text, fgcolor, src, dst);

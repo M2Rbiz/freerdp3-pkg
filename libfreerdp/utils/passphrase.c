@@ -17,6 +17,8 @@
  * limitations under the License.
  */
 
+#include <winpr/environment.h>
+
 #include <freerdp/config.h>
 #include <freerdp/freerdp.h>
 
@@ -132,7 +134,6 @@ static const char* freerdp_passphrase_read_tty(rdpContext* context, const char* 
 {
 	BOOL terminal_needs_reset = FALSE;
 	char term_name[L_ctermid] = { 0 };
-	int term_file = 0;
 
 	FILE* fout = NULL;
 
@@ -144,15 +145,29 @@ static const char* freerdp_passphrase_read_tty(rdpContext* context, const char* 
 
 	ctermid(term_name);
 	int terminal_fildes = 0;
-	if (from_stdin || strcmp(term_name, "") == 0 || (term_file = open(term_name, O_RDWR)) == -1)
+	if (from_stdin || (strcmp(term_name, "") == 0))
 	{
 		fout = stdout;
 		terminal_fildes = STDIN_FILENO;
 	}
 	else
 	{
-		fout = fdopen(term_file, "w");
-		terminal_fildes = term_file;
+		const int term_file = open(term_name, O_RDWR);
+		if (term_file < 0)
+		{
+			fout = stdout;
+			terminal_fildes = STDIN_FILENO;
+		}
+		else
+		{
+			fout = fdopen(term_file, "w");
+			if (!fout)
+			{
+				close(term_file);
+				return NULL;
+			}
+			terminal_fildes = term_file;
+		}
 	}
 
 	struct termios orig_flags = { 0 };
@@ -221,10 +236,12 @@ static const char* freerdp_passphrase_read_askpass(const char* prompt, char* buf
 
 	(void)sprintf_s(command, sizeof(command), "%s 'FreeRDP authentication\n%s'", askpass_env,
 	                prompt);
+	// NOLINTNEXTLINE(clang-analyzer-optin.taint.GenericTaint)
 	FILE* askproc = popen(command, "r");
 	if (!askproc)
 		return NULL;
-	if (fgets(buf, bufsiz, askproc) != NULL)
+	WINPR_ASSERT(bufsiz <= INT32_MAX);
+	if (fgets(buf, (int)bufsiz, askproc) != NULL)
 		buf[strcspn(buf, "\r\n")] = '\0';
 	else
 		buf = NULL;

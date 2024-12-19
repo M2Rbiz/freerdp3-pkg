@@ -783,7 +783,7 @@ fail:
 	{
 		if (count)
 			*count = 0;
-		free(p);
+		free((void*)p);
 		return NULL;
 	}
 	return p;
@@ -845,4 +845,15 @@ char* CommandLineToCommaSeparatedValuesEx(int argc, char* argv[], const char* fi
 	if (offset > 0)
 		str[offset - 1] = '\0';
 	return str;
+}
+
+void CommandLineParserFree(char** ptr)
+{
+	union
+	{
+		char* p;
+		char** pp;
+	} uptr;
+	uptr.pp = ptr;
+	free(uptr.p);
 }

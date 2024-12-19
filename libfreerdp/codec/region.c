@@ -87,7 +87,8 @@ int region16_n_rects(const REGION16* region)
 {
 	WINPR_ASSERT(region);
 	WINPR_ASSERT(region->data);
-	return region->data->nbRects;
+	WINPR_ASSERT(region->data->nbRects <= INT32_MAX);
+	return (int)region->data->nbRects;
 }
 
 const RECTANGLE_16* region16_rects(const REGION16* region, UINT32* nbRects)
@@ -106,7 +107,10 @@ const RECTANGLE_16* region16_rects(const REGION16* region, UINT32* nbRects)
 		return NULL;
 
 	if (nbRects)
-		*nbRects = data->nbRects;
+	{
+		WINPR_ASSERT(data->nbRects <= UINT32_MAX);
+		*nbRects = (UINT32)data->nbRects;
+	}
 
 	return (RECTANGLE_16*)(data + 1);
 }
@@ -278,7 +282,7 @@ static void region16_copy_band_with_union(RECTANGLE_16* dst, const RECTANGLE_16*
 	 *
 	 *  We first copy as-is items that are before Item2, the first overlapping
 	 *  item.
-	 *  Then we find the last one that overlap unionRect to agregate Item2, Item3
+	 *  Then we find the last one that overlap unionRect to aggregate Item2, Item3
 	 *  and Item4 to create Item2.
 	 *  Finally Item5 is copied as Item3.
 	 *
@@ -423,7 +427,6 @@ static BOOL region16_simplify_bands(REGION16* region)
 	int nbRects = 0;
 	int finalNbRects = 0;
 	int bandItems = 0;
-	int toMove = 0;
 	finalNbRects = nbRects = region16_n_rects(region);
 
 	if (nbRects < 2)
@@ -453,7 +456,7 @@ static BOOL region16_simplify_bands(REGION16* region)
 			/* override band2, we don't move band1 pointer as the band after band2
 			 * may be merged too */
 			endBand = band2 + bandItems;
-			toMove = (endPtr - endBand) * sizeof(RECTANGLE_16);
+			const size_t toMove = (endPtr - endBand) * sizeof(RECTANGLE_16);
 
 			if (toMove)
 				MoveMemory(band2, endBand, toMove);
@@ -586,13 +589,13 @@ BOOL region16_union_rect(REGION16* dst, const REGION16* src, const RECTANGLE_16*
 			           |    |  |    |
 
 			 possible cases:
-			 1) no top split, merge zone then a bottom split. The band will be splitted
+			 1) no top split, merge zone then a bottom split. The band will be split
 			  in two
-			 2) not band split, only the merge zone, band merged with rect but not splitted
+			 2) not band split, only the merge zone, band merged with rect but not split
 			 3) a top split, the merge zone and no bottom split. The band will be split
 			 in two
 			 4) a top split, the merge zone and also a bottom split. The band will be
-			 splitted in 3, but the coalesce algorithm may merge the created bands
+			 split in 3, but the coalesce algorithm may merge the created bands
 			 */
 			UINT16 mergeTop = currentBand->top;
 			UINT16 mergeBottom = currentBand->bottom;

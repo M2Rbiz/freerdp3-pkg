@@ -478,7 +478,7 @@ static int wlfreerdp_run(freerdp* instance)
 	HANDLE handles[MAXIMUM_WAIT_OBJECTS] = { 0 };
 	DWORD status = WAIT_ABANDONED;
 	HANDLE timer = NULL;
-	LARGE_INTEGER due;
+	LARGE_INTEGER due = { 0 };
 
 	TimerEventArgs timerEvent;
 	EventArgsInit(&timerEvent, "xfreerdp");
@@ -749,8 +749,15 @@ BOOL wlf_copy_image(const void* src, size_t srcStride, size_t srcWidth, size_t s
 
 	if (scale)
 	{
-		return freerdp_image_scale(dst, PIXEL_FORMAT_BGRA32, dstStride, 0, 0, dstWidth, dstHeight,
-		                           src, PIXEL_FORMAT_BGRA32, srcStride, 0, 0, srcWidth, srcHeight);
+		WINPR_ASSERT(dstStride <= UINT32_MAX);
+		WINPR_ASSERT(dstWidth <= UINT32_MAX);
+		WINPR_ASSERT(dstHeight <= UINT32_MAX);
+		WINPR_ASSERT(srcStride <= UINT32_MAX);
+		WINPR_ASSERT(srcWidth <= UINT32_MAX);
+		WINPR_ASSERT(srcHeight <= UINT32_MAX);
+		return freerdp_image_scale(dst, PIXEL_FORMAT_BGRA32, (UINT32)dstStride, 0, 0,
+		                           (UINT32)dstWidth, (UINT32)dstHeight, src, PIXEL_FORMAT_BGRA32,
+		                           (UINT32)srcStride, 0, 0, (UINT32)srcWidth, (UINT32)srcHeight);
 	}
 	else
 	{

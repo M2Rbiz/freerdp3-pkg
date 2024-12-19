@@ -26,6 +26,8 @@
 
 static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	{ "a", COMMAND_LINE_VALUE_REQUIRED, "<addin>[,<options>]", NULL, NULL, -1, "addin", "Addin" },
+	{ "azure", COMMAND_LINE_VALUE_REQUIRED, "[tenantid:<id>],[use-tenantid[:[on|off]],[ad:<url>]",
+	  NULL, NULL, -1, NULL, "AzureAD options" },
 	{ "action-script", COMMAND_LINE_VALUE_REQUIRED, "<file-name>", "~/.config/freerdp/action.sh",
 	  NULL, -1, NULL, "Action script" },
 	{ "admin", COMMAND_LINE_VALUE_FLAG, NULL, NULL, NULL, -1, "console",
@@ -316,12 +318,12 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	  "mic", "Audio input (microphone)" },
 #if defined(WITH_FREERDP_DEPRECATED_COMMANDLINE)
 	{ "smartcard-list", COMMAND_LINE_VALUE_FLAG | COMMAND_LINE_PRINT, NULL, NULL, NULL, -1, NULL,
-	  "[DEPRECATED, use /list:smartcard] List smartcard informations" },
+	  "[DEPRECATED, use /list:smartcard] List smartcard information" },
 	{ "monitor-list", COMMAND_LINE_VALUE_FLAG | COMMAND_LINE_PRINT, NULL, NULL, NULL, -1, NULL,
 	  "[DEPRECATED, use /list:monitor] List detected monitors" },
 #endif
 	{ "monitors", COMMAND_LINE_VALUE_REQUIRED, "<id>[,<id>[,...]]", NULL, NULL, -1, NULL,
-	  "Select monitors to use" },
+	  "Select monitors to use (only effective in fullscreen or multimonitor mode)" },
 	{ "mouse-motion", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueTrue, NULL, -1, NULL,
 	  "Send mouse motion" },
 	{ "mouse-relative", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueFalse, NULL, -1, NULL,
@@ -373,7 +375,7 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	  "suppress output when minimized" },
 	{ "print-reconnect-cookie", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueFalse, NULL, -1, NULL,
 	  "Print base64 reconnect cookie after connecting" },
-	{ "printer", COMMAND_LINE_VALUE_OPTIONAL, "<name>[,<driver>]", NULL, NULL, -1, NULL,
+	{ "printer", COMMAND_LINE_VALUE_OPTIONAL, "<name>[,<driver>[,default]]", NULL, NULL, -1, NULL,
 	  "Redirect printer device" },
 	{ "proxy", COMMAND_LINE_VALUE_REQUIRED, "[<proto>://][<user>:<password>@]<host>[:<port>]", NULL,
 	  NULL, -1, NULL,

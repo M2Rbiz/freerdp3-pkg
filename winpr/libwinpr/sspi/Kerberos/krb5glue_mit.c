@@ -114,7 +114,7 @@ BOOL krb5glue_authenticator_validate_chksum(krb5glue_authenticator authenticator
 	if (!authenticator || !authenticator->checksum ||
 	    authenticator->checksum->checksum_type != cksumtype || authenticator->checksum->length < 24)
 		return FALSE;
-	Data_Read_UINT32((authenticator->checksum->contents + 20), (*flags));
+	*flags = winpr_Data_Get_UINT32((authenticator->checksum->contents + 20));
 	return TRUE;
 }
 
@@ -213,15 +213,18 @@ krb5_error_code krb5glue_get_init_creds(krb5_context ctx, krb5_principal princ, 
 			free(kdc_url);
 			free(realm);
 
-			if ((rv = profile_flush_to_file(profile, tmp_profile_path)))
+			long lrv = profile_flush_to_file(profile, tmp_profile_path);
+			if (lrv)
 				goto cleanup;
 
 			profile_abandon(profile);
 			profile = NULL;
-			if ((rv = profile_init_path(tmp_profile_path, &profile)))
+			lrv = profile_init_path(tmp_profile_path, &profile);
+			if (lrv)
 				goto cleanup;
 
-			if ((rv = krb5_init_context_profile(profile, 0, &ctx)))
+			rv = krb5_init_context_profile(profile, 0, &ctx);
+			if (rv)
 				goto cleanup;
 			is_temp_ctx = TRUE;
 		}

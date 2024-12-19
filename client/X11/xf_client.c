@@ -1043,7 +1043,7 @@ static const button_map xf_button_flags[NUM_BUTTONS_MAPPED] = {
 	{ 112, PTR_XFLAGS_BUTTON2 }
 };
 
-static UINT16 get_flags_for_button(int button)
+static UINT16 get_flags_for_button(size_t button)
 {
 	for (size_t x = 0; x < ARRAYSIZE(xf_button_flags); x++)
 	{
@@ -1116,7 +1116,7 @@ static void xf_button_map_init(xfContext* xfc)
  * connection.
  *
  * @param instance - pointer to the rdp_freerdp structure that contains the connection's parameters,
- * and will be filled with the appropriate informations.
+ * and will be filled with the appropriate information.
  *
  * @return TRUE if successful. FALSE otherwise.
  * Can exit with error code XF_EXIT_PARSE_ARGUMENTS if there is an error in the parameters.
@@ -1862,7 +1862,7 @@ BOOL xf_setup_x11(xfContext* xfc)
 	xfc->UseXThreads = TRUE;
 
 #if !defined(NDEBUG)
-	/* uncomment below if debugging to prevent keyboard grap */
+	/* uncomment below if debugging to prevent keyboard grab */
 	xfc->debug = TRUE;
 #endif
 

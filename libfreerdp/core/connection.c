@@ -257,7 +257,9 @@ static BOOL rdp_client_wait_for_activation(rdpRdp* rdp)
 			return FALSE;
 		}
 
-		wstatus = WaitForMultipleObjectsEx(nevents, events, FALSE, (dueDate - now), TRUE);
+		const UINT64 timeout = (dueDate - now);
+		WINPR_ASSERT(timeout <= UINT32_MAX);
+		wstatus = WaitForMultipleObjectsEx(nevents, events, FALSE, (UINT32)timeout, TRUE);
 		switch (wstatus)
 		{
 			case WAIT_TIMEOUT:
@@ -333,7 +335,7 @@ BOOL rdp_client_connect(rdpRdp* rdp)
 	UINT32 TcpConnectTimeout = freerdp_settings_get_uint32(settings, FreeRDP_TcpConnectTimeout);
 	if (settings->GatewayArmTransport)
 	{
-		if (!arm_resolve_endpoint(rdp->context, TcpConnectTimeout))
+		if (!arm_resolve_endpoint(rdp->log, rdp->context, TcpConnectTimeout))
 		{
 			WLog_ERR(TAG, "error retrieving ARM configuration");
 			return FALSE;
@@ -347,17 +349,17 @@ BOOL rdp_client_connect(rdpRdp* rdp)
 		return FALSE;
 	}
 
+	const UINT32 port = settings->ServerPort;
+	WINPR_ASSERT(port <= UINT32_MAX);
+
 	nego_init(rdp->nego);
-	nego_set_target(rdp->nego, hostname, settings->ServerPort);
+	nego_set_target(rdp->nego, hostname, (UINT16)port);
 
 	if (settings->GatewayEnabled)
 	{
 		char* user = NULL;
 		char* domain = NULL;
-		char* cookie = NULL;
 		size_t user_length = 0;
-		size_t domain_length = 0;
-		size_t cookie_length = 0;
 
 		if (settings->Username)
 		{
@@ -370,15 +372,16 @@ BOOL rdp_client_connect(rdpRdp* rdp)
 		else
 			domain = settings->ComputerName;
 
-		domain_length = strlen(domain);
-		cookie_length = domain_length + 1 + user_length;
-		cookie = (char*)malloc(cookie_length + 1);
+		const size_t domain_length = strlen(domain);
+		const size_t cookie_length = domain_length + 1 + user_length;
+		char* cookie = malloc(cookie_length + 1);
 
 		if (!cookie)
 			return FALSE;
 
 		CopyMemory(cookie, domain, domain_length);
-		CharUpperBuffA(cookie, domain_length);
+		WINPR_ASSERT(domain_length <= UINT32_MAX);
+		CharUpperBuffA(cookie, (UINT32)domain_length);
 		cookie[domain_length] = '\\';
 
 		if (settings->Username)
@@ -487,6 +490,9 @@ BOOL rdp_client_disconnect(rdpRdp* rdp)
 		if (!nego_disconnect(rdp->nego))
 			return FALSE;
 	}
+
+	if (!transport_disconnect(rdp->transport))
+		return FALSE;
 
 	if (!rdp_reset(rdp))
 		return FALSE;
@@ -799,8 +805,9 @@ static BOOL rdp_client_establish_keys(rdpRdp* rdp)
 
 	if (settings->EncryptionMethods == ENCRYPTION_METHOD_FIPS)
 	{
-		rdp->fips_encrypt = winpr_Cipher_New(WINPR_CIPHER_DES_EDE3_CBC, WINPR_ENCRYPT,
-		                                     rdp->fips_encrypt_key, fips_ivec);
+		rdp->fips_encrypt =
+		    winpr_Cipher_NewEx(WINPR_CIPHER_DES_EDE3_CBC, WINPR_ENCRYPT, rdp->fips_encrypt_key,
+		                       sizeof(rdp->fips_encrypt_key), fips_ivec, sizeof(fips_ivec));
 
 		if (!rdp->fips_encrypt)
 		{
@@ -808,8 +815,9 @@ static BOOL rdp_client_establish_keys(rdpRdp* rdp)
 			goto end;
 		}
 
-		rdp->fips_decrypt = winpr_Cipher_New(WINPR_CIPHER_DES_EDE3_CBC, WINPR_DECRYPT,
-		                                     rdp->fips_decrypt_key, fips_ivec);
+		rdp->fips_decrypt =
+		    winpr_Cipher_NewEx(WINPR_CIPHER_DES_EDE3_CBC, WINPR_DECRYPT, rdp->fips_decrypt_key,
+		                       sizeof(rdp->fips_decrypt_key), fips_ivec, sizeof(fips_ivec));
 
 		if (!rdp->fips_decrypt)
 		{
@@ -927,8 +935,9 @@ BOOL rdp_server_establish_keys(rdpRdp* rdp, wStream* s)
 
 	if (rdp->settings->EncryptionMethods == ENCRYPTION_METHOD_FIPS)
 	{
-		rdp->fips_encrypt = winpr_Cipher_New(WINPR_CIPHER_DES_EDE3_CBC, WINPR_ENCRYPT,
-		                                     rdp->fips_encrypt_key, fips_ivec);
+		rdp->fips_encrypt =
+		    winpr_Cipher_NewEx(WINPR_CIPHER_DES_EDE3_CBC, WINPR_ENCRYPT, rdp->fips_encrypt_key,
+		                       sizeof(rdp->fips_encrypt_key), fips_ivec, sizeof(fips_ivec));
 
 		if (!rdp->fips_encrypt)
 		{
@@ -936,8 +945,9 @@ BOOL rdp_server_establish_keys(rdpRdp* rdp, wStream* s)
 			goto end;
 		}
 
-		rdp->fips_decrypt = winpr_Cipher_New(WINPR_CIPHER_DES_EDE3_CBC, WINPR_DECRYPT,
-		                                     rdp->fips_decrypt_key, fips_ivec);
+		rdp->fips_decrypt =
+		    winpr_Cipher_NewEx(WINPR_CIPHER_DES_EDE3_CBC, WINPR_DECRYPT, rdp->fips_decrypt_key,
+		                       sizeof(rdp->fips_decrypt_key), fips_ivec, sizeof(fips_ivec));
 
 		if (!rdp->fips_decrypt)
 		{

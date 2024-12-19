@@ -136,6 +136,7 @@ extern "C"
 	 *  @return \b NULL in case of failure, a pointer to an allocated buffer otherwise. Use \b free
 	 * as deallocator
 	 */
+	WINPR_ATTR_MALLOC(free, 1)
 	WINPR_API void* winpr_image_write_buffer(wImage* image, UINT32 format, size_t* size);
 	WINPR_API int winpr_image_read_buffer(wImage* image, const BYTE* buffer, size_t size);
 
@@ -178,7 +179,7 @@ extern "C"
 	 *
 	 *  @param imageA the first image for the comparison
 	 *  @param imageB the second image for the comparison
-	 *  @param flags Comparions flags @ref WINPR_IMAGE_CMP_FLAGS
+	 *  @param flags Comparison flags @ref WINPR_IMAGE_CMP_FLAGS
 	 *
 	 *  @since version 3.3.0
 	 *

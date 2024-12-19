@@ -28,6 +28,7 @@
 #include <errno.h>
 
 #include <winpr/crt.h>
+#include <winpr/winpr.h>
 #include <winpr/string.h>
 #include <winpr/sspi.h>
 #include <winpr/ssl.h>
@@ -163,6 +164,8 @@ static int bio_rdp_tls_write(BIO* bio, const char* buf, int size)
 			case SSL_ERROR_SSL:
 				BIO_clear_flags(bio, BIO_FLAGS_SHOULD_RETRY);
 				break;
+			default:
+				break;
 		}
 	}
 
@@ -186,6 +189,7 @@ static int bio_rdp_tls_read(BIO* bio, char* buf, int size)
 
 	if (status <= 0)
 	{
+
 		switch (error)
 		{
 			case SSL_ERROR_NONE:
@@ -225,6 +229,8 @@ static int bio_rdp_tls_read(BIO* bio, char* buf, int size)
 
 			case SSL_ERROR_SYSCALL:
 				BIO_clear_flags(bio, BIO_FLAGS_SHOULD_RETRY);
+				break;
+			default:
 				break;
 		}
 	}
@@ -447,7 +453,8 @@ static long bio_rdp_tls_ctrl(BIO* bio, int cmd, long num, void* ptr)
 
 			if (status <= 0)
 			{
-				switch (SSL_get_error(tls->ssl, status))
+				const int err = (status < INT32_MIN) ? INT32_MIN : (int)status;
+				switch (SSL_get_error(tls->ssl, err))
 				{
 					case SSL_ERROR_WANT_READ:
 						BIO_set_flags(bio, BIO_FLAGS_READ | BIO_FLAGS_SHOULD_RETRY);
@@ -642,9 +649,7 @@ static SecPkgContext_Bindings* tls_get_channel_bindings(const rdpCertificate* ce
 {
 	size_t CertificateHashLength = 0;
 	BYTE* ChannelBindingToken = NULL;
-	UINT32 ChannelBindingTokenLength = 0;
 	SEC_CHANNEL_BINDINGS* ChannelBindings = NULL;
-	SecPkgContext_Bindings* ContextBindings = NULL;
 	const size_t PrefixLength = strnlen(TLS_SERVER_END_POINT, ARRAYSIZE(TLS_SERVER_END_POINT));
 
 	WINPR_ASSERT(cert);
@@ -670,20 +675,24 @@ static SecPkgContext_Bindings* tls_get_channel_bindings(const rdpCertificate* ce
 	if (!CertificateHash)
 		return NULL;
 
-	ChannelBindingTokenLength = PrefixLength + CertificateHashLength;
-	ContextBindings = (SecPkgContext_Bindings*)calloc(1, sizeof(SecPkgContext_Bindings));
+	const size_t ChannelBindingTokenLength = PrefixLength + CertificateHashLength;
+	SecPkgContext_Bindings* ContextBindings = calloc(1, sizeof(SecPkgContext_Bindings));
 
 	if (!ContextBindings)
 		goto out_free;
 
-	ContextBindings->BindingsLength = sizeof(SEC_CHANNEL_BINDINGS) + ChannelBindingTokenLength;
+	const size_t slen = sizeof(SEC_CHANNEL_BINDINGS) + ChannelBindingTokenLength;
+	if (slen > UINT32_MAX)
+		goto out_free;
+
+	ContextBindings->BindingsLength = (UINT32)slen;
 	ChannelBindings = (SEC_CHANNEL_BINDINGS*)calloc(1, ContextBindings->BindingsLength);
 
 	if (!ChannelBindings)
 		goto out_free;
 
 	ContextBindings->Bindings = ChannelBindings;
-	ChannelBindings->cbApplicationDataLength = ChannelBindingTokenLength;
+	ChannelBindings->cbApplicationDataLength = (UINT32)ChannelBindingTokenLength;
 	ChannelBindings->dwApplicationDataOffset = sizeof(SEC_CHANNEL_BINDINGS);
 	ChannelBindingToken = &((BYTE*)ChannelBindings)[ChannelBindings->dwApplicationDataOffset];
 	memcpy(ChannelBindingToken, TLS_SERVER_END_POINT, PrefixLength);
@@ -737,7 +746,7 @@ static void tls_reset(rdpTls* tls)
 	}
 
 	/* tls->underlying is a stacked BIO under tls->bio.
-	 * BIO_free_all will free recursivly. */
+	 * BIO_free_all will free recursively. */
 	if (tls->bio)
 		BIO_free_all(tls->bio);
 	else if (tls->underlying)
@@ -902,7 +911,8 @@ TlsHandshakeResult freerdp_tls_connect_ex(rdpTls* tls, BIO* underlying, const SS
 
 #if !defined(OPENSSL_NO_TLSEXT) && !defined(LIBRESSL_VERSION_NUMBER)
 	const char* str = tls_get_server_name(tls);
-	SSL_set_tlsext_host_name(tls->ssl, WINPR_CAST_CONST_PTR_AWAY(str, void*));
+	void* ptr = WINPR_CAST_CONST_PTR_AWAY(str, void*);
+	SSL_set_tlsext_host_name(tls->ssl, ptr);
 #endif
 
 	return freerdp_tls_handshake(tls);
@@ -920,7 +930,7 @@ TlsHandshakeResult freerdp_tls_handshake(rdpTls* tls)
 	TlsHandshakeResult ret = TLS_HANDSHAKE_ERROR;
 
 	WINPR_ASSERT(tls);
-	int status = BIO_do_handshake(tls->bio);
+	const long status = BIO_do_handshake(tls->bio);
 	if (status != 1)
 	{
 		if (!BIO_should_retry(tls->bio))
@@ -966,7 +976,9 @@ TlsHandshakeResult freerdp_tls_handshake(rdpTls* tls)
 
 		if (tls->isClientMode)
 		{
-			verify_status = tls_verify_certificate(tls, cert, tls_get_server_name(tls), tls->port);
+			WINPR_ASSERT(tls->port <= UINT16_MAX);
+			verify_status =
+			    tls_verify_certificate(tls, cert, tls_get_server_name(tls), (UINT16)tls->port);
 
 			if (verify_status < 1)
 			{
@@ -1043,6 +1055,8 @@ int freerdp_tls_connect(rdpTls* tls, BIO* underlying)
 			break;
 		case TLS_HANDSHAKE_ERROR:
 		case TLS_HANDSHAKE_VERIFY_ERROR:
+			return -1;
+		default:
 			return -1;
 	}
 
@@ -1450,10 +1464,12 @@ static BOOL accept_cert(rdpTls* tls, const rdpCertificate* cert)
 
 	size_t pemLength = 0;
 	char* pem = freerdp_certificate_get_pem_ex(cert, &pemLength, FALSE);
-
 	BOOL rc = FALSE;
-	if (freerdp_settings_set_string_len(settings, id, pem, pemLength))
-		rc = freerdp_settings_set_uint32(settings, lid, pemLength);
+	if (pemLength <= UINT32_MAX)
+	{
+		if (freerdp_settings_set_string_len(settings, id, pem, pemLength))
+			rc = freerdp_settings_set_uint32(settings, lid, (UINT32)pemLength);
+	}
 	free(pem);
 	return rc;
 }

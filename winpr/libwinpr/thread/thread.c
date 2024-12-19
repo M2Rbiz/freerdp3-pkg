@@ -553,7 +553,7 @@ exit:
 
 		set_event(thread);
 
-		signal_thread_ready(thread);
+		(void)signal_thread_ready(thread);
 
 		if (thread->detached || !thread->started)
 			cleanup_handle(thread);
@@ -576,7 +576,7 @@ static BOOL winpr_StartThread(WINPR_THREAD* thread)
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
 	if (thread->dwStackSize > 0)
-		pthread_attr_setstacksize(&attr, (size_t)thread->dwStackSize);
+		pthread_attr_setstacksize(&attr, thread->dwStackSize);
 
 	thread->started = TRUE;
 	reset_event(thread);
@@ -906,11 +906,11 @@ HANDLE _GetCurrentThread(VOID)
 
 DWORD GetCurrentThreadId(VOID)
 {
-	pthread_t tid = 0;
-	tid = pthread_self();
+	pthread_t tid = pthread_self();
 	/* Since pthread_t can be 64-bits on some systems, take just the    */
 	/* lower 32-bits of it for the thread ID returned by this function. */
-	return WINPR_REINTERPRET_CAST(tid, pthread_t, DWORD) & 0xffffffffUL;
+	uintptr_t ptid = WINPR_REINTERPRET_CAST(tid, pthread_t, uintptr_t);
+	return ptid & UINT32_MAX;
 }
 
 typedef struct

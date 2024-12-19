@@ -1099,7 +1099,7 @@ static BOOL rdp_read_pointer_capability_set(wStream* s, rdpSettings* settings)
 	{
 		WLog_WARN(TAG, "[MS-RDPBCGR] 2.2.7.1.5 Pointer Capability Set "
 		               "(TS_POINTER_CAPABILITYSET)::colorPointerFlag received is %" PRIu16
-		               ". Vaue is ignored and always assumed to be TRUE");
+		               ". Value is ignored and always assumed to be TRUE");
 	}
 
 	/* pointerCacheSize is optional */
@@ -2705,7 +2705,7 @@ static BOOL rdp_apply_multifragment_update_capability_set(rdpSettings* settings,
 	else
 	{
 		/*
-		 * In client mode we keep up with the server's capabilites.
+		 * In client mode we keep up with the server's capabilities.
 		 * In RemoteFX mode we MUST do this but it might also be useful to
 		 * receive larger related bitmap updates.
 		 */
@@ -3494,15 +3494,11 @@ static BOOL rdp_write_rfx_client_capability_container(wStream* s, const rdpSetti
  */
 static BOOL rdp_write_nsc_client_capability_container(wStream* s, const rdpSettings* settings)
 {
-	BYTE colorLossLevel = 0;
-	BYTE fAllowSubsampling = 0;
-	BYTE fAllowDynamicFidelity = 0;
-
 	WINPR_ASSERT(settings);
 
-	fAllowDynamicFidelity = settings->NSCodecAllowDynamicColorFidelity;
-	fAllowSubsampling = settings->NSCodecAllowSubsampling;
-	colorLossLevel = settings->NSCodecColorLossLevel;
+	const BOOL fAllowDynamicFidelity = settings->NSCodecAllowDynamicColorFidelity;
+	const BOOL fAllowSubsampling = settings->NSCodecAllowSubsampling;
+	UINT32 colorLossLevel = settings->NSCodecColorLossLevel;
 
 	if (colorLossLevel < 1)
 		colorLossLevel = 1;
@@ -3515,9 +3511,10 @@ static BOOL rdp_write_nsc_client_capability_container(wStream* s, const rdpSetti
 
 	Stream_Write_UINT16(s, 3); /* codecPropertiesLength */
 	/* TS_NSCODEC_CAPABILITYSET */
-	Stream_Write_UINT8(s, fAllowDynamicFidelity); /* fAllowDynamicFidelity (1 byte) */
-	Stream_Write_UINT8(s, fAllowSubsampling);     /* fAllowSubsampling (1 byte) */
-	Stream_Write_UINT8(s, colorLossLevel);        /* colorLossLevel (1 byte) */
+	Stream_Write_UINT8(s,
+	                   fAllowDynamicFidelity ? TRUE : FALSE); /* fAllowDynamicFidelity (1 byte) */
+	Stream_Write_UINT8(s, fAllowSubsampling ? TRUE : FALSE);  /* fAllowSubsampling (1 byte) */
+	Stream_Write_UINT8(s, (UINT8)colorLossLevel);             /* colorLossLevel (1 byte) */
 	return TRUE;
 }
 
@@ -4158,13 +4155,15 @@ BOOL rdp_read_capability_set(wStream* sub, UINT16 type, rdpSettings* settings, B
 
 	if (type <= CAPSET_TYPE_FRAME_ACKNOWLEDGE)
 	{
-		size_t size = Stream_Length(sub);
+		const size_t size = Stream_Length(sub);
+		if (size > UINT32_MAX)
+			return FALSE;
 
 		WINPR_ASSERT(settings->ReceivedCapabilities);
 		settings->ReceivedCapabilities[type] = TRUE;
 
 		WINPR_ASSERT(settings->ReceivedCapabilityDataSizes);
-		settings->ReceivedCapabilityDataSizes[type] = size;
+		settings->ReceivedCapabilityDataSizes[type] = (UINT32)size;
 
 		WINPR_ASSERT(settings->ReceivedCapabilityData);
 		void* tmp = realloc(settings->ReceivedCapabilityData[type], size);

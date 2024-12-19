@@ -348,7 +348,7 @@ static SYSTEMTIME tm2systemtime(const struct tm* t)
 
 	if (t)
 	{
-		st.wYear = (WORD)1900 + t->tm_year;
+		st.wYear = (WORD)(1900 + t->tm_year);
 		st.wMonth = (WORD)t->tm_mon + 1;
 		st.wDay = (WORD)t->tm_mday;
 		st.wDayOfWeek = (WORD)t->tm_wday;
@@ -393,7 +393,7 @@ static struct tm next_day(const struct tm* start)
 	cur.tm_isdst = -1;
 	cur.tm_mday++;
 	const time_t t = mktime(&cur);
-	localtime_r(&t, &cur);
+	(void)localtime_r(&t, &cur);
 	return cur;
 }
 
@@ -405,7 +405,7 @@ static struct tm adjust_time(const struct tm* start, int hour, int minute)
 	cur.tm_sec = 0;
 	cur.tm_isdst = -1;
 	const time_t t = mktime(&cur);
-	localtime_r(&t, &cur);
+	(void)localtime_r(&t, &cur);
 	return cur;
 }
 
@@ -426,7 +426,7 @@ static WORD get_transition_weekday_occurrence(const SYSTEMTIME* st)
 		next.tm_mday++;
 
 		struct tm cur = { 0 };
-		localtime_r(&t, &cur);
+		(void)localtime_r(&t, &cur);
 
 		if (cur.tm_mon + 1 != st->wMonth)
 			break;
@@ -778,7 +778,7 @@ DWORD GetDynamicTimeZoneInformation(PDYNAMIC_TIME_ZONE_INFORMATION tz)
 	if (!map_iana_id(tzid, tz))
 	{
 		const size_t len = TimeZoneIanaAbbrevGet(local_time->tm_zone, NULL, 0);
-		list = calloc(len, sizeof(char*));
+		list = (const char**)calloc(len, sizeof(const char*));
 		if (!list)
 			goto out_error;
 		const size_t size = TimeZoneIanaAbbrevGet(local_time->tm_zone, list, len);
@@ -803,7 +803,7 @@ DWORD GetDynamicTimeZoneInformation(PDYNAMIC_TIME_ZONE_INFORMATION tz)
 
 out_error:
 	free(tzid);
-	free(list);
+	free((void*)list);
 
 	log_timezone(tz, res);
 	return res;

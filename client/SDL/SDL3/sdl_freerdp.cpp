@@ -586,7 +586,7 @@ static BOOL sdl_pre_connect(freerdp* instance)
 		return FALSE;
 	/* OrderSupport is initialized at this point.
 	 * Only override it if you plan to implement custom order
-	 * callbacks or deactiveate certain features. */
+	 * callbacks or deactivate certain features. */
 	/* Register the channel listeners.
 	 * They are required to set up / tear down channels if they are loaded. */
 	PubSub_SubscribeChannelConnected(instance->context->pubSub, sdl_OnChannelConnectedEventHandler);
@@ -724,8 +724,8 @@ static BOOL sdl_create_windows(SdlContext* sdl)
 		}
 
 		Uint32 flags = 0;
-		Uint32 startupX = SDL_WINDOWPOS_CENTERED_DISPLAY(id);
-		Uint32 startupY = SDL_WINDOWPOS_CENTERED_DISPLAY(id);
+		auto startupX = SDL_WINDOWPOS_CENTERED_DISPLAY(id);
+		auto startupY = SDL_WINDOWPOS_CENTERED_DISPLAY(id);
 
 		if (monitor->attributes.desktopScaleFactor > 100)
 		{
@@ -1007,7 +1007,8 @@ static int sdl_run(SdlContext* sdl)
 						INT32 sx = x;
 						INT32 sy = y;
 						if (sdl_scale_coordinates(sdl, id, &sx, &sy, FALSE, FALSE))
-							SDL_WarpMouseInWindow(window, sx, sy);
+							SDL_WarpMouseInWindow(window, static_cast<float>(sx),
+							                      static_cast<float>(sy));
 					}
 				}
 				break;
@@ -1065,7 +1066,7 @@ static int sdl_run(SdlContext* sdl)
 }
 
 /* Called after a RDP connection was successfully established.
- * Settings might have changed during negociation of client / server feature
+ * Settings might have changed during negotiation of client / server feature
  * support.
  *
  * Set up local framebuffers and paing callbacks.
@@ -1647,9 +1648,22 @@ int main(int argc, char* argv[])
 	if (status)
 	{
 		rc = freerdp_client_settings_command_line_status_print(settings, status, argc, argv);
-		SdlPref::print_config_file_help(3);
 		if (freerdp_settings_get_bool(settings, FreeRDP_ListMonitors))
 			sdl_list_monitors(sdl);
+		else
+		{
+			switch (status)
+			{
+				case COMMAND_LINE_STATUS_PRINT:
+				case COMMAND_LINE_STATUS_PRINT_VERSION:
+				case COMMAND_LINE_STATUS_PRINT_BUILDCONFIG:
+					break;
+				case COMMAND_LINE_STATUS_PRINT_HELP:
+				default:
+					SdlPref::print_config_file_help(3);
+					break;
+			}
+		}
 		return rc;
 	}
 
@@ -1717,8 +1731,8 @@ BOOL SdlContext::update_resizeable(BOOL enable)
 }
 
 SdlContext::SdlContext(rdpContext* context)
-    : _context(context), log(WLog_Get(SDL_TAG)), update_complete(true), disp(this), clip(this),
-      input(this), primary(nullptr, SDL_DestroySurface), rdp_thread_running(false)
+    : _context(context), log(WLog_Get(SDL_TAG)), update_complete(true), disp(this), input(this),
+      clip(this), primary(nullptr, SDL_DestroySurface), rdp_thread_running(false)
 {
 	WINPR_ASSERT(context);
 	grab_kbd_enabled = freerdp_settings_get_bool(context->settings, FreeRDP_GrabKeyboard);

@@ -240,6 +240,9 @@ BOOL freerdp_settings_get_bool(const rdpSettings* settings, FreeRDP_Settings_Key
 		case FreeRDP_GatewayArmTransport:
 			return settings->GatewayArmTransport;
 
+		case FreeRDP_GatewayAvdUseTenantid:
+			return settings->GatewayAvdUseTenantid;
+
 		case FreeRDP_GatewayBypassLocal:
 			return settings->GatewayBypassLocal;
 
@@ -902,6 +905,10 @@ BOOL freerdp_settings_set_bool(rdpSettings* settings, FreeRDP_Settings_Keys_Bool
 
 		case FreeRDP_GatewayArmTransport:
 			settings->GatewayArmTransport = cnv.c;
+			break;
+
+		case FreeRDP_GatewayAvdUseTenantid:
+			settings->GatewayAvdUseTenantid = cnv.c;
 			break;
 
 		case FreeRDP_GatewayBypassLocal:
@@ -2772,6 +2779,9 @@ const char* freerdp_settings_get_string(const rdpSettings* settings,
 		case FreeRDP_GatewayAvdArmpath:
 			return settings->GatewayAvdArmpath;
 
+		case FreeRDP_GatewayAvdClientID:
+			return settings->GatewayAvdClientID;
+
 		case FreeRDP_GatewayAvdDiagnosticserviceurl:
 			return settings->GatewayAvdDiagnosticserviceurl;
 
@@ -2783,6 +2793,9 @@ const char* freerdp_settings_get_string(const rdpSettings* settings,
 
 		case FreeRDP_GatewayAvdWvdEndpointPool:
 			return settings->GatewayAvdWvdEndpointPool;
+
+		case FreeRDP_GatewayAzureActiveDirectory:
+			return settings->GatewayAzureActiveDirectory;
 
 		case FreeRDP_GatewayDomain:
 			return settings->GatewayDomain;
@@ -3081,6 +3094,9 @@ char* freerdp_settings_get_string_writable(rdpSettings* settings, FreeRDP_Settin
 		case FreeRDP_GatewayAvdArmpath:
 			return settings->GatewayAvdArmpath;
 
+		case FreeRDP_GatewayAvdClientID:
+			return settings->GatewayAvdClientID;
+
 		case FreeRDP_GatewayAvdDiagnosticserviceurl:
 			return settings->GatewayAvdDiagnosticserviceurl;
 
@@ -3092,6 +3108,9 @@ char* freerdp_settings_get_string_writable(rdpSettings* settings, FreeRDP_Settin
 
 		case FreeRDP_GatewayAvdWvdEndpointPool:
 			return settings->GatewayAvdWvdEndpointPool;
+
+		case FreeRDP_GatewayAzureActiveDirectory:
+			return settings->GatewayAzureActiveDirectory;
 
 		case FreeRDP_GatewayDomain:
 			return settings->GatewayDomain;
@@ -3400,6 +3419,9 @@ BOOL freerdp_settings_set_string_(rdpSettings* settings, FreeRDP_Settings_Keys_S
 		case FreeRDP_GatewayAvdArmpath:
 			return update_string_(&settings->GatewayAvdArmpath, cnv.c, len);
 
+		case FreeRDP_GatewayAvdClientID:
+			return update_string_(&settings->GatewayAvdClientID, cnv.c, len);
+
 		case FreeRDP_GatewayAvdDiagnosticserviceurl:
 			return update_string_(&settings->GatewayAvdDiagnosticserviceurl, cnv.c, len);
 
@@ -3411,6 +3433,9 @@ BOOL freerdp_settings_set_string_(rdpSettings* settings, FreeRDP_Settings_Keys_S
 
 		case FreeRDP_GatewayAvdWvdEndpointPool:
 			return update_string_(&settings->GatewayAvdWvdEndpointPool, cnv.c, len);
+
+		case FreeRDP_GatewayAzureActiveDirectory:
+			return update_string_(&settings->GatewayAzureActiveDirectory, cnv.c, len);
 
 		case FreeRDP_GatewayDomain:
 			return update_string_(&settings->GatewayDomain, cnv.c, len);
@@ -3735,6 +3760,9 @@ BOOL freerdp_settings_set_string_copy_(rdpSettings* settings, FreeRDP_Settings_K
 		case FreeRDP_GatewayAvdArmpath:
 			return update_string_copy_(&settings->GatewayAvdArmpath, cnv.cc, len, cleanup);
 
+		case FreeRDP_GatewayAvdClientID:
+			return update_string_copy_(&settings->GatewayAvdClientID, cnv.cc, len, cleanup);
+
 		case FreeRDP_GatewayAvdDiagnosticserviceurl:
 			return update_string_copy_(&settings->GatewayAvdDiagnosticserviceurl, cnv.cc, len,
 			                           cleanup);
@@ -3748,6 +3776,10 @@ BOOL freerdp_settings_set_string_copy_(rdpSettings* settings, FreeRDP_Settings_K
 
 		case FreeRDP_GatewayAvdWvdEndpointPool:
 			return update_string_copy_(&settings->GatewayAvdWvdEndpointPool, cnv.cc, len, cleanup);
+
+		case FreeRDP_GatewayAzureActiveDirectory:
+			return update_string_copy_(&settings->GatewayAzureActiveDirectory, cnv.cc, len,
+			                           cleanup);
 
 		case FreeRDP_GatewayDomain:
 			return update_string_copy_(&settings->GatewayDomain, cnv.cc, len, cleanup);
@@ -3953,94 +3985,94 @@ void* freerdp_settings_get_pointer_writable(rdpSettings* settings, FreeRDP_Setti
 	switch (id)
 	{
 		case FreeRDP_BitmapCacheV2CellInfo:
-			return settings->BitmapCacheV2CellInfo;
+			return (void*)settings->BitmapCacheV2CellInfo;
 
 		case FreeRDP_ChannelDefArray:
-			return settings->ChannelDefArray;
+			return (void*)settings->ChannelDefArray;
 
 		case FreeRDP_ClientAutoReconnectCookie:
-			return settings->ClientAutoReconnectCookie;
+			return (void*)settings->ClientAutoReconnectCookie;
 
 		case FreeRDP_ClientRandom:
-			return settings->ClientRandom;
+			return (void*)settings->ClientRandom;
 
 		case FreeRDP_ClientTimeZone:
-			return settings->ClientTimeZone;
+			return (void*)settings->ClientTimeZone;
 
 		case FreeRDP_DeviceArray:
-			return settings->DeviceArray;
+			return (void*)settings->DeviceArray;
 
 		case FreeRDP_DynamicChannelArray:
-			return settings->DynamicChannelArray;
+			return (void*)settings->DynamicChannelArray;
 
 		case FreeRDP_FragCache:
-			return settings->FragCache;
+			return (void*)settings->FragCache;
 
 		case FreeRDP_GlyphCache:
-			return settings->GlyphCache;
+			return (void*)settings->GlyphCache;
 
 		case FreeRDP_LoadBalanceInfo:
-			return settings->LoadBalanceInfo;
+			return (void*)settings->LoadBalanceInfo;
 
 		case FreeRDP_MonitorDefArray:
-			return settings->MonitorDefArray;
+			return (void*)settings->MonitorDefArray;
 
 		case FreeRDP_MonitorIds:
-			return settings->MonitorIds;
+			return (void*)settings->MonitorIds;
 
 		case FreeRDP_OrderSupport:
-			return settings->OrderSupport;
+			return (void*)settings->OrderSupport;
 
 		case FreeRDP_Password51:
-			return settings->Password51;
+			return (void*)settings->Password51;
 
 		case FreeRDP_RdpServerCertificate:
-			return settings->RdpServerCertificate;
+			return (void*)settings->RdpServerCertificate;
 
 		case FreeRDP_RdpServerRsaKey:
-			return settings->RdpServerRsaKey;
+			return (void*)settings->RdpServerRsaKey;
 
 		case FreeRDP_ReceivedCapabilities:
-			return settings->ReceivedCapabilities;
+			return (void*)settings->ReceivedCapabilities;
 
 		case FreeRDP_ReceivedCapabilityData:
-			return settings->ReceivedCapabilityData;
+			return (void*)settings->ReceivedCapabilityData;
 
 		case FreeRDP_ReceivedCapabilityDataSizes:
-			return settings->ReceivedCapabilityDataSizes;
+			return (void*)settings->ReceivedCapabilityDataSizes;
 
 		case FreeRDP_RedirectionGuid:
-			return settings->RedirectionGuid;
+			return (void*)settings->RedirectionGuid;
 
 		case FreeRDP_RedirectionPassword:
-			return settings->RedirectionPassword;
+			return (void*)settings->RedirectionPassword;
 
 		case FreeRDP_RedirectionTargetCertificate:
-			return settings->RedirectionTargetCertificate;
+			return (void*)settings->RedirectionTargetCertificate;
 
 		case FreeRDP_RedirectionTsvUrl:
-			return settings->RedirectionTsvUrl;
+			return (void*)settings->RedirectionTsvUrl;
 
 		case FreeRDP_ServerAutoReconnectCookie:
-			return settings->ServerAutoReconnectCookie;
+			return (void*)settings->ServerAutoReconnectCookie;
 
 		case FreeRDP_ServerCertificate:
-			return settings->ServerCertificate;
+			return (void*)settings->ServerCertificate;
 
 		case FreeRDP_ServerLicenseProductIssuers:
-			return settings->ServerLicenseProductIssuers;
+			return (void*)settings->ServerLicenseProductIssuers;
 
 		case FreeRDP_ServerRandom:
-			return settings->ServerRandom;
+			return (void*)settings->ServerRandom;
 
 		case FreeRDP_StaticChannelArray:
-			return settings->StaticChannelArray;
+			return (void*)settings->StaticChannelArray;
 
 		case FreeRDP_TargetNetAddresses:
-			return settings->TargetNetAddresses;
+			return (void*)settings->TargetNetAddresses;
 
 		case FreeRDP_TargetNetPorts:
-			return settings->TargetNetPorts;
+			return (void*)settings->TargetNetPorts;
 
 		case FreeRDP_instance:
 			return settings->instance;
@@ -4069,123 +4101,123 @@ BOOL freerdp_settings_set_pointer(rdpSettings* settings, FreeRDP_Settings_Keys_P
 	switch (id)
 	{
 		case FreeRDP_BitmapCacheV2CellInfo:
-			settings->BitmapCacheV2CellInfo = cnv.v;
+			settings->BitmapCacheV2CellInfo = (BITMAP_CACHE_V2_CELL_INFO*)cnv.v;
 			break;
 
 		case FreeRDP_ChannelDefArray:
-			settings->ChannelDefArray = cnv.v;
+			settings->ChannelDefArray = (CHANNEL_DEF*)cnv.v;
 			break;
 
 		case FreeRDP_ClientAutoReconnectCookie:
-			settings->ClientAutoReconnectCookie = cnv.v;
+			settings->ClientAutoReconnectCookie = (ARC_CS_PRIVATE_PACKET*)cnv.v;
 			break;
 
 		case FreeRDP_ClientRandom:
-			settings->ClientRandom = cnv.v;
+			settings->ClientRandom = (BYTE*)cnv.v;
 			break;
 
 		case FreeRDP_ClientTimeZone:
-			settings->ClientTimeZone = cnv.v;
+			settings->ClientTimeZone = (TIME_ZONE_INFORMATION*)cnv.v;
 			break;
 
 		case FreeRDP_DeviceArray:
-			settings->DeviceArray = cnv.v;
+			settings->DeviceArray = (RDPDR_DEVICE**)cnv.v;
 			break;
 
 		case FreeRDP_DynamicChannelArray:
-			settings->DynamicChannelArray = cnv.v;
+			settings->DynamicChannelArray = (ADDIN_ARGV**)cnv.v;
 			break;
 
 		case FreeRDP_FragCache:
-			settings->FragCache = cnv.v;
+			settings->FragCache = (GLYPH_CACHE_DEFINITION*)cnv.v;
 			break;
 
 		case FreeRDP_GlyphCache:
-			settings->GlyphCache = cnv.v;
+			settings->GlyphCache = (GLYPH_CACHE_DEFINITION*)cnv.v;
 			break;
 
 		case FreeRDP_LoadBalanceInfo:
-			settings->LoadBalanceInfo = cnv.v;
+			settings->LoadBalanceInfo = (BYTE*)cnv.v;
 			break;
 
 		case FreeRDP_MonitorDefArray:
-			settings->MonitorDefArray = cnv.v;
+			settings->MonitorDefArray = (rdpMonitor*)cnv.v;
 			break;
 
 		case FreeRDP_MonitorIds:
-			settings->MonitorIds = cnv.v;
+			settings->MonitorIds = (UINT32*)cnv.v;
 			break;
 
 		case FreeRDP_OrderSupport:
-			settings->OrderSupport = cnv.v;
+			settings->OrderSupport = (BYTE*)cnv.v;
 			break;
 
 		case FreeRDP_Password51:
-			settings->Password51 = cnv.v;
+			settings->Password51 = (BYTE*)cnv.v;
 			break;
 
 		case FreeRDP_RdpServerCertificate:
-			settings->RdpServerCertificate = cnv.v;
+			settings->RdpServerCertificate = (rdpCertificate*)cnv.v;
 			break;
 
 		case FreeRDP_RdpServerRsaKey:
-			settings->RdpServerRsaKey = cnv.v;
+			settings->RdpServerRsaKey = (rdpPrivateKey*)cnv.v;
 			break;
 
 		case FreeRDP_ReceivedCapabilities:
-			settings->ReceivedCapabilities = cnv.v;
+			settings->ReceivedCapabilities = (BYTE*)cnv.v;
 			break;
 
 		case FreeRDP_ReceivedCapabilityData:
-			settings->ReceivedCapabilityData = cnv.v;
+			settings->ReceivedCapabilityData = (BYTE**)cnv.v;
 			break;
 
 		case FreeRDP_ReceivedCapabilityDataSizes:
-			settings->ReceivedCapabilityDataSizes = cnv.v;
+			settings->ReceivedCapabilityDataSizes = (UINT32*)cnv.v;
 			break;
 
 		case FreeRDP_RedirectionGuid:
-			settings->RedirectionGuid = cnv.v;
+			settings->RedirectionGuid = (BYTE*)cnv.v;
 			break;
 
 		case FreeRDP_RedirectionPassword:
-			settings->RedirectionPassword = cnv.v;
+			settings->RedirectionPassword = (BYTE*)cnv.v;
 			break;
 
 		case FreeRDP_RedirectionTargetCertificate:
-			settings->RedirectionTargetCertificate = cnv.v;
+			settings->RedirectionTargetCertificate = (rdpCertificate*)cnv.v;
 			break;
 
 		case FreeRDP_RedirectionTsvUrl:
-			settings->RedirectionTsvUrl = cnv.v;
+			settings->RedirectionTsvUrl = (BYTE*)cnv.v;
 			break;
 
 		case FreeRDP_ServerAutoReconnectCookie:
-			settings->ServerAutoReconnectCookie = cnv.v;
+			settings->ServerAutoReconnectCookie = (ARC_SC_PRIVATE_PACKET*)cnv.v;
 			break;
 
 		case FreeRDP_ServerCertificate:
-			settings->ServerCertificate = cnv.v;
+			settings->ServerCertificate = (BYTE*)cnv.v;
 			break;
 
 		case FreeRDP_ServerLicenseProductIssuers:
-			settings->ServerLicenseProductIssuers = cnv.v;
+			settings->ServerLicenseProductIssuers = (char**)cnv.v;
 			break;
 
 		case FreeRDP_ServerRandom:
-			settings->ServerRandom = cnv.v;
+			settings->ServerRandom = (BYTE*)cnv.v;
 			break;
 
 		case FreeRDP_StaticChannelArray:
-			settings->StaticChannelArray = cnv.v;
+			settings->StaticChannelArray = (ADDIN_ARGV**)cnv.v;
 			break;
 
 		case FreeRDP_TargetNetAddresses:
-			settings->TargetNetAddresses = cnv.v;
+			settings->TargetNetAddresses = (char**)cnv.v;
 			break;
 
 		case FreeRDP_TargetNetPorts:
-			settings->TargetNetPorts = cnv.v;
+			settings->TargetNetPorts = (UINT32*)cnv.v;
 			break;
 
 		case FreeRDP_instance:

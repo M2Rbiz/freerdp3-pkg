@@ -21,6 +21,7 @@
 #include <freerdp/config.h>
 
 #include <winpr/crt.h>
+#include <winpr/assert.h>
 
 #include <freerdp/crypto/er.h>
 #include <freerdp/crypto/ber.h>
@@ -62,10 +63,11 @@ void er_read_length(wStream* s, int* length)
 
 int er_write_length(wStream* s, int length, BOOL flag)
 {
+	WINPR_ASSERT(length >= 0);
 	if (flag)
 		return der_write_length(s, length);
 	else
-		return ber_write_length(s, length);
+		return (int)ber_write_length(s, (size_t)length);
 }
 
 int _er_skip_length(int length)
@@ -410,13 +412,13 @@ int er_write_integer(wStream* s, INT32 value)
 	else if (value <= 32767 && value >= -32768)
 	{
 		er_write_length(s, 2, FALSE);
-		Stream_Write_UINT16_BE(s, value);
+		Stream_Write_INT16_BE(s, value);
 		return 3;
 	}
 	else
 	{
 		er_write_length(s, 4, FALSE);
-		Stream_Write_UINT32_BE(s, value);
+		Stream_Write_INT32_BE(s, value);
 		return 5;
 	}
 }

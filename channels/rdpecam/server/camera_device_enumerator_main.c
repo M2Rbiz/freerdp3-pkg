@@ -348,6 +348,8 @@ static UINT enumerator_server_context_poll_int(CamDevEnumServerContext* context)
 		case ENUMERATOR_OPENED:
 			error = enumerator_process_message(enumerator);
 			break;
+		default:
+			break;
 	}
 
 	return error;
@@ -365,7 +367,7 @@ static HANDLE enumerator_server_get_channel_handle(enumerator_server* enumerator
 	                           &BytesReturned) == TRUE)
 	{
 		if (BytesReturned == sizeof(HANDLE))
-			CopyMemory(&ChannelEvent, buffer, sizeof(HANDLE));
+			ChannelEvent = *(HANDLE*)buffer;
 
 		WTSFreeMemory(buffer);
 	}
@@ -414,6 +416,8 @@ static DWORD WINAPI enumerator_server_thread_func(LPVOID arg)
 						error = ERROR_INTERNAL_ERROR;
 						break;
 				}
+				break;
+			default:
 				break;
 		}
 	}
@@ -531,8 +535,10 @@ static UINT enumerator_server_packet_send(CamDevEnumServerContext* context, wStr
 	UINT error = CHANNEL_RC_OK;
 	ULONG written = 0;
 
+	const size_t len = Stream_GetPosition(s);
+	WINPR_ASSERT(len <= UINT32_MAX);
 	if (!WTSVirtualChannelWrite(enumerator->enumerator_channel, Stream_BufferAs(s, char),
-	                            Stream_GetPosition(s), &written))
+	                            (UINT32)len, &written))
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelWrite failed!");
 		error = ERROR_INTERNAL_ERROR;

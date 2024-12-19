@@ -50,7 +50,7 @@ static UINT32 prand(UINT32 max)
 	return tmp % (max - 1) + 1;
 }
 
-/* this thread function shall increment the global dwTestValue until the PBOOL passsed in arg is
+/* this thread function shall increment the global dwTestValue until the PBOOL passed in arg is
  * FALSE */
 static DWORD WINAPI TestSynchCritical_Test1(LPVOID arg)
 {
@@ -277,7 +277,7 @@ static DWORD WINAPI TestSynchCritical_Main(LPVOID arg)
 		DeleteCriticalSection(&critical);
 	}
 
-	free(hThreads);
+	free((void*)hThreads);
 
 	/**
 	 * TryEnterCriticalSection in thread must fail if we hold the lock in the main thread

@@ -86,13 +86,13 @@ static NTLM_AV_PAIR* ntlm_av_pair_next(NTLM_AV_PAIR* pAvPairList, size_t* pcbAvP
 static INLINE void ntlm_av_pair_set_id(NTLM_AV_PAIR* pAvPair, UINT16 id)
 {
 	WINPR_ASSERT(pAvPair);
-	Data_Write_UINT16(&pAvPair->AvId, id);
+	winpr_Data_Write_UINT16(&pAvPair->AvId, id);
 }
 
 static INLINE void ntlm_av_pair_set_len(NTLM_AV_PAIR* pAvPair, UINT16 len)
 {
 	WINPR_ASSERT(pAvPair);
-	Data_Write_UINT16(&pAvPair->AvLen, len);
+	winpr_Data_Write_UINT16(&pAvPair->AvLen, len);
 }
 
 static BOOL ntlm_av_pair_list_init(NTLM_AV_PAIR* pAvPairList, size_t cbAvPairList)
@@ -109,14 +109,13 @@ static BOOL ntlm_av_pair_list_init(NTLM_AV_PAIR* pAvPairList, size_t cbAvPairLis
 
 static INLINE BOOL ntlm_av_pair_get_id(const NTLM_AV_PAIR* pAvPair, size_t size, UINT16* pair)
 {
-	UINT16 AvId = 0;
 	if (!pAvPair || !pair)
 		return FALSE;
 
 	if (size < sizeof(NTLM_AV_PAIR))
 		return FALSE;
 
-	Data_Read_UINT16(&pAvPair->AvId, AvId);
+	const UINT16 AvId = winpr_Data_Get_UINT16(&pAvPair->AvId);
 
 	*pair = AvId;
 	return TRUE;
@@ -142,14 +141,13 @@ ULONG ntlm_av_pair_list_length(NTLM_AV_PAIR* pAvPairList, size_t cbAvPairList)
 
 static INLINE BOOL ntlm_av_pair_get_len(const NTLM_AV_PAIR* pAvPair, size_t size, size_t* pAvLen)
 {
-	UINT16 AvLen = 0;
 	if (!pAvPair)
 		return FALSE;
 
 	if (size < sizeof(NTLM_AV_PAIR))
 		return FALSE;
 
-	Data_Read_UINT16(&pAvPair->AvLen, AvLen);
+	const UINT16 AvLen = winpr_Data_Get_UINT16(&pAvPair->AvLen);
 
 	*pAvLen = AvLen;
 	return TRUE;
@@ -300,54 +298,55 @@ static BOOL ntlm_av_pair_add_copy(NTLM_AV_PAIR* pAvPairList, size_t cbAvPairList
 	                        ntlm_av_pair_get_value_pointer(pAvPair), (UINT16)avLen);
 }
 
+static char* get_name(COMPUTER_NAME_FORMAT type)
+{
+	DWORD nSize = 0;
+
+	if (GetComputerNameExA(type, NULL, &nSize))
+		return NULL;
+
+	if (GetLastError() != ERROR_MORE_DATA)
+		return NULL;
+
+	char* computerName = calloc(1, nSize);
+
+	if (!computerName)
+		return NULL;
+
+	if (!GetComputerNameExA(type, computerName, &nSize))
+	{
+		free(computerName);
+		return NULL;
+	}
+
+	return computerName;
+}
+
 static int ntlm_get_target_computer_name(PUNICODE_STRING pName, COMPUTER_NAME_FORMAT type)
 {
-	char* name = NULL;
 	int status = -1;
-	DWORD nSize = 0;
-	CHAR* computerName = NULL;
 
 	WINPR_ASSERT(pName);
 
-	if (GetComputerNameExA(ComputerNameNetBIOS, NULL, &nSize) || GetLastError() != ERROR_MORE_DATA)
-		return -1;
-
-	computerName = calloc(nSize, sizeof(CHAR));
-
-	if (!computerName)
-		return -1;
-
-	if (!GetComputerNameExA(ComputerNameNetBIOS, computerName, &nSize))
-	{
-		free(computerName);
-		return -1;
-	}
-
-	if (nSize > MAX_COMPUTERNAME_LENGTH)
-		computerName[MAX_COMPUTERNAME_LENGTH] = '\0';
-
-	name = computerName;
-
+	char* name = get_name(ComputerNameNetBIOS);
 	if (!name)
 		return -1;
 
-	if (type == ComputerNameNetBIOS)
-		CharUpperA(name);
+	CharUpperA(name);
 
 	size_t len = 0;
 	pName->Buffer = ConvertUtf8ToWCharAlloc(name, &len);
+	free(name);
 
 	if (!pName->Buffer || (len == 0) || (len > UINT16_MAX / sizeof(WCHAR)))
 	{
 		free(pName->Buffer);
 		pName->Buffer = NULL;
-		free(name);
 		return status;
 	}
 
 	pName->Length = (USHORT)((len) * sizeof(WCHAR));
 	pName->MaximumLength = pName->Length;
-	free(name);
 	return 1;
 }
 
@@ -463,10 +462,10 @@ static void ntlm_compute_single_host_data(NTLM_CONTEXT* context)
 	 * different or if they are on different hosts, then the information MUST be ignored.
 	 * Any fields after the MachineID field MUST be ignored on receipt.
 	 */
-	Data_Write_UINT32(&context->SingleHostData.Size, 48);
-	Data_Write_UINT32(&context->SingleHostData.Z4, 0);
-	Data_Write_UINT32(&context->SingleHostData.DataPresent, 1);
-	Data_Write_UINT32(&context->SingleHostData.CustomData, SECURITY_MANDATORY_MEDIUM_RID);
+	winpr_Data_Write_UINT32(&context->SingleHostData.Size, 48);
+	winpr_Data_Write_UINT32(&context->SingleHostData.Z4, 0);
+	winpr_Data_Write_UINT32(&context->SingleHostData.DataPresent, 1);
+	winpr_Data_Write_UINT32(&context->SingleHostData.CustomData, SECURITY_MANDATORY_MEDIUM_RID);
 	FillMemory(context->SingleHostData.MachineID, 32, 0xAA);
 }
 
@@ -729,7 +728,7 @@ BOOL ntlm_construct_authenticate_target_info(NTLM_CONTEXT* context)
 	if (context->UseMIC)
 	{
 		UINT32 flags = 0;
-		Data_Write_UINT32(&flags, MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK);
+		winpr_Data_Write_UINT32(&flags, MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK);
 
 		if (!ntlm_av_pair_add(AuthenticateTargetInfo, cbAuthenticateTargetInfo, MsvAvFlags,
 		                      (PBYTE)&flags, 4))

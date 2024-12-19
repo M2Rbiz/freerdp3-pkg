@@ -199,12 +199,12 @@ int winpr_vasprintf(char** s, size_t* slen, WINPR_FORMAT_ARG const char* templ, 
 	if (length < 0)
 		return length;
 
-	char* str = calloc((size_t)length + 1ul, sizeof(char));
+	char* str = calloc((size_t)length + 1UL, sizeof(char));
 	if (!str)
 		return -1;
 
 	va_copy(ap, oap);
-	const int plen = vsprintf(str, templ, ap);
+	const int plen = vsnprintf(str, (size_t)length + 1UL, templ, ap);
 	va_end(ap);
 
 	if (length != plen)
@@ -532,13 +532,11 @@ DWORD CharUpperBuffA(LPSTR lpsz, DWORD cchLength)
 
 DWORD CharUpperBuffW(LPWSTR lpsz, DWORD cchLength)
 {
-	WCHAR value = 0;
-
 	for (DWORD i = 0; i < cchLength; i++)
 	{
-		Data_Read_UINT16(&lpsz[i], value);
+		WCHAR value = winpr_Data_Get_UINT16(&lpsz[i]);
 		value = WINPR_TOUPPERW(value);
-		Data_Write_UINT16(&lpsz[i], value);
+		winpr_Data_Write_UINT16(&lpsz[i], value);
 	}
 
 	return cchLength;
@@ -578,7 +576,10 @@ LPSTR CharLowerA(LPSTR lpsz)
 
 LPWSTR CharLowerW(LPWSTR lpsz)
 {
-	CharLowerBuffW(lpsz, _wcslen(lpsz));
+	const size_t len = _wcsnlen(lpsz, UINT32_MAX + 1);
+	if (len > UINT32_MAX)
+		return NULL;
+	CharLowerBuffW(lpsz, (UINT32)len);
 	return lpsz;
 }
 
@@ -598,13 +599,11 @@ DWORD CharLowerBuffA(LPSTR lpsz, DWORD cchLength)
 
 DWORD CharLowerBuffW(LPWSTR lpsz, DWORD cchLength)
 {
-	WCHAR value = 0;
-
 	for (DWORD i = 0; i < cchLength; i++)
 	{
-		Data_Read_UINT16(&lpsz[i], value);
+		WCHAR value = winpr_Data_Get_UINT16(&lpsz[i]);
 		value = WINPR_TOLOWERW(value);
-		Data_Write_UINT16(&lpsz[i], value);
+		winpr_Data_Write_UINT16(&lpsz[i], value);
 	}
 
 	return cchLength;
@@ -833,4 +832,16 @@ const WCHAR* InitializeConstWCharFromUtf8(const char* str, WCHAR* buffer, size_t
 	WINPR_ASSERT(buffer || (len == 0));
 	(void)ConvertUtf8ToWChar(str, buffer, len);
 	return buffer;
+}
+
+WCHAR* wcsndup(const WCHAR* s, size_t n)
+{
+	if (!s)
+		return NULL;
+
+	WCHAR* copy = calloc(n + 1, sizeof(WCHAR));
+	if (!copy)
+		return NULL;
+	memcpy(copy, s, n * sizeof(WCHAR));
+	return copy;
 }

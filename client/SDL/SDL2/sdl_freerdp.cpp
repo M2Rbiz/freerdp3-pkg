@@ -588,7 +588,7 @@ static BOOL sdl_pre_connect(freerdp* instance)
 		return FALSE;
 	/* OrderSupport is initialized at this point.
 	 * Only override it if you plan to implement custom order
-	 * callbacks or deactiveate certain features. */
+	 * callbacks or deactivate certain features. */
 	/* Register the channel listeners.
 	 * They are required to set up / tear down channels if they are loaded. */
 	PubSub_SubscribeChannelConnected(instance->context->pubSub, sdl_OnChannelConnectedEventHandler);
@@ -725,8 +725,8 @@ static BOOL sdl_create_windows(SdlContext* sdl)
 		}
 
 		Uint32 flags = SDL_WINDOW_SHOWN;
-		Uint32 startupX = SDL_WINDOWPOS_CENTERED_DISPLAY(id);
-		Uint32 startupY = SDL_WINDOWPOS_CENTERED_DISPLAY(id);
+		auto startupX = SDL_WINDOWPOS_CENTERED_DISPLAY(id);
+		auto startupY = SDL_WINDOWPOS_CENTERED_DISPLAY(id);
 
 		if (monitor->attributes.desktopScaleFactor > 100)
 		{
@@ -1080,7 +1080,7 @@ static int sdl_run(SdlContext* sdl)
 }
 
 /* Called after a RDP connection was successfully established.
- * Settings might have changed during negociation of client / server feature
+ * Settings might have changed during negotiation of client / server feature
  * support.
  *
  * Set up local framebuffers and paing callbacks.
@@ -1646,6 +1646,8 @@ int main(int argc, char* argv[])
 	RDP_CLIENT_ENTRY_POINTS clientEntryPoints = {};
 
 	freerdp_client_warn_experimental(argc, argv);
+	WLog_WARN(SDL_TAG,
+	          "SDL2 client does not support clipboard! Only SDL3 client has (partial) support");
 
 	RdpClientEntry(&clientEntryPoints);
 	std::unique_ptr<sdl_rdp_context, void (*)(sdl_rdp_context*)> sdl_rdp(
@@ -1663,9 +1665,22 @@ int main(int argc, char* argv[])
 	if (status)
 	{
 		rc = freerdp_client_settings_command_line_status_print(settings, status, argc, argv);
-		SdlPref::print_config_file_help(2);
 		if (freerdp_settings_get_bool(settings, FreeRDP_ListMonitors))
 			sdl_list_monitors(sdl);
+		else
+		{
+			switch (status)
+			{
+				case COMMAND_LINE_STATUS_PRINT:
+				case COMMAND_LINE_STATUS_PRINT_VERSION:
+				case COMMAND_LINE_STATUS_PRINT_BUILDCONFIG:
+					break;
+				case COMMAND_LINE_STATUS_PRINT_HELP:
+				default:
+					SdlPref::print_config_file_help(2);
+					break;
+			}
+		}
 		return rc;
 	}
 

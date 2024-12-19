@@ -408,12 +408,12 @@ static BOOL pf_client_load_channels(freerdp* instance)
 		{
 			CHANNEL_DEF* channels = (CHANNEL_DEF*)freerdp_settings_get_pointer_array_writable(
 			    settings, FreeRDP_ChannelDefArray, 0);
-			size_t size = freerdp_settings_get_uint32(settings, FreeRDP_ChannelCount);
+			UINT32 size = freerdp_settings_get_uint32(settings, FreeRDP_ChannelCount);
 			UINT32 id = MCS_GLOBAL_CHANNEL_ID + 1;
 
 			WINPR_ASSERT(channels || (size == 0));
 
-			size_t x = 0;
+			UINT32 x = 0;
 			for (; x < size;)
 			{
 				CHANNEL_DEF* cur = &channels[x];
@@ -833,7 +833,7 @@ static DWORD WINAPI pf_client_thread_proc(pClientContext* pc)
 	pdata = pc->pdata;
 	WINPR_ASSERT(pdata);
 	/*
-	 * during redirection, freerdp's abort event might be overriden (reset) by the library, after
+	 * during redirection, freerdp's abort event might be overridden (reset) by the library, after
 	 * the server set it in order to shutdown the connection. it means that the server might signal
 	 * the client to abort, but the library code will override the signal and the client will
 	 * continue its work instead of exiting. That's why the client must wait on `pdata->abort_event`

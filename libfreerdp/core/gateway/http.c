@@ -20,6 +20,7 @@
 #include <freerdp/config.h>
 
 #include <errno.h>
+#include <stdint.h>
 
 #include <winpr/crt.h>
 #include <winpr/print.h>
@@ -83,7 +84,7 @@ struct s_http_response
 	size_t count;
 	char** lines;
 
-	long StatusCode;
+	INT16 StatusCode;
 	const char* ReasonPhrase;
 
 	size_t ContentLength;
@@ -812,7 +813,7 @@ static BOOL http_response_parse_header_status_line(HttpResponse* response, const
 		if ((errno != 0) || (val < 0) || (val > INT16_MAX))
 			goto fail;
 
-		response->StatusCode = strtol(status_code, NULL, 0);
+		response->StatusCode = (INT16)val;
 	}
 	response->ReasonPhrase = reason_phrase;
 
@@ -1030,10 +1031,10 @@ static BOOL http_response_parse_header(HttpResponse* response)
 				break;
 		}
 
-		if (!http_response_parse_header_field(response, name, value))
-			goto fail;
-
+		const int res = http_response_parse_header_field(response, name, value);
 		*end_of_header = end_of_header_char;
+		if (!res)
+			goto fail;
 	}
 
 	rc = TRUE;
@@ -1110,10 +1111,11 @@ static int print_bio_error(const char* str, size_t len, void* bp)
 {
 	wLog* log = bp;
 
-	WINPR_UNUSED(len);
 	WINPR_UNUSED(bp);
 	WLog_Print(log, WLOG_ERROR, "%s", str);
-	return len;
+	if (len > INT32_MAX)
+		return -1;
+	return (int)len;
 }
 
 int http_chuncked_read(BIO* bio, BYTE* pBuffer, size_t size,
@@ -1130,10 +1132,13 @@ int http_chuncked_read(BIO* bio, BYTE* pBuffer, size_t size,
 		{
 			case ChunkStateData:
 			{
+				const size_t rd =
+				    (size > encodingContext->nextOffset ? encodingContext->nextOffset : size);
+				if (rd > INT32_MAX)
+					return -1;
+
 				ERR_clear_error();
-				status = BIO_read(
-				    bio, pBuffer,
-				    (size > encodingContext->nextOffset ? encodingContext->nextOffset : size));
+				status = BIO_read(bio, pBuffer, (int)rd);
 				if (status <= 0)
 					return (effectiveDataLen > 0 ? effectiveDataLen : status);
 
@@ -1149,7 +1154,7 @@ int http_chuncked_read(BIO* bio, BYTE* pBuffer, size_t size,
 					return effectiveDataLen;
 
 				pBuffer += status;
-				size -= status;
+				size -= (size_t)status;
 			}
 			break;
 			case ChunkStateFooter:
@@ -1158,10 +1163,10 @@ int http_chuncked_read(BIO* bio, BYTE* pBuffer, size_t size,
 				WINPR_ASSERT(encodingContext->nextOffset == 0);
 				WINPR_ASSERT(encodingContext->headerFooterPos < 2);
 				ERR_clear_error();
-				status = BIO_read(bio, _dummy, 2 - encodingContext->headerFooterPos);
+				status = BIO_read(bio, _dummy, (int)(2 - encodingContext->headerFooterPos));
 				if (status >= 0)
 				{
-					encodingContext->headerFooterPos += status;
+					encodingContext->headerFooterPos += (size_t)status;
 					if (encodingContext->headerFooterPos == 2)
 					{
 						encodingContext->state = ChunkStateLenghHeader;
@@ -1185,7 +1190,7 @@ int http_chuncked_read(BIO* bio, BYTE* pBuffer, size_t size,
 					{
 						if (*dst == '\n')
 							_haveNewLine = TRUE;
-						encodingContext->headerFooterPos += status;
+						encodingContext->headerFooterPos += (size_t)status;
 						dst += status;
 					}
 					else
@@ -1302,7 +1307,7 @@ static SSIZE_T http_response_recv_line(rdpTls* tls, HttpResponse* response)
 			goto out_error;
 		}
 
-		/* Always check at most the lase 8 bytes for occurance of the desired
+		/* Always check at most the lase 8 bytes for occurrence of the desired
 		 * sequence of \r\n\r\n */
 		s = (position > 8) ? 8 : position;
 		end = (char*)Stream_Pointer(response->data) - s;
@@ -1366,8 +1371,10 @@ static BOOL http_response_recv_body(rdpTls* tls, HttpResponse* response, BOOL re
 				goto out_error;
 
 			ERR_clear_error();
-			status = BIO_read(tls->bio, Stream_Pointer(response->data),
-			                  bodyLength - response->BodyLength);
+			size_t diff = bodyLength - response->BodyLength;
+			if (diff > INT32_MAX)
+				diff = INT32_MAX;
+			status = BIO_read(tls->bio, Stream_Pointer(response->data), (int)diff);
 
 			if (status <= 0)
 			{
@@ -1574,7 +1581,7 @@ void http_response_free(HttpResponse* response)
 	if (!response)
 		return;
 
-	free(response->lines);
+	free((void*)response->lines);
 	ListDictionary_Free(response->Authenticates);
 	ListDictionary_Free(response->SetCookie);
 	Stream_Free(response->data, TRUE);
@@ -1606,7 +1613,7 @@ BOOL http_request_set_content_length(HttpRequest* request, size_t length)
 	return TRUE;
 }
 
-long http_response_get_status_code(const HttpResponse* response)
+INT16 http_response_get_status_code(const HttpResponse* response)
 {
 	WINPR_ASSERT(response);
 

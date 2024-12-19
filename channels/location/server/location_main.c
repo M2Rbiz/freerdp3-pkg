@@ -356,6 +356,8 @@ static UINT location_server_context_poll_int(LocationServerContext* context)
 		case LOCATION_OPENED:
 			error = location_process_message(location);
 			break;
+		default:
+			break;
 	}
 
 	return error;
@@ -373,7 +375,7 @@ static HANDLE location_server_get_channel_handle(location_server* location)
 	                           &BytesReturned) == TRUE)
 	{
 		if (BytesReturned == sizeof(HANDLE))
-			CopyMemory(&ChannelEvent, buffer, sizeof(HANDLE));
+			ChannelEvent = *(HANDLE*)buffer;
 
 		WTSFreeMemory(buffer);
 	}
@@ -422,6 +424,8 @@ static DWORD WINAPI location_server_thread_func(LPVOID arg)
 						error = ERROR_INTERNAL_ERROR;
 						break;
 				}
+				break;
+			default:
 				break;
 		}
 	}
@@ -542,8 +546,7 @@ static UINT location_server_packet_send(LocationServerContext* context, wStream*
 	WINPR_ASSERT(s);
 
 	const size_t pos = Stream_GetPosition(s);
-	if (pos > UINT32_MAX)
-		return ERROR_OUTOFMEMORY;
+	WINPR_ASSERT(pos <= UINT32_MAX);
 	if (!WTSVirtualChannelWrite(location->location_channel, Stream_BufferAs(s, char), (ULONG)pos,
 	                            &written))
 	{

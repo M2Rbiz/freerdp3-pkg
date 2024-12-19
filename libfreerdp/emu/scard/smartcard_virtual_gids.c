@@ -294,8 +294,10 @@ create_failed:
 	return NULL;
 }
 
-static BOOL vgids_write_tlv(wStream* s, UINT16 tag, const void* data, DWORD dataSize)
+static BOOL vgids_write_tlv(wStream* s, UINT16 tag, const void* data, size_t dataSize)
 {
+	WINPR_ASSERT(dataSize <= UINT16_MAX);
+
 	/* A maximum of 5 additional bytes is needed */
 	if (!Stream_EnsureRemainingCapacity(s, dataSize + 5))
 	{
@@ -423,7 +425,7 @@ static BOOL vgids_prepare_fstable(const vgidsFilesysTableEntry* fstable, DWORD n
                                   BYTE** outData, DWORD* outDataSize)
 {
 	/* Filesystem table:
-	    BYTE unkonwn: 0x01
+	    BYTE unknown: 0x01
 	    Array of vgidsFilesysTableEntry
 	*/
 	BYTE* data = malloc(sizeof(vgidsFilesysTableEntry) * numEntries + 1);
@@ -534,7 +536,7 @@ static BYTE vgids_get_algid(vgidsContext* p_Ctx)
 static BOOL vgids_prepare_keymap(vgidsContext* context, BYTE** outData, DWORD* outDataSize)
 {
 	/* Key map record table:
-	    BYTE unkonwn (count?): 0x01
+	    BYTE unknown (count?): 0x01
 	    Array of vgidsKeymapRecord
 	*/
 	BYTE* data = NULL;
@@ -877,7 +879,7 @@ static BOOL vgids_ins_getdata(vgidsContext* context, wStream* s, BYTE** response
 	vgids_reset_context_response(context);
 
 	/* build up file identifier */
-	fileId = ((UINT16)p1 << 8) | p2;
+	fileId = (UINT16)(((UINT16)p1 << 8) | p2);
 
 	/* Do we have a DO reference? */
 	switch (lc)
@@ -1030,7 +1032,7 @@ static BOOL vgids_ins_manage_security_environment(vgidsContext* context, wStream
 	Stream_Read_UINT8(s, context->currentSE.keyRef);
 
 create_response:
-	/* If an error occured reset SE */
+	/* If an error occurred reset SE */
 	if (status != ISO_STATUS_SUCCESS)
 		memset(&context->currentSE, 0, sizeof(context->currentSE));
 	return vgids_create_response(status, resultData, resultDataSize, response, responseSize);
@@ -1501,11 +1503,13 @@ BOOL vgids_init(vgidsContext* ctx, const char* cert, const char* privateKey, con
 		goto init_failed;
 
 	/* create masterfile */
+	// NOLINTNEXTLINE(clang-analyzer-unix.Malloc)
 	masterEF = vgids_ef_new(ctx, VGIDS_EFID_MASTER);
 	if (!masterEF)
 		goto init_failed;
 
 	/* create cardid file with cardid DO */
+	// NOLINTNEXTLINE(clang-analyzer-unix.Malloc)
 	cardidEF = vgids_ef_new(ctx, VGIDS_EFID_CARDID);
 	if (!cardidEF)
 		goto init_failed;
@@ -1514,6 +1518,7 @@ BOOL vgids_init(vgidsContext* ctx, const char* cert, const char* privateKey, con
 		goto init_failed;
 
 	/* create user common file */
+	// NOLINTNEXTLINE(clang-analyzer-unix.Malloc)
 	commonEF = vgids_ef_new(ctx, VGIDS_EFID_COMMON);
 	if (!commonEF)
 		goto init_failed;

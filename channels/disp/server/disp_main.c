@@ -453,7 +453,7 @@ static UINT disp_server_open(DispServerContext* context)
 		goto out_close;
 	}
 
-	CopyMemory(&priv->channelEvent, buffer, sizeof(HANDLE));
+	priv->channelEvent = *(HANDLE*)buffer;
 	WTSFreeMemory(buffer);
 
 	if (priv->thread == NULL)
@@ -493,13 +493,9 @@ static UINT disp_server_packet_send(DispServerContext* context, wStream* s)
 	WINPR_ASSERT(s);
 
 	const size_t pos = Stream_GetPosition(s);
-	if (pos > UINT32_MAX)
-	{
-		ret = ERROR_INTERNAL_ERROR;
-		goto out;
-	}
 
-	if (!WTSVirtualChannelWrite(context->priv->disp_channel, Stream_BufferAs(s, char), pos,
+	WINPR_ASSERT(pos <= UINT32_MAX);
+	if (!WTSVirtualChannelWrite(context->priv->disp_channel, Stream_BufferAs(s, char), (UINT32)pos,
 	                            &written))
 	{
 		WLog_ERR(TAG, "WTSVirtualChannelWrite failed!");

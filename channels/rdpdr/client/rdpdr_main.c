@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include <winpr/crt.h>
 #include <winpr/sysinfo.h>
@@ -582,7 +583,7 @@ static UINT handle_hotplug(rdpdrPlugin* rdpdr)
 		if (!path)
 			continue;
 
-		/* not plugable device */
+		/* not pluggable device */
 		if (strstr(path, "/Volumes/") == NULL)
 		{
 			free(path);
@@ -938,6 +939,7 @@ static BOOL hotplug_delete_foreach(ULONG_PTR key, void* element, void* data)
 	WINPR_ASSERT(arg);
 	WINPR_ASSERT(arg->rdpdr);
 	WINPR_ASSERT(arg->dev_array || (arg->dev_array_size == 0));
+	WINPR_ASSERT(key <= UINT32_MAX);
 
 	if (!device_ext || (device_ext->device.type != RDPDR_DTYP_FILESYSTEM) || !device_ext->path ||
 	    !device_ext->automount)
@@ -948,7 +950,7 @@ static BOOL hotplug_delete_foreach(ULONG_PTR key, void* element, void* data)
 	if (!path)
 		return FALSE;
 
-	/* not plugable device */
+	/* not pluggable device */
 	if (isAutomountLocation(path))
 	{
 		for (size_t i = 0; i < arg->dev_array_size; i++)
@@ -968,7 +970,7 @@ static BOOL hotplug_delete_foreach(ULONG_PTR key, void* element, void* data)
 	if (!dev_found)
 	{
 		UINT error = 0;
-		UINT32 ids[1] = { key };
+		UINT32 ids[1] = { (UINT32)key };
 
 		WINPR_ASSERT(arg->rdpdr->devman);
 		devman_unregister_device(arg->rdpdr->devman, (void*)key);
@@ -1161,7 +1163,14 @@ static UINT rdpdr_process_connect(rdpdrPlugin* rdpdr)
 	const char* name = freerdp_settings_get_string(settings, FreeRDP_ClientHostname);
 	if (!name)
 		name = freerdp_settings_get_string(settings, FreeRDP_ComputerName);
-	strncpy(rdpdr->computerName, name, sizeof(rdpdr->computerName) - 1);
+	if (!name)
+	{
+		DWORD size = sizeof(rdpdr->computerName) - 1;
+		if (!GetComputerNameExA(ComputerNameNetBIOS, rdpdr->computerName, &size))
+			return ERROR_INTERNAL_ERROR;
+	}
+	else
+		strncpy(rdpdr->computerName, name, strnlen(name, sizeof(rdpdr->computerName)));
 
 	for (UINT32 index = 0; index < freerdp_settings_get_uint32(settings, FreeRDP_DeviceCount);
 	     index++)
@@ -1288,14 +1297,12 @@ static UINT rdpdr_send_client_name_request(rdpdrPlugin* rdpdr)
 	WINPR_ASSERT(rdpdr->state == RDPDR_CHANNEL_STATE_ANNOUNCE_REPLY);
 	rdpdr_state_advance(rdpdr, RDPDR_CHANNEL_STATE_NAME_REQUEST);
 
-	if (!rdpdr->computerName[0])
-	{
-		DWORD size = sizeof(rdpdr->computerName) - 1;
-		GetComputerNameA(rdpdr->computerName, &size);
-	}
+	const size_t len = strnlen(rdpdr->computerName, sizeof(rdpdr->computerName));
+	if (len == 0)
+		return ERROR_INTERNAL_ERROR;
 
 	WINPR_ASSERT(rdpdr->computerName);
-	computerNameW = ConvertUtf8ToWCharAlloc(rdpdr->computerName, &computerNameLenW);
+	computerNameW = ConvertUtf8NToWCharAlloc(rdpdr->computerName, len, &computerNameLenW);
 	computerNameLenW *= sizeof(WCHAR);
 
 	if (computerNameLenW > 0)
@@ -1878,7 +1885,6 @@ static UINT rdpdr_process_receive(rdpdrPlugin* rdpdr, wStream* s)
  */
 UINT rdpdr_send(rdpdrPlugin* rdpdr, wStream* s)
 {
-	UINT status = 0;
 	rdpdrPlugin* plugin = rdpdr;
 
 	if (!s)
@@ -1894,9 +1900,13 @@ UINT rdpdr_send(rdpdrPlugin* rdpdr, wStream* s)
 	}
 
 	const size_t pos = Stream_GetPosition(s);
-	rdpdr_dump_send_packet(rdpdr->log, WLOG_TRACE, s, "[rdpdr-channel] send");
-	status = plugin->channelEntryPoints.pVirtualChannelWriteEx(
-	    plugin->InitHandle, plugin->OpenHandle, Stream_Buffer(s), pos, s);
+	UINT status = ERROR_INTERNAL_ERROR;
+	if (pos <= UINT32_MAX)
+	{
+		rdpdr_dump_send_packet(rdpdr->log, WLOG_TRACE, s, "[rdpdr-channel] send");
+		status = plugin->channelEntryPoints.pVirtualChannelWriteEx(
+		    plugin->InitHandle, plugin->OpenHandle, Stream_Buffer(s), (UINT32)pos, s);
+	}
 
 	if (status != CHANNEL_RC_OK)
 	{
@@ -2028,6 +2038,8 @@ static VOID VCAPITYPE rdpdr_virtual_channel_open_event_ex(LPVOID lpUserParam, DW
 		break;
 
 		case CHANNEL_EVENT_USER:
+			break;
+		default:
 			break;
 	}
 

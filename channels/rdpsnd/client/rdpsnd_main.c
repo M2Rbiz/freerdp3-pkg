@@ -953,7 +953,7 @@ static UINT rdpsnd_process_addin_args(rdpsndPlugin* rdpsnd, const ADDIN_ARGV* ar
 				if ((errno != 0) || (val > UINT32_MAX))
 					return CHANNEL_RC_INITIALIZATION_ERROR;
 
-				rdpsnd->fixed_format->nSamplesPerSec = val;
+				rdpsnd->fixed_format->nSamplesPerSec = (UINT32)val;
 			}
 			CommandLineSwitchCase(arg, "channel")
 			{
@@ -968,10 +968,10 @@ static UINT rdpsnd_process_addin_args(rdpsndPlugin* rdpsnd, const ADDIN_ARGV* ar
 			{
 				unsigned long val = strtoul(arg->Value, NULL, 0);
 
-				if ((errno != 0) || (val > INT32_MAX))
+				if ((errno != 0) || (val > UINT32_MAX))
 					return CHANNEL_RC_INITIALIZATION_ERROR;
 
-				rdpsnd->latency = val;
+				rdpsnd->latency = (UINT32)val;
 			}
 			CommandLineSwitchCase(arg, "quality")
 			{
@@ -1224,6 +1224,8 @@ static VOID VCAPITYPE rdpsnd_virtual_channel_open_event_ex(LPVOID lpUserParam, D
 		break;
 
 		case CHANNEL_EVENT_USER:
+			break;
+		default:
 			break;
 	}
 
