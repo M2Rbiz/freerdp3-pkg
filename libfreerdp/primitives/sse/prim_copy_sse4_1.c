@@ -28,7 +28,7 @@
 
 #include <freerdp/codec/color.h>
 
-#if defined(SSE2_ENABLED)
+#if defined(SSE_AVX_INTRINSICS_ENABLED)
 #define TAG FREERDP_TAG("primitives.copy")
 
 #include <emmintrin.h>
@@ -54,10 +54,10 @@ static INLINE pstatus_t sse_image_copy_bgr24_bgrx32(BYTE* WINPR_RESTRICT pDstDat
 
 	const __m128i mask = _mm_set_epi32(0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000);
 	const __m128i smask = _mm_set_epi32(0xff0b0a09, 0xff080706, 0xff050403, 0xff020100);
-	const SSIZE_T rem = nWidth % 4;
+	const UINT32 rem = nWidth % 4;
 
 	const size_t align = nSrcStep % 64;
-	const BOOL fast = (align == 0) ? TRUE : (align >= 16 - MIN(16, rem) ? TRUE : FALSE);
+	const BOOL fast = (align == 0) ? TRUE : (align >= 16 - MIN(16, (size_t)rem) ? TRUE : FALSE);
 	const SSIZE_T width = nWidth - rem;
 	for (SSIZE_T y = 0; y < nHeight; y++)
 	{
@@ -110,7 +110,7 @@ static INLINE pstatus_t sse_image_copy_bgrx32_bgrx32(BYTE* WINPR_RESTRICT pDstDa
 	const __m128i mask = _mm_setr_epi8((char)0xFF, (char)0xFF, (char)0xFF, 0x00, (char)0xFF,
 	                                   (char)0xFF, (char)0xFF, 0x00, (char)0xFF, (char)0xFF,
 	                                   (char)0xFF, 0x00, (char)0xFF, (char)0xFF, (char)0xFF, 0x00);
-	const SSIZE_T rem = nWidth % 4;
+	const UINT32 rem = nWidth % 4;
 	const SSIZE_T width = nWidth - rem;
 	for (SSIZE_T y = 0; y < nHeight; y++)
 	{
@@ -173,6 +173,19 @@ static pstatus_t sse_image_copy_no_overlap_dst_alpha(
 			{
 				case PIXEL_FORMAT_BGRX32:
 				case PIXEL_FORMAT_BGRA32:
+					return sse_image_copy_bgrx32_bgrx32(
+					    pDstData, nDstStep, nXDst, nYDst, nWidth, nHeight, pSrcData, nSrcStep,
+					    nXSrc, nYSrc, srcVMultiplier, srcVOffset, dstVMultiplier, dstVOffset);
+				default:
+					break;
+			}
+			break;
+		case PIXEL_FORMAT_RGBX32:
+		case PIXEL_FORMAT_RGBA32:
+			switch (DstFormat)
+			{
+				case PIXEL_FORMAT_RGBX32:
+				case PIXEL_FORMAT_RGBA32:
 					return sse_image_copy_bgrx32_bgrx32(
 					    pDstData, nDstStep, nXDst, nYDst, nWidth, nHeight, pSrcData, nSrcStep,
 					    nXSrc, nYSrc, srcVMultiplier, srcVOffset, dstVMultiplier, dstVOffset);
@@ -245,14 +258,14 @@ static pstatus_t sse_image_copy_no_overlap(BYTE* WINPR_RESTRICT pDstData, DWORD 
 /* ------------------------------------------------------------------------- */
 void primitives_init_copy_sse41(primitives_t* prims)
 {
-#if defined(SSE2_ENABLED)
+#if defined(SSE_AVX_INTRINSICS_ENABLED)
 	if (IsProcessorFeaturePresent(PF_SSE4_1_INSTRUCTIONS_AVAILABLE))
 	{
 		WLog_VRB(PRIM_TAG, "SSE4.1 optimizations");
 		prims->copy_no_overlap = sse_image_copy_no_overlap;
 	}
 #else
-	WLog_VRB(PRIM_TAG, "undefined WITH_SSE2");
+	WLog_VRB(PRIM_TAG, "undefined WITH_SIMD or SSE4.1 intrinsics not available");
 	WINPR_UNUSED(prims);
 #endif
 }

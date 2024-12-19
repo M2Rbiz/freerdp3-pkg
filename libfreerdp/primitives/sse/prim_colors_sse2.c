@@ -28,7 +28,7 @@
 #include "prim_internal.h"
 #include "prim_templates.h"
 
-#if defined(SSE2_ENABLED)
+#if defined(SSE_AVX_INTRINSICS_ENABLED)
 #include <emmintrin.h>
 
 static primitives_t* generic = NULL;
@@ -706,7 +706,7 @@ sse2_RGBToYCbCr_16s16s_P3P3(const INT16* WINPR_RESTRICT pSrc[3], int srcStep,
 		{
 			/* In order to use SSE2 signed 16-bit integer multiplication we
 			 * need to convert the floating point factors to signed int
-			 * without loosing information.  The result of this multiplication
+			 * without losing information.  The result of this multiplication
 			 * is 32 bit and using SSE2 we get either the product's hi or lo
 			 * word.  Thus we will multiply the factors by the highest
 			 * possible 2^n and take the upper 16 bits of the signed 32-bit
@@ -1245,7 +1245,7 @@ sse2_RGBToRGB_16s8u_P3AC4R(const INT16* WINPR_RESTRICT pSrc[3], /* 16-bit R,G, a
 
 void primitives_init_colors_sse2(primitives_t* prims)
 {
-#if defined(SSE2_ENABLED)
+#if defined(SSE_AVX_INTRINSICS_ENABLED)
 	generic = primitives_get_generic();
 	primitives_init_colors(prims);
 
@@ -1259,7 +1259,7 @@ void primitives_init_colors_sse2(primitives_t* prims)
 	}
 
 #else
-	WLog_VRB(PRIM_TAG, "undefined WITH_SSE2");
+	WLog_VRB(PRIM_TAG, "undefined WITH_SIMD or SSE2 intrinsics not available");
 	WINPR_UNUSED(prims);
 #endif
 }

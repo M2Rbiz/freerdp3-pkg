@@ -23,6 +23,7 @@
 #include <freerdp/config.h>
 
 #include <stdarg.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <sys/types.h>
 
@@ -204,7 +205,7 @@ const char* window_styles_ex_to_string(UINT32 styleEx, char* buffer, size_t leng
 	const char* sep = "";
 	for (size_t x = 0; x < 32; x++)
 	{
-		const UINT32 val = 1UL << x;
+		const UINT32 val = (UINT32)(1UL << x);
 		if ((styleEx & val) != 0)
 		{
 			const char* str = window_style_ex_to_string(val);
@@ -336,7 +337,7 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 	}
 
 	/*
-	  It is safe to proceed with simply toogling _NET_WM_STATE_FULLSCREEN window state on the
+	  It is safe to proceed with simply toggling _NET_WM_STATE_FULLSCREEN window state on the
 	  following conditions:
 	       - The window manager supports multiple monitor full screen
 	       - The user requested to use a single monitor to render the remote desktop
@@ -515,9 +516,14 @@ static BOOL xf_GetNumberOfDesktops(xfContext* xfc, Window root, unsigned* pval)
 	if (!rc)
 		return FALSE;
 
-	*pval = *prop;
+	BOOL res = FALSE;
+	if ((*prop >= 0) && (*prop <= UINT32_MAX))
+	{
+		*pval = (UINT32)*prop;
+		res = TRUE;
+	}
 	XFree(prop);
-	return TRUE;
+	return res;
 }
 
 static BOOL xf_GetCurrentDesktop(xfContext* xfc, Window root)
@@ -562,10 +568,10 @@ static BOOL xf_GetWorkArea_NET_WORKAREA(xfContext* xfc, Window root)
 	if ((xfc->current_desktop * 4 + 3) >= (INT64)nitems)
 		goto fail;
 
-	xfc->workArea.x = prop[xfc->current_desktop * 4 + 0];
-	xfc->workArea.y = prop[xfc->current_desktop * 4 + 1];
-	xfc->workArea.width = prop[xfc->current_desktop * 4 + 2];
-	xfc->workArea.height = prop[xfc->current_desktop * 4 + 3];
+	xfc->workArea.x = (UINT32)MIN(UINT32_MAX, prop[xfc->current_desktop * 4 + 0]);
+	xfc->workArea.y = (UINT32)MIN(UINT32_MAX, prop[xfc->current_desktop * 4 + 1]);
+	xfc->workArea.width = (UINT32)MIN(UINT32_MAX, prop[xfc->current_desktop * 4 + 2]);
+	xfc->workArea.height = (UINT32)MIN(UINT32_MAX, prop[xfc->current_desktop * 4 + 3]);
 
 	rc = TRUE;
 fail:
@@ -903,19 +909,16 @@ void xf_SetWindowStyle(xfContext* xfc, xfAppWindow* appWindow, UINT32 style, UIN
 	LogTagAndXChangeProperty(TAG, xfc->display, appWindow->handle, xfc->_NET_WM_WINDOW_TYPE,
 	                         XA_ATOM, 32, PropModeReplace, (BYTE*)&window_type, 1);
 
-	if (ex_style & (WS_EX_CONTROLPARENT | WS_EX_TOOLWINDOW | WS_EX_DLGMODALFRAME))
-		xf_XSetTransientForHint(xfc, appWindow);
+	const BOOL above = (ex_style & WS_EX_TOPMOST) != 0;
+	const BOOL transient = (style & WS_CHILD) == 0;
 
-	if (((ex_style & WS_EX_TOPMOST) != 0) && ((ex_style & WS_EX_TOOLWINDOW) == 0))
-	{
-		xf_SendClientEvent(xfc, appWindow->handle, xfc->_NET_WM_STATE, 4, _NET_WM_STATE_ADD,
-		                   xfc->_NET_WM_STATE_ABOVE, 0, 0);
-	}
-	else
-	{
-		xf_SendClientEvent(xfc, appWindow->handle, xfc->_NET_WM_STATE, 4, _NET_WM_STATE_REMOVE,
-		                   xfc->_NET_WM_STATE_ABOVE, 0, 0);
-	}
+	if (transient)
+		xf_XSetTransientForHint(
+		    xfc, appWindow); // xf_XSetTransientForHint only sets the hint if there is a parent
+
+	xf_SendClientEvent(xfc, appWindow->handle, xfc->_NET_WM_STATE, 4,
+	                   above ? _NET_WM_STATE_ADD : _NET_WM_STATE_REMOVE, xfc->_NET_WM_STATE_ABOVE,
+	                   0, 0);
 }
 
 void xf_SetWindowActions(xfContext* xfc, xfAppWindow* appWindow)
@@ -1253,6 +1256,8 @@ void xf_ShowWindow(xfContext* xfc, xfAppWindow* appWindow, BYTE state)
 				xf_SetWindowUnlisted(xfc, appWindow->handle);
 
 			XMapWindow(xfc->display, appWindow->handle);
+			break;
+		default:
 			break;
 	}
 

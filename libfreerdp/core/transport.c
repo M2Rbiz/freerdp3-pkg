@@ -149,10 +149,13 @@ static void transport_ssl_cb(const SSL* ssl, int where, int ret)
 
 wStream* transport_send_stream_init(rdpTransport* transport, size_t size)
 {
-	wStream* s = NULL;
 	WINPR_ASSERT(transport);
 
-	if (!(s = StreamPool_Take(transport->ReceivePool, size)))
+	if (!transport->frontBio)
+		return NULL;
+
+	wStream* s = StreamPool_Take(transport->ReceivePool, size);
+	if (!s)
 		return NULL;
 
 	if (!Stream_EnsureCapacity(s, size))
@@ -216,7 +219,12 @@ static BOOL transport_default_attach(rdpTransport* transport, int sockfd)
 		 */
 		BIO_set_fd(socketBio, sockfd, BIO_CLOSE);
 	}
+	EnterCriticalSection(&(transport->ReadLock));
+	EnterCriticalSection(&(transport->WriteLock));
 	transport->frontBio = bufferedBio;
+	LeaveCriticalSection(&(transport->WriteLock));
+	LeaveCriticalSection(&(transport->ReadLock));
+
 	return TRUE;
 fail:
 
@@ -931,7 +939,7 @@ static SSIZE_T parse_nla_mode_pdu(rdpTransport* transport, wStream* stream)
 			}
 			else if ((lengthEncoding & ~(0x80)) == 2)
 			{
-				/* check for header bytes already was readed in previous calls */
+				/* check for header bytes already read in previous calls */
 				UINT16 length = 0;
 				if (Stream_GetRemainingLength(s) < 2)
 					return 0;
@@ -1114,14 +1122,15 @@ static int transport_default_read_pdu(rdpTransport* transport, wStream* s)
 		position = Stream_GetPosition(s);
 		if (position > pduLength)
 			return -1;
-
-		status = transport_read_layer_bytes(transport, s, pduLength - Stream_GetPosition(s));
-
-		if (status != 1)
+		else if (position < pduLength)
 		{
-			if ((status < INT32_MIN) || (status > INT32_MAX))
-				return -1;
-			return (int)status;
+			status = transport_read_layer_bytes(transport, s, pduLength - position);
+			if (status != 1)
+			{
+				if ((status < INT32_MIN) || (status > INT32_MAX))
+					return -1;
+				return (int)status;
+			}
 		}
 
 		if (Stream_GetPosition(s) >= pduLength)
@@ -1591,6 +1600,8 @@ static BOOL transport_default_disconnect(rdpTransport* transport)
 	if (!transport)
 		return FALSE;
 
+	EnterCriticalSection(&(transport->ReadLock));
+	EnterCriticalSection(&(transport->WriteLock));
 	if (transport->tls)
 	{
 		freerdp_tls_free(transport->tls);
@@ -1623,6 +1634,8 @@ static BOOL transport_default_disconnect(rdpTransport* transport)
 	transport->frontBio = NULL;
 	transport->layer = TRANSPORT_LAYER_TCP;
 	transport->earlyUserAuth = FALSE;
+	LeaveCriticalSection(&(transport->WriteLock));
+	LeaveCriticalSection(&(transport->ReadLock));
 	return status;
 }
 
@@ -1707,15 +1720,26 @@ void transport_free(rdpTransport* transport)
 
 	transport_disconnect(transport);
 
+	EnterCriticalSection(&(transport->ReadLock));
 	if (transport->ReceiveBuffer)
 		Stream_Release(transport->ReceiveBuffer);
+	LeaveCriticalSection(&(transport->ReadLock));
+
+	(void)StreamPool_WaitForReturn(transport->ReceivePool, INFINITE);
+
+	EnterCriticalSection(&(transport->ReadLock));
+	EnterCriticalSection(&(transport->WriteLock));
 
 	nla_free(transport->nla);
 	StreamPool_Free(transport->ReceivePool);
 	(void)CloseHandle(transport->connectedEvent);
 	(void)CloseHandle(transport->rereadEvent);
 	(void)CloseHandle(transport->ioEvent);
+
+	LeaveCriticalSection(&(transport->ReadLock));
 	DeleteCriticalSection(&(transport->ReadLock));
+
+	LeaveCriticalSection(&(transport->WriteLock));
 	DeleteCriticalSection(&(transport->WriteLock));
 	free(transport);
 }
@@ -1794,6 +1818,8 @@ rdpTsg* transport_get_tsg(rdpTransport* transport)
 wStream* transport_take_from_pool(rdpTransport* transport, size_t size)
 {
 	WINPR_ASSERT(transport);
+	if (!transport->frontBio)
+		return NULL;
 	return StreamPool_Take(transport->ReceivePool, size);
 }
 

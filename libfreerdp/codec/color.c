@@ -319,23 +319,23 @@ static BOOL freerdp_image_copy_from_pointer_data_1bpp(
 	if (andStep * nHeight > andMaskLength)
 		return FALSE;
 
-	for (size_t y = 0; y < nHeight; y++)
+	for (UINT32 y = 0; y < nHeight; y++)
 	{
 		const BYTE* andBits = NULL;
 		const BYTE* xorBits = NULL;
-		BYTE* pDstPixel = &pDstData[((nYDst + y) * nDstStep) +
+		BYTE* pDstPixel = &pDstData[((1ULL * nYDst + y) * nDstStep) +
 		                            (1ULL * nXDst * FreeRDPGetBytesPerPixel(DstFormat))];
 		xorBit = andBit = 0x80;
 
 		if (!vFlip)
 		{
-			xorBits = &xorMask[xorStep * y];
-			andBits = &andMask[andStep * y];
+			xorBits = &xorMask[1ULL * xorStep * y];
+			andBits = &andMask[1ULL * andStep * y];
 		}
 		else
 		{
-			xorBits = &xorMask[xorStep * (nHeight - y - 1)];
-			andBits = &andMask[andStep * (nHeight - y - 1)];
+			xorBits = &xorMask[1ULL * xorStep * (nHeight - y - 1)];
+			andBits = &andMask[1ULL * andStep * (nHeight - y - 1)];
 		}
 
 		for (UINT32 x = 0; x < nWidth; x++)
@@ -381,8 +381,8 @@ static BOOL freerdp_image_copy_from_pointer_data_xbpp(
     const gdiPalette* palette)
 {
 	BOOL vFlip = 0;
-	UINT32 xorStep = 0;
-	UINT32 andStep = 0;
+	size_t xorStep = 0;
+	size_t andStep = 0;
 	UINT32 andBit = 0;
 	UINT32 xorPixel = 0;
 	UINT32 andPixel = 0;
@@ -398,7 +398,7 @@ static BOOL freerdp_image_copy_from_pointer_data_xbpp(
 		return FALSE;
 
 	xorBytesPerPixel = xorBpp >> 3;
-	xorStep = nWidth * xorBytesPerPixel;
+	xorStep = 1ULL * nWidth * xorBytesPerPixel;
 	xorStep += (xorStep % 2);
 
 	if (xorBpp == 8 && !palette)
@@ -417,11 +417,11 @@ static BOOL freerdp_image_copy_from_pointer_data_xbpp(
 			return FALSE;
 	}
 
-	for (size_t y = 0; y < nHeight; y++)
+	for (UINT32 y = 0; y < nHeight; y++)
 	{
 		const BYTE* xorBits = NULL;
 		const BYTE* andBits = NULL;
-		BYTE* pDstPixel = &pDstData[((nYDst + y) * nDstStep) +
+		BYTE* pDstPixel = &pDstData[((1ULL * nYDst + y) * nDstStep) +
 		                            (1ULL * nXDst * FreeRDPGetBytesPerPixel(DstFormat))];
 		andBit = 0x80;
 
@@ -435,9 +435,9 @@ static BOOL freerdp_image_copy_from_pointer_data_xbpp(
 		else
 		{
 			if (andMask)
-				andBits = &andMask[andStep * (nHeight - y - 1)];
+				andBits = &andMask[1ULL * andStep * (nHeight - y - 1)];
 
-			xorBits = &xorMask[xorStep * (nHeight - y - 1)];
+			xorBits = &xorMask[1ULL * xorStep * (nHeight - y - 1)];
 		}
 
 		for (UINT32 x = 0; x < nWidth; x++)
@@ -549,22 +549,20 @@ BOOL freerdp_image_copy_from_pointer_data(BYTE* WINPR_RESTRICT pDstData, UINT32 
 	}
 }
 
-static INLINE BOOL overlapping(const BYTE* pDstData, UINT32 nXDst, UINT32 nYDst, UINT32 nDstStep,
-                               UINT32 dstBytesPerPixel, const BYTE* pSrcData, UINT32 nXSrc,
-                               UINT32 nYSrc, UINT32 nSrcStep, UINT32 srcBytesPerPixel,
-                               UINT32 nWidth, UINT32 nHeight)
+static INLINE BOOL overlapping(const BYTE* pDstData, UINT32 nYDst, UINT32 nDstStep,
+                               const BYTE* pSrcData, UINT32 nYSrc, UINT32 nSrcStep, UINT32 nHeight)
 {
-	const BYTE* pDstStart = &pDstData[1ULL * nXDst * dstBytesPerPixel + 1ULL * nYDst * nDstStep];
-	const BYTE* pDstEnd = pDstStart + 1ULL * nHeight * nDstStep;
-	const BYTE* pSrcStart = &pSrcData[1ULL * nXSrc * srcBytesPerPixel + 1ULL * nYSrc * nSrcStep];
-	const BYTE* pSrcEnd = pSrcStart + 1ULL * nHeight * nSrcStep;
+	const uintptr_t src = (uintptr_t)pSrcData;
+	const uintptr_t srcstart = src + 1ULL * nSrcStep * nYSrc;
+	const uintptr_t srcend = srcstart + 1ULL * nSrcStep * nHeight;
+	const uintptr_t dst = (uintptr_t)pDstData;
+	const uintptr_t dststart = dst + 1ULL * nDstStep * nYDst;
+	const uintptr_t dstend = dststart + 1ULL * nDstStep * nHeight;
 
-	WINPR_UNUSED(nWidth);
-
-	if ((pDstStart >= pSrcStart) && (pDstStart <= pSrcEnd))
+	if ((dststart >= srcstart) && (dststart <= srcend))
 		return TRUE;
 
-	if ((pDstEnd >= pSrcStart) && (pDstEnd <= pSrcEnd))
+	if ((dstend >= srcstart) && (dstend <= srcend))
 		return TRUE;
 
 	return FALSE;
@@ -733,8 +731,7 @@ BOOL freerdp_image_copy_overlap(BYTE* pDstData, DWORD DstFormat, UINT32 nDstStep
 	SSIZE_T dstVOffset = 0;
 	SSIZE_T dstVMultiplier = 1;
 
-	WINPR_ASSERT(overlapping(pDstData, nXDst, nYDst, nDstStep, dstByte, pSrcData, nXSrc, nYSrc,
-	                         nSrcStep, srcByte, nWidth, nHeight));
+	WINPR_ASSERT(overlapping(pDstData, nYDst, nDstStep, pSrcData, nYSrc, nSrcStep, nHeight));
 
 	if ((nWidth == 0) || (nHeight == 0))
 		return TRUE;
@@ -851,9 +848,6 @@ BOOL freerdp_image_copy(BYTE* pDstData, DWORD DstFormat, UINT32 nDstStep, UINT32
                         DWORD SrcFormat, UINT32 nSrcStep, UINT32 nXSrc, UINT32 nYSrc,
                         const gdiPalette* WINPR_RESTRICT palette, UINT32 flags)
 {
-	const UINT32 dstByte = FreeRDPGetBytesPerPixel(DstFormat);
-	const UINT32 srcByte = FreeRDPGetBytesPerPixel(SrcFormat);
-
 	if ((nHeight > INT32_MAX) || (nWidth > INT32_MAX))
 		return FALSE;
 
@@ -869,8 +863,7 @@ BOOL freerdp_image_copy(BYTE* pDstData, DWORD DstFormat, UINT32 nDstStep, UINT32
 	if (nSrcStep == 0)
 		nSrcStep = nWidth * FreeRDPGetBytesPerPixel(SrcFormat);
 
-	const BOOL ovl = overlapping(pDstData, nXDst, nYDst, nDstStep, dstByte, pSrcData, nXSrc, nYSrc,
-	                             nSrcStep, srcByte, nWidth, nHeight);
+	const BOOL ovl = overlapping(pDstData, nYDst, nDstStep, pSrcData, nYSrc, nSrcStep, nHeight);
 	if (ovl)
 		return freerdp_image_copy_overlap(pDstData, DstFormat, nDstStep, nXDst, nYDst, nWidth,
 		                                  nHeight, pSrcData, SrcFormat, nSrcStep, nXSrc, nYSrc,
@@ -1611,9 +1604,7 @@ BOOL freerdp_image_copy_no_overlap(BYTE* WINPR_RESTRICT pDstData, DWORD DstForma
 	if (!prims)
 		prims = primitives_get();
 
-	WINPR_ASSERT(!overlapping(pDstData, nXDst, nYDst, nDstStep, FreeRDPGetBytesPerPixel(DstFormat),
-	                          pSrcData, nXSrc, nYSrc, nSrcStep, FreeRDPGetBytesPerPixel(SrcFormat),
-	                          nWidth, nHeight));
+	WINPR_ASSERT(!overlapping(pDstData, nYDst, nDstStep, pSrcData, nYSrc, nSrcStep, nHeight));
 	WINPR_ASSERT(prims);
 	WINPR_ASSERT(prims->copy_no_overlap);
 	return prims->copy_no_overlap(pDstData, DstFormat, nDstStep, nXDst, nYDst, nWidth, nHeight,

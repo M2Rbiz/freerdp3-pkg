@@ -1,5 +1,6 @@
 #include <winpr/crt.h>
 #include <winpr/print.h>
+#include <winpr/crypto.h>
 #include <winpr/stream.h>
 
 static BOOL TestStream_Verify(wStream* s, size_t mincap, size_t len, size_t pos)
@@ -77,20 +78,20 @@ static BOOL TestStream_Verify(wStream* s, size_t mincap, size_t len, size_t pos)
 
 static BOOL TestStream_New(void)
 {
-	wStream* s = NULL;
 	/* Test creation of a 0-size stream with no buffer */
-	s = Stream_New(NULL, 0);
+	wStream* s = Stream_New(NULL, 0);
 
 	if (s)
 		return FALSE;
+	Stream_Free(s, TRUE);
 
 	return TRUE;
 }
 
 static BOOL TestStream_Static(void)
 {
-	BYTE buffer[20];
-	wStream staticStream;
+	BYTE buffer[20] = { 0 };
+	wStream staticStream = { 0 };
 	wStream* s = &staticStream;
 	UINT16 v = 0;
 	/* Test creation of a static stream */
@@ -250,19 +251,31 @@ fail:
 
 #define Stream_Peek_UINT8_BE Stream_Peek_UINT8
 #define Stream_Read_UINT8_BE Stream_Read_UINT8
+#define Stream_Peek_Get_UINT8_BE Stream_Peek_Get_UINT8
+#define Stream_Get_UINT8_BE Stream_Get_UINT8
 #define Stream_Peek_INT8_BE Stream_Peek_INT8
+#define Stream_Peek_Get_INT8_BE Stream_Peek_Get_INT8
 #define Stream_Read_INT8_BE Stream_Read_INT8
+#define Stream_Get_INT8_BE Stream_Get_INT8
 
 #define TestStream_PeekAndRead(_s, _r, _t)                            \
 	do                                                                \
 	{                                                                 \
-		_t _a;                                                        \
-		_t _b;                                                        \
+		_t _a = 0;                                                    \
+		_t _b = 0;                                                    \
 		BYTE* _p = Stream_Buffer(_s);                                 \
 		Stream_SetPosition(_s, 0);                                    \
 		Stream_Peek_##_t(_s, _a);                                     \
 		Stream_Read_##_t(_s, _b);                                     \
 		if (_a != _b)                                                 \
+		{                                                             \
+			printf("%s: test1 " #_t "_LE failed\n", __func__);        \
+			(_r) = FALSE;                                             \
+		}                                                             \
+		Stream_Rewind(_s, sizeof(_t));                                \
+		const _t _d = Stream_Peek_Get_##_t(_s);                       \
+		const _t _c = Stream_Get_##_t(_s);                            \
+		if (_c != _d)                                                 \
 		{                                                             \
 			printf("%s: test1 " #_t "_LE failed\n", __func__);        \
 			(_r) = FALSE;                                             \
@@ -285,6 +298,14 @@ fail:
 			printf("%s: test1 " #_t "_BE failed\n", __func__);        \
 			(_r) = FALSE;                                             \
 		}                                                             \
+		Stream_Rewind(_s, sizeof(_t));                                \
+		const _t _e = Stream_Peek_Get_##_t##_BE(_s);                  \
+		const _t _f = Stream_Get_##_t##_BE(_s);                       \
+		if (_e != _f)                                                 \
+		{                                                             \
+			printf("%s: test1 " #_t "_BE failed\n", __func__);        \
+			(_r) = FALSE;                                             \
+		}                                                             \
 		for (size_t _i = 0; _i < sizeof(_t); _i++)                    \
 		{                                                             \
 			if (((_a >> (_i * 8)) & 0xFF) != _p[sizeof(_t) - _i - 1]) \
@@ -296,6 +317,145 @@ fail:
 		}                                                             \
 		/* printf("a: 0x%016llX\n", a); */                            \
 	} while (0)
+
+static BOOL TestStream_WriteAndRead(UINT64 value)
+{
+	union
+	{
+		UINT8 u8;
+		UINT16 u16;
+		UINT32 u32;
+		UINT64 u64;
+		INT8 i8;
+		INT16 i16;
+		INT32 i32;
+		INT64 i64;
+	} val;
+	val.u64 = value;
+
+	wStream* s = Stream_New(NULL, 1024);
+	if (!s)
+		return FALSE;
+	BOOL rc = FALSE;
+
+	{
+		Stream_Write_UINT8(s, val.u8);
+		Stream_Rewind_UINT8(s);
+		const UINT8 ru8 = Stream_Get_UINT8(s);
+		Stream_Rewind_UINT8(s);
+		if (val.u8 != ru8)
+			goto fail;
+	}
+	{
+		Stream_Write_UINT16(s, val.u16);
+		Stream_Rewind_UINT16(s);
+		const UINT16 ru = Stream_Get_UINT16(s);
+		Stream_Rewind_UINT16(s);
+		if (val.u16 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_UINT16_BE(s, val.u16);
+		Stream_Rewind_UINT16(s);
+		const UINT16 ru = Stream_Get_UINT16_BE(s);
+		Stream_Rewind_UINT16(s);
+		if (val.u16 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_UINT32(s, val.u32);
+		Stream_Rewind_UINT32(s);
+		const UINT32 ru = Stream_Get_UINT32(s);
+		Stream_Rewind_UINT32(s);
+		if (val.u32 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_UINT32_BE(s, val.u32);
+		Stream_Rewind_UINT32(s);
+		const UINT32 ru = Stream_Get_UINT32_BE(s);
+		Stream_Rewind_UINT32(s);
+		if (val.u32 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_UINT64(s, val.u64);
+		Stream_Rewind_UINT64(s);
+		const UINT64 ru = Stream_Get_UINT64(s);
+		Stream_Rewind_UINT64(s);
+		if (val.u64 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_UINT64_BE(s, val.u64);
+		Stream_Rewind_UINT64(s);
+		const UINT64 ru = Stream_Get_UINT64_BE(s);
+		Stream_Rewind_UINT64(s);
+		if (val.u64 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_INT8(s, val.i8);
+		Stream_Rewind(s, 1);
+		const INT8 ru8 = Stream_Get_INT8(s);
+		Stream_Rewind(s, 1);
+		if (val.i8 != ru8)
+			goto fail;
+	}
+	{
+		Stream_Write_INT16(s, val.i16);
+		Stream_Rewind(s, 2);
+		const INT16 ru = Stream_Get_INT16(s);
+		Stream_Rewind(s, 2);
+		if (val.i16 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_INT16_BE(s, val.i16);
+		Stream_Rewind(s, 2);
+		const INT16 ru = Stream_Get_INT16_BE(s);
+		Stream_Rewind(s, 2);
+		if (val.i16 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_INT32(s, val.i32);
+		Stream_Rewind(s, 4);
+		const INT32 ru = Stream_Get_INT32(s);
+		Stream_Rewind(s, 4);
+		if (val.i32 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_INT32_BE(s, val.i32);
+		Stream_Rewind(s, 4);
+		const INT32 ru = Stream_Get_INT32_BE(s);
+		Stream_Rewind(s, 4);
+		if (val.i32 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_INT64(s, val.i64);
+		Stream_Rewind(s, 8);
+		const INT64 ru = Stream_Get_INT64(s);
+		Stream_Rewind(s, 8);
+		if (val.i64 != ru)
+			goto fail;
+	}
+	{
+		Stream_Write_INT64_BE(s, val.i64);
+		Stream_Rewind(s, 8);
+		const INT64 ru = Stream_Get_INT64_BE(s);
+		Stream_Rewind(s, 8);
+		if (val.i64 != ru)
+			goto fail;
+	}
+
+	rc = TRUE;
+fail:
+	Stream_Free(s, TRUE);
+	return rc;
+}
 
 static BOOL TestStream_Reading(void)
 {
@@ -684,5 +844,15 @@ int TestStream(int argc, char* argv[])
 	if (!TestStream_Static())
 		return 12;
 
+	if (!TestStream_WriteAndRead(0x1234567890abcdef))
+		return 13;
+
+	for (size_t x = 0; x < 10; x++)
+	{
+		UINT64 val = 0;
+		winpr_RAND(&val, sizeof(val));
+		if (!TestStream_WriteAndRead(val))
+			return 14;
+	}
 	return 0;
 }

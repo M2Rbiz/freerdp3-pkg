@@ -20,6 +20,7 @@
 
 #include <winpr/config.h>
 
+#include <winpr/assert.h>
 #include <winpr/sysinfo.h>
 #include <winpr/platform.h>
 
@@ -107,9 +108,9 @@ static UINT64 mac_get_time_ns(void)
 #include <sys/sysctl.h>
 #endif
 
-static DWORD GetProcessorArchitecture(void)
+static WORD GetProcessorArchitecture(void)
 {
-	DWORD cpuArch = PROCESSOR_ARCHITECTURE_UNKNOWN;
+	WORD cpuArch = PROCESSOR_ARCHITECTURE_UNKNOWN;
 #if defined(ANDROID)
 	AndroidCpuFamily family = android_getCpuFamily();
 
@@ -226,17 +227,14 @@ static DWORD GetSystemPageSize(void)
 
 void GetSystemInfo(LPSYSTEM_INFO lpSystemInfo)
 {
-	lpSystemInfo->wProcessorArchitecture = GetProcessorArchitecture();
-	lpSystemInfo->wReserved = 0;
+	const SYSTEM_INFO empty = { 0 };
+	WINPR_ASSERT(lpSystemInfo);
+
+	*lpSystemInfo = empty;
+	lpSystemInfo->DUMMYUNIONNAME.DUMMYSTRUCTNAME.wProcessorArchitecture =
+	    GetProcessorArchitecture();
 	lpSystemInfo->dwPageSize = GetSystemPageSize();
-	lpSystemInfo->lpMinimumApplicationAddress = NULL;
-	lpSystemInfo->lpMaximumApplicationAddress = NULL;
-	lpSystemInfo->dwActiveProcessorMask = 0;
 	lpSystemInfo->dwNumberOfProcessors = GetNumberOfProcessors();
-	lpSystemInfo->dwProcessorType = 0;
-	lpSystemInfo->dwAllocationGranularity = 0;
-	lpSystemInfo->wProcessorLevel = 0;
-	lpSystemInfo->wProcessorRevision = 0;
 }
 
 void GetNativeSystemInfo(LPSYSTEM_INFO lpSystemInfo)
@@ -436,22 +434,18 @@ BOOL GetComputerNameW(LPWSTR lpBuffer, LPDWORD lpnSize)
 
 BOOL GetComputerNameA(LPSTR lpBuffer, LPDWORD lpnSize)
 {
-	char* dot = NULL;
-	size_t length = 0;
-	char hostname[256] = { 0 };
-
 	if (!lpnSize)
 	{
 		SetLastError(ERROR_BAD_ARGUMENTS);
 		return FALSE;
 	}
 
-	if (gethostname(hostname, sizeof(hostname)) == -1)
+	char hostname[256 + 1] = { 0 };
+	if (gethostname(hostname, ARRAYSIZE(hostname) - 1) == -1)
 		return FALSE;
 
-	length = strnlen(hostname, sizeof(hostname));
-	dot = strchr(hostname, '.');
-
+	size_t length = strnlen(hostname, MAX_COMPUTERNAME_LENGTH);
+	const char* dot = strchr(hostname, '.');
 	if (dot)
 		length = (dot - hostname);
 
@@ -462,7 +456,7 @@ BOOL GetComputerNameA(LPSTR lpBuffer, LPDWORD lpnSize)
 		return FALSE;
 	}
 
-	CopyMemory(lpBuffer, hostname, length);
+	strncpy(lpBuffer, hostname, length);
 	lpBuffer[length] = '\0';
 	*lpnSize = (DWORD)length;
 	return TRUE;
@@ -1001,8 +995,8 @@ BOOL IsProcessorFeaturePresent(DWORD ProcessorFeature)
 DWORD GetTickCountPrecise(void)
 {
 #ifdef _WIN32
-	LARGE_INTEGER freq;
-	LARGE_INTEGER current;
+	LARGE_INTEGER freq = { 0 };
+	LARGE_INTEGER current = { 0 };
 	QueryPerformanceFrequency(&freq);
 	QueryPerformanceCounter(&current);
 	return (DWORD)(current.QuadPart * 1000LL / freq.QuadPart);
@@ -1164,6 +1158,8 @@ BOOL IsProcessorFeaturePresentEx(DWORD ProcessorFeature)
 						if (c & C_BIT_PCLMULQDQ)
 							ret = TRUE;
 
+						break;
+					default:
 						break;
 				}
 			}

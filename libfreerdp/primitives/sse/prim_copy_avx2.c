@@ -28,7 +28,7 @@
 
 #include <freerdp/codec/color.h>
 
-#if defined(SSE2_ENABLED)
+#if defined(SSE_AVX_INTRINSICS_ENABLED)
 #define TAG FREERDP_TAG("primitives.copy")
 
 #include <emmintrin.h>
@@ -58,11 +58,11 @@ static INLINE pstatus_t avx2_image_copy_bgr24_bgrx32(BYTE* WINPR_RESTRICT pDstDa
 	                                       0xff0b0a09, 0xff080706, 0xff050403, 0xff020100);
 	const __m256i shelpmask = _mm256_set_epi32(0xffffffff, 0xffffffff, 0xffffff1f, 0xff1e1d1c,
 	                                           0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff);
-	const SSIZE_T rem = nWidth % 8;
+	const UINT32 rem = nWidth % 8;
 	const SSIZE_T width = nWidth - rem;
 
 	const size_t align = nSrcStep % 32;
-	const BOOL fast = (align == 0) ? TRUE : (align >= 8 - MIN(8, rem) ? TRUE : FALSE);
+	const BOOL fast = (align == 0) ? TRUE : (align >= 8 - MIN(8, (size_t)rem) ? TRUE : FALSE);
 	for (SSIZE_T y = 0; y < nHeight; y++)
 	{
 		const BYTE* WINPR_RESTRICT srcLine =
@@ -126,7 +126,7 @@ static INLINE pstatus_t avx2_image_copy_bgrx32_bgrx32(BYTE* WINPR_RESTRICT pDstD
 	    (char)0xFF, (char)0xFF, (char)0xFF, 0x00, (char)0xFF, (char)0xFF, (char)0xFF, 0x00,
 	    (char)0xFF, (char)0xFF, (char)0xFF, 0x00, (char)0xFF, (char)0xFF, (char)0xFF, 0x00,
 	    (char)0xFF, (char)0xFF, (char)0xFF, 0x00, (char)0xFF, (char)0xFF, (char)0xFF, 0x00);
-	const SSIZE_T rem = nWidth % 8;
+	const UINT32 rem = nWidth % 8;
 	const SSIZE_T width = nWidth - rem;
 	for (SSIZE_T y = 0; y < nHeight; y++)
 	{
@@ -189,6 +189,19 @@ static pstatus_t avx2_image_copy_no_overlap_dst_alpha(
 			{
 				case PIXEL_FORMAT_BGRX32:
 				case PIXEL_FORMAT_BGRA32:
+					return avx2_image_copy_bgrx32_bgrx32(
+					    pDstData, nDstStep, nXDst, nYDst, nWidth, nHeight, pSrcData, nSrcStep,
+					    nXSrc, nYSrc, srcVMultiplier, srcVOffset, dstVMultiplier, dstVOffset);
+				default:
+					break;
+			}
+			break;
+		case PIXEL_FORMAT_RGBX32:
+		case PIXEL_FORMAT_RGBA32:
+			switch (DstFormat)
+			{
+				case PIXEL_FORMAT_RGBX32:
+				case PIXEL_FORMAT_RGBA32:
 					return avx2_image_copy_bgrx32_bgrx32(
 					    pDstData, nDstStep, nXDst, nYDst, nWidth, nHeight, pSrcData, nSrcStep,
 					    nXSrc, nYSrc, srcVMultiplier, srcVOffset, dstVMultiplier, dstVOffset);
@@ -261,14 +274,14 @@ static pstatus_t avx2_image_copy_no_overlap(BYTE* WINPR_RESTRICT pDstData, DWORD
 /* ------------------------------------------------------------------------- */
 void primitives_init_copy_avx2(primitives_t* prims)
 {
-#if defined(SSE2_ENABLED)
+#if defined(SSE_AVX_INTRINSICS_ENABLED)
 	if (IsProcessorFeaturePresent(PF_AVX2_INSTRUCTIONS_AVAILABLE))
 	{
 		WLog_VRB(PRIM_TAG, "AVX2 optimizations");
 		prims->copy_no_overlap = avx2_image_copy_no_overlap;
 	}
 #else
-	WLog_VRB(PRIM_TAG, "undefined WITH_SSE2");
+	WLog_VRB(PRIM_TAG, "undefined WITH_SIMD or WITH_AVX2 or AVX2 intrinsics not available");
 	WINPR_UNUSED(prims);
 #endif
 }

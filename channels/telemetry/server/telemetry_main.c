@@ -225,6 +225,8 @@ static UINT telemetry_server_context_poll_int(TelemetryServerContext* context)
 		case TELEMETRY_OPENED:
 			error = telemetry_process_message(telemetry);
 			break;
+		default:
+			break;
 	}
 
 	return error;
@@ -242,7 +244,7 @@ static HANDLE telemetry_server_get_channel_handle(telemetry_server* telemetry)
 	                           &BytesReturned) == TRUE)
 	{
 		if (BytesReturned == sizeof(HANDLE))
-			CopyMemory(&ChannelEvent, buffer, sizeof(HANDLE));
+			ChannelEvent = *(HANDLE*)buffer;
 
 		WTSFreeMemory(buffer);
 	}
@@ -291,6 +293,8 @@ static DWORD WINAPI telemetry_server_thread_func(LPVOID arg)
 						error = ERROR_INTERNAL_ERROR;
 						break;
 				}
+				break;
+			default:
 				break;
 		}
 	}

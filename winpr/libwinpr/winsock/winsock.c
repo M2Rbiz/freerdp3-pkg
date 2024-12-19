@@ -19,6 +19,7 @@
 
 #include <winpr/config.h>
 
+#include <winpr/assert.h>
 #include <winpr/crt.h>
 #include <winpr/synch.h>
 
@@ -294,8 +295,6 @@ INT winpr_inet_pton(INT Family, PCSTR pszAddrString, PVOID pAddrBuf)
 #include <netinet/tcp.h>
 #include <net/if.h>
 
-#include <winpr/assert.h>
-
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
@@ -495,6 +494,8 @@ void WSASetLastError(int iError)
 		case WSAEREMOTE:
 			errno = EREMOTE;
 			break;
+		default:
+			break;
 	}
 }
 
@@ -693,6 +694,8 @@ int WSAGetLastError(void)
 			iError = WSAECONNRESET;
 			break;
 #endif
+		default:
+			break;
 	}
 
 	/**
@@ -1100,7 +1103,8 @@ int _getsockopt(SOCKET s, int level, int optname, char* optval, int* optlen)
 
 u_long _htonl(u_long hostlong)
 {
-	return htonl(hostlong);
+	WINPR_ASSERT(hostlong <= UINT32_MAX);
+	return htonl((UINT32)hostlong);
 }
 
 u_short _htons(u_short hostshort)
@@ -1128,7 +1132,8 @@ int _listen(SOCKET s, int backlog)
 
 u_long _ntohl(u_long netlong)
 {
-	return ntohl(netlong);
+	WINPR_ASSERT((netlong & 0xFFFFFFFF00000000ULL) == 0);
+	return ntohl((UINT32)netlong);
 }
 
 u_short _ntohs(u_short netshort)
@@ -1216,6 +1221,8 @@ int _shutdown(SOCKET s, int how)
 		case SD_BOTH:
 			s_how = SHUT_RDWR;
 			break;
+		default:
+			break;
 	}
 
 	if (s_how < 0)
@@ -1259,16 +1266,20 @@ int _gethostname(char* name, int namelen)
 	return status;
 }
 
-struct servent* _getservbyport(int port, const char* proto)
+struct servent* /* codespell:ignore servent */ _getservbyport(int port, const char* proto)
 {
-	struct servent* serv = NULL;
+	struct servent* serv = NULL; // codespell:ignore servent
+
 	serv = getservbyport(port, proto);
 	return serv;
 }
 
-struct servent* _getservbyname(const char* name, const char* proto)
+struct servent*                                     /* codespell:ignore servent */
+_getservbyname(const char* name, const char* proto) // codespell:ignore servent
+
 {
-	struct servent* serv = NULL;
+	struct servent* serv = NULL; // codespell:ignore servent
+
 	serv = getservbyname(name, proto);
 	return serv;
 }

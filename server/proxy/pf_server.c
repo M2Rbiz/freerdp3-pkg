@@ -101,7 +101,7 @@ static BOOL pf_server_parse_target_from_routing_token(rdpContext* context, rdpSe
 		if (p > USHRT_MAX)
 			return FALSE;
 
-		if (!freerdp_settings_set_uint32(settings, portID, p))
+		if (!freerdp_settings_set_uint32(settings, portID, (USHORT)p))
 			return FALSE;
 	}
 
@@ -225,7 +225,7 @@ static BOOL pf_server_setup_channels(freerdp_peer* peer)
 		channelContext = StaticChannelContext_new(ps, cname, channelId);
 		if (!channelContext)
 		{
-			PROXY_LOG_ERR(TAG, ps, "error seting up channelContext for '%s'", cname);
+			PROXY_LOG_ERR(TAG, ps, "error setting up channelContext for '%s'", cname);
 			goto fail;
 		}
 
@@ -270,7 +270,7 @@ static BOOL pf_server_setup_channels(freerdp_peer* peer)
 
 	rc = TRUE;
 fail:
-	free(accepted_channels);
+	free((void*)accepted_channels);
 	return rc;
 }
 
@@ -454,6 +454,7 @@ static BOOL pf_server_receive_channel_data_hook(freerdp_peer* peer, UINT16 chann
 		case PF_CHANNEL_RESULT_DROP:
 			return TRUE;
 		case PF_CHANNEL_RESULT_ERROR:
+		default:
 			return FALSE;
 	}
 
@@ -812,7 +813,7 @@ BOOL pf_server_start(proxyServer* server)
 				WLog_ERR(TAG, "failed to start listener: address already in use!");
 				break;
 			case EACCES:
-				WLog_ERR(TAG, "failed to start listener: insufficent permissions!");
+				WLog_ERR(TAG, "failed to start listener: insufficient permissions!");
 				break;
 			default:
 				WLog_ERR(TAG, "failed to start listener: errno=%d", errno);
@@ -851,7 +852,7 @@ BOOL pf_server_start_from_socket(proxyServer* server, int socket)
 				WLog_ERR(TAG, "failed to start listener: address already in use!");
 				break;
 			case EACCES:
-				WLog_ERR(TAG, "failed to start listener: insufficent permissions!");
+				WLog_ERR(TAG, "failed to start listener: insufficient permissions!");
 				break;
 			default:
 				WLog_ERR(TAG, "failed to start listener: errno=%d", errno);

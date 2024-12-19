@@ -53,7 +53,7 @@ static UCHAR svtime(ULONG Ti)
 	else if (Ti > 25500)
 		return 255; /* 0xFF */
 	else
-		return Ti / 100;
+		return (UCHAR)(Ti / 100);
 }
 
 /**
@@ -92,11 +92,11 @@ BOOL CommReadFile(HANDLE hDevice, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
 
 	if (lpNumberOfBytesRead == NULL)
 	{
-		SetLastError(ERROR_INVALID_PARAMETER); /* since we doesn't suppport lpOverlapped != NULL */
+		SetLastError(ERROR_INVALID_PARAMETER); /* since we doesn't support lpOverlapped != NULL */
 		goto return_false;
 	}
 
-	*lpNumberOfBytesRead = 0; /* will be ajusted if required ... */
+	*lpNumberOfBytesRead = 0; /* will be adjusted if required ... */
 
 	if (nNumberOfBytesToRead <= 0) /* N */
 	{
@@ -125,10 +125,10 @@ BOOL CommReadFile(HANDLE hDevice, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
 	 * N  |   Ti  | INDEF | Blocks on first byte, then use Ti between bytes. MAXULONG       | 0 | 0
 	 * |   0  |   0   |   0   | Returns immediately with bytes available (don't block) MAXULONG |
 	 * MAXULONG           |      0< Tc <MAXULONG     |   N  |   0   |   Tc  | Blocks on first byte
-	 * during Tc or returns immediately whith bytes available MAXULONG       |            m |
+	 * during Tc or returns immediately with bytes available MAXULONG       |            m |
 	 * MAXULONG          |                      | Invalid 0            |            m |      0< Tc
 	 * <MAXULONG     |   N  |   0   |  Tmax | Blocks on first byte during Tmax or returns
-	 * immediately whith bytes available 0< Ti <MAXULONG    |            m               |      0<
+	 * immediately with bytes available 0< Ti <MAXULONG    |            m               |      0<
 	 * Tc <MAXULONG     |   N  |   Ti  |  Tmax | Blocks on first byte, then use Ti between bytes.
 	 * Tmax is used for the whole system call.
 	 */
@@ -294,10 +294,9 @@ BOOL CommReadFile(HANDLE hDevice, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
 
 	if (FD_ISSET(pComm->fd_read, &read_set))
 	{
-		ssize_t nbRead = 0;
-		nbRead = read(pComm->fd_read, lpBuffer, nNumberOfBytesToRead);
+		ssize_t nbRead = read(pComm->fd_read, lpBuffer, nNumberOfBytesToRead);
 
-		if (nbRead < 0)
+		if ((nbRead < 0) || (nbRead > nNumberOfBytesToRead))
 		{
 			char ebuffer[256] = { 0 };
 			CommLog_Print(WLOG_WARN,
@@ -336,7 +335,7 @@ BOOL CommReadFile(HANDLE hDevice, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
 			goto return_false;
 		}
 
-		*lpNumberOfBytesRead = nbRead;
+		*lpNumberOfBytesRead = (UINT32)nbRead;
 
 		EnterCriticalSection(&pComm->EventsLock);
 		if (pComm->PendingEvents & SERIAL_EV_WINPR_WAITING)
@@ -384,11 +383,11 @@ BOOL CommWriteFile(HANDLE hDevice, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite
 
 	if (lpNumberOfBytesWritten == NULL)
 	{
-		SetLastError(ERROR_INVALID_PARAMETER); /* since we doesn't suppport lpOverlapped != NULL */
+		SetLastError(ERROR_INVALID_PARAMETER); /* since we doesn't support lpOverlapped != NULL */
 		goto return_false;
 	}
 
-	*lpNumberOfBytesWritten = 0; /* will be ajusted if required ... */
+	*lpNumberOfBytesWritten = 0; /* will be adjusted if required ... */
 
 	if (nNumberOfBytesToWrite <= 0)
 	{
@@ -539,7 +538,7 @@ BOOL CommWriteFile(HANDLE hDevice, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite
 	 * might hide a bug but was required while testing a serial
 	 * printer. Its driver was expecting the modem line status
 	 * SERIAL_MSR_DSR true after the sending which was never
-	 * happenning otherwise. A purge was also done before each
+	 * happening otherwise. A purge was also done before each
 	 * Write operation. The serial port was opened with:
 	 * DesiredAccess=0x0012019F. The printer worked fine with
 	 * mstsc. */

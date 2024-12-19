@@ -28,7 +28,7 @@
 #include "prim_colors.h"
 
 /*---------------------------------------------------------------------------*/
-#if defined(NEON_ENABLED)
+#if defined(NEON_INTRINSICS_ENABLED)
 #include <arm_neon.h>
 
 static primitives_t* generic = NULL;
@@ -62,7 +62,7 @@ neon_yCbCrToRGB_16s16s_P3P3(const INT16* WINPR_RESTRICT pSrc[3], INT32 srcStep,
 		{
 			/*
 			    In order to use NEON signed 16-bit integer multiplication we need to convert
-			    the floating point factors to signed int without loosing information.
+			    the floating point factors to signed int without losing information.
 			    The result of this multiplication is 32 bit and we have a NEON instruction
 			    that returns the hi word of the saturated double.
 			    Thus we will multiply the factors by the highest possible 2^n, take the
@@ -341,12 +341,12 @@ neon_RGBToRGB_16s8u_P3AC4R(const INT16* WINPR_RESTRICT pSrc[3], /* 16-bit R,G, a
 			return generic->RGBToRGB_16s8u_P3AC4R(pSrc, srcStep, pDst, dstStep, DstFormat, roi);
 	}
 }
-#endif /* NEON_ENABLED */
+#endif /* NEON_INTRINSICS_ENABLED */
 
 /* ------------------------------------------------------------------------- */
 void primitives_init_colors_neon(primitives_t* prims)
 {
-#if defined(NEON_ENABLED)
+#if defined(NEON_INTRINSICS_ENABLED)
 	generic = primitives_get_generic();
 	primitives_init_colors(prims);
 
@@ -358,7 +358,7 @@ void primitives_init_colors_neon(primitives_t* prims)
 		prims->yCbCrToRGB_16s16s_P3P3 = neon_yCbCrToRGB_16s16s_P3P3;
 	}
 #else
-	WLog_VRB(PRIM_TAG, "undefined WITH_NEON");
+	WLog_VRB(PRIM_TAG, "undefined WITH_SIMD or neon intrinsics not available");
 	WINPR_UNUSED(prims);
 #endif
 }

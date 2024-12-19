@@ -112,7 +112,7 @@ static UwacReturnCode set_cursor_image(UwacSeat* seat, uint32_t serial)
 
 	switch (seat->pointer_type)
 	{
-		case 2: /* Custom poiner */
+		case 2: /* Custom pointer */
 			image = seat->pointer_image;
 			buffer = create_pointer_buffer(seat, seat->pointer_data, seat->pointer_size);
 			if (!buffer)
@@ -287,7 +287,7 @@ static void keyboard_handle_leave(void* data, struct wl_keyboard* keyboard, uint
 	its.it_interval.tv_nsec = 0;
 	its.it_value.tv_sec = 0;
 	its.it_value.tv_nsec = 0;
-	timerfd_settime(input->repeat_timer_fd, 0, &its, NULL);
+	(void)timerfd_settime(input->repeat_timer_fd, 0, &its, NULL);
 
 	UwacPointerEnterLeaveEvent* event =
 	    (UwacPointerEnterLeaveEvent*)UwacDisplayNewEvent(input->display, UWAC_EVENT_POINTER_LEAVE);
@@ -296,7 +296,7 @@ static void keyboard_handle_leave(void* data, struct wl_keyboard* keyboard, uint
 
 	event->window = input->keyboard_focus;
 
-	/* we are currently loosing input focus of the main window:
+	/* we are currently losing input focus of the main window:
 	 * check if we currently have some keys pressed and release them as if we enter the window again
 	 * it will be still "virtually" pressed in remote even if in reality the key has been released
 	 */
@@ -403,7 +403,7 @@ static void keyboard_handle_key(void* data, struct wl_keyboard* keyboard, uint32
 		its.it_interval.tv_nsec = 0;
 		its.it_value.tv_sec = 0;
 		its.it_value.tv_nsec = 0;
-		timerfd_settime(input->repeat_timer_fd, 0, &its, NULL);
+		(void)timerfd_settime(input->repeat_timer_fd, 0, &its, NULL);
 	}
 	else if (state == WL_KEYBOARD_KEY_STATE_PRESSED &&
 	         xkb_keymap_key_repeats(input->xkb.keymap, code))
@@ -415,7 +415,7 @@ static void keyboard_handle_key(void* data, struct wl_keyboard* keyboard, uint32
 		its.it_interval.tv_nsec = input->repeat_rate_nsec;
 		its.it_value.tv_sec = input->repeat_delay_sec;
 		its.it_value.tv_nsec = input->repeat_delay_nsec;
-		timerfd_settime(input->repeat_timer_fd, 0, &its, NULL);
+		(void)timerfd_settime(input->repeat_timer_fd, 0, &its, NULL);
 	}
 
 	keyEvent = (UwacKeyEvent*)UwacDisplayNewEvent(input->display, UWAC_EVENT_KEY);

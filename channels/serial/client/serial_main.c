@@ -50,7 +50,7 @@ typedef struct
 	DEVICE device;
 	BOOL permissive;
 	SERIAL_DRIVER_ID ServerSerialDriverId;
-	HANDLE* hComm;
+	HANDLE hComm;
 
 	wLog* log;
 	HANDLE MainThread;
@@ -107,7 +107,8 @@ static UINT32 GetLastErrorToIoStatus(SERIAL_DEVICE* serial)
 
 		case ERROR_TIMEOUT:
 			return STATUS_TIMEOUT;
-			/* no default */
+		default:
+			break;
 	}
 
 	WLog_Print(serial->log, WLOG_DEBUG, "unexpected last-error: 0x%08" PRIX32 "", GetLastError());
@@ -554,7 +555,7 @@ static void close_terminated_irp_thread(wListDictionary* list, wLog* log, ULONG_
 
 	HANDLE cirpThread = ListDictionary_GetItemValue(list, (void*)id);
 	/* FIXME: not quite sure a zero timeout is a good thing to check whether a thread is
-	 * stil alived or not */
+	 * still alive or not */
 	const DWORD waitResult = WaitForSingleObject(cirpThread, 0);
 
 	if (waitResult == WAIT_OBJECT_0)
@@ -789,7 +790,7 @@ static UINT serial_free(DEVICE* device)
 	}
 
 	if (serial->hComm)
-		(void)CloseHandle(*serial->hComm);
+		(void)CloseHandle(serial->hComm);
 
 	/* Clean up resources */
 	Stream_Free(serial->device.data, TRUE);

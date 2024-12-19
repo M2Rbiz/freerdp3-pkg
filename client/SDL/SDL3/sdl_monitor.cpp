@@ -68,10 +68,10 @@ int sdl_list_monitors(SdlContext* sdl)
 	{
 		SDL_Rect rect = {};
 		auto id = ids[i];
-		const int brc = SDL_GetDisplayBounds(id, &rect);
+		const auto brc = SDL_GetDisplayBounds(id, &rect);
 		const char* name = SDL_GetDisplayName(id);
 
-		if (brc != 0)
+		if (!brc)
 			continue;
 		printf("     %s [%u] [%s] %dx%d\t+%d+%d\n", (i == 0) ? "*" : " ", id, name, rect.w, rect.h,
 		       rect.x, rect.y);
@@ -189,6 +189,9 @@ static BOOL sdl_apply_display_properties(SdlContext* sdl)
 
 	rdpSettings* settings = sdl->context()->settings;
 	WINPR_ASSERT(settings);
+	if (!freerdp_settings_get_bool(settings, FreeRDP_Fullscreen) &&
+	    !freerdp_settings_get_bool(settings, FreeRDP_UseMultimon))
+		return TRUE;
 
 	const UINT32 numIds = freerdp_settings_get_uint32(settings, FreeRDP_NumMonitorIds);
 	if (!freerdp_settings_set_pointer_len(settings, FreeRDP_MonitorDefArray, nullptr, numIds))

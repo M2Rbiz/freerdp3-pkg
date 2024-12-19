@@ -54,7 +54,7 @@
 #define WINPR_ATTR_MALLOC(deallocator, ptrindex) \
 	__attribute__((malloc(deallocator, ptrindex), warn_unused_result)) /** @since version 3.3.0 */
 #else
-#define WINPR_ATTR_MALLOC(deallocator, ptrindex) /** @since version 3.3.0 */
+#define WINPR_ATTR_MALLOC(deallocator, ptrindex) __declspec(restrict) /** @since version 3.3.0 */
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -145,15 +145,16 @@ WINPR_API const char* winpr_get_build_config(void);
  * @return The casted pointer
  * @since version 3.9.0
  */
-#define WINPR_REINTERPRET_CAST(ptr, srcType, dstType) \
-	__extension__({                                   \
-		union                                         \
-		{                                             \
-			srcType src;                              \
-			dstType dst;                              \
-		} cnv;                                        \
-		cnv.src = ptr;                                \
-		cnv.dst;                                      \
+#define WINPR_REINTERPRET_CAST(ptr, srcType, dstType)            \
+	__extension__({                                              \
+		union                                                    \
+		{                                                        \
+			srcType src;                                         \
+			dstType dst;                                         \
+		} cnv;                                                   \
+		WINPR_STATIC_ASSERT(sizeof(srcType) == sizeof(dstType)); \
+		cnv.src = ptr;                                           \
+		cnv.dst;                                                 \
 	})
 
 /**

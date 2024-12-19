@@ -478,6 +478,8 @@ static int transport_bio_buffered_write(BIO* bio, const char* buf, int num)
 
 	WINPR_ASSERT(bio);
 	WINPR_ASSERT(ptr);
+	if (num < 0)
+		return num;
 
 	ptr->writeBlocked = FALSE;
 	BIO_clear_flags(bio, BIO_FLAGS_WRITE);
@@ -485,7 +487,7 @@ static int transport_bio_buffered_write(BIO* bio, const char* buf, int num)
 	/* we directly append extra bytes in the xmit buffer, this could be prevented
 	 * but for now it makes the code more simple.
 	 */
-	if (buf && num && !ringbuffer_write(&ptr->xmitBuffer, (const BYTE*)buf, num))
+	if (buf && (num > 0) && !ringbuffer_write(&ptr->xmitBuffer, (const BYTE*)buf, (size_t)num))
 	{
 		WLog_ERR(TAG, "an error occurred when writing (num: %d)", num);
 		return -1;
@@ -499,7 +501,9 @@ static int transport_bio_buffered_write(BIO* bio, const char* buf, int num)
 		while (chunks[i].size)
 		{
 			ERR_clear_error();
-			const int status = BIO_write(next_bio, chunks[i].data, chunks[i].size);
+
+			const size_t wr = MIN(INT32_MAX, chunks[i].size);
+			const int status = BIO_write(next_bio, chunks[i].data, (int)wr);
 
 			if (status <= 0)
 			{
@@ -727,7 +731,7 @@ char* freerdp_tcp_get_peer_address(SOCKET sockfd)
 	struct sockaddr_storage saddr = { 0 };
 	socklen_t length = sizeof(struct sockaddr_storage);
 
-	if (getpeername(sockfd, (struct sockaddr*)&saddr, &length) != 0)
+	if (getpeername((int)sockfd, (struct sockaddr*)&saddr, &length) != 0)
 	{
 		return NULL;
 	}
@@ -853,9 +857,9 @@ static BOOL freerdp_tcp_connect_timeout(rdpContext* context, int sockfd, struct 
 	if (WAIT_OBJECT_0 != status)
 		goto fail;
 
-	status = recv(sockfd, NULL, 0, 0);
+	const SSIZE_T res = recv(sockfd, NULL, 0, 0);
 
-	if (status == SOCKET_ERROR)
+	if (res == SOCKET_ERROR)
 	{
 		if (WSAGetLastError() == WSAECONNRESET)
 			goto fail;
@@ -901,17 +905,16 @@ static int freerdp_tcp_connect_multi(rdpContext* context, char** hostnames, cons
 	UINT32 sindex = count;
 	int status = -1;
 	SOCKET sockfd = INVALID_SOCKET;
-	HANDLE* events = NULL;
 	struct addrinfo* addr = NULL;
 	struct addrinfo* result = NULL;
-	t_peer* peers = NULL;
-	events = (HANDLE*)calloc(count + 1, sizeof(HANDLE));
-	peers = (t_peer*)calloc(count, sizeof(t_peer));
+
+	HANDLE* events = (HANDLE*)calloc(count + 1, sizeof(HANDLE));
+	t_peer* peers = (t_peer*)calloc(count, sizeof(t_peer));
 
 	if (!peers || !events || (count < 1))
 	{
 		free(peers);
-		free(events);
+		free((void*)events);
 		return -1;
 	}
 
@@ -984,8 +987,8 @@ static int freerdp_tcp_connect_multi(rdpContext* context, char** hostnames, cons
 		peer_free(&peers[index]);
 
 	free(peers);
-	free(events);
-	return sockfd;
+	free((void*)events);
+	return (int)sockfd;
 }
 
 BOOL freerdp_tcp_set_keep_alive_mode(const rdpSettings* settings, int sockfd)
@@ -1201,9 +1204,10 @@ int freerdp_tcp_default_connect(rdpContext* context, rdpSettings* settings, cons
 			{
 				if (settings->TargetNetAddressCount > 0)
 				{
+					WINPR_ASSERT(port <= UINT16_MAX);
 					sockfd = freerdp_tcp_connect_multi(
 					    context, settings->TargetNetAddresses, settings->TargetNetPorts,
-					    settings->TargetNetAddressCount, port, timeout);
+					    settings->TargetNetAddressCount, (UINT16)port, timeout);
 				}
 			}
 		}

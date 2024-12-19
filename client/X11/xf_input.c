@@ -756,12 +756,23 @@ int xf_input_event(xfContext* xfc, const XEvent* xevent, XIDeviceEvent* event, i
 	WINPR_ASSERT(xevent);
 	WINPR_ASSERT(event);
 
+	/* When not running RAILS we only care about events for this window.
+	 * filter out anything else, like floatbar window events
+	 */
+	const Window w = xevent->xany.window;
+
 	settings = xfc->common.context.settings;
 	WINPR_ASSERT(settings);
 
 	xfWindow* window = xfc->window;
 	if (window)
 	{
+		if (w != window->handle)
+		{
+			if (!xfc->remote_app)
+				return 0;
+		}
+
 		if (xf_floatbar_is_locked(window->floatbar))
 			return 0;
 	}

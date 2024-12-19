@@ -226,7 +226,7 @@ static HANDLE ainput_server_get_channel_handle(ainput_server* ainput)
 	                           &BytesReturned) == TRUE)
 	{
 		if (BytesReturned == sizeof(HANDLE))
-			CopyMemory(&ChannelEvent, buffer, sizeof(HANDLE));
+			ChannelEvent = *(HANDLE*)buffer;
 
 		WTSFreeMemory(buffer);
 	}
@@ -576,7 +576,7 @@ UINT ainput_server_context_poll_int(ainput_server_context* context)
 			break;
 
 		default:
-			WLog_ERR(TAG, "AINPUT chanel is in invalid state %d", ainput->state);
+			WLog_ERR(TAG, "AINPUT channel is in invalid state %d", ainput->state);
 			break;
 	}
 

@@ -728,7 +728,7 @@ wStream* license_send_stream_init(rdpLicense* license)
 	 * layer is used. If the peer has not indicated that it is capable of
 	 * processing encrypted licensing packets (rdp->do_crypt_license) we turn
 	 * off encryption (via rdp->do_crypt) before initializing the rdp stream
-	 * and reenable it afterwards.
+	 * and re-enable it afterwards.
 	 */
 
 	if (do_crypt)
@@ -785,7 +785,10 @@ static BOOL license_send(rdpLicense* license, wStream* s, BYTE type)
 		flags |= EXTENDED_ERROR_MSG_SUPPORTED;
 
 	if (!license_write_preamble(s, type, flags, wMsgSize))
+	{
+		Stream_Release(s);
 		return FALSE;
+	}
 
 #ifdef WITH_DEBUG_LICENSE
 	WLog_DBG(TAG, "Sending %s Packet, length %" PRIu16 "", license_request_type_string(type),
@@ -1683,14 +1686,15 @@ BOOL license_scope_list_resize(SCOPE_LIST* scopeList, UINT32 count)
 
 	if (count > 0)
 	{
-		LICENSE_BLOB** tmp = realloc(scopeList->array, count * sizeof(LICENSE_BLOB*));
+		LICENSE_BLOB** tmp =
+		    (LICENSE_BLOB**)realloc((void*)scopeList->array, count * sizeof(LICENSE_BLOB*));
 		if (!tmp)
 			return FALSE;
 		scopeList->array = tmp;
 	}
 	else
 	{
-		free(scopeList->array);
+		free((void*)scopeList->array);
 		scopeList->array = NULL;
 	}
 
@@ -1741,7 +1745,7 @@ BOOL license_send_license_info(rdpLicense* license, const LICENSE_BLOB* calBlob,
 
 	if (!license_check_stream_capacity(s, 8 + sizeof(license->ClientRandom),
 	                                   "license info::ClientRandom"))
-		return FALSE;
+		goto error;
 
 	Stream_Write_UINT32(s,
 	                    license->PreferredKeyExchangeAlg); /* PreferredKeyExchangeAlg (4 bytes) */
@@ -2478,7 +2482,6 @@ BOOL license_answer_license_request(rdpLicense* license)
 
 BOOL license_send_platform_challenge_response(rdpLicense* license)
 {
-	wStream* s = license_send_stream_init(license);
 	wStream* challengeRespData = NULL;
 	BYTE* buffer = NULL;
 	BOOL status = 0;
@@ -2551,6 +2554,10 @@ BOOL license_send_platform_challenge_response(rdpLicense* license)
 	winpr_HexDump(TAG, WLOG_DEBUG, license->EncryptedHardwareId->data,
 	              license->EncryptedHardwareId->length);
 #endif
+	wStream* s = license_send_stream_init(license);
+	if (!s)
+		return FALSE;
+
 	if (license_write_client_platform_challenge_response(license, s))
 		return license_send(license, s, PLATFORM_CHALLENGE_RESPONSE);
 

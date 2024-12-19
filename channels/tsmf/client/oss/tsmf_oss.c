@@ -96,7 +96,7 @@ static BOOL tsmf_oss_open(ITSMFAudioDevice* audio, const char* device)
 #if 0 /* FreeBSD OSS implementation at this moment (2015.03) does not set PCM_CAP_OUTPUT flag. */
 	if (ioctl(oss->pcm_handle, SNDCTL_DSP_GETCAPS, &mask) == -1)
 	{
-		OSS_LOG_ERR("SNDCTL_DSP_GETCAPS failed, try ignory", errno);
+		OSS_LOG_ERR("SNDCTL_DSP_GETCAPS failed, try ignored", errno);
 	}
 	else if ((mask & PCM_CAP_OUTPUT) == 0)
 	{
@@ -167,7 +167,6 @@ static BOOL tsmf_oss_set_format(ITSMFAudioDevice* audio, UINT32 sample_rate, UIN
 
 static BOOL tsmf_oss_play(ITSMFAudioDevice* audio, const BYTE* data, UINT32 data_size)
 {
-	int status = 0;
 	UINT32 offset = 0;
 	TSMFOssAudioDevice* oss = (TSMFOssAudioDevice*)audio;
 	DEBUG_TSMF("tsmf_oss_play: data_size %" PRIu32 "", data_size);
@@ -183,7 +182,7 @@ static BOOL tsmf_oss_play(ITSMFAudioDevice* audio, const BYTE* data, UINT32 data
 
 	while (offset < data_size)
 	{
-		status = write(oss->pcm_handle, &data[offset], (data_size - offset));
+		const ssize_t status = write(oss->pcm_handle, &data[offset], (data_size - offset));
 
 		if (status < 0)
 		{

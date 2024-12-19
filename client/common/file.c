@@ -1285,7 +1285,7 @@ BOOL freerdp_client_populate_rdp_file_from_settings(rdpFile* file, const rdpSett
 			errno = 0;
 			val = strtoul(str, NULL, 0);
 			if ((val < UINT32_MAX) && (errno == 0))
-				file->EncodeRedirectedVideoCapture = val;
+				file->EncodeRedirectedVideoCapture = (UINT32)val;
 		}
 		free(str);
 
@@ -1298,7 +1298,7 @@ BOOL freerdp_client_populate_rdp_file_from_settings(rdpFile* file, const rdpSett
 			val = strtoul(str, NULL, 0);
 			if ((val <= 2) && (errno == 0))
 			{
-				file->RedirectedVideoCaptureEncodingQuality = val;
+				file->RedirectedVideoCaptureEncodingQuality = (UINT32)val;
 			}
 		}
 		free(str);
@@ -1655,11 +1655,11 @@ static ADDIN_ARGV* rdp_file_to_args(const char* channel, const char* values)
 		if (!rc)
 			goto fail;
 	}
-	free(p);
+	CommandLineParserFree(p);
 	return args;
 
 fail:
-	free(p);
+	CommandLineParserFree(p);
 	freerdp_addin_argv_free(args);
 	return NULL;
 }
@@ -2308,15 +2308,11 @@ BOOL freerdp_client_populate_settings_from_rdp_file(const rdpFile* file, rdpSett
 	if (~file->RedirectLocation && (file->RedirectLocation != 0))
 	{
 		size_t count = 0;
-		union
-		{
-			void* pv;
-			char** str;
-			const char** cstr;
-		} cnv;
-		cnv.str = CommandLineParseCommaSeparatedValuesEx(LOCATION_CHANNEL_NAME, NULL, &count);
-		const BOOL rc = freerdp_client_add_dynamic_channel(settings, count, cnv.cstr);
-		free(cnv.pv);
+
+		char** ptr = CommandLineParseCommaSeparatedValuesEx(LOCATION_CHANNEL_NAME, NULL, &count);
+		const BOOL rc =
+		    freerdp_client_add_dynamic_channel(settings, count, (const char* const*)ptr);
+		CommandLineParserFree(ptr);
 		if (!rc)
 			return FALSE;
 	}
@@ -2369,7 +2365,7 @@ BOOL freerdp_client_populate_settings_from_rdp_file(const rdpFile* file, rdpSett
 		union
 		{
 			char** c;
-			const char** cc;
+			const char* const* cc;
 		} cnv;
 		ADDIN_ARGV* args = rdp_file_to_args(RDPECAM_DVC_CHANNEL_NAME, file->RedirectCameras);
 		if (!args)
@@ -2413,7 +2409,7 @@ BOOL freerdp_client_populate_settings_from_rdp_file(const rdpFile* file, rdpSett
 		union
 		{
 			char** c;
-			const char** cc;
+			const char* const* cc;
 		} cnv;
 		ADDIN_ARGV* args = rdp_file_to_args(URBDRC_CHANNEL_NAME, file->UsbDevicesToRedirect);
 		if (!args)
@@ -2439,34 +2435,34 @@ BOOL freerdp_client_populate_settings_from_rdp_file(const rdpFile* file, rdpSett
 	if (~(size_t)file->SelectedMonitors)
 	{
 		size_t count = 0;
-		char** args = CommandLineParseCommaSeparatedValues(file->SelectedMonitors, &count);
+		char** ptr = CommandLineParseCommaSeparatedValues(file->SelectedMonitors, &count);
 		UINT32* list = NULL;
 
 		if (!freerdp_settings_set_pointer_len(settings, FreeRDP_MonitorIds, NULL, count))
 		{
-			free(args);
+			CommandLineParserFree(ptr);
 			return FALSE;
 		}
 		list = freerdp_settings_get_pointer_writable(settings, FreeRDP_MonitorIds);
 		if (!list && (count > 0))
 		{
-			free(args);
+			CommandLineParserFree(ptr);
 			return FALSE;
 		}
 		for (size_t x = 0; x < count; x++)
 		{
 			unsigned long val = 0;
 			errno = 0;
-			val = strtoul(args[x], NULL, 0);
+			val = strtoul(ptr[x], NULL, 0);
 			if ((val >= UINT32_MAX) && (errno != 0))
 			{
-				free(args);
+				CommandLineParserFree(ptr);
 				free(list);
 				return FALSE;
 			}
-			list[x] = val;
+			list[x] = (UINT32)val;
 		}
-		free(args);
+		CommandLineParserFree(ptr);
 	}
 
 	if (~file->DynamicResolution)

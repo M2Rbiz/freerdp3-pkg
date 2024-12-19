@@ -105,45 +105,49 @@ static BOOL check_context_(NTLM_CONTEXT* context, const char* file, const char* 
 	return rc;
 }
 
+static char* get_name(COMPUTER_NAME_FORMAT type)
+{
+	DWORD nSize = 0;
+
+	if (GetComputerNameExA(type, NULL, &nSize))
+		return NULL;
+
+	if (GetLastError() != ERROR_MORE_DATA)
+		return NULL;
+
+	char* computerName = calloc(1, nSize);
+
+	if (!computerName)
+		return NULL;
+
+	if (!GetComputerNameExA(type, computerName, &nSize))
+	{
+		free(computerName);
+		return NULL;
+	}
+
+	return computerName;
+}
+
 static int ntlm_SetContextWorkstation(NTLM_CONTEXT* context, char* Workstation)
 {
 	char* ws = Workstation;
-	DWORD nSize = 0;
 	CHAR* computerName = NULL;
 
 	WINPR_ASSERT(context);
 
 	if (!Workstation)
 	{
-		if (GetComputerNameExA(ComputerNameNetBIOS, NULL, &nSize) ||
-		    GetLastError() != ERROR_MORE_DATA)
-			return -1;
-
-		computerName = calloc(nSize, sizeof(CHAR));
-
+		computerName = get_name(ComputerNameNetBIOS);
 		if (!computerName)
 			return -1;
-
-		if (!GetComputerNameExA(ComputerNameNetBIOS, computerName, &nSize))
-		{
-			free(computerName);
-			return -1;
-		}
-
-		if (nSize > MAX_COMPUTERNAME_LENGTH)
-			computerName[MAX_COMPUTERNAME_LENGTH] = '\0';
-
 		ws = computerName;
-
-		if (!ws)
-			return -1;
 	}
 
 	size_t len = 0;
 	context->Workstation.Buffer = ConvertUtf8ToWCharAlloc(ws, &len);
 
-	if (!Workstation)
-		free(ws);
+	free(computerName);
 
 	if (!context->Workstation.Buffer || (len > UINT16_MAX / sizeof(WCHAR)))
 		return -1;
@@ -1083,7 +1087,7 @@ static SECURITY_STATUS SEC_ENTRY ntlm_EncryptMessage(PCtxtHandle phContext, ULON
 	if (hmac &&
 	    winpr_HMAC_Init(hmac, WINPR_MD_MD5, context->SendSigningKey, WINPR_MD5_DIGEST_LENGTH))
 	{
-		Data_Write_UINT32(&value, SeqNo);
+		winpr_Data_Write_UINT32(&value, SeqNo);
 		winpr_HMAC_Update(hmac, (void*)&value, 4);
 		winpr_HMAC_Update(hmac, data, length);
 		winpr_HMAC_Final(hmac, digest, WINPR_MD5_DIGEST_LENGTH);
@@ -1119,9 +1123,9 @@ static SECURITY_STATUS SEC_ENTRY ntlm_EncryptMessage(PCtxtHandle phContext, ULON
 	{
 		BYTE* signature = signature_buffer->pvBuffer;
 		/* Concatenate version, ciphertext and sequence number to build signature */
-		Data_Write_UINT32(signature, version);
+		winpr_Data_Write_UINT32(signature, version);
 		CopyMemory(&signature[4], (void*)checksum, 8);
-		Data_Write_UINT32(&signature[12], SeqNo);
+		winpr_Data_Write_UINT32(&signature[12], SeqNo);
 	}
 	context->SendSeqNum++;
 #ifdef WITH_DEBUG_NTLM
@@ -1182,7 +1186,7 @@ static SECURITY_STATUS SEC_ENTRY ntlm_DecryptMessage(PCtxtHandle phContext, PSec
 	if (hmac &&
 	    winpr_HMAC_Init(hmac, WINPR_MD_MD5, context->RecvSigningKey, WINPR_MD5_DIGEST_LENGTH))
 	{
-		Data_Write_UINT32(&value, SeqNo);
+		winpr_Data_Write_UINT32(&value, SeqNo);
 		winpr_HMAC_Update(hmac, (void*)&value, 4);
 		winpr_HMAC_Update(hmac, data_buffer->pvBuffer, data_buffer->cbBuffer);
 		winpr_HMAC_Final(hmac, digest, WINPR_MD5_DIGEST_LENGTH);
@@ -1205,9 +1209,9 @@ static SECURITY_STATUS SEC_ENTRY ntlm_DecryptMessage(PCtxtHandle phContext, PSec
 	/* RC4-encrypt first 8 bytes of digest */
 	winpr_RC4_Update(context->RecvRc4Seal, 8, digest, checksum);
 	/* Concatenate version, ciphertext and sequence number to build signature */
-	Data_Write_UINT32(expected_signature, version);
+	winpr_Data_Write_UINT32(expected_signature, version);
 	CopyMemory(&expected_signature[4], (void*)checksum, 8);
-	Data_Write_UINT32(&expected_signature[12], SeqNo);
+	winpr_Data_Write_UINT32(&expected_signature[12], SeqNo);
 	context->RecvSeqNum++;
 
 	if (memcmp(signature_buffer->pvBuffer, expected_signature, 16) != 0)
@@ -1258,7 +1262,7 @@ static SECURITY_STATUS SEC_ENTRY ntlm_MakeSignature(PCtxtHandle phContext, ULONG
 		return SEC_E_INTERNAL_ERROR;
 	}
 
-	Data_Write_UINT32(&seq_no, MessageSeqNo);
+	winpr_Data_Write_UINT32(&seq_no, MessageSeqNo);
 	winpr_HMAC_Update(hmac, (BYTE*)&seq_no, 4);
 	winpr_HMAC_Update(hmac, data_buffer->pvBuffer, data_buffer->cbBuffer);
 	winpr_HMAC_Final(hmac, digest, WINPR_MD5_DIGEST_LENGTH);
@@ -1267,9 +1271,9 @@ static SECURITY_STATUS SEC_ENTRY ntlm_MakeSignature(PCtxtHandle phContext, ULONG
 	winpr_RC4_Update(context->SendRc4Seal, 8, digest, checksum);
 
 	BYTE* signature = sig_buffer->pvBuffer;
-	Data_Write_UINT32(signature, 1L);
+	winpr_Data_Write_UINT32(signature, 1L);
 	CopyMemory(&signature[4], checksum, 8);
-	Data_Write_UINT32(&signature[12], seq_no);
+	winpr_Data_Write_UINT32(&signature[12], seq_no);
 	sig_buffer->cbBuffer = 16;
 
 	return SEC_E_OK;
@@ -1309,7 +1313,7 @@ static SECURITY_STATUS SEC_ENTRY ntlm_VerifySignature(PCtxtHandle phContext,
 		return SEC_E_INTERNAL_ERROR;
 	}
 
-	Data_Write_UINT32(&seq_no, MessageSeqNo);
+	winpr_Data_Write_UINT32(&seq_no, MessageSeqNo);
 	winpr_HMAC_Update(hmac, (BYTE*)&seq_no, 4);
 	winpr_HMAC_Update(hmac, data_buffer->pvBuffer, data_buffer->cbBuffer);
 	winpr_HMAC_Final(hmac, digest, WINPR_MD5_DIGEST_LENGTH);
@@ -1317,9 +1321,9 @@ static SECURITY_STATUS SEC_ENTRY ntlm_VerifySignature(PCtxtHandle phContext,
 
 	winpr_RC4_Update(context->RecvRc4Seal, 8, digest, checksum);
 
-	Data_Write_UINT32(signature, 1L);
+	winpr_Data_Write_UINT32(signature, 1L);
 	CopyMemory(&signature[4], checksum, 8);
-	Data_Write_UINT32(&signature[12], seq_no);
+	winpr_Data_Write_UINT32(&signature[12], seq_no);
 
 	if (memcmp(sig_buffer->pvBuffer, signature, 16) != 0)
 		return SEC_E_MESSAGE_ALTERED;

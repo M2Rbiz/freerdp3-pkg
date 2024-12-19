@@ -538,11 +538,10 @@ static size_t asn1IntegerLen(WinPrAsn1_INTEGER value)
 static size_t WinPrAsn1EncIntegerLike(WinPrAsn1Encoder* enc, WinPrAsn1_tag b,
                                       WinPrAsn1_INTEGER value)
 {
-	wStream staticS;
+	wStream staticS = { 0 };
 	wStream* s = &staticS;
-	size_t len = 0;
 
-	len = asn1IntegerLen(value);
+	const size_t len = asn1IntegerLen(value);
 	if (!asn1_getWriteStream(enc, 1 + len, s))
 		return 0;
 
@@ -551,16 +550,18 @@ static size_t WinPrAsn1EncIntegerLike(WinPrAsn1Encoder* enc, WinPrAsn1_tag b,
 	{
 		case 2:
 			Stream_Write_UINT8(s, 1);
-			Stream_Write_UINT8(s, value);
+			Stream_Write_INT8(s, (INT8)value);
 			break;
 		case 3:
 			Stream_Write_UINT8(s, 2);
-			Stream_Write_UINT16_BE(s, value);
+			Stream_Write_INT16_BE(s, (INT16)value);
 			break;
 		case 5:
 			Stream_Write_UINT8(s, 4);
-			Stream_Write_UINT32_BE(s, value);
+			Stream_Write_INT32_BE(s, (INT32)value);
 			break;
+		default:
+			return 0;
 	}
 	return 1 + len;
 }
@@ -578,17 +579,14 @@ size_t WinPrAsn1EncEnumerated(WinPrAsn1Encoder* enc, WinPrAsn1_ENUMERATED value)
 static size_t WinPrAsn1EncContextualIntegerLike(WinPrAsn1Encoder* enc, WinPrAsn1_tag tag,
                                                 WinPrAsn1_tagId tagId, WinPrAsn1_INTEGER value)
 {
-	wStream staticS;
+	wStream staticS = { 0 };
 	wStream* s = &staticS;
-	size_t len = 0;
-	size_t outLen = 0;
 
 	WINPR_ASSERT(enc);
 	WINPR_ASSERT_VALID_TAG(tagId);
 
-	len = asn1IntegerLen(value);
-
-	outLen = 1 + lenBytes(1 + len) + (1 + len);
+	const size_t len = asn1IntegerLen(value);
+	const size_t outLen = 1 + lenBytes(1 + len) + (1 + len);
 	if (!asn1_getWriteStream(enc, outLen, s))
 		return 0;
 
@@ -600,16 +598,18 @@ static size_t WinPrAsn1EncContextualIntegerLike(WinPrAsn1Encoder* enc, WinPrAsn1
 	{
 		case 2:
 			Stream_Write_UINT8(s, 1);
-			Stream_Write_UINT8(s, value);
+			Stream_Write_INT8(s, (INT8)value);
 			break;
 		case 3:
 			Stream_Write_UINT8(s, 2);
-			Stream_Write_UINT16_BE(s, value);
+			Stream_Write_INT16_BE(s, (INT16)value);
 			break;
 		case 5:
 			Stream_Write_UINT8(s, 4);
-			Stream_Write_UINT32_BE(s, value);
+			Stream_Write_INT32_BE(s, value);
 			break;
+		default:
+			return 0;
 	}
 	return outLen;
 }
@@ -766,7 +766,7 @@ static void write2digit(wStream* s, UINT8 v)
 
 size_t WinPrAsn1EncUtcTime(WinPrAsn1Encoder* enc, const WinPrAsn1_UTCTIME* utc)
 {
-	wStream staticS;
+	wStream staticS = { 0 };
 	wStream* s = &staticS;
 
 	WINPR_ASSERT(enc);
@@ -779,13 +779,13 @@ size_t WinPrAsn1EncUtcTime(WinPrAsn1Encoder* enc, const WinPrAsn1_UTCTIME* utc)
 	Stream_Write_UINT8(s, ER_TAG_UTCTIME);
 	Stream_Write_UINT8(s, 13);
 
-	write2digit(s, utc->year - 2000);
+	write2digit(s, (UINT8)(utc->year - 2000));
 	write2digit(s, utc->month);
 	write2digit(s, utc->day);
 	write2digit(s, utc->hour);
 	write2digit(s, utc->minute);
 	write2digit(s, utc->second);
-	Stream_Write_UINT8(s, utc->tz);
+	Stream_Write_INT8(s, utc->tz);
 	return 15;
 }
 
@@ -799,6 +799,7 @@ size_t WinPrAsn1EncContextualUtcTime(WinPrAsn1Encoder* enc, WinPrAsn1_tagId tagI
 	WINPR_ASSERT_VALID_TAG(tagId);
 	WINPR_ASSERT(utc);
 	WINPR_ASSERT(utc->year >= 2000);
+	WINPR_ASSERT(utc->year < 2256);
 
 	if (!asn1_getWriteStream(enc, 17, s))
 		return 0;
@@ -809,13 +810,13 @@ size_t WinPrAsn1EncContextualUtcTime(WinPrAsn1Encoder* enc, WinPrAsn1_tagId tagI
 	Stream_Write_UINT8(s, ER_TAG_UTCTIME);
 	Stream_Write_UINT8(s, 13);
 
-	write2digit(s, utc->year - 2000);
+	write2digit(s, (UINT8)(utc->year - 2000));
 	write2digit(s, utc->month);
 	write2digit(s, utc->day);
 	write2digit(s, utc->hour);
 	write2digit(s, utc->minute);
 	write2digit(s, utc->second);
-	Stream_Write_UINT8(s, utc->tz);
+	Stream_Write_INT8(s, utc->tz);
 
 	return 17;
 }

@@ -31,7 +31,7 @@
 #include "prim_internal.h"
 #include "prim_YUV.h"
 
-#if defined(SSE2_ENABLED)
+#if defined(SSE_AVX_INTRINSICS_ENABLED)
 #include <emmintrin.h>
 #include <tmmintrin.h>
 
@@ -735,8 +735,8 @@ static pstatus_t ssse3_RGBToAVC444YUV_BGRX(const BYTE* WINPR_RESTRICT pSrc, UINT
 		const BOOL last = (y >= (roi->height - 1));
 		const BYTE* srcEven = y < roi->height ? pSrc + y * srcStep : pMaxSrc;
 		const BYTE* srcOdd = !last ? pSrc + (y + 1) * srcStep : pMaxSrc;
-		const UINT32 i = y >> 1;
-		const UINT32 n = (i & ~7) + i;
+		const size_t i = y >> 1;
+		const size_t n = (i & ~7) + i;
 		BYTE* b1Even = pDst1[0] + y * dst1Step[0];
 		BYTE* b1Odd = !last ? (b1Even + dst1Step[0]) : NULL;
 		BYTE* b2 = pDst1[1] + (y / 2) * dst1Step[1];
@@ -900,8 +900,8 @@ static INLINE void ssse3_RGBToAVC444YUVv2_BGRX_DOUBLE_ROW(
 				const __m128i mask =
 				    _mm_set_epi8((char)0x80, (char)0x80, (char)0x80, (char)0x80, (char)0x80,
 				                 (char)0x80, (char)0x80, (char)0x80, 15, 13, 11, 9, 7, 5, 3, 1);
-				const __m128i udo = _mm_shuffle_epi8(uo, mask);
-				_mm_storel_epi64((__m128i*)yOddChromaDst1, udo);
+				const __m128i udo /* codespell:ignore udo */ = _mm_shuffle_epi8(uo, mask);
+				_mm_storel_epi64((__m128i*)yOddChromaDst1, udo); // codespell:ignore udo
 				yOddChromaDst1 += 8;
 			}
 
@@ -1156,8 +1156,8 @@ static pstatus_t ssse3_LumaToYUV444(const BYTE* WINPR_RESTRICT pSrcRaw[], const 
 
 		for (; x < halfWidth; x++)
 		{
-			const UINT32 val2x = 2 * x + evenX;
-			const UINT32 val2x1 = val2x + oddX;
+			const size_t val2x = 2 * x + evenX;
+			const size_t val2x1 = val2x + oddX;
 			pU[val2x] = Um[x];
 			pV[val2x] = Vm[x];
 			pU[val2x1] = Um[x];
@@ -1209,8 +1209,8 @@ static pstatus_t ssse3_ChromaFilter(BYTE* WINPR_RESTRICT pDst[], const UINT32 ds
 	for (size_t y = roi->top; y < halfHeight + roi->top; y++)
 	{
 		size_t x = roi->left;
-		const UINT32 val2y = (y * 2 + evenY);
-		const UINT32 val2y1 = val2y + oddY;
+		const size_t val2y = (y * 2ULL + evenY);
+		const size_t val2y1 = val2y + oddY;
 		BYTE* pU1 = pDst[1] + 1ULL * dstStep[1] * val2y1;
 		BYTE* pV1 = pDst[2] + 1ULL * dstStep[2] * val2y1;
 		BYTE* pU = pDst[1] + 1ULL * dstStep[1] * val2y;
@@ -1227,8 +1227,8 @@ static pstatus_t ssse3_ChromaFilter(BYTE* WINPR_RESTRICT pDst[], const UINT32 ds
 
 		for (; x < halfWidth + roi->left; x++)
 		{
-			const UINT32 val2x = (x * 2);
-			const UINT32 val2x1 = val2x + 1;
+			const size_t val2x = (x * 2ULL);
+			const size_t val2x1 = val2x + 1ULL;
 			const BYTE inU = pU[val2x];
 			const BYTE inV = pV[val2x];
 			const INT32 up = inU * 4;
@@ -1265,7 +1265,7 @@ static pstatus_t ssse3_ChromaV1ToYUV444(const BYTE* WINPR_RESTRICT pSrcRaw[3],
 	const UINT32 oddY = 1;
 	const UINT32 evenY = 0;
 	const UINT32 oddX = 1;
-	/* The auxilary frame is aligned to multiples of 16x16.
+	/* The auxiliary frame is aligned to multiples of 16x16.
 	 * We need the padded height for B4 and B5 conversion. */
 	const UINT32 padHeigth = nHeight + 16 - nHeight % 16;
 	const BYTE* pSrc[3] = { pSrcRaw[0] + 1ULL * roi->top * srcStep[0] + roi->left,
@@ -1337,7 +1337,7 @@ static pstatus_t ssse3_ChromaV1ToYUV444(const BYTE* WINPR_RESTRICT pSrcRaw[3],
 
 		for (; x < halfWidth; x++)
 		{
-			const UINT32 val2x1 = (x * 2 + oddX);
+			const size_t val2x1 = (x * 2ULL + oddX);
 			pU[val2x1] = Ua[x];
 			pV[val2x1] = Va[x];
 		}
@@ -1401,7 +1401,7 @@ static pstatus_t ssse3_ChromaV2ToYUV444(const BYTE* WINPR_RESTRICT pSrc[3], cons
 
 		for (; x < halfWidth; x++)
 		{
-			const UINT32 odd = 2 * x + 1;
+			const size_t odd = 2ULL * x + 1;
 			pU[odd] = pYaU[x];
 			pV[odd] = pYaV[x];
 		}
@@ -1496,7 +1496,7 @@ static pstatus_t ssse3_YUV420CombineToYUV444(avc444_frame_type type,
 
 void primitives_init_YUV_ssse3(primitives_t* WINPR_RESTRICT prims)
 {
-#if defined(SSE2_ENABLED)
+#if defined(SSE_AVX_INTRINSICS_ENABLED)
 	generic = primitives_get_generic();
 	primitives_init_YUV(prims);
 
@@ -1512,7 +1512,7 @@ void primitives_init_YUV_ssse3(primitives_t* WINPR_RESTRICT prims)
 		prims->YUV420CombineToYUV444 = ssse3_YUV420CombineToYUV444;
 	}
 #else
-	WLog_VRB(PRIM_TAG, "undefined WITH_SSE2");
+	WLog_VRB(PRIM_TAG, "undefined WITH_SIMD or SSSE3 intrinsics not available");
 	WINPR_UNUSED(prims);
 #endif
 }

@@ -112,8 +112,12 @@ static BOOL WLog_JournaldAppender_WriteMessage(wLog* log, wLogAppender* appender
 	WLog_Layout_GetMessagePrefix(log, appender->Layout, message);
 
 	if (message->Level != WLOG_OFF)
-		(void)fprintf(journaldAppender->stream, formatStr, message->PrefixString,
-		              message->TextString);
+	{
+		WINPR_PRAGMA_DIAG_PUSH
+		WINPR_PRAGMA_DIAG_IGNORED_FORMAT_NONLITERAL(void)
+		fprintf(journaldAppender->stream, formatStr, message->PrefixString, message->TextString);
+		WINPR_PRAGMA_DIAG_POP
+	}
 	return TRUE;
 }
 
@@ -143,7 +147,7 @@ static BOOL WLog_JournaldAppender_Set(wLogAppender* appender, const char* settin
 	if (!value || (strnlen(value, 2) == 0))
 		return FALSE;
 
-	if (strcmp("identifier", setting))
+	if (strcmp("identifier", setting) != 0)
 		return FALSE;
 
 	/* If the stream is already open the identifier can't be changed */
