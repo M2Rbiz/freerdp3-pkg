@@ -1,3 +1,11 @@
+freerdp3 (3.10.3+dfsg-1~bpo12+1) bookworm-backports; urgency=medium
+
+  * Rebuild for bookworm-backports: restrict build to architectures not affected
+    by time64_t (t64) transition, and require older dpkg.
+  * Add myself to uploaders.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 14 Jan 2025 12:08:57 +0300
+
 freerdp3 (3.10.3+dfsg-1) unstable; urgency=medium
 
   * New upstream version 3.10.3+dfsg
