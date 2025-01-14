@@ -1,3 +1,15 @@
+freerdp3 (3.10.3+dfsg-1) unstable; urgency=medium
+
+  * New upstream version 3.10.3+dfsg
+  * Revert "Cherry-pick 2 patches from future 3.10.3":
+    0001-winpr-sysinfo-fix-use-of-GetComputerNameExA.patch
+    0002-cmake-fix-regeneration-of-config-files-after-clean.patch
+    are now included in 3.10.3
+  * mostly mechanical little d/copyright update (SDL=>SDL2+SDL3)
+    (needs a lot more work)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 14 Jan 2025 09:31:32 +0300
+
 freerdp3 (3.10.2+dfsg-1) unstable; urgency=medium
 
   * Team upload
