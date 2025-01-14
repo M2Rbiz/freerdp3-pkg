@@ -29,7 +29,6 @@ Files-Excluded:
 
 Files: .clang-format
  .gitignore
- .travis.yml
  CMakeCPack.cmake
  CMakeCPackOptions.cmake.in
  ChangeLog
@@ -67,27 +66,48 @@ Files: .clang-format
  channels/urbdrc/ChannelOptions.cmake
  channels/video/ChannelOptions.cmake
  client/FreeRDP-ClientConfig.cmake.in
- client/SDL/aad/CMakeLists.txt
- client/SDL/aad/dummy.cpp
- client/SDL/aad/sdl_config.hpp.in
- client/SDL/aad/wrapper/README
- client/SDL/dialogs/CMakeLists.txt
- client/SDL/dialogs/font/README.txt
- client/SDL/dialogs/sdl_button.hpp
- client/SDL/dialogs/sdl_buttons.cpp
- client/SDL/dialogs/sdl_buttons.hpp
- client/SDL/dialogs/sdl_input_widgets.cpp
- client/SDL/dialogs/sdl_input_widgets.hpp
- client/SDL/dialogs/sdl_selectlist.cpp
- client/SDL/dialogs/sdl_selectlist.hpp
- client/SDL/dialogs/res/CMakeLists.txt
- client/SDL/dialogs/test/CMakeLists.txt
- client/SDL/dialogs/test/TestSDLDialogs.cpp
- client/SDL/man/CMakeLists.txt
- client/SDL/man/sdl-freerdp-config.1.xml.in
- client/SDL/man/sdl-freerdp-envvar.1.xml.in
- client/SDL/man/sdl-freerdp-examples.1.xml.in
- client/SDL/man/sdl-freerdp.1.xml.in
+ client/SDL/SDL2/CMakeLists.txt
+ client/SDL/SDL2/aad/sdl_config.hpp.in
+ client/SDL/SDL2/aad/wrapper/README
+ client/SDL/SDL2/dialogs/CMakeLists.txt
+ client/SDL/SDL2/dialogs/font/README.txt
+ client/SDL/SDL2/dialogs/sdl_button.hpp
+ client/SDL/SDL2/dialogs/sdl_buttons.cpp
+ client/SDL/SDL2/dialogs/sdl_buttons.hpp
+ client/SDL/SDL2/dialogs/sdl_input_widgets.cpp
+ client/SDL/SDL2/dialogs/sdl_input_widgets.hpp
+ client/SDL/SDL2/dialogs/sdl_selectlist.cpp
+ client/SDL/SDL2/dialogs/sdl_selectlist.hpp
+ client/SDL/SDL2/dialogs/res/CMakeLists.txt
+ client/SDL/SDL2/dialogs/test/CMakeLists.txt
+ client/SDL/SDL2/dialogs/test/TestSDLDialogs.cpp
+ client/SDL/SDL2/man/CMakeLists.txt
+ client/SDL/SDL2/man/sdl-freerdp-config.1.xml.in
+ client/SDL/SDL2/man/sdl-freerdp-envvar.1.xml.in
+ client/SDL/SDL2/man/sdl-freerdp-examples.1.xml.in
+ client/SDL/SDL2/man/sdl-freerdp.1.xml.in
+ client/SDL/SDL3/CMakeLists.txt
+ client/SDL/SDL3/aad/CMakeLists.txt
+ client/SDL/SDL3/aad/dummy.cpp
+ client/SDL/SDL3/aad/sdl_config.hpp.in
+ client/SDL/SDL3/aad/wrapper/README
+ client/SDL/SDL3/dialogs/CMakeLists.txt
+ client/SDL/SDL3/dialogs/font/README.txt
+ client/SDL/SDL3/dialogs/sdl_button.hpp
+ client/SDL/SDL3/dialogs/sdl_buttons.cpp
+ client/SDL/SDL3/dialogs/sdl_buttons.hpp
+ client/SDL/SDL3/dialogs/sdl_input_widgets.cpp
+ client/SDL/SDL3/dialogs/sdl_input_widgets.hpp
+ client/SDL/SDL3/dialogs/sdl_selectlist.cpp
+ client/SDL/SDL3/dialogs/sdl_selectlist.hpp
+ client/SDL/SDL3/dialogs/res/CMakeLists.txt
+ client/SDL/SDL3/dialogs/test/CMakeLists.txt
+ client/SDL/SDL3/dialogs/test/TestSDLDialogs.cpp
+ client/SDL/SDL3/man/CMakeLists.txt
+ client/SDL/SDL3/man/sdl-freerdp-config.1.xml.in
+ client/SDL/SDL3/man/sdl-freerdp-envvar.1.xml.in
+ client/SDL/SDL3/man/sdl-freerdp-examples.1.xml.in
+ client/SDL/SDL3/man/sdl-freerdp.1.xml.in
  client/Sample/ModuleOptions.cmake
  client/Wayland/wlfreerdp.1.in
  client/X11/ModuleOptions.cmake
@@ -480,8 +500,6 @@ Files: .clang-format
  winpr/libwinpr/thread/test/TestThreadCommandLineToArgv.c
  winpr/libwinpr/thread/test/TestThreadCreateProcess.c
  winpr/libwinpr/timezone/ModuleOptions.cmake
- winpr/libwinpr/timezone/TimeZones.c
- winpr/libwinpr/timezone/TimeZones.h
  winpr/libwinpr/timezone/WindowsZones.c
  winpr/libwinpr/timezone/WindowsZones.h
  winpr/libwinpr/utils/ModuleOptions.cmake
@@ -1078,9 +1096,12 @@ Files: channels/audin/client/ios/CMakeLists.txt
  channels/urbdrc/common/CMakeLists.txt
  channels/urbdrc/common/urbdrc_helpers.c
  channels/urbdrc/common/urbdrc_helpers.h
- client/SDL/dialogs/sdl_button.cpp
- client/SDL/sdl_window.cpp
- client/SDL/sdl_window.hpp
+ client/SDL/SDL2/dialogs/sdl_button.cpp
+ client/SDL/SDL2/sdl_window.cpp
+ client/SDL/SDL2/sdl_window.hpp
+ client/SDL/SDL3/dialogs/sdl_button.cpp
+ client/SDL/SDL3/sdl_window.cpp
+ client/SDL/SDL3/sdl_window.hpp
  client/Sample/tf_channels.c
  client/Sample/tf_channels.h
  client/Sample/tf_freerdp.h
@@ -1503,35 +1524,65 @@ Copyright: 2017, Armin Novak <anovak@thincast.com>
   2023, Thincast Technologies GmbH
 License: Apache-2.0
 
-Files: client/SDL/dialogs/sdl_connection_dialog.cpp
- client/SDL/dialogs/sdl_connection_dialog.hpp
- client/SDL/dialogs/sdl_dialogs.cpp
- client/SDL/dialogs/sdl_dialogs.hpp
- client/SDL/dialogs/sdl_input.cpp
- client/SDL/dialogs/sdl_input.hpp
- client/SDL/dialogs/sdl_select.cpp
- client/SDL/dialogs/sdl_select.hpp
- client/SDL/dialogs/sdl_widget.cpp
- client/SDL/dialogs/sdl_widget.hpp
- client/SDL/dialogs/res/sdl_resource_file.cpp
- client/SDL/dialogs/res/sdl_resource_file.hpp
- client/SDL/dialogs/res/sdl_resource_manager.cpp
- client/SDL/dialogs/res/sdl_resource_manager.hpp
- client/SDL/sdl_channels.cpp
- client/SDL/sdl_channels.hpp
- client/SDL/sdl_disp.cpp
- client/SDL/sdl_disp.hpp
- client/SDL/sdl_freerdp.cpp
- client/SDL/sdl_freerdp.hpp
- client/SDL/sdl_kbd.cpp
- client/SDL/sdl_kbd.hpp
- client/SDL/sdl_pointer.cpp
- client/SDL/sdl_pointer.hpp
- client/SDL/sdl_touch.cpp
- client/SDL/sdl_touch.hpp
- client/SDL/sdl_types.hpp
- client/SDL/sdl_utils.cpp
- client/SDL/sdl_utils.hpp
+Files:
+ client/SDL/SDL2/dialogs/sdl_connection_dialog.cpp
+ client/SDL/SDL2/dialogs/sdl_connection_dialog.hpp
+ client/SDL/SDL2/dialogs/sdl_dialogs.cpp
+ client/SDL/SDL2/dialogs/sdl_dialogs.hpp
+ client/SDL/SDL2/dialogs/sdl_input.cpp
+ client/SDL/SDL2/dialogs/sdl_input.hpp
+ client/SDL/SDL2/dialogs/sdl_select.cpp
+ client/SDL/SDL2/dialogs/sdl_select.hpp
+ client/SDL/SDL2/dialogs/sdl_widget.cpp
+ client/SDL/SDL2/dialogs/sdl_widget.hpp
+ client/SDL/SDL2/dialogs/res/sdl_resource_file.cpp
+ client/SDL/SDL2/dialogs/res/sdl_resource_file.hpp
+ client/SDL/SDL2/dialogs/res/sdl_resource_manager.cpp
+ client/SDL/SDL2/dialogs/res/sdl_resource_manager.hpp
+ client/SDL/SDL2/sdl_channels.cpp
+ client/SDL/SDL2/sdl_channels.hpp
+ client/SDL/SDL2/sdl_disp.cpp
+ client/SDL/SDL2/sdl_disp.hpp
+ client/SDL/SDL2/sdl_freerdp.cpp
+ client/SDL/SDL2/sdl_freerdp.hpp
+ client/SDL/SDL2/sdl_kbd.cpp
+ client/SDL/SDL2/sdl_kbd.hpp
+ client/SDL/SDL2/sdl_pointer.cpp
+ client/SDL/SDL2/sdl_pointer.hpp
+ client/SDL/SDL2/sdl_touch.cpp
+ client/SDL/SDL2/sdl_touch.hpp
+ client/SDL/SDL2/sdl_types.hpp
+ client/SDL/SDL2/sdl_utils.cpp
+ client/SDL/SDL2/sdl_utils.hpp
+ client/SDL/SDL3/dialogs/sdl_connection_dialog.cpp
+ client/SDL/SDL3/dialogs/sdl_connection_dialog.hpp
+ client/SDL/SDL3/dialogs/sdl_dialogs.cpp
+ client/SDL/SDL3/dialogs/sdl_dialogs.hpp
+ client/SDL/SDL3/dialogs/sdl_input.cpp
+ client/SDL/SDL3/dialogs/sdl_input.hpp
+ client/SDL/SDL3/dialogs/sdl_select.cpp
+ client/SDL/SDL3/dialogs/sdl_select.hpp
+ client/SDL/SDL3/dialogs/sdl_widget.cpp
+ client/SDL/SDL3/dialogs/sdl_widget.hpp
+ client/SDL/SDL3/dialogs/res/sdl_resource_file.cpp
+ client/SDL/SDL3/dialogs/res/sdl_resource_file.hpp
+ client/SDL/SDL3/dialogs/res/sdl_resource_manager.cpp
+ client/SDL/SDL3/dialogs/res/sdl_resource_manager.hpp
+ client/SDL/SDL3/sdl_channels.cpp
+ client/SDL/SDL3/sdl_channels.hpp
+ client/SDL/SDL3/sdl_disp.cpp
+ client/SDL/SDL3/sdl_disp.hpp
+ client/SDL/SDL3/sdl_freerdp.cpp
+ client/SDL/SDL3/sdl_freerdp.hpp
+ client/SDL/SDL3/sdl_kbd.cpp
+ client/SDL/SDL3/sdl_kbd.hpp
+ client/SDL/SDL3/sdl_pointer.cpp
+ client/SDL/SDL3/sdl_pointer.hpp
+ client/SDL/SDL3/sdl_touch.cpp
+ client/SDL/SDL3/sdl_touch.hpp
+ client/SDL/SDL3/sdl_types.hpp
+ client/SDL/SDL3/sdl_utils.cpp
+ client/SDL/SDL3/sdl_utils.hpp
  client/X11/xf_utils.c
  client/X11/xf_utils.h
  winpr/libwinpr/utils/android.c
@@ -1609,11 +1660,17 @@ Files: channels/disp/disp_common.c
 Copyright: 2019, Kobi Mizrachi <kmizrachi18@gmail.com>
 License: Apache-2.0
 
-Files: client/SDL/aad/qt/webview_impl.cpp
- client/SDL/aad/sdl_webview.cpp
- client/SDL/aad/sdl_webview.hpp
- client/SDL/aad/webview_impl.hpp
- client/SDL/aad/wrapper/webview_impl.cpp
+Files:
+ client/SDL/SDL2/aad/qt/webview_impl.cpp
+ client/SDL/SDL2/aad/sdl_webview.cpp
+ client/SDL/SDL2/aad/sdl_webview.hpp
+ client/SDL/SDL2/aad/webview_impl.hpp
+ client/SDL/SDL2/aad/wrapper/webview_impl.cpp
+ client/SDL/SDL3/aad/qt/webview_impl.cpp
+ client/SDL/SDL3/aad/sdl_webview.cpp
+ client/SDL/SDL3/aad/sdl_webview.hpp
+ client/SDL/SDL3/aad/webview_impl.hpp
+ client/SDL/SDL3/aad/wrapper/webview_impl.cpp
  include/freerdp/utils/http.h
  libfreerdp/core/aad.c
  libfreerdp/core/aad.h
@@ -2136,9 +2193,12 @@ Copyright: 2015, David FORT <contact@hardening-consulting.com>
   2015, Thincast Technologies GmbH
 License: HPND-sell-variant~and/or~NTP~disclaimer
 
-Files: client/SDL/dialogs/font/OFL.txt
- client/SDL/dialogs/font/OpenSans-Italic-VariableFont_wdth,wght.ttf
- client/SDL/dialogs/font/OpenSans-VariableFont_wdth,wght.ttf
+Files:
+ client/SDL/SDL3/dialogs/font/OFL.txt
+ client/SDL/SDL3/dialogs/font/OpenSans-Italic-VariableFont_wdth,wght.ttf
+ client/SDL/SDL3/dialogs/font/OpenSans-VariableFont_wdth,wght.ttf
+ resources/font/OpenSans-Italic-VariableFont_wdth,wght.ttf
+ resources/font/OpenSans-VariableFont_wdth,wght.ttf
 Copyright: 2020, The Open Sans Project Authors (https://github.com/googlefonts/opensans)
 License: OFL-1.1
 
@@ -2165,9 +2225,13 @@ Copyright: 2011, Anthony Tong <atong@trustedcs.com>
   Alexi Volkov <alexi@myrealbox.com> 2006
 License: Apache-2.0
 
-Files: client/SDL/CMakeLists.txt
- client/SDL/sdl_monitor.hpp
- client/SDL/dialogs/res/convert_res_to_c.cpp
+Files:
+ client/SDL/SDL2/CMakeLists.txt
+ client/SDL/SDL2/sdl_monitor.hpp
+ client/SDL/SDL2/dialogs/res/convert_res_to_c.cpp
+ client/SDL/SDL3/CMakeLists.txt
+ client/SDL/SDL3/sdl_monitor.hpp
+ client/SDL/SDL3/dialogs/res/convert_res_to_c.cpp
 Copyright: 2022, Armin Novak <anovak@thincast.com>
   2023, Armin Novak <anovak@thincast.com>
 License: Apache-2.0
@@ -2311,7 +2375,9 @@ Copyright: 2012, Marc-Andre Moreau <marcandre.moreau@gmail.com>
   2021, David Fort <contact@hardening-consulting.com>
 License: Apache-2.0
 
-Files: client/SDL/sdl_monitor.cpp
+Files:
+ client/SDL/SDL2/sdl_monitor.cpp
+ client/SDL/SDL3/sdl_monitor.cpp
  client/X11/xf_monitor.c
 Copyright: 2011, Marc-Andre Moreau <marcandre.moreau@gmail.com>
   2017, David Fort <contact@hardening-consulting.com>
@@ -3066,7 +3132,9 @@ Copyright: 2006, Andreas Schneider <mail@cynapses.org>
   2008, Kyle Machulis <kyle@nonpolynomial.com>
 License: BSD-3-clause
 
-Files: client/SDL/aad/wrapper/webview.h
+Files:
+ client/SDL/SDL2/aad/wrapper/webview.h
+ client/SDL/SDL3/aad/wrapper/webview.h
 Copyright: 2017, Serge Zaitsev
   2022, Steffen André Langnes
 License: Expat
