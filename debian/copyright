@@ -66,9 +66,11 @@ Files: .clang-format
  channels/urbdrc/ChannelOptions.cmake
  channels/video/ChannelOptions.cmake
  client/FreeRDP-ClientConfig.cmake.in
- client/SDL/SDL2/CMakeLists.txt
- client/SDL/SDL2/aad/sdl_config.hpp.in
- client/SDL/SDL2/aad/wrapper/README
+ client/SDL/CMakeLists.txt
+ client/SDL/common/aad/sdl_config.hpp.in
+ client/SDL/common/aad/wrapper/README
+ client/SDL/common/man/sdl-freerdp-config.1.in
+ client/SDL/common/man/sdl-freerdp-examples.1.in
  client/SDL/SDL2/dialogs/CMakeLists.txt
  client/SDL/SDL2/dialogs/font/README.txt
  client/SDL/SDL2/dialogs/sdl_button.hpp
@@ -82,15 +84,7 @@ Files: .clang-format
  client/SDL/SDL2/dialogs/test/CMakeLists.txt
  client/SDL/SDL2/dialogs/test/TestSDLDialogs.cpp
  client/SDL/SDL2/man/CMakeLists.txt
- client/SDL/SDL2/man/sdl-freerdp-config.1.xml.in
- client/SDL/SDL2/man/sdl-freerdp-envvar.1.xml.in
- client/SDL/SDL2/man/sdl-freerdp-examples.1.xml.in
- client/SDL/SDL2/man/sdl-freerdp.1.xml.in
- client/SDL/SDL3/CMakeLists.txt
- client/SDL/SDL3/aad/CMakeLists.txt
- client/SDL/SDL3/aad/dummy.cpp
- client/SDL/SDL3/aad/sdl_config.hpp.in
- client/SDL/SDL3/aad/wrapper/README
+ client/SDL/SDL2/man/sdl2-freerdp.1.in
  client/SDL/SDL3/dialogs/CMakeLists.txt
  client/SDL/SDL3/dialogs/font/README.txt
  client/SDL/SDL3/dialogs/sdl_button.hpp
@@ -104,10 +98,7 @@ Files: .clang-format
  client/SDL/SDL3/dialogs/test/CMakeLists.txt
  client/SDL/SDL3/dialogs/test/TestSDLDialogs.cpp
  client/SDL/SDL3/man/CMakeLists.txt
- client/SDL/SDL3/man/sdl-freerdp-config.1.xml.in
- client/SDL/SDL3/man/sdl-freerdp-envvar.1.xml.in
- client/SDL/SDL3/man/sdl-freerdp-examples.1.xml.in
- client/SDL/SDL3/man/sdl-freerdp.1.xml.in
+ client/SDL/SDL3/man/sdl3-freerdp.1.in
  client/Sample/ModuleOptions.cmake
  client/Wayland/wlfreerdp.1.in
  client/X11/ModuleOptions.cmake
@@ -293,7 +284,7 @@ Files: .clang-format
  scripts/bundle-mac-os.sh
  scripts/create_release_tarball.sh
  scripts/fetch_language_identifiers.py
- scripts/gprof_generate.sh.cmake
+ scripts/gprof_generate.sh.in
  scripts/mingw-meson.conf
  scripts/mingw.sh
  scripts/mingw64.cmake
@@ -813,7 +804,6 @@ Files: channels/CMakeLists.txt
  rdtk/librdtk/rdtk_text_field.h
  rdtk/sample/CMakeLists.txt
  rdtk/sample/rdtk_x11.c
- scripts/TimeZones.csx
  scripts/xkb.pl
  server/CMakeLists.txt
  server/Sample/CMakeLists.txt
@@ -1661,16 +1651,11 @@ Copyright: 2019, Kobi Mizrachi <kmizrachi18@gmail.com>
 License: Apache-2.0
 
 Files:
- client/SDL/SDL2/aad/qt/webview_impl.cpp
- client/SDL/SDL2/aad/sdl_webview.cpp
- client/SDL/SDL2/aad/sdl_webview.hpp
- client/SDL/SDL2/aad/webview_impl.hpp
- client/SDL/SDL2/aad/wrapper/webview_impl.cpp
- client/SDL/SDL3/aad/qt/webview_impl.cpp
- client/SDL/SDL3/aad/sdl_webview.cpp
- client/SDL/SDL3/aad/sdl_webview.hpp
- client/SDL/SDL3/aad/webview_impl.hpp
- client/SDL/SDL3/aad/wrapper/webview_impl.cpp
+ client/SDL/common/aad/qt/webview_impl.cpp
+ client/SDL/common/aad/sdl_webview.cpp
+ client/SDL/common/aad/sdl_webview.hpp
+ client/SDL/common/aad/webview_impl.hpp
+ client/SDL/common/aad/wrapper/webview_impl.cpp
  include/freerdp/utils/http.h
  libfreerdp/core/aad.c
  libfreerdp/core/aad.h
