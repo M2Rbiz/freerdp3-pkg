@@ -74,19 +74,6 @@ Description: RDP client for Windows Terminal Services (X11 client)
  FreeRDP is a libre client/server implementation of the Remote
  Desktop Protocol (RDP).
  .
- Currently, the FreeRDP client supports the following Windows Versions:
- .
-  * Windows NT Server
-  * Windows 2000 Terminal Server
-  * Windows XP
-  * Windows 2003 Server
-  * Windows Vista
-  * Windows 2008/2008r2/2011SBS Server
-  * Windows 7
-  * Windows 2012/2012r2 Server
-  * Windows 8
-  * Windows 10
- .
  This package contains the X11 based client.
 
 Package: libfreerdp3-3
@@ -285,19 +272,6 @@ Description: RDP client for Windows Terminal Services (wayland client)
  FreeRDP is a libre client/server implementation of the Remote
  Desktop Protocol (RDP).
  .
- Currently, the FreeRDP clients supports the following Windows Versions:
- .
-  * Windows NT Server
-  * Windows 2000 Terminal Server
-  * Windows XP
-  * Windows 2003 Server
-  * Windows Vista
-  * Windows 2008/2008r2/2011SBS Server
-  * Windows 7
-  * Windows 2012/2012r2 Server
-  * Windows 8
-  * Windows 10
- .
  This package contains the wayland based client.
 
 Package: freerdp3-sdl
@@ -309,19 +283,6 @@ Depends:
 Description: RDP client for Windows Terminal Services (SDL client)
  FreeRDP is a libre client/server implementation of the Remote
  Desktop Protocol (RDP).
- .
- Currently, the FreeRDP client supports the following Windows Versions:
- .
-  * Windows NT Server
-  * Windows 2000 Terminal Server
-  * Windows XP
-  * Windows 2003 Server
-  * Windows Vista
-  * Windows 2008/2008r2/2011SBS Server
-  * Windows 7
-  * Windows 2012/2012r2 Server
-  * Windows 8
-  * Windows 10
  .
  This package contains the SDL based client.
 
