@@ -54,9 +54,14 @@ if(WIN32 AND NOT UWP)
   option(WITH_WIN8 "Use Windows 8 libraries" OFF)
 endif()
 
+option(BUILD_BENCHMARK "Build benchmark tools (for debugging and development only)" OFF)
 option(BUILD_TESTING "Build unit tests (compatible with packaging)" OFF)
 cmake_dependent_option(
   BUILD_TESTING_INTERNAL "Build unit tests (CI only, not for packaging!)" OFF "NOT BUILD_TESTING" OFF
+)
+cmake_dependent_option(
+  BUILD_TESTING_NO_H264 "Skip building h264 unit tests (no implementation during packaging)" OFF
+  "BUILD_TESTING OR BUILD_TESTING_INTERNAL" OFF
 )
 cmake_dependent_option(TESTS_WTSAPI_EXTRA "Build extra WTSAPI tests (interactive)" OFF "BUILD_TESTING_INTERNAL" OFF)
 cmake_dependent_option(BUILD_COMM_TESTS "Build comm related tests (require comm port)" OFF "BUILD_TESTING_INTERNAL" OFF)
@@ -160,6 +165,10 @@ option(WITH_FFMPEG "Enable FFMPEG for audio/video encoding/decoding" ON)
 cmake_dependent_option(WITH_DSP_FFMPEG "Use FFMPEG for audio encoding/decoding" ON "WITH_FFMPEG" OFF)
 cmake_dependent_option(WITH_VIDEO_FFMPEG "Use FFMPEG for video encoding/decoding" ON "WITH_FFMPEG" OFF)
 cmake_dependent_option(WITH_VAAPI "Use FFMPEG VAAPI" OFF "WITH_VIDEO_FFMPEG" OFF)
+cmake_dependent_option(WITH_VAAPI_H264_ENCODING "Use FFMPEG VAAPI hardware H264 encoding" ON "WITH_VIDEO_FFMPEG" OFF)
+if(WITH_VAAPI_H264_ENCODING)
+  add_definitions("-DWITH_VAAPI_H264_ENCODING")
+endif()
 
 option(USE_VERSION_FROM_GIT_TAG "Extract FreeRDP version from git tag." ON)
 

@@ -171,7 +171,7 @@ const char* sdl_event_type_str(Uint32 type)
 	}
 }
 
-const char* sdl_error_string(Uint32 res)
+const char* sdl_error_string(Sint32 res)
 {
 	if (res == 0)
 		return nullptr;
@@ -179,7 +179,7 @@ const char* sdl_error_string(Uint32 res)
 	return SDL_GetError();
 }
 
-BOOL sdl_log_error_ex(Uint32 res, wLog* log, const char* what, const char* file, size_t line,
+BOOL sdl_log_error_ex(Sint32 res, wLog* log, const char* what, const char* file, size_t line,
                       const char* fkt)
 {
 	const char* msg = sdl_error_string(res);
@@ -270,6 +270,7 @@ BOOL sdl_push_user_event(Uint32 type, ...)
 		case SDL_EVENT_USER_QUIT:
 		case SDL_EVENT_USER_POINTER_NULL:
 		case SDL_EVENT_USER_POINTER_DEFAULT:
+		case SDL_EVENT_CLIPBOARD_UPDATE:
 			break;
 		default:
 			va_end(ap);
@@ -299,8 +300,7 @@ void CriticalSection::unlock()
 	LeaveCriticalSection(&_section);
 }
 
-WinPREvent::WinPREvent(bool initial)
-    : _handle(CreateEventA(nullptr, TRUE, initial ? TRUE : FALSE, nullptr))
+WinPREvent::WinPREvent(bool initial) : _handle(CreateEventA(nullptr, TRUE, initial, nullptr))
 {
 }
 

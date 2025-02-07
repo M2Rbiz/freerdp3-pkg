@@ -29,6 +29,7 @@
 
 #include <winpr/crt.h>
 #include <winpr/assert.h>
+#include <winpr/cast.h>
 
 #include "../core/settings.h"
 #include "../core/capabilities.h"
@@ -51,7 +52,8 @@ BOOL freerdp_addin_argv_add_argument_ex(ADDIN_ARGV* args, const char* argument, 
 	if (len == 0)
 		len = strlen(argument);
 
-	new_argv = (char**)realloc((void*)args->argv, sizeof(char*) * (args->argc + 1));
+	new_argv = (char**)realloc(
+	    (void*)args->argv, sizeof(char*) * (WINPR_ASSERTING_INT_CAST(uint32_t, args->argc) + 1));
 
 	if (!new_argv)
 		return FALSE;
@@ -81,8 +83,10 @@ BOOL freerdp_addin_argv_del_argument(ADDIN_ARGV* args, const char* argument)
 		if (strcmp(argument, arg) == 0)
 		{
 			free(arg);
-			memmove_s((void*)&args->argv[x], (args->argc - x) * sizeof(char*),
-			          (void*)&args->argv[x + 1], (args->argc - x - 1) * sizeof(char*));
+			memmove_s((void*)&args->argv[x],
+			          (WINPR_ASSERTING_INT_CAST(uint32_t, args->argc - x)) * sizeof(char*),
+			          (void*)&args->argv[x + 1],
+			          (WINPR_ASSERTING_INT_CAST(uint32_t, args->argc - x - 1)) * sizeof(char*));
 			args->argv[args->argc - 1] = NULL;
 			args->argc--;
 			return TRUE;
@@ -154,7 +158,8 @@ int freerdp_addin_set_argument_value(ADDIN_ARGV* args, const char* option, const
 
 		if (p)
 		{
-			if (strncmp(args->argv[i], option, p - args->argv[i]) == 0)
+			if (strncmp(args->argv[i], option,
+			            WINPR_ASSERTING_INT_CAST(size_t, p - args->argv[i])) == 0)
 			{
 				free(args->argv[i]);
 				args->argv[i] = str;
@@ -829,7 +834,7 @@ ADDIN_ARGV* freerdp_addin_argv_clone(const ADDIN_ARGV* args)
 	if (!args)
 		return NULL;
 	cnv.c = args->argv;
-	return freerdp_addin_argv_new(args->argc, cnv.cc);
+	return freerdp_addin_argv_new(WINPR_ASSERTING_INT_CAST(uint32_t, args->argc), cnv.cc);
 }
 
 void freerdp_dynamic_channel_collection_free(rdpSettings* settings)
@@ -1780,7 +1785,7 @@ BOOL freerdp_settings_set_pointer_array(rdpSettings* settings, FreeRDP_Settings_
 				goto fail;
 			if ((offset >= maxOffset) || !data)
 				goto fail;
-			settings->OrderSupport[offset] = *(const BOOL*)data;
+			settings->OrderSupport[offset] = *(const BOOL*)data ? 1 : 0;
 			return TRUE;
 		case FreeRDP_GlyphCache:
 			maxOffset = 10;
@@ -1846,11 +1851,11 @@ UINT32 freerdp_settings_get_codecs_flags(const rdpSettings* settings)
 	UINT32 flags = FREERDP_CODEC_ALL;
 	if (settings->RemoteFxCodec == FALSE)
 	{
-		flags &= ~FREERDP_CODEC_REMOTEFX;
+		flags &= (uint32_t)~FREERDP_CODEC_REMOTEFX;
 	}
 	if (settings->NSCodec == FALSE)
 	{
-		flags &= ~FREERDP_CODEC_NSCODEC;
+		flags &= (uint32_t)~FREERDP_CODEC_NSCODEC;
 	}
 	/*TODO: check other codecs flags */
 	return flags;
@@ -2251,4 +2256,115 @@ BOOL freerdp_settings_append_string(rdpSettings* settings, FreeRDP_Settings_Keys
 BOOL freerdp_settings_are_valid(const rdpSettings* settings)
 {
 	return settings != NULL;
+}
+
+/* Function to sort rdpMonitor arrays:
+ * 1. first element is primary monitor
+ * 2. all others are sorted by coordinates of x/y
+ */
+static int sort_monitor_fn(const void* pva, const void* pvb)
+{
+	const rdpMonitor* a = pva;
+	const rdpMonitor* b = pvb;
+	WINPR_ASSERT(a);
+	WINPR_ASSERT(b);
+	if (a->is_primary && b->is_primary)
+		return 0;
+	if (a->is_primary)
+		return -1;
+	if (b->is_primary)
+		return 1;
+
+	if (a->x != b->x)
+		return a->x - b->x;
+	if (a->y != b->y)
+		return a->y - b->y;
+	return 0;
+}
+
+BOOL freerdp_settings_set_monitor_def_array_sorted(rdpSettings* settings,
+                                                   const rdpMonitor* monitors, size_t count)
+{
+	WINPR_ASSERT(monitors || (count == 0));
+	if (count == 0)
+	{
+		if (!freerdp_settings_set_int32(settings, FreeRDP_MonitorLocalShiftX, 0))
+			return FALSE;
+		if (!freerdp_settings_set_int32(settings, FreeRDP_MonitorLocalShiftY, 0))
+			return FALSE;
+		if (!freerdp_settings_set_pointer_len(settings, FreeRDP_MonitorDefArray, NULL, 0))
+			return FALSE;
+		return freerdp_settings_set_uint32(settings, FreeRDP_MonitorCount, 0);
+		return TRUE;
+	}
+
+	// Find primary or alternatively the monitor at 0/0
+	const rdpMonitor* primary = NULL;
+	for (size_t x = 0; x < count; x++)
+	{
+		const rdpMonitor* cur = &monitors[x];
+		if (cur->is_primary)
+		{
+			primary = cur;
+			break;
+		}
+	}
+	if (!primary)
+	{
+		for (size_t x = 0; x < count; x++)
+		{
+			const rdpMonitor* cur = &monitors[x];
+			if ((cur->x == 0) && (cur->y == 0))
+			{
+				primary = cur;
+				break;
+			}
+		}
+	}
+
+	if (!primary)
+	{
+		WLog_ERR(TAG, "Could not find primary monitor, aborting");
+		return FALSE;
+	}
+
+	if (!freerdp_settings_set_pointer_len(settings, FreeRDP_MonitorDefArray, NULL, count))
+		return FALSE;
+	rdpMonitor* sorted = freerdp_settings_get_pointer_writable(settings, FreeRDP_MonitorDefArray);
+	WINPR_ASSERT(sorted);
+
+	size_t sortpos = 0;
+
+	/* Set primary. Ensure left/top is at 0/0 and flags contains MONITOR_PRIMARY */
+	sorted[sortpos] = *primary;
+	sorted[sortpos].x = 0;
+	sorted[sortpos].y = 0;
+	sorted[sortpos].is_primary = TRUE;
+	sortpos++;
+
+	/* Set monitor shift to original layout */
+	const INT32 offsetX = primary->x;
+	const INT32 offsetY = primary->y;
+	if (!freerdp_settings_set_int32(settings, FreeRDP_MonitorLocalShiftX, offsetX))
+		return FALSE;
+	if (!freerdp_settings_set_int32(settings, FreeRDP_MonitorLocalShiftY, offsetY))
+		return FALSE;
+
+	for (size_t x = 0; x < count; x++)
+	{
+		const rdpMonitor* cur = &monitors[x];
+		if (cur == primary)
+			continue;
+
+		rdpMonitor m = monitors[x];
+		m.x -= offsetX;
+		m.y -= offsetY;
+		sorted[sortpos++] = m;
+	}
+
+	// Sort remaining monitors by x/y ?
+	qsort(sorted, count, sizeof(rdpMonitor), sort_monitor_fn);
+
+	return freerdp_settings_set_uint32(settings, FreeRDP_MonitorCount,
+	                                   WINPR_ASSERTING_INT_CAST(uint32_t, count));
 }

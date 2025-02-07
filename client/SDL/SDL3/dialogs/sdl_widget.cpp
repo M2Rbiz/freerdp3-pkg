@@ -53,7 +53,7 @@ SdlWidget::SdlWidget(SDL_Renderer* renderer, const SDL_FRect& rect, bool input)
 		widget_log_error(-1, "SDLResourceManager::get");
 	else
 	{
-		_font = TTF_OpenFontIO(ops, 1, 64);
+		_font = TTF_OpenFontIO(ops, true, 64);
 		if (!_font)
 			widget_log_error(-1, "TTF_OpenFontRW");
 	}
@@ -134,8 +134,7 @@ SDL_Texture* SdlWidget::render_text(SDL_Renderer* renderer, const std::string& t
 	const float scale = dst.h / src.h;
 	const float sws = (src.w) * scale;
 	const float dws = (dst.w) / scale;
-	if (dst.w > sws)
-		dst.w = sws;
+	dst.w = std::min(dst.w, sws);
 	if (src.w > dws)
 	{
 		src.x = src.w - dws;
@@ -196,13 +195,20 @@ SdlWidget::~SdlWidget()
 		SDL_DestroyTexture(_image);
 }
 
-bool SdlWidget::error_ex(Uint32 res, const char* what, const char* file, size_t line,
+bool SdlWidget::error_ex(bool success, const char* what, const char* file, size_t line,
                          const char* fkt)
 {
+	if (success)
+	{
+		// Flip SDL3 convention to existing code convention to minimize code changes
+		return false;
+	}
 	static wLog* log = nullptr;
 	if (!log)
 		log = WLog_Get(TAG);
-	return sdl_log_error_ex(res, log, what, file, line, fkt);
+	// Use -1 as it indicates error similar to SDL2 conventions
+	// sdl_log_error_ex treats any value other than 0 as SDL error
+	return sdl_log_error_ex(-1, log, what, file, line, fkt);
 }
 
 static bool draw_rect(SDL_Renderer* renderer, const SDL_FRect* rect, SDL_Color color)

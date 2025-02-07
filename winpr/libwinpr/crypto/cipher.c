@@ -251,9 +251,9 @@ static int cipher_compare(const void* a, const void* b)
 	return *cipher > map->md ? 1 : -1;
 }
 
-const char* winpr_cipher_type_to_string(WINPR_CIPHER_TYPE cipher)
+const char* winpr_cipher_type_to_string(WINPR_CIPHER_TYPE md)
 {
-	WINPR_CIPHER_TYPE lc = cipher;
+	WINPR_CIPHER_TYPE lc = md;
 	const struct cipher_map* ret = bsearch(&lc, s_cipher_map, ARRAYSIZE(s_cipher_map),
 	                                       sizeof(struct cipher_map), cipher_compare);
 	if (!ret)
@@ -778,7 +778,7 @@ int winpr_Cipher_BytesToKey(int cipher, WINPR_MD_TYPE md, const void* salt, cons
 	const EVP_MD* evp_md = NULL;
 	const EVP_CIPHER* evp_cipher = NULL;
 	evp_md = winpr_openssl_get_evp_md(md);
-	evp_cipher = winpr_openssl_get_evp_cipher(cipher);
+	evp_cipher = winpr_openssl_get_evp_cipher(WINPR_ASSERTING_INT_CAST(WINPR_CIPHER_TYPE, cipher));
 	WINPR_ASSERT(datal <= INT_MAX);
 	WINPR_ASSERT(count <= INT_MAX);
 	return EVP_BytesToKey(evp_cipher, evp_md, salt, data, (int)datal, (int)count, key, iv);

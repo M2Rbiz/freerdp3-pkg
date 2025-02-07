@@ -1,6 +1,8 @@
 #include <cassert>
 #include <algorithm>
 
+#include <winpr/cast.h>
+
 #include "sdl_input_widgets.hpp"
 
 static const Uint32 vpadding = 5;
@@ -28,7 +30,7 @@ SdlInputWidgetList::SdlInputWidgetList(const std::string& title,
 	    title.c_str(), total_width, static_cast<int>(total_height),
 	    SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_MOUSE_FOCUS | SDL_WINDOW_INPUT_FOCUS, &_window,
 	    &_renderer);
-	if (rc != 0)
+	if (!rc)
 		widget_log_error(rc, "SDL_CreateWindowAndRenderer");
 	else
 	{
@@ -119,7 +121,7 @@ ssize_t SdlInputWidgetList::get_index(const SDL_MouseButtonEvent& button)
 		auto r = cur.input_rect();
 
 		if ((x >= r.x) && (x <= r.x + r.w) && (y >= r.y) && (y <= r.y + r.h))
-			return i;
+			return WINPR_ASSERTING_INT_CAST(ssize_t, i);
 	}
 	return -1;
 }

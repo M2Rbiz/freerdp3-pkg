@@ -963,7 +963,7 @@ static HANDLE FileCreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dw
 
 	if (fstat(fileno(pFile->fp), &st) == 0 && dwFlagsAndAttributes & FILE_ATTRIBUTE_READONLY)
 	{
-		st.st_mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
+		st.st_mode &= WINPR_ASSERTING_INT_CAST(mode_t, ~(S_IWUSR | S_IWGRP | S_IWOTH));
 		fchmod(fileno(pFile->fp), st.st_mode);
 	}
 
@@ -1057,24 +1057,23 @@ BOOL GetDiskFreeSpaceA(LPCSTR lpRootPathName, LPDWORD lpSectorsPerCluster, LPDWO
 	return TRUE;
 }
 
-BOOL GetDiskFreeSpaceW(LPCWSTR lpwRootPathName, LPDWORD lpSectorsPerCluster,
+BOOL GetDiskFreeSpaceW(LPCWSTR lpRootPathName, LPDWORD lpSectorsPerCluster,
                        LPDWORD lpBytesPerSector, LPDWORD lpNumberOfFreeClusters,
                        LPDWORD lpTotalNumberOfClusters)
 {
-	LPSTR lpRootPathName = NULL;
 	BOOL ret = 0;
-	if (!lpwRootPathName)
+	if (!lpRootPathName)
 		return FALSE;
 
-	lpRootPathName = ConvertWCharToUtf8Alloc(lpwRootPathName, NULL);
-	if (!lpRootPathName)
+	char* rootPathName = ConvertWCharToUtf8Alloc(lpRootPathName, NULL);
+	if (!rootPathName)
 	{
 		SetLastError(ERROR_NOT_ENOUGH_MEMORY);
 		return FALSE;
 	}
-	ret = GetDiskFreeSpaceA(lpRootPathName, lpSectorsPerCluster, lpBytesPerSector,
+	ret = GetDiskFreeSpaceA(rootPathName, lpSectorsPerCluster, lpBytesPerSector,
 	                        lpNumberOfFreeClusters, lpTotalNumberOfClusters);
-	free(lpRootPathName);
+	free(rootPathName);
 	return ret;
 }
 

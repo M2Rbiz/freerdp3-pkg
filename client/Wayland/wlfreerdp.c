@@ -26,6 +26,7 @@
 #include <float.h>
 
 #include <winpr/sysinfo.h>
+#include <winpr/cast.h>
 
 #include <freerdp/client/cmdline.h>
 #include <freerdp/channels/channels.h>
@@ -52,14 +53,10 @@ static BOOL wl_update_buffer(wlfContext* context_w, INT32 ix, INT32 iy, INT32 iw
 	BOOL res = FALSE;
 	rdpGdi* gdi = NULL;
 	char* data = NULL;
-	UINT32 x = 0;
-	UINT32 y = 0;
-	UINT32 w = 0;
-	UINT32 h = 0;
-	UwacSize geometry;
+	UwacSize geometry = { 0 };
 	size_t stride = 0;
 	UwacReturnCode rc = UWAC_ERROR_INTERNAL;
-	RECTANGLE_16 area;
+	RECTANGLE_16 area = { 0 };
 
 	if (!context_w)
 		return FALSE;
@@ -68,10 +65,10 @@ static BOOL wl_update_buffer(wlfContext* context_w, INT32 ix, INT32 iy, INT32 iw
 		return FALSE;
 
 	EnterCriticalSection(&context_w->critical);
-	x = (UINT32)ix;
-	y = (UINT32)iy;
-	w = (UINT32)iw;
-	h = (UINT32)ih;
+	UINT32 x = WINPR_ASSERTING_INT_CAST(UINT16, ix);
+	UINT32 y = WINPR_ASSERTING_INT_CAST(UINT16, iy);
+	UINT32 w = WINPR_ASSERTING_INT_CAST(UINT16, iw);
+	UINT32 h = WINPR_ASSERTING_INT_CAST(UINT16, ih);
 	rc = UwacWindowGetDrawingBufferGeometry(context_w->window, &geometry, &stride);
 	data = UwacWindowGetDrawingBuffer(context_w->window);
 
@@ -90,14 +87,16 @@ static BOOL wl_update_buffer(wlfContext* context_w, INT32 ix, INT32 iy, INT32 iw
 		goto fail;
 	}
 
-	area.left = x;
-	area.top = y;
-	area.right = x + w;
-	area.bottom = y + h;
+	area.left = WINPR_ASSERTING_INT_CAST(UINT16, x);
+	area.top = WINPR_ASSERTING_INT_CAST(UINT16, y);
+	area.right = WINPR_ASSERTING_INT_CAST(UINT16, x + w);
+	area.bottom = WINPR_ASSERTING_INT_CAST(UINT16, y + h);
 
 	if (!wlf_copy_image(
-	        gdi->primary_buffer, gdi->stride, gdi->width, gdi->height, data, stride, geometry.width,
-	        geometry.height, &area,
+	        gdi->primary_buffer, gdi->stride, WINPR_ASSERTING_INT_CAST(size_t, gdi->width),
+	        WINPR_ASSERTING_INT_CAST(size_t, gdi->height), data, stride,
+	        WINPR_ASSERTING_INT_CAST(size_t, geometry.width),
+	        WINPR_ASSERTING_INT_CAST(size_t, geometry.height), &area,
 	        freerdp_settings_get_bool(context_w->common.context.settings, FreeRDP_SmartSizing)))
 		goto fail;
 
@@ -284,12 +283,12 @@ static BOOL wl_post_connect(freerdp* instance)
 	UwacWindowSetOpaqueRegion(context->window, 0, 0, w, h);
 	instance->context->update->EndPaint = wl_end_paint;
 	instance->context->update->DesktopResize = wl_resize_display;
-	UINT32 KeyboardLayout =
-	    freerdp_settings_get_uint32(instance->context->settings, FreeRDP_KeyboardLayout);
 	const char* KeyboardRemappingList =
 	    freerdp_settings_get_string(instance->context->settings, FreeRDP_KeyboardRemappingList);
 
-	freerdp_keyboard_init_ex(KeyboardLayout, KeyboardRemappingList);
+	context->remap_table = freerdp_keyboard_remap_string_to_list(KeyboardRemappingList);
+	if (!context->remap_table)
+		return FALSE;
 
 	if (!(context->disp = wlf_disp_new(context)))
 		return FALSE;
@@ -304,21 +303,21 @@ static BOOL wl_post_connect(freerdp* instance)
 
 static void wl_post_disconnect(freerdp* instance)
 {
-	wlfContext* context = NULL;
-
 	if (!instance)
 		return;
 
 	if (!instance->context)
 		return;
 
-	context = (wlfContext*)instance->context;
+	wlfContext* context = (wlfContext*)instance->context;
 	gdi_free(instance);
 	wlf_clipboard_free(context->clipboard);
 	wlf_disp_free(context->disp);
 
 	if (context->window)
 		UwacDestroyWindow(&context->window);
+	freerdp_keyboard_remap_free(context->remap_table);
+	context->remap_table = NULL;
 }
 
 static BOOL handle_uwac_events(freerdp* instance, UwacDisplay* display)
@@ -577,11 +576,12 @@ disconnect:
 	if (timer)
 		(void)CloseHandle(timer);
 	freerdp_disconnect(instance);
-	return status;
+	return WINPR_ASSERTING_INT_CAST(int, status);
 }
 
 static BOOL wlf_client_global_init(void)
 {
+	// NOLINTNEXTLINE(concurrency-mt-unsafe)
 	(void)setlocale(LC_ALL, "");
 
 	if (freerdp_handle_signals() != 0)

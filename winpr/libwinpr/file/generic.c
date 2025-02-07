@@ -474,13 +474,13 @@ BOOL WINAPI GetFileAttributesExA(LPCSTR lpFileName, GET_FILEEX_INFO_LEVELS fInfo
                                  LPVOID lpFileInformation)
 {
 	LPWIN32_FILE_ATTRIBUTE_DATA fd = lpFileInformation;
-	WIN32_FIND_DATAA findFileData;
-	HANDLE hFind = NULL;
+	WIN32_FIND_DATAA findFileData = { 0 };
 
 	if (!fd)
 		return FALSE;
 
-	if ((hFind = FindFirstFileA(lpFileName, &findFileData)) == INVALID_HANDLE_VALUE)
+	HANDLE hFind = FindFirstFileA(lpFileName, &findFileData);
+	if (hFind == INVALID_HANDLE_VALUE)
 		return FALSE;
 
 	FindClose(hFind);
@@ -514,10 +514,10 @@ BOOL WINAPI GetFileAttributesExW(LPCWSTR lpFileName, GET_FILEEX_INFO_LEVELS fInf
 
 DWORD WINAPI GetFileAttributesA(LPCSTR lpFileName)
 {
-	WIN32_FIND_DATAA findFileData;
-	HANDLE hFind = NULL;
+	WIN32_FIND_DATAA findFileData = { 0 };
+	HANDLE hFind = FindFirstFileA(lpFileName, &findFileData);
 
-	if ((hFind = FindFirstFileA(lpFileName, &findFileData)) == INVALID_HANDLE_VALUE)
+	if (hFind == INVALID_HANDLE_VALUE)
 		return INVALID_FILE_ATTRIBUTES;
 
 	FindClose(hFind);
@@ -630,7 +630,7 @@ BOOL SetFileAttributesA(LPCSTR lpFileName, DWORD dwFileAttributes)
 
 	if (dwFileAttributes & FILE_ATTRIBUTE_READONLY)
 	{
-		st.st_mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
+		st.st_mode &= WINPR_ASSERTING_INT_CAST(mode_t, (mode_t)(~(S_IWUSR | S_IWGRP | S_IWOTH)));
 	}
 	else
 	{
@@ -1118,6 +1118,7 @@ BOOL FindNextFileA(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData)
 
 	WIN32_FILE_SEARCH* pFileSearch = (WIN32_FILE_SEARCH*)hFindFile;
 	struct dirent* pDirent = NULL;
+	// NOLINTNEXTLINE(concurrency-mt-unsafe)
 	while ((pDirent = readdir(pFileSearch->pDir)) != NULL)
 	{
 		if (FilePatternMatchA(pDirent->d_name, pFileSearch->lpPattern))
@@ -1216,6 +1217,7 @@ BOOL FindClose(HANDLE hFindFile)
 	if (pFileSearch->pDir)
 		closedir(pFileSearch->pDir);
 
+	// NOLINTNEXTLINE(clang-analyzer-unix.Malloc)
 	free(pFileSearch);
 	return TRUE;
 }

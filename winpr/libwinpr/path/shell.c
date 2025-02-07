@@ -390,7 +390,8 @@ char* GetKnownPath(eKnownPathTypes id)
 	}
 
 	if (!path)
-		WLog_WARN(TAG, "Path %s is %p", GetKnownPathIdString(id), path);
+		WLog_WARN(TAG, "Path %s is %p", GetKnownPathIdString(WINPR_ASSERTING_INT_CAST(int, id)),
+		          path);
 	return path;
 }
 
@@ -667,6 +668,7 @@ BOOL PathIsDirectoryEmptyA(LPCSTR pszPath)
 	if (dir == NULL) /* Not a directory or doesn't exist */
 		return 1;
 
+	// NOLINTNEXTLINE(concurrency-mt-unsafe)
 	while ((dp = readdir(dir)) != NULL)
 	{
 		if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
