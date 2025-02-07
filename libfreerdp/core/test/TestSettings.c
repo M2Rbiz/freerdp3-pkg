@@ -480,7 +480,7 @@ static BOOL check_key_helpers(size_t key, const char* stype)
 		                          FreeRDP_ReceivedCapabilities,
 		                          FreeRDP_OrderSupport,
 		                          FreeRDP_MonitorIds };
-	const char* name = freerdp_settings_get_name_for_key(key);
+	const char* name = freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 	if (!name)
 	{
 		printf("[%s] missing name for key %" PRIuz "\n", stype, key);
@@ -504,7 +504,7 @@ static BOOL check_key_helpers(size_t key, const char* stype)
 		printf("[%s] missing reverse type for key %s [%" PRIuz "]\n", stype, name, key);
 		return FALSE;
 	}
-	rc = freerdp_settings_get_type_for_key(key);
+	rc = freerdp_settings_get_type_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 	if (rc < 0)
 	{
 		printf("[%s] missing reverse name for key %s [%" PRIuz "]\n", stype, name, key);
@@ -527,7 +527,7 @@ static BOOL check_key_helpers(size_t key, const char* stype)
 	for (size_t x = 0; x < ARRAYSIZE(clear_keys); x++)
 	{
 		const size_t id = clear_keys[x];
-		const char* foo = freerdp_settings_get_name_for_key(id);
+		const char* foo = freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, id));
 		if (!freerdp_settings_set_pointer_len(settings, id, NULL, 0))
 		{
 			printf("[%s] freerdp_settings_set_pointer_len(%s, NULL, 0) failed\n", stype, foo);
@@ -950,20 +950,52 @@ static BOOL prepare_monitor_array(rdpSettings* settings, const struct validity_t
 	WINPR_ASSERT(settings);
 	WINPR_ASSERT(testcase);
 
-	const size_t count = freerdp_settings_get_uint32(settings, FreeRDP_MonitorDefArraySize);
-	if (count < testcase->count)
+	return freerdp_settings_set_monitor_def_array_sorted(settings, testcase->monitors,
+	                                                     testcase->count);
+}
+
+static BOOL check_primary_offset(const rdpSettings* settings, const rdpMonitor* monitors,
+                                 size_t count)
+{
+	const rdpMonitor* cprimary = NULL;
+	for (size_t x = 0; x < count; x++)
 	{
-		(void)fprintf(stderr, "MonitorDefArraySize=%" PRIuz ", but testcase requires %" PRIuz "\n",
-		              count, testcase->count);
-		return FALSE;
+		const rdpMonitor* cur = &monitors[x];
+		if (cur->is_primary)
+			cprimary = cur;
 	}
-	for (size_t x = 0; x < testcase->count; x++)
+	if (!cprimary)
 	{
-		const rdpMonitor* monitor = &testcase->monitors[x];
-		if (!freerdp_settings_set_pointer_array(settings, FreeRDP_MonitorDefArray, x, monitor))
+		for (size_t x = 0; x < count; x++)
+		{
+			const rdpMonitor* cur = &monitors[x];
+			if ((cur->x == 0) && (cur->y == 0))
+				cprimary = cur;
+		}
+	}
+	const rdpMonitor* sprimary = NULL;
+	for (size_t x = 0; x < count; x++)
+	{
+		const rdpMonitor* cur =
+		    freerdp_settings_get_pointer_array(settings, FreeRDP_MonitorDefArray, x);
+		if (!cur)
 			return FALSE;
+		if (cur->is_primary)
+			sprimary = cur;
 	}
-	return freerdp_settings_set_uint32(settings, FreeRDP_MonitorCount, testcase->count);
+
+	if (!sprimary || !cprimary)
+		return FALSE;
+
+	const INT32 xoff = cprimary->x;
+	const INT32 yoff = cprimary->y;
+	const INT32 sxoff = freerdp_settings_get_int32(settings, FreeRDP_MonitorLocalShiftX);
+	const INT32 syoff = freerdp_settings_get_int32(settings, FreeRDP_MonitorLocalShiftY);
+	if (xoff != sxoff)
+		return FALSE;
+	if (yoff != syoff)
+		return FALSE;
+	return TRUE;
 }
 
 static BOOL test_validity_check(void)
@@ -1348,7 +1380,7 @@ static BOOL test_validity_check(void)
 		{ FALSE, ARRAYSIZE(single_monitor_invalid_3), single_monitor_invalid_3 },
 		{ FALSE, ARRAYSIZE(single_monitor_invalid_4), single_monitor_invalid_4 },
 		{ TRUE, ARRAYSIZE(multi_monitor_valid), multi_monitor_valid },
-		{ FALSE, ARRAYSIZE(multi_monitor_invalid_1), multi_monitor_invalid_1 },
+		{ TRUE, ARRAYSIZE(multi_monitor_invalid_1), multi_monitor_invalid_1 },
 		{ FALSE, ARRAYSIZE(multi_monitor_invalid_2), multi_monitor_invalid_2 },
 		{ FALSE, ARRAYSIZE(multi_monitor_invalid_3), multi_monitor_invalid_3 },
 		{ FALSE, ARRAYSIZE(multi_monitor_invalid_4), multi_monitor_invalid_4 },
@@ -1370,7 +1402,9 @@ static BOOL test_validity_check(void)
 #else
 			const BOOL res = cur->expected;
 #endif
-			if (res != cur->expected)
+
+			if ((res != cur->expected) ||
+			    !check_primary_offset(settings, cur->monitors, cur->count))
 			{
 				rc = log_result_case(FALSE, __func__, x);
 			}
@@ -1527,7 +1561,8 @@ int TestSettings(int argc, char* argv[])
 	for (size_t x = 0; x < ARRAYSIZE(bool_list_indices); x++)
 	{
 		const size_t key = bool_list_indices[x];
-		const char* name = freerdp_settings_get_name_for_key(key);
+		const char* name =
+		    freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 		const BOOL val = freerdp_settings_get_bool(settings, key);
 		const BOOL cval = freerdp_settings_get_bool(cloned, key);
 		if (val != cval)
@@ -1567,7 +1602,8 @@ int TestSettings(int argc, char* argv[])
 	for (size_t x = 0; x < ARRAYSIZE(uint16_list_indices); x++)
 	{
 		const size_t key = uint16_list_indices[x];
-		const char* name = freerdp_settings_get_name_for_key(key);
+		const char* name =
+		    freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 		const UINT16 val = freerdp_settings_get_uint16(settings, key);
 		const UINT16 cval = freerdp_settings_get_uint16(cloned, key);
 		if (val != cval)
@@ -1587,7 +1623,8 @@ int TestSettings(int argc, char* argv[])
 	for (size_t x = 0; x < ARRAYSIZE(uint32_list_indices); x++)
 	{
 		const size_t key = uint32_list_indices[x];
-		const char* name = freerdp_settings_get_name_for_key(key);
+		const char* name =
+		    freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 		const UINT32 val = freerdp_settings_get_uint32(settings, key);
 		const UINT32 cval = freerdp_settings_get_uint32(cloned, key);
 		if (val != cval)
@@ -1607,7 +1644,8 @@ int TestSettings(int argc, char* argv[])
 	for (size_t x = 0; x < ARRAYSIZE(int32_list_indices); x++)
 	{
 		const size_t key = int32_list_indices[x];
-		const char* name = freerdp_settings_get_name_for_key(key);
+		const char* name =
+		    freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 		const INT32 val = freerdp_settings_get_int32(settings, key);
 		const INT32 cval = freerdp_settings_get_int32(cloned, key);
 		if (val != cval)
@@ -1627,7 +1665,8 @@ int TestSettings(int argc, char* argv[])
 	for (size_t x = 0; x < ARRAYSIZE(uint64_list_indices); x++)
 	{
 		const size_t key = uint64_list_indices[x];
-		const char* name = freerdp_settings_get_name_for_key(key);
+		const char* name =
+		    freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 		const UINT64 val = freerdp_settings_get_uint64(settings, key);
 		const UINT64 cval = freerdp_settings_get_uint64(cloned, key);
 		if (val != cval)
@@ -1669,7 +1708,8 @@ int TestSettings(int argc, char* argv[])
 		const size_t key = string_list_indices[x];
 		const char val[] = "test-string";
 		const char* res = NULL;
-		const char* name = freerdp_settings_get_name_for_key(key);
+		const char* name =
+		    freerdp_settings_get_name_for_key(WINPR_ASSERTING_INT_CAST(SSIZE_T, key));
 		const char* oval = freerdp_settings_get_string(settings, key);
 		const char* cval = freerdp_settings_get_string(cloned, key);
 		if ((oval != cval) && (strcmp(oval, cval) != 0))

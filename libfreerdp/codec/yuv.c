@@ -1,5 +1,6 @@
 #include <winpr/sysinfo.h>
 #include <winpr/assert.h>
+#include <winpr/cast.h>
 #include <winpr/pool.h>
 
 #include <freerdp/settings.h>
@@ -90,8 +91,8 @@ static INLINE BOOL avc420_yuv_to_rgb(const BYTE* WINPR_RESTRICT pYUVData[3],
 	pYUVPoint[1] = pYUVData[1] + 1ULL * rect->top / 2 * iStride[1] + rect->left / 2;
 	pYUVPoint[2] = pYUVData[2] + 1ULL * rect->top / 2 * iStride[2] + rect->left / 2;
 
-	roi.width = width;
-	roi.height = height;
+	roi.width = WINPR_ASSERTING_INT_CAST(uint32_t, width);
+	roi.height = WINPR_ASSERTING_INT_CAST(uint32_t, height);
 
 	if (prims->YUV420ToRGB_8u_P3AC4R(pYUVPoint, iStride, pDstPoint, nDstStep, DstFormat, &roi) !=
 	    PRIMITIVES_SUCCESS)
@@ -123,8 +124,8 @@ static INLINE BOOL avc444_yuv_to_rgb(const BYTE* WINPR_RESTRICT pYUVData[3],
 	pYUVPoint[1] = pYUVData[1] + 1ULL * rect->top * iStride[1] + rect->left;
 	pYUVPoint[2] = pYUVData[2] + 1ULL * rect->top * iStride[2] + rect->left;
 
-	roi.width = width;
-	roi.height = height;
+	roi.width = WINPR_ASSERTING_INT_CAST(uint32_t, width);
+	roi.height = WINPR_ASSERTING_INT_CAST(uint32_t, height);
 
 	if (prims->YUV444ToRGB_8u_P3AC4R(pYUVPoint, iStride, pDstPoint, nDstStep, DstFormat, &roi) !=
 	    PRIMITIVES_SUCCESS)
@@ -170,12 +171,15 @@ BOOL yuv_context_reset(YUV_CONTEXT* WINPR_RESTRICT context, UINT32 width, UINT32
 
 	if (context->useThreads)
 	{
-		const UINT32 pw = (width + TILE_SIZE - width % TILE_SIZE) / TILE_SIZE;
-		const UINT32 ph = (height + TILE_SIZE - height % TILE_SIZE) / TILE_SIZE;
+		/* Preallocate workers for 16x16 tiles.
+		 * this is overallocation for most cases.
+		 *
+		 * ~2MB total for a 4k resolution, so negligible.
+		 */
+		const size_t pw = (width + TILE_SIZE - width % TILE_SIZE) / 16;
+		const size_t ph = (height + TILE_SIZE - height % TILE_SIZE) / 16;
 
-		/* We´ve calculated the amount of workers for 64x64 tiles, but the decoder
-		 * might get 16x16 tiles mixed in. */
-		const UINT32 count = pw * ph * 16;
+		const size_t count = pw * ph;
 
 		context->work_object_count = 0;
 		if (context->encoder)
@@ -214,7 +218,7 @@ BOOL yuv_context_reset(YUV_CONTEXT* WINPR_RESTRICT context, UINT32 width, UINT32
 		memset(wtmp, 0, count * sizeof(PTP_WORK));
 
 		context->work_objects = (PTP_WORK*)wtmp;
-		context->work_object_count = count;
+		context->work_object_count = WINPR_ASSERTING_INT_CAST(uint32_t, count);
 	}
 	rc = TRUE;
 fail:
@@ -379,9 +383,9 @@ static RECTANGLE_16 clamp(YUV_CONTEXT* WINPR_RESTRICT context,
 	RECTANGLE_16 c = *rect;
 	const UINT32 height = MIN(context->height, srcHeight);
 	if (c.top > height)
-		c.top = height;
+		c.top = WINPR_ASSERTING_INT_CAST(UINT16, height);
 	if (c.bottom > height)
-		c.bottom = height;
+		c.bottom = WINPR_ASSERTING_INT_CAST(UINT16, height);
 	return c;
 }
 
@@ -439,11 +443,8 @@ static BOOL pool_decode(YUV_CONTEXT* WINPR_RESTRICT context, PTP_WORK_CALLBACK c
 
 				if (context->work_object_count <= waitCount)
 				{
-					WLog_ERR(TAG,
-					         "YUV decoder: invalid number of tiles, only support less than %" PRIu32
-					         ", got %" PRIu32,
-					         context->work_object_count, waitCount);
-					goto fail;
+					free_objects(context->work_objects, context->work_object_count);
+					waitCount = 0;
 				}
 
 				YUV_PROCESS_WORK_PARAM* cur = &context->work_dec_params[waitCount];
@@ -586,11 +587,8 @@ static BOOL pool_decode_rect(YUV_CONTEXT* WINPR_RESTRICT context, BYTE type,
 
 		if (context->work_object_count <= waitCount)
 		{
-			WLog_ERR(TAG,
-			         "YUV rect decoder: invalid number of tiles, only support less than %" PRIu32
-			         ", got %" PRIu32,
-			         context->work_object_count, waitCount);
-			goto fail;
+			free_objects(context->work_objects, context->work_object_count);
+			waitCount = 0;
 		}
 		current = &context->work_combined_params[waitCount];
 		*current = pool_decode_rect_param(&regionRects[waitCount], context, type, pYUVData, iStride,
@@ -848,11 +846,8 @@ static BOOL pool_encode(YUV_CONTEXT* WINPR_RESTRICT context, PTP_WORK_CALLBACK c
 
 			if (context->work_object_count <= waitCount)
 			{
-				WLog_ERR(TAG,
-				         "YUV encoder: invalid number of tiles, only support less than %" PRIu32
-				         ", got %" PRIu32,
-				         context->work_object_count, waitCount);
-				goto fail;
+				free_objects(context->work_objects, context->work_object_count);
+				waitCount = 0;
 			}
 
 			current = &context->work_enc_params[waitCount];
