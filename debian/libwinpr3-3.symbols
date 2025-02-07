@@ -1432,6 +1432,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_image_write@Base 3.0.0
  winpr_image_write_buffer@Base 3.3.0
  winpr_image_write_ex@Base 3.3.0
+ winpr_int_assert@Base 3.11.1
  winpr_log_backtrace@Base 3.0.0
  winpr_log_backtrace_ex@Base 3.0.0
  winpr_md_type_from_string@Base 3.0.0
