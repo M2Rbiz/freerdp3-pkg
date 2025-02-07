@@ -458,6 +458,9 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_keyboard_init@Base 3.0.0
  freerdp_keyboard_init_ex@Base 3.0.0
  freerdp_keyboard_layouts_free@Base 3.0.0
+ freerdp_keyboard_remap_free@Base 3.11.1
+ freerdp_keyboard_remap_key@Base 3.11.1
+ freerdp_keyboard_remap_string_to_list@Base 3.11.1
  freerdp_keyboard_scancode_name@Base 3.0.0
  freerdp_listener_free@Base 3.0.0
  freerdp_listener_new@Base 3.0.0
@@ -539,6 +542,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_settings_set_int16@Base 3.0.0
  freerdp_settings_set_int32@Base 3.0.0
  freerdp_settings_set_int64@Base 3.0.0
+ freerdp_settings_set_monitor_def_array_sorted@Base 3.11.1
  freerdp_settings_set_pointer@Base 3.0.0
  freerdp_settings_set_pointer_array@Base 3.0.0
  freerdp_settings_set_pointer_len@Base 3.0.0
@@ -698,13 +702,16 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  persistent_cache_read_entry@Base 3.0.0
  persistent_cache_write_entry@Base 3.0.0
  planar_decompress@Base 3.0.0
+ primitives_avc444_frame_type_str@Base 3.11.1
  primitives_flags@Base 3.0.0
  primitives_get@Base 3.0.0
+ primitives_get_by_type@Base 3.11.1
  primitives_get_generic@Base 3.0.0
  primitives_get_hints@Base 3.0.0
  primitives_init@Base 3.0.0
  primitives_set_hints@Base 3.0.0
  primitives_uninit@Base 3.0.0
+ primtives_hint_str@Base 3.11.1
  profiler_create@Base 3.0.0
  profiler_enter@Base 3.0.0
  profiler_exit@Base 3.0.0
