@@ -1,0 +1,25 @@
+From: akallabeth <akallabeth@posteo.net>
+Date: Fri, 14 Feb 2025 10:57:34 +0100
+Subject: [utils,aad] fix freerdp_utils_aad_get_wellknown export
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/pull/11185
+Forwarded: not-needed
+
+---
+ include/freerdp/utils/aad.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/include/freerdp/utils/aad.h b/include/freerdp/utils/aad.h
+index 290393c65..a1a6978a8 100644
+--- a/include/freerdp/utils/aad.h
++++ b/include/freerdp/utils/aad.h
+@@ -143,5 +143,6 @@ extern "C"
+ 	 */
+ 	WINPR_ATTR_MALLOC(WINPR_JSON_Delete, 1)
+-	WINPR_JSON* freerdp_utils_aad_get_wellknown(wLog* log, const char* base, const char* tenantid);
++	FREERDP_API WINPR_JSON* freerdp_utils_aad_get_wellknown(wLog* log, const char* base,
++	                                                        const char* tenantid);
+ 
+ #ifdef __cplusplus
+-- 
+2.39.5
+

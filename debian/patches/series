@@ -1,0 +1,2 @@
+cmake-fix-CheckAndSetFlag.patch
+utils-aad-fix-freerdp_utils_aad_get_wellknown-export.patch
