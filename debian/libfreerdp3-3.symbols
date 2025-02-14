@@ -487,6 +487,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_peer_set_local_and_hostname@Base 3.0.0
  freerdp_performance_flags_make@Base 3.0.0
  freerdp_performance_flags_split@Base 3.0.0
+ freerdp_persist_credentials@Base 3.12.0
  freerdp_planar_switch_bgr@Base 3.0.0
  freerdp_planar_topdown_image@Base 3.0.0
  freerdp_rail_support_flags_to_string@Base 3.0.0
@@ -567,6 +568,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_target_net_addresses_free@Base 3.0.0
  freerdp_update_gateway_usage_method@Base 3.0.0
  (optional)freerdp_utils_aad_get_access_token@Base 3.0.0
+ freerdp_utils_aad_get_wellknown@Base 3.12.0
  freerdp_utils_aad_get_wellknown_custom_object@Base 3.10.2
  freerdp_utils_aad_get_wellknown_custom_string@Base 3.10.2
  freerdp_utils_aad_get_wellknown_object@Base 3.10.2
