@@ -31,6 +31,7 @@ Build-Depends:
  libsdl2-image-dev,
  libsdl2-ttf-dev,
  libssl-dev,
+ libv4l-dev [linux-any],
  libswresample-dev,
  libswscale-dev,
  libsystemd-dev [linux-any],

@@ -73,6 +73,9 @@ ifneq (,$(filter linux,$(DEB_HOST_ARCH_OS)))
         -DCHANNEL_URBDRC=ON \
         -DCHANNEL_URBDRC_CLIENT=ON \
         -DWITH_WAYLAND=ON \
+        -DWITH_VAAPI_H264_ENCODING=ON \
+        -DCHANNEL_RDPECAM_CLIENT=ON \
+        -DCHANNEL_RDPECAM=ON \
         $(empty)
 else
     DEB_CMAKE_EXTRA_FLAGS += \
