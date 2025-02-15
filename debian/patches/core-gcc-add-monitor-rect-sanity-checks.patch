@@ -1,0 +1,38 @@
+From 3b7c8042d8dcffc98cebfc87409874bb8f54f0a2 Mon Sep 17 00:00:00 2001
+From: akallabeth <akallabeth@posteo.net>
+Date: Fri, 14 Feb 2025 13:08:28 +0100
+Subject: [core,gcc] add monitor rect sanity checks
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/pull/11186
+Forwarded: not-needed
+
+---
+ libfreerdp/core/gcc.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/libfreerdp/core/gcc.c b/libfreerdp/core/gcc.c
+index 17e04d94f..17bb942b5 100644
+--- a/libfreerdp/core/gcc.c
++++ b/libfreerdp/core/gcc.c
+@@ -2146,8 +2146,17 @@ BOOL gcc_read_client_monitor_data(wStream* s, rdpMcs* mcs)
+ 		const INT32 bottom = Stream_Get_INT32(s);  /* bottom */
+ 		const UINT32 flags = Stream_Get_UINT32(s); /* flags */
++
++		if ((left > right) || (bottom > top))
++			return FALSE;
++
++		const INT32 w = right - left;
++		const INT32 h = bottom - top;
++		if ((w >= INT32_MAX) || (h >= INT32_MAX))
++			return FALSE;
++
+ 		current->x = left;
+ 		current->y = top;
+-		current->width = right - left + 1;
+-		current->height = bottom - top + 1;
++		current->width = w + 1;
++		current->height = h + 1;
+ 		current->is_primary = (flags & MONITOR_PRIMARY) ? TRUE : FALSE;
+ 	}
+-- 
+2.39.5
+

@@ -1,0 +1,28 @@
+From: akallabeth <akallabeth@posteo.net>
+Date: Fri, 14 Feb 2025 13:25:48 +0100
+Subject: [client,file] fix missing NULL check
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/pull/11186
+Forwarded: not-needed
+
+---
+ client/common/file.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/client/common/file.c b/client/common/file.c
+index fac04ea8e..dc0828cb0 100644
+--- a/client/common/file.c
++++ b/client/common/file.c
+@@ -1075,7 +1075,8 @@ static INLINE BOOL FILE_POPULATE_STRING(char** _target, const rdpSettings* _sett
+ 	if (str)
+ 	{
+-		*_target = _strdup(str);
+-		if (!_target)
++		char* copy = _strdup(str);
++		if (!copy)
+ 			return FALSE;
++		*_target = copy;
+ 	}
+ 	return TRUE;
+-- 
+2.39.5
+

@@ -1,2 +1,5 @@
 cmake-fix-CheckAndSetFlag.patch
 utils-aad-fix-freerdp_utils_aad_get_wellknown-export.patch
+client-file-fix-missing-NULL-check.patch
+core-gcc-add-monitor-rect-sanity-checks.patch
+core-orders-add-sanity-checks.patch
