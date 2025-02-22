@@ -78,7 +78,6 @@ ifneq (,$(filter linux,$(DEB_HOST_ARCH_OS)))
         -DCHANNEL_URBDRC_CLIENT=ON \
         -DWITH_WAYLAND=ON \
         -DWITH_VAAPI_H264_ENCODING=ON \
-        -DCHANNEL_RDPECAM_CLIENT=ON \
         -DCHANNEL_RDPECAM=ON \
         $(empty)
 else
@@ -106,6 +105,7 @@ ifeq ($(shell dpkg-vendor --is Ubuntu && echo yes),yes)
         -DWITH_PKCS11=OFF \
         -DWITH_SWSCALE=OFF \
         -DWITH_URIPARSER=OFF \
+        -DCHANNEL_RDPECAM_CLIENT=OFF \
         $(empty)
 else
     DEB_CMAKE_EXTRA_FLAGS += \
