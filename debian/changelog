@@ -3,7 +3,7 @@ freerdp3 (3.12.0+dfsg-1) unstable; urgency=medium
   * new upstream release
   * add two patches from upstream to fix symbol visibility
   * d/libfreerdp3-3.symbols: add new symbols
-  * d/rules,d/control: enable VAAPI_H264_ENCODIN and CHANNEL_RDPECAM
+  * d/rules,d/control: enable VAAPI_H264_ENCODING and CHANNEL_RDPECAM
     on linux (libv4l)
   * pick 3 more fixes from upstream
 
