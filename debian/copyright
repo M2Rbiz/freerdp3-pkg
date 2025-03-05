@@ -32,7 +32,6 @@ Files: .clang-format
  CMakeCPack.cmake
  CMakeCPackOptions.cmake.in
  ChangeLog
- LICENSE
  README.md
  SECURITY.md
  channels/ainput/ChannelOptions.cmake
