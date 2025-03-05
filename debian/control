@@ -5,6 +5,7 @@ Maintainer: Debian Remote Maintainers <debian-remote@lists.debian.org>
 Uploaders:
  Mike Gabriel <sunweaver@debian.org>,
  Bernhard Miklautz <bernhard.miklautz@shacknet.at>,
+ Michael Tokarev <mjt@tls.msk.ru>,
 Build-Depends:
  debhelper-compat (= 13),
  cmake,
