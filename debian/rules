@@ -21,7 +21,7 @@ DEB_CMAKE_EXTRA_FLAGS = \
     -DCMAKE_SKIP_INSTALL_RPATH=TRUE \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DWITH_DEBUG_ALL=OFF \
-    -DBUILD_TESTING=OFF \
+    -DBUILD_TESTING=ON \
     -DWITH_CHANNELS=ON \
     -DWITH_SERVER=ON \
     -DWITH_PROXY=ON \
@@ -120,31 +120,8 @@ endif
 %:
 	dh $@
 
-# char 026 (0x16) is seemed to be safe separator for sed "s" command;
-# idea taken from Debian src:nginx/debian/dh_nginx.
-# (however, they're using 0x17)
-xSEDx :=$(shell printf '\026')
-
 override_dh_auto_configure:
-	dh_auto_configure --builddirectory=debian/testtmp -- $(DEB_CMAKE_EXTRA_FLAGS) -DBUILD_TESTING=ON
 	dh_auto_configure -- $(DEB_CMAKE_EXTRA_FLAGS)
-	# mangle CFLAGS value stored in buildflags.h.
-	# fixes build path leakage.
-	o='-f(debug|file)-prefix-map' ; \
-	sed -E -i \
-	    -e "s$(xSEDx)$${o}=[^=]+=\. $(xSEDx)$(xSEDx)g;" \
-	    -e "s$(xSEDx) $${o}=[^=]+=\.$(xSEDx)$(xSEDx)g;" \
-	obj-$(DEB_HOST_GNU_TYPE)/include/freerdp/buildflags.h
-	sed -E -i \
-	    -e "s$(xSEDx)$${o}=[^=]+=\. $(xSEDx)$(xSEDx)g;" \
-	    -e "s$(xSEDx) $${o}=[^=]+=\.$(xSEDx)$(xSEDx)g;" \
-	obj-$(DEB_HOST_GNU_TYPE)/winpr/include/winpr/buildflags.h
-
-execute_after_dh_auto_build:
-	dh_auto_build --builddirectory=debian/testtmp
-
-execute_after_dh_auto_test:
-	dh_auto_test --builddirectory=debian/testtmp
 
 # NB debhelper 13+: convert to execute_before_dh_install
 override_dh_install: TMP_LIB = debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)
