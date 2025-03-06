@@ -214,6 +214,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  ExitThread@Base 3.0.0
  ExpandEnvironmentStringsA@Base 3.0.0
  ExpandEnvironmentStringsW@Base 3.0.0
+ FSInformationClass2Tag@Base 3.13.0
  FilePatternFindNextWildcardA@Base 3.0.0
  FilePatternMatchA@Base 3.0.0
  FileTimeToSystemTime@Base 3.0.0

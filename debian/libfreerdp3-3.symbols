@@ -356,6 +356,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_disconnect@Base 3.0.0
  freerdp_disconnect_before_reconnect@Base 3.0.0
  freerdp_disconnect_before_reconnect_context@Base 3.0.0
+ freerdp_disconnect_reason_string@Base 3.13.0
  freerdp_display_send_monitor_layout@Base 3.0.0
  freerdp_dsp_context_free@Base 3.0.0
  freerdp_dsp_context_new@Base 3.0.0
@@ -426,6 +427,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_image_copy_no_overlap@Base 3.6.2
  freerdp_image_copy_overlap@Base 3.6.2
  freerdp_image_fill@Base 3.0.0
+ freerdp_image_fill_ex@Base 3.13.0
  freerdp_image_scale@Base 3.0.0
  freerdp_input_send_extended_mouse_event@Base 3.0.0
  freerdp_input_send_focus_in_event@Base 3.0.0
