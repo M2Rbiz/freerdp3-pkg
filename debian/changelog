@@ -1,4 +1,4 @@
-freerdp3 (3.13.0+dfsg-1) UNRELEASED; urgency=medium
+freerdp3 (3.13.0+dfsg-1) unstable; urgency=medium
 
   * new upstream release
   * remove all patches which are now applied upstream
@@ -9,7 +9,7 @@ freerdp3 (3.13.0+dfsg-1) UNRELEASED; urgency=medium
   * d/copyright: remove LICENSE file from file list
   * d/control: add myself to uploaders
 
- -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 05 Mar 2025 12:58:45 +0300
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 06 Mar 2025 12:03:07 +0300
 
 freerdp3 (3.12.0+dfsg-1) unstable; urgency=medium
 
