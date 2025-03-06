@@ -1074,9 +1074,10 @@ static INLINE BOOL FILE_POPULATE_STRING(char** _target, const rdpSettings* _sett
 	*_target = (void*)~((size_t)NULL);
 	if (str)
 	{
-		*_target = _strdup(str);
-		if (!_target)
+		char* copy = _strdup(str);
+		if (!copy)
 			return FALSE;
+		*_target = copy;
 	}
 	return TRUE;
 }
@@ -1684,12 +1685,16 @@ size_t freerdp_client_write_rdp_file_buffer(const rdpFile* file, char* buffer, s
 	if (intsize < 0)
 		return 0;
 	totalSize += (size_t)intsize;
+	if (buffer)
+		buffer += intsize;
 
 	/* string parameters */
 	const SSIZE_T stringsize = write_string_parameters(file, buffer, size);
 	if (stringsize < 0)
 		return 0;
 	totalSize += (size_t)stringsize;
+	if (buffer)
+		buffer += stringsize;
 
 	/* custom parameters */
 	const SSIZE_T customsize = write_custom_parameters(file, buffer, size);
