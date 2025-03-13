@@ -343,6 +343,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_context_new_ex@Base 3.0.0
  freerdp_context_reset@Base 3.0.0
  freerdp_del_signal_cleanup_handler@Base 3.0.0
+ freerdp_detect_keyboard_layout_from_locale@Base 3.14.0
  freerdp_detect_keyboard_layout_from_system_locale@Base 3.0.0
  freerdp_device_clone@Base 3.0.0
  freerdp_device_collection_add@Base 3.0.0
