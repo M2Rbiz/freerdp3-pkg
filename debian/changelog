@@ -1,3 +1,16 @@
+freerdp3 (3.14.0+dfsg-1) unstable; urgency=medium
+
+  * new upstream release
+  * d/libfreerdp3-3.symbols: add new symbol
+  * d/rules: enable regular BUILD_TESTING and stop
+    stripping build paths from shipped .h files
+  * d/rules: remove --fail-missing override: it is the default now
+  * d/rules: drop another now-unneeded override
+    (to remove static libs which are not installed anymore)
+  * d/rules: remove get-orig-source-target (-lintian)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 13 Mar 2025 12:11:55 +0300
+
 freerdp3 (3.13.0+dfsg-1) unstable; urgency=medium
 
   * new upstream release
