@@ -116,10 +116,10 @@ static BOOL cliprdr_validate_file_contents_request(const CLIPRDR_FILE_CONTENTS_R
 	return TRUE;
 }
 
-wStream* cliprdr_packet_new(UINT16 msgType, UINT16 msgFlags, UINT32 dataLen)
+wStream* cliprdr_packet_new(UINT16 msgType, UINT16 msgFlags, size_t dataLen)
 {
-	wStream* s = NULL;
-	s = Stream_New(NULL, dataLen + 8);
+	WINPR_ASSERT(dataLen < UINT32_MAX);
+	wStream* s = Stream_New(NULL, dataLen + 8ULL);
 
 	if (!s)
 	{
@@ -426,6 +426,9 @@ UINT cliprdr_read_format_list(wStream* s, CLIPRDR_FORMAT_LIST* formatList, BOOL 
 
 		while (Stream_GetRemainingLength(sub1) >= 4)
 		{
+			if (index >= formatList->numFormats)
+				goto error_out;
+
 			CLIPRDR_FORMAT* format = &formats[index];
 
 			Stream_Read_UINT32(sub1, format->formatId); /* formatId (4 bytes) */
@@ -506,6 +509,9 @@ UINT cliprdr_read_format_list(wStream* s, CLIPRDR_FORMAT_LIST* formatList, BOOL 
 
 		while (Stream_GetRemainingLength(sub2) >= 4)
 		{
+			if (index >= formatList->numFormats)
+				goto error_out;
+
 			size_t rest = 0;
 			CLIPRDR_FORMAT* format = &formats[index];
 

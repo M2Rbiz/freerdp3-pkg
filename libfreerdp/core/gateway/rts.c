@@ -373,11 +373,17 @@ static BOOL rts_read_auth_verifier_with_stub(wStream* s, auth_verifier_co_t* aut
 		if (off > header->frag_length)
 			WLog_WARN(TAG,
 			          "Unexpected alloc_hint(%" PRIuz ") for PDU %s: size %" PRIuz
-			          ", offset %" PRIuz,
-			          alloc_hint, rts_pdu_ptype_to_string(header->ptype), header->frag_length, off);
-		*ptr = (BYTE*)sdup(src, size);
-		if (!*ptr)
-			return FALSE;
+			          ", frag_length %" PRIu16 ", offset %" PRIuz,
+			          alloc_hint, rts_pdu_ptype_to_string(header->ptype), size, header->frag_length,
+			          off);
+
+		*ptr = NULL;
+		if (size > 0)
+		{
+			*ptr = (BYTE*)sdup(src, size);
+			if (!*ptr)
+				return FALSE;
+		}
 	}
 
 	return TRUE;
@@ -1503,15 +1509,26 @@ void rts_generate_cookie(BYTE* cookie)
 	winpr_RAND(cookie, 16);
 }
 
-static BOOL rts_send_buffer(RpcChannel* channel, wStream* s, size_t frag_length)
+#define rts_send_buffer(channel, s, frag_length) \
+	rts_send_buffer_int((channel), (s), (frag_length), __FILE__, __LINE__, __func__)
+static BOOL rts_send_buffer_int(RpcChannel* channel, wStream* s, size_t frag_length,
+                                const char* file, size_t line, const char* fkt)
 {
 	BOOL status = FALSE;
 	SSIZE_T rc = 0;
 
 	WINPR_ASSERT(channel);
+	WINPR_ASSERT(channel->rpc);
 	WINPR_ASSERT(s);
 
 	Stream_SealLength(s);
+
+	const DWORD level = WLOG_TRACE;
+	if (WLog_IsLevelActive(channel->rpc->log, level))
+	{
+		WLog_PrintMessage(channel->rpc->log, WLOG_MESSAGE_TEXT, level, line, file, fkt,
+		                  "Sending [%s] %" PRIuz " bytes", fkt, Stream_Length(s));
+	}
 	if (Stream_Length(s) < sizeof(rpcconn_common_hdr_t))
 		goto fail;
 	if (Stream_Length(s) != frag_length)
