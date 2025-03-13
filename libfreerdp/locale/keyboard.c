@@ -35,7 +35,7 @@
 
 #include "liblocale.h"
 
-#if defined(WITH_FREERDP_3x_DEPRECATED)
+#if !defined(WITHOUT_FREERDP_3x_DEPRECATED)
 #define TAG FREERDP_TAG("locale.keyboard")
 
 #if defined(__MACOSX__)
@@ -52,7 +52,7 @@
 
 #endif
 
-#if defined(WITH_FREERDP_3x_DEPRECATED)
+#if !defined(WITHOUT_FREERDP_3x_DEPRECATED)
 static WINPR_KEYCODE_TYPE maptype = WINPR_KEYCODE_TYPE_NONE;
 static DWORD VIRTUAL_SCANCODE_TO_X11_KEYCODE[256][2] = { 0 };
 static DWORD X11_KEYCODE_TO_VIRTUAL_SCANCODE[256] = { 0 };
@@ -230,7 +230,7 @@ static const struct scancode_map_entry RDP_SCANCODE_MAP[] = {
 	{ RDP_SCANCODE_LAUNCH_APP2, "VK_LAUNCH_APP2" },
 };
 
-#if defined(WITH_FREERDP_3x_DEPRECATED)
+#if !defined(WITHOUT_FREERDP_3x_DEPRECATED)
 static int freerdp_detect_keyboard(DWORD* keyboardLayoutId)
 {
 #if defined(_WIN32)
@@ -246,7 +246,11 @@ static int freerdp_detect_keyboard(DWORD* keyboardLayoutId)
 	}
 
 	if (*keyboardLayoutId == 0)
-		*keyboardLayoutId = ((DWORD)GetKeyboardLayout(0) >> 16) & 0x0000FFFF;
+	{
+		const HKL layout = GetKeyboardLayout(0);
+		const uint32_t masked = (uint32_t)(((uintptr_t)layout >> 16) & 0xFFFF);
+		*keyboardLayoutId = masked;
+	}
 #endif
 
 #if defined(__MACOSX__)
@@ -401,7 +405,7 @@ fail:
 	return remap_table;
 }
 
-#if defined(WITH_FREERDP_3x_DEPRECATED)
+#if !defined(WITHOUT_FREERDP_3x_DEPRECATED)
 DWORD freerdp_keyboard_init_ex(DWORD keyboardLayoutId, const char* keyboardRemappingList)
 {
 	DWORD res = freerdp_keyboard_init(keyboardLayoutId);
