@@ -12,8 +12,8 @@ Build-Depends:
  docbook-xsl,
  dpkg-dev (>= 1.22.5),
  libasound2-dev,
- libavcodec-dev,
- libavutil-dev,
+# ffmpeg is in universe in ubuntu (not enabled):
+ libavcodec-dev, libavutil-dev, libswscale-dev,
 # cairo is used on ubuntu only (alternative to swscale from ffmpeg):
  libcairo2-dev,
  libcjson-dev,
@@ -38,7 +38,6 @@ Build-Depends:
  libssl-dev,
  libv4l-dev [linux-any],
  libswresample-dev,
- libswscale-dev,
  libsystemd-dev [linux-any],
  libudev-dev [linux-any],
  libusb-1.0-0-dev [linux-any],
