@@ -14,6 +14,7 @@ Build-Depends:
  libasound2-dev,
  libavcodec-dev,
  libavutil-dev,
+# cairo is used on ubuntu only (alternative to swscale from ffmpeg):
  libcairo2-dev,
  libcjson-dev,
  libcups2-dev,
