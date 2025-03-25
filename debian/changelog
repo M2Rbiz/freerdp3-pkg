@@ -1,3 +1,17 @@
+freerdp3 (3.14.1+dfsg-1) unstable; urgency=medium
+
+  [ Michael Tokarev ]
+  * new upstream (minor) release, fixing a number of issues
+  * d/control: Standards-Version: 4.7.2 (no changes needed)
+  * d/control: add comment about libcairo usage
+  * d/control: add ubuntu-related comment about libavcodec-dev &Co
+
+  [ Simon Quigley ]
+  * Disable CHANNEL_RDPECAM_CLIENT on Ubuntu, since ubuntu disables FFMPEG
+    (Closes: #1098643)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 25 Mar 2025 21:23:12 +0300
+
 freerdp3 (3.14.0+dfsg-1) unstable; urgency=medium
 
   * new upstream release
