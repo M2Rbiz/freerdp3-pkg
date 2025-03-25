@@ -675,15 +675,30 @@ void xf_keyboard_send_key(xfContext* xfc, BOOL down, BOOL repeat, const XKeyEven
 				default:
 				{
 					XIM xim = XOpenIM(xfc->display, 0, 0, 0);
-					XIC xic =
-					    XCreateIC(xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, NULL);
-
-					KeySym ignore = { 0 };
-					Status return_status = 0;
-					XKeyEvent ev = *event;
-					ev.type = KeyPress;
-					xwc = XwcLookupString(xic, &ev, buffer, ARRAYSIZE(buffer), &ignore,
-					                      &return_status);
+					if (!xim)
+					{
+						WLog_WARN(TAG, "Failed to XOpenIM");
+					}
+					else
+					{
+						XIC xic = XCreateIC(xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
+						                    NULL);
+						if (!xic)
+						{
+							WLog_WARN(TAG, "XCreateIC failed");
+						}
+						else
+						{
+							KeySym ignore = { 0 };
+							Status return_status = 0;
+							XKeyEvent ev = *event;
+							ev.type = KeyPress;
+							xwc = XwcLookupString(xic, &ev, buffer, ARRAYSIZE(buffer), &ignore,
+							                      &return_status);
+							XDestroyIC(xic);
+						}
+						XCloseIM(xim);
+					}
 				}
 				break;
 			}
@@ -711,11 +726,6 @@ void xf_keyboard_send_key(xfContext* xfc, BOOL down, BOOL repeat, const XKeyEven
 			WLog_ERR(TAG, "Unknown key with X keycode 0x%02" PRIx8 "", event->keycode);
 		else
 			(void)freerdp_input_send_keyboard_event_ex(input, down, repeat, rdp_scancode);
-
-		if ((rdp_scancode == RDP_SCANCODE_CAPSLOCK) && (down == FALSE))
-		{
-			(void)xf_sync_kbd_state(xfc);
-		}
 	}
 }
 
@@ -1023,6 +1033,8 @@ BOOL xf_keyboard_handle_special_keys(xfContext* xfc, KeySym keysym)
 				if (mod.Ctrl && mod.Alt)
 				{
 					/* Ctrl-Alt-Enter: toggle full screen */
+					WLog_INFO(TAG, "<ctrl>+<alt>+<enter> pressed, toggling fullscreen state...");
+					xf_sync_kbd_state(xfc);
 					xf_toggle_fullscreen(xfc);
 					return TRUE;
 				}
@@ -1038,14 +1050,24 @@ BOOL xf_keyboard_handle_special_keys(xfContext* xfc, KeySym keysym)
 		{
 			case XK_m:
 			case XK_M:
+				WLog_INFO(TAG, "<ctrl>+<alt>+m pressed, minimizing RDP session...");
+				xf_sync_kbd_state(xfc);
 				xf_minimize(xfc);
 				return TRUE;
 			case XK_c:
 			case XK_C:
 				/* Ctrl-Alt-C: toggle control */
+				WLog_INFO(TAG, "<ctrl>+<alt>+c pressed, toggle encomps control...");
 				if (freerdp_client_encomsp_toggle_control(xfc->common.encomsp))
 					return TRUE;
 				break;
+			case XK_d:
+			case XK_D:
+				/* <ctrl>+<alt>+d: disconnect session */
+				WLog_INFO(TAG, "<ctrl>+<alt>+d pressed, terminating RDP session...");
+				xf_sync_kbd_state(xfc);
+				return freerdp_abort_connect_context(&xfc->common.context);
+
 			default:
 				break;
 		}
@@ -1156,6 +1178,7 @@ void xf_keyboard_handle_special_keys_release(xfContext* xfc, KeySym keysym)
 	{
 		if (!xfc->fullscreen)
 		{
+			xf_sync_kbd_state(xfc);
 			freerdp_client_encomsp_toggle_control(xfc->common.encomsp);
 		}
 

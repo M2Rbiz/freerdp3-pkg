@@ -49,6 +49,7 @@ class SdlContext
 	explicit SdlContext(rdpContext* context);
 	SdlContext(const SdlContext& other) = delete;
 	SdlContext(SdlContext&& other) = delete;
+	~SdlContext() = default;
 
 	SdlContext& operator=(const SdlContext& other) = delete;
 	SdlContext& operator=(SdlContext&& other) = delete;
@@ -64,7 +65,6 @@ class SdlContext
 	bool resizeable = false;
 	bool grab_mouse = false;
 	bool grab_kbd = false;
-	bool grab_kbd_enabled = true;
 
 	std::map<Uint32, SdlWindow> windows;
 

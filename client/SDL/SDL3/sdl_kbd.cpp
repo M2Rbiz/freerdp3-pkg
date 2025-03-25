@@ -30,9 +30,10 @@
 
 #include <freerdp/utils/string.h>
 #include <freerdp/scancode.h>
+#include <freerdp/locale/keyboard.h>
+#include <freerdp/locale/locale.h>
 
 #include <freerdp/log.h>
-#define TAG CLIENT_TAG("SDL.kbd")
 
 typedef struct
 {
@@ -361,19 +362,20 @@ BOOL sdlInput::keyboard_set_indicators(rdpContext* context, UINT16 led_flags)
 BOOL sdlInput::keyboard_set_ime_status(rdpContext* context, UINT16 imeId, UINT32 imeState,
                                        UINT32 imeConvMode)
 {
+	auto sdl = reinterpret_cast<SdlContext*>(context);
 	if (!context)
 		return FALSE;
 
-	WLog_WARN(TAG,
-	          "KeyboardSetImeStatus(unitId=%04" PRIx16 ", imeState=%08" PRIx32
-	          ", imeConvMode=%08" PRIx32 ") ignored",
-	          imeId, imeState, imeConvMode);
+	WLog_Print(sdl->log, WLOG_WARN,
+	           "KeyboardSetImeStatus(unitId=%04" PRIx16 ", imeState=%08" PRIx32
+	           ", imeConvMode=%08" PRIx32 ") ignored",
+	           imeId, imeState, imeConvMode);
 	return TRUE;
 }
 
-uint32_t sdlInput::prefToMask()
+static const std::map<std::string, uint32_t>& getSdlMap()
 {
-	const std::map<std::string, uint32_t> mapping = {
+	static std::map<std::string, uint32_t> s_map = {
 		{ "KMOD_LSHIFT", SDL_KMOD_LSHIFT }, { "KMOD_RSHIFT", SDL_KMOD_RSHIFT },
 		{ "KMOD_LCTRL", SDL_KMOD_LCTRL },   { "KMOD_RCTRL", SDL_KMOD_RCTRL },
 		{ "KMOD_LALT", SDL_KMOD_LALT },     { "KMOD_RALT", SDL_KMOD_RALT },
@@ -383,11 +385,53 @@ uint32_t sdlInput::prefToMask()
 		{ "KMOD_CTRL", SDL_KMOD_CTRL },     { "KMOD_SHIFT", SDL_KMOD_SHIFT },
 		{ "KMOD_ALT", SDL_KMOD_ALT },       { "KMOD_GUI", SDL_KMOD_GUI }
 	};
+
+	return s_map;
+}
+
+static std::string modbyvalue(uint32_t val)
+{
+	for (const auto& v : getSdlMap())
+	{
+		if (v.second == val)
+		{
+			return v.first;
+		}
+	}
+	return "KMOD_UNKNONW";
+}
+
+static std::string masktostr(uint32_t mask)
+{
+	if (mask == 0)
+		return "<NONE>";
+
+	std::string str = "<";
+	for (uint32_t x = 0; x < 32; x++)
+	{
+		uint32_t cmask = 1 << x;
+		if ((mask & cmask) != 0)
+		{
+			auto s = modbyvalue(cmask);
+			if (str.size() > 1)
+			{
+				str += ">+<";
+			}
+			str += s;
+		}
+	}
+	str += ">";
+	return str;
+}
+
+uint32_t sdlInput::prefToMask()
+{
+	auto m = getSdlMap();
 	uint32_t mod = SDL_KMOD_NONE;
 	for (const auto& val : SdlPref::instance()->get_array("SDL_KeyModMask", { "KMOD_RSHIFT" }))
 	{
-		auto it = mapping.find(val);
-		if (it != mapping.end())
+		auto it = m.find(val);
+		if (it != m.end())
 		{
 			mod |= it->second;
 		}
@@ -395,7 +439,6 @@ uint32_t sdlInput::prefToMask()
 	return mod;
 }
 
-#if defined(WITH_DEBUG_SDL_KBD_EVENTS)
 static const char* sdl_scancode_name(Uint32 scancode)
 {
 	for (const auto& cur : map)
@@ -406,7 +449,6 @@ static const char* sdl_scancode_name(Uint32 scancode)
 
 	return "SDL_SCANCODE_UNKNOWN";
 }
-#endif
 
 static Uint32 sdl_scancode_val(const char* scancodeName)
 {
@@ -443,7 +485,7 @@ static UINT32 sdl_rdp_scancode_val(const char* scancodeName)
 }
 #endif
 
-static UINT32 sdl_scancode_to_rdp(Uint32 scancode)
+UINT32 sdlInput::scancode_to_rdp(Uint32 scancode)
 {
 	UINT32 rdp = RDP_SCANCODE_UNKNOWN;
 
@@ -458,8 +500,8 @@ static UINT32 sdl_scancode_to_rdp(Uint32 scancode)
 
 #if defined(WITH_DEBUG_SDL_KBD_EVENTS)
 	auto code = static_cast<SDL_Scancode>(scancode);
-	WLog_DBG(TAG, "got %s [%s] -> [%s]", SDL_GetScancodeName(code), sdl_scancode_name(scancode),
-	         sdl_rdp_scancode_name(rdp));
+	WLog_Print(_sdl->log, WLOG_DEBUG, "got %s [%s] -> [%s]", SDL_GetScancodeName(code),
+	           sdl_scancode_name(scancode), sdl_rdp_scancode_name(rdp));
 #endif
 	return rdp;
 }
@@ -499,7 +541,7 @@ bool sdlInput::extract(const std::string& token, uint32_t& key, uint32_t& value)
 BOOL sdlInput::keyboard_handle_event(const SDL_KeyboardEvent* ev)
 {
 	WINPR_ASSERT(ev);
-	const UINT32 rdp_scancode = sdl_scancode_to_rdp(ev->scancode);
+	const UINT32 rdp_scancode = scancode_to_rdp(ev->scancode);
 	const SDL_Keymod mods = SDL_GetModState();
 
 	if ((mods & _hotkeyModmask) == _hotkeyModmask)
@@ -508,27 +550,42 @@ BOOL sdlInput::keyboard_handle_event(const SDL_KeyboardEvent* ev)
 		{
 			if (ev->scancode == _hotkeyFullscreen)
 			{
+				WLog_Print(_sdl->log, WLOG_INFO, "%s+<%s> pressed, toggling fullscreen state",
+				           masktostr(_hotkeyModmask).c_str(), sdl_scancode_name(_hotkeyFullscreen));
+				keyboard_sync_state();
 				_sdl->update_fullscreen(!_sdl->fullscreen);
 				return TRUE;
 			}
 			if (ev->scancode == _hotkeyResizable)
 			{
+				WLog_Print(_sdl->log, WLOG_INFO, "%s+<%s> pressed, toggling resizeable state",
+				           masktostr(_hotkeyModmask).c_str(), sdl_scancode_name(_hotkeyResizable));
+				keyboard_sync_state();
 				_sdl->update_resizeable(!_sdl->resizeable);
 				return TRUE;
 			}
 
 			if (ev->scancode == _hotkeyGrab)
 			{
+				WLog_Print(_sdl->log, WLOG_INFO, "%s+<%s> pressed, toggling grab state",
+				           masktostr(_hotkeyModmask).c_str(), sdl_scancode_name(_hotkeyGrab));
+				keyboard_sync_state();
 				keyboard_grab(ev->windowID, !_sdl->grab_kbd);
 				return TRUE;
 			}
 			if (ev->scancode == _hotkeyDisconnect)
 			{
+				WLog_Print(_sdl->log, WLOG_INFO, "%s+<%s> pressed, disconnecting RDP session",
+				           masktostr(_hotkeyModmask).c_str(), sdl_scancode_name(_hotkeyDisconnect));
+				keyboard_sync_state();
 				freerdp_abort_connect_context(_sdl->context());
 				return TRUE;
 			}
 			if (ev->scancode == _hotkeyMinimize)
 			{
+				WLog_Print(_sdl->log, WLOG_INFO, "%s+<%s> pressed, minimizing client",
+				           masktostr(_hotkeyModmask).c_str(), sdl_scancode_name(_hotkeyMinimize));
+				keyboard_sync_state();
 				_sdl->update_minimize();
 				return TRUE;
 			}
@@ -545,7 +602,10 @@ BOOL sdlInput::keyboard_grab(Uint32 windowID, bool enable)
 	auto it = _sdl->windows.find(windowID);
 	if (it == _sdl->windows.end())
 		return FALSE;
-	auto status = enable && _sdl->grab_kbd_enabled;
+
+	auto settings = _sdl->context()->settings;
+	auto kbd_enabled = freerdp_settings_get_bool(settings, FreeRDP_GrabKeyboard);
+	auto status = enable && kbd_enabled;
 	_sdl->grab_kbd = status;
 	return it->second.grabKeyboard(status);
 }
@@ -576,10 +636,6 @@ BOOL sdlInput::mouse_grab(Uint32 windowID, bool enable)
 sdlInput::sdlInput(SdlContext* sdl)
     : _sdl(sdl), _lastWindowID(UINT32_MAX), _hotkeyModmask(prefToMask())
 {
-	auto list =
-	    freerdp_settings_get_string(_sdl->context()->settings, FreeRDP_KeyboardRemappingList);
-	_remapTable = freerdp_keyboard_remap_string_to_list(list);
-	assert(_remapTable);
 	_hotkeyFullscreen = prefKeyValue("SDL_Fullscreen", SDL_SCANCODE_RETURN);
 	_hotkeyResizable = prefKeyValue("SDL_Resizeable", SDL_SCANCODE_R);
 	_hotkeyGrab = prefKeyValue("SDL_Grab", SDL_SCANCODE_G);
@@ -590,4 +646,31 @@ sdlInput::sdlInput(SdlContext* sdl)
 sdlInput::~sdlInput()
 {
 	freerdp_keyboard_remap_free(_remapTable);
+}
+
+BOOL sdlInput::initialize()
+{
+	auto settings = _sdl->context()->settings;
+	WINPR_ASSERT(settings);
+	WINPR_ASSERT(!_remapTable);
+
+	{
+		auto list = freerdp_settings_get_string(settings, FreeRDP_KeyboardRemappingList);
+		_remapTable = freerdp_keyboard_remap_string_to_list(list);
+		if (!_remapTable)
+			return FALSE;
+	}
+
+	if (freerdp_settings_get_uint32(settings, FreeRDP_KeyboardLayout) == 0)
+	{
+		DWORD KeyboardLayout = 0;
+
+		freerdp_detect_keyboard_layout_from_system_locale(&KeyboardLayout);
+		if (KeyboardLayout == 0)
+			KeyboardLayout = ENGLISH_UNITED_STATES;
+
+		if (!freerdp_settings_set_uint32(settings, FreeRDP_KeyboardLayout, KeyboardLayout))
+			return FALSE;
+	}
+	return TRUE;
 }
