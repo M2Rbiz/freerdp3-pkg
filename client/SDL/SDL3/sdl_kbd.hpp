@@ -42,6 +42,8 @@ class sdlInput
 	sdlInput& operator=(const sdlInput& other) = delete;
 	sdlInput& operator=(sdlInput&& other) = delete;
 
+	BOOL initialize();
+
 	BOOL keyboard_sync_state();
 	BOOL keyboard_focus_in();
 
@@ -63,6 +65,8 @@ class sdlInput
 	                                       const std::string& delimiter = ",");
 	static bool extract(const std::string& token, uint32_t& key, uint32_t& value);
 
+	UINT32 scancode_to_rdp(Uint32 scancode);
+
 	SdlContext* _sdl;
 	Uint32 _lastWindowID;
 
@@ -73,5 +77,5 @@ class sdlInput
 	uint32_t _hotkeyGrab;
 	uint32_t _hotkeyDisconnect;
 	uint32_t _hotkeyMinimize;
-	FREERDP_REMAP_TABLE* _remapTable;
+	FREERDP_REMAP_TABLE* _remapTable = nullptr;
 };

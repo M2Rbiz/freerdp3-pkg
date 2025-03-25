@@ -6142,12 +6142,14 @@ BOOL freerdp_client_load_addins(rdpChannels* channels, rdpSettings* settings)
 		}
 	}
 
-	char* RDP2TCPArgs = freerdp_settings_get_string_writable(settings, FreeRDP_RDP2TCPArgs);
-	if (RDP2TCPArgs)
 	{
-		if (!freerdp_client_load_static_channel_addin(channels, settings, RDP2TCP_DVC_CHANNEL_NAME,
-		                                              RDP2TCPArgs))
-			return FALSE;
+		char* RDP2TCPArgs = freerdp_settings_get_string_writable(settings, FreeRDP_RDP2TCPArgs);
+		if (RDP2TCPArgs)
+		{
+			const char* const p[] = { RDP2TCP_DVC_CHANNEL_NAME, RDP2TCPArgs };
+			if (!freerdp_client_add_static_channel(settings, ARRAYSIZE(p), p))
+				return FALSE;
+		}
 	}
 
 	/* step 4: do the static channels loading and init */

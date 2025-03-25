@@ -238,7 +238,7 @@ static BOOL TestPrimitiveYUVCombine(primitives_t* prims, prim_size_t roi)
 	awidth = roi.width + 16 - roi.width % 16;
 	aheight = roi.height + 16 - roi.height % 16;
 	(void)fprintf(stderr,
-	              "Running YUVCombine on frame size %" PRIu32 "x%" PRIu32 " [%" PRIu32 "x%" PRIu32
+	              "Running YUVCombine on frame size %" PRIu32 "x%" PRIu32 " [%" PRIuz "x%" PRIuz
 	              "]\n",
 	              roi.width, roi.height, awidth, aheight);
 	PROFILER_CREATE(yuvCombine, "YUV420CombineToYUV444")
@@ -1001,10 +1001,8 @@ static BOOL yuv444_to_rgb(BYTE* rgb, size_t stride, const BYTE* yuv[3], const UI
 			const BYTE Y = yline[0][x];
 			const BYTE U = yline[1][x];
 			const BYTE V = yline[2][x];
-			const BYTE r = YUV2R(Y, U, V);
-			const BYTE g = YUV2G(Y, U, V);
-			const BYTE b = YUV2B(Y, U, V);
-			writePixelBGRX(&line[x * 4], 4, PIXEL_FORMAT_BGRX32, r, g, b, 0xFF);
+
+			writeYUVPixel(&line[x * 4], PIXEL_FORMAT_BGRX32, Y, U, V, writePixelBGRX);
 		}
 	}
 }

@@ -668,7 +668,7 @@ static BOOL rdp_read_info_packet(rdpRdp* rdp, wStream* s, UINT16 tpktlength)
 	UINT32 CompressionLevel = 0;
 	rdpSettings* settings = rdp->settings;
 
-	if (!Stream_CheckAndLogRequiredLength(TAG, s, 18))
+	if (!Stream_CheckAndLogRequiredLengthWLog(rdp->log, s, 18))
 		return FALSE;
 
 	Stream_Read_UINT32(s, settings->KeyboardCodePage); /* CodePage (4 bytes ) */
@@ -730,7 +730,7 @@ static BOOL rdp_read_info_packet(rdpRdp* rdp, wStream* s, UINT16 tpktlength)
 	}
 
 	const size_t xrem = Stream_GetRemainingLength(s);
-	if (!tpkt_ensure_stream_consumed(s, tpktlength))
+	if (!tpkt_ensure_stream_consumed(rdp->log, s, tpktlength))
 		Stream_Seek(s, xrem);
 	return TRUE;
 }
@@ -1451,11 +1451,11 @@ static BOOL rdp_write_logon_info_v2(wStream* s, logon_info* info)
 	 */
 	Stream_Write_UINT32(s, logonInfoV2Size);
 	Stream_Write_UINT32(s, info->sessionId);
-	domainLen = strnlen(info->domain, UINT32_MAX);
+	domainLen = strnlen(info->domain, 256); /* lmcons.h UNLEN */
 	if (domainLen >= UINT32_MAX / sizeof(WCHAR))
 		return FALSE;
 	Stream_Write_UINT32(s, (UINT32)(domainLen + 1) * sizeof(WCHAR));
-	usernameLen = strnlen(info->username, UINT32_MAX);
+	usernameLen = strnlen(info->username, 256); /* lmcons.h UNLEN */
 	if (usernameLen >= UINT32_MAX / sizeof(WCHAR))
 		return FALSE;
 	Stream_Write_UINT32(s, (UINT32)(usernameLen + 1) * sizeof(WCHAR));
