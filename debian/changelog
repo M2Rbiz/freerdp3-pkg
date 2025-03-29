@@ -1,3 +1,9 @@
+freerdp3 (3.14.1+dfsg-2) unstable; urgency=medium
+
+  * d/rules: enable CHANNEL_RDPECAM_CLIENT (it is not enabled implicitly)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 29 Mar 2025 09:14:17 +0300
+
 freerdp3 (3.14.1+dfsg-1) unstable; urgency=medium
 
   [ Michael Tokarev ]
