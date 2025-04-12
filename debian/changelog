@@ -1,3 +1,9 @@
+freerdp3 (3.14.1+dfsg-3) UNRELEASED; urgency=medium
+
+  * d/copyright: fix lintian warning "old-fsf-address-in-copyright-file"
+
+ -- Bernhard Miklautz <bernhard.miklautz@shacknet.at>  Sat, 12 Apr 2025 12:13:57 +0200
+
 freerdp3 (3.14.1+dfsg-2) unstable; urgency=medium
 
   * d/rules: enable CHANNEL_RDPECAM_CLIENT (it is not enabled implicitly)
