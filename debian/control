@@ -9,7 +9,6 @@ Uploaders:
 Build-Depends:
  debhelper-compat (= 13),
  cmake,
- docbook-xsl,
  dpkg-dev (>= 1.22.5),
  libasound2-dev,
 # ffmpeg is in universe in ubuntu (not enabled):
