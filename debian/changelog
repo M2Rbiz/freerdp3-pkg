@@ -1,6 +1,9 @@
 freerdp3 (3.14.1+dfsg-3) UNRELEASED; urgency=medium
 
   * d/copyright: fix lintian warning "old-fsf-address-in-copyright-file"
+  * d/control:
+     - remove Multi-Arch: same field (for bin:pkg libwinpr3-dev) (Closes: #1101910)
+     - drop unused build dependency to docbook-xsl
 
  -- Bernhard Miklautz <bernhard.miklautz@shacknet.at>  Sat, 12 Apr 2025 12:13:57 +0200
 

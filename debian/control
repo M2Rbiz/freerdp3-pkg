@@ -164,7 +164,6 @@ Description: Windows Portable Runtime Tools library
 Package: libwinpr3-dev
 Section: libdevel
 Architecture: any
-Multi-Arch: same
 Depends:
  libssl-dev,
  libwinpr-tools3-3 (= ${binary:Version}),
