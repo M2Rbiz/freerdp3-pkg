@@ -1,13 +1,19 @@
-freerdp3 (3.14.1+dfsg-3) UNRELEASED; urgency=medium
+freerdp3 (3.15.0+dfsg-1) unstable; urgency=medium
 
+  [ Bernhard Miklautz ]
   * d/copyright:
      - fix lintian warning "old-fsf-address-in-copyright-file"
      - update files
   * d/control:
-     - remove Multi-Arch: same field (for bin:pkg libwinpr3-dev) (Closes: #1101910)
+     - remove Multi-Arch: same field (for bin:pkg libwinpr3-dev)
+       (Closes: #1101910)
      - drop unused build dependency to docbook-xsl
 
- -- Bernhard Miklautz <bernhard.miklautz@shacknet.at>  Sat, 12 Apr 2025 12:13:57 +0200
+  [ Michael Tokarev ]
+  * new upstream version (3.15.0)
+  * install .desktop files and FreeRDP.svg icon
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 14 Apr 2025 18:35:14 +0300
 
 freerdp3 (3.14.1+dfsg-2) unstable; urgency=medium
 
