@@ -553,7 +553,7 @@ static BOOL rdp_apply_order_capability_set(rdpSettings* settings, const rdpSetti
 			settings->OrderSupport[i] = FALSE;
 	}
 
-	if (settings->OrderSupportFlags & ORDER_FLAGS_EXTRA_SUPPORT)
+	if (src->OrderSupportFlags & ORDER_FLAGS_EXTRA_SUPPORT)
 	{
 		if (src->OrderSupportFlagsEx & CACHE_BITMAP_V3_SUPPORT)
 			BitmapCacheV3Enabled = TRUE;
@@ -562,7 +562,7 @@ static BOOL rdp_apply_order_capability_set(rdpSettings* settings, const rdpSetti
 			FrameMarkerCommandEnabled = TRUE;
 	}
 
-	if (BitmapCacheV3Enabled)
+	if (BitmapCacheV3Enabled && settings->BitmapCacheV3Enabled)
 	{
 		settings->BitmapCacheV3Enabled = src->BitmapCacheV3Enabled;
 		settings->BitmapCacheVersion = src->BitmapCacheVersion;
@@ -570,7 +570,9 @@ static BOOL rdp_apply_order_capability_set(rdpSettings* settings, const rdpSetti
 	else
 		settings->BitmapCacheV3Enabled = FALSE;
 
-	if (FrameMarkerCommandEnabled && !src->FrameMarkerCommandEnabled)
+	if (FrameMarkerCommandEnabled && src->FrameMarkerCommandEnabled)
+		settings->FrameMarkerCommandEnabled = TRUE;
+	else
 		settings->FrameMarkerCommandEnabled = FALSE;
 
 	return TRUE;
@@ -653,14 +655,35 @@ static BOOL rdp_write_order_capability_set(wLog* log, wStream* s, const rdpSetti
 
 	if (settings->BitmapCacheV3Enabled)
 	{
-		orderSupportExFlags |= CACHE_BITMAP_V3_SUPPORT;
-		orderFlags |= ORDER_FLAGS_EXTRA_SUPPORT;
+		if ((orderSupportExFlags & CACHE_BITMAP_V3_SUPPORT) == 0)
+		{
+			WLog_Print(log, WLOG_WARN,
+			           "rdpSettings::BitmapCacheV3Enabled=TRUE, but CACHE_BITMAP_V3_SUPPORT not "
+			           "set in rdpSettings::OrderSupportEx, aborting.");
+		}
+		if ((orderFlags & ORDER_FLAGS_EXTRA_SUPPORT) == 0)
+		{
+			WLog_Print(log, WLOG_WARN,
+			           "rdpSettings::BitmapCacheV3Enabled=TRUE, but ORDER_FLAGS_EXTRA_SUPPORT not "
+			           "set in rdpSettings::OrderSupport, aborting.");
+		}
 	}
 
 	if (settings->FrameMarkerCommandEnabled)
 	{
-		orderSupportExFlags |= ALTSEC_FRAME_MARKER_SUPPORT;
-		orderFlags |= ORDER_FLAGS_EXTRA_SUPPORT;
+		if ((orderSupportExFlags & ALTSEC_FRAME_MARKER_SUPPORT) == 0)
+		{
+			WLog_Print(
+			    log, WLOG_WARN,
+			    "rdpSettings::FrameMarkerCommandEnabled=TRUE, but "
+			    "ALTSEC_FRAME_MARKER_SUPPORT not set in rdpSettings::OrderSupportEx, aborting.");
+		}
+		if ((orderFlags & ORDER_FLAGS_EXTRA_SUPPORT) == 0)
+		{
+			WLog_Print(log, WLOG_WARN,
+			           "rdpSettings::FrameMarkerCommandEnabled=TRUE, but ORDER_FLAGS_EXTRA_SUPPORT "
+			           "not set in rdpSettings::OrderSupport, aborting.");
+		}
 	}
 
 	const char* dsc = freerdp_settings_get_string(settings, FreeRDP_TerminalDescriptor);
@@ -4695,7 +4718,8 @@ static BOOL rdp_write_demand_active(wLog* log, wStream* s, rdpSettings* settings
 
 BOOL rdp_send_demand_active(rdpRdp* rdp)
 {
-	wStream* s = rdp_send_stream_pdu_init(rdp);
+	UINT16 sec_flags = 0;
+	wStream* s = rdp_send_stream_pdu_init(rdp, &sec_flags);
 	BOOL status = 0;
 
 	if (!s)
@@ -4703,7 +4727,7 @@ BOOL rdp_send_demand_active(rdpRdp* rdp)
 
 	rdp->settings->ShareId = 0x10000 + rdp->mcs->userId;
 	status = rdp_write_demand_active(rdp->log, s, rdp->settings) &&
-	         rdp_send_pdu(rdp, s, PDU_TYPE_DEMAND_ACTIVE, rdp->mcs->userId);
+	         rdp_send_pdu(rdp, s, PDU_TYPE_DEMAND_ACTIVE, rdp->mcs->userId, sec_flags);
 	Stream_Release(s);
 	return status;
 }
@@ -4934,14 +4958,15 @@ static BOOL rdp_write_confirm_active(wLog* log, wStream* s, rdpSettings* setting
 
 BOOL rdp_send_confirm_active(rdpRdp* rdp)
 {
-	wStream* s = rdp_send_stream_pdu_init(rdp);
+	UINT16 sec_flags = 0;
+	wStream* s = rdp_send_stream_pdu_init(rdp, &sec_flags);
 	BOOL status = 0;
 
 	if (!s)
 		return FALSE;
 
 	status = rdp_write_confirm_active(rdp->log, s, rdp->settings) &&
-	         rdp_send_pdu(rdp, s, PDU_TYPE_CONFIRM_ACTIVE, rdp->mcs->userId);
+	         rdp_send_pdu(rdp, s, PDU_TYPE_CONFIRM_ACTIVE, rdp->mcs->userId, sec_flags);
 	Stream_Release(s);
 	return status;
 }

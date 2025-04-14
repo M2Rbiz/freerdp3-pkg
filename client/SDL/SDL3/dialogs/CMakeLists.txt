@@ -34,6 +34,8 @@ set(SRCS
     sdl_selectlist.cpp
     sdl_connection_dialog.cpp
     sdl_connection_dialog.hpp
+    sdl_connection_dialog_wrapper.cpp
+    sdl_connection_dialog_wrapper.hpp
 )
 
 list(APPEND LIBS sdl3_client_res winpr)
@@ -68,6 +70,7 @@ add_subdirectory(res)
 
 add_library(sdl3-dialogs STATIC ${SRCS})
 
+set_property(TARGET sdl3-dialogs PROPERTY FOLDER "Client/SDL")
 target_link_libraries(sdl3-dialogs PRIVATE ${LIBS})
 
 if(BUILD_TESTING)

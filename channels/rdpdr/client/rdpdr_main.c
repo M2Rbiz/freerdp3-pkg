@@ -1408,7 +1408,8 @@ static BOOL device_announce(ULONG_PTR key, void* element, void* data)
 
 		arg->count++;
 		WLog_Print(rdpdr->log, WLOG_INFO,
-		           "registered [%09s] device #%" PRIu32 ": %s (type=%" PRIu32 " id=%" PRIu32 ")",
+		           "registered [%09s] device #%" PRIu32 ": %05s (type=%2" PRIu32 " id=%2" PRIu32
+		           ")",
 		           rdpdr_device_type_string(device->type), arg->count, device->name, device->type,
 		           device->id);
 	}
@@ -1493,7 +1494,7 @@ static UINT dummy_irp_response(rdpdrPlugin* rdpdr, wStream* s)
 	const uint32_t FileId = Stream_Get_UINT32(s);       /* FileId (4 bytes) */
 	const uint32_t CompletionId = Stream_Get_UINT32(s); /* CompletionId (4 bytes) */
 
-	WLog_Print(rdpdr->log, WLOG_ERROR,
+	WLog_Print(rdpdr->log, WLOG_WARN,
 	           "Dummy response {DeviceId=%" PRIu32 ", FileId=%" PRIu32 ", CompletionId=%" PRIu32
 	           "}",
 	           DeviceId, FileId, CompletionId);
@@ -1520,13 +1521,13 @@ static UINT rdpdr_process_irp(rdpdrPlugin* rdpdr, wStream* s)
 
 	if (!irp)
 	{
-		WLog_Print(rdpdr->log, WLOG_ERROR, "irp_new failed with %" PRIu32 "!", error);
-
-		if (error == CHANNEL_RC_OK || (error == ERROR_DEV_NOT_EXIST && rdpdr->ignoreInvalidDevices))
+		if ((error == CHANNEL_RC_OK) ||
+		    (error == ERROR_DEV_NOT_EXIST && rdpdr->ignoreInvalidDevices))
 		{
 			return dummy_irp_response(rdpdr, s);
 		}
 
+		WLog_Print(rdpdr->log, WLOG_ERROR, "irp_new failed with %" PRIu32 "!", error);
 		return error;
 	}
 
@@ -1680,7 +1681,9 @@ static BOOL rdpdr_check_channel_state(rdpdrPlugin* rdpdr, UINT16 packetid)
 			    RDPDR_CHANNEL_STATE_READY, RDPDR_CHANNEL_STATE_CLIENT_CAPS,
 			    RDPDR_CHANNEL_STATE_CLIENTID_CONFIRM, RDPDR_CHANNEL_STATE_USER_LOGGEDON);
 		case PAKID_CORE_CLIENTID_CONFIRM:
-			return rdpdr_state_check(rdpdr, packetid, RDPDR_CHANNEL_STATE_CLIENTID_CONFIRM, 3,
+			return rdpdr_state_check(rdpdr, packetid, RDPDR_CHANNEL_STATE_CLIENTID_CONFIRM, 5,
+			                         RDPDR_CHANNEL_STATE_NAME_REQUEST,
+			                         RDPDR_CHANNEL_STATE_SERVER_CAPS,
 			                         RDPDR_CHANNEL_STATE_CLIENT_CAPS, RDPDR_CHANNEL_STATE_READY,
 			                         RDPDR_CHANNEL_STATE_USER_LOGGEDON);
 		case PAKID_CORE_USER_LOGGEDON:
@@ -1697,6 +1700,24 @@ static BOOL rdpdr_check_channel_state(rdpdrPlugin* rdpdr, UINT16 packetid)
 			return rdpdr_state_check(rdpdr, packetid, state, 1, state);
 		}
 	}
+}
+
+static BOOL tryAdvance(rdpdrPlugin* rdpdr)
+{
+	if (rdpdr->haveClientId && rdpdr->haveServerCaps)
+	{
+		const UINT error = rdpdr_send_device_list_announce_request(rdpdr, FALSE);
+		if (error)
+		{
+			WLog_Print(rdpdr->log, WLOG_ERROR,
+			           "rdpdr_send_device_list_announce_request failed with error %" PRIu32 "",
+			           error);
+			return FALSE;
+		}
+		if (!rdpdr_state_advance(rdpdr, RDPDR_CHANNEL_STATE_READY))
+			return FALSE;
+	}
+	return TRUE;
 }
 
 /**
@@ -1729,6 +1750,8 @@ static UINT rdpdr_process_receive(rdpdrPlugin* rdpdr, wStream* s)
 			switch (packetId)
 			{
 				case PAKID_CORE_SERVER_ANNOUNCE:
+					rdpdr->haveClientId = FALSE;
+					rdpdr->haveServerCaps = FALSE;
 					if ((error = rdpdr_process_server_announce_request(rdpdr, s)))
 					{
 					}
@@ -1762,6 +1785,12 @@ static UINT rdpdr_process_receive(rdpdrPlugin* rdpdr, wStream* s)
 						           "rdpdr_send_capability_response failed with error %" PRIu32 "",
 						           error);
 					}
+					else
+					{
+						rdpdr->haveServerCaps = TRUE;
+						if (!tryAdvance(rdpdr))
+							error = ERROR_INTERNAL_ERROR;
+					}
 
 					break;
 
@@ -1769,28 +1798,31 @@ static UINT rdpdr_process_receive(rdpdrPlugin* rdpdr, wStream* s)
 					if ((error = rdpdr_process_server_clientid_confirm(rdpdr, s)))
 					{
 					}
-					else if ((error = rdpdr_send_device_list_announce_request(rdpdr, FALSE)))
+					else
 					{
-						WLog_Print(
-						    rdpdr->log, WLOG_ERROR,
-						    "rdpdr_send_device_list_announce_request failed with error %" PRIu32 "",
-						    error);
-					}
-					else if (!rdpdr_state_advance(rdpdr, RDPDR_CHANNEL_STATE_READY))
-					{
-						error = ERROR_INTERNAL_ERROR;
+						rdpdr->haveClientId = TRUE;
+						if (!tryAdvance(rdpdr))
+							error = ERROR_INTERNAL_ERROR;
 					}
 					break;
 
 				case PAKID_CORE_USER_LOGGEDON:
-					if ((error = rdpdr_send_device_list_announce_request(rdpdr, TRUE)))
+					if (!rdpdr->haveServerCaps)
+					{
+						WLog_Print(rdpdr->log, WLOG_ERROR,
+						           "Wrong state %s for %s. [serverCaps=%d, clientId=%d]",
+						           rdpdr_state_str(rdpdr->state), rdpdr_packetid_string(packetId),
+						           rdpdr->haveServerCaps, rdpdr->haveClientId);
+						error = ERROR_INTERNAL_ERROR;
+					}
+					else if ((error = rdpdr_send_device_list_announce_request(rdpdr, TRUE)))
 					{
 						WLog_Print(
 						    rdpdr->log, WLOG_ERROR,
 						    "rdpdr_send_device_list_announce_request failed with error %" PRIu32 "",
 						    error);
 					}
-					else if (!rdpdr_state_advance(rdpdr, RDPDR_CHANNEL_STATE_READY))
+					else if (!tryAdvance(rdpdr))
 					{
 						error = ERROR_INTERNAL_ERROR;
 					}

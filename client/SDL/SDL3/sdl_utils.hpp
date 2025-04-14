@@ -53,7 +53,9 @@ enum
 	SDL_EVENT_USER_CERT_RESULT,
 	SDL_EVENT_USER_SHOW_RESULT,
 	SDL_EVENT_USER_AUTH_RESULT,
-	SDL_EVENT_USER_SCARD_RESULT
+	SDL_EVENT_USER_SCARD_RESULT,
+
+	SDL_EVENT_USER_UPDATE_CONNECT_DIALOG
 };
 
 typedef struct
@@ -67,7 +69,7 @@ typedef struct
 	Sint32 result;
 } SDL_UserAuthArg;
 
-BOOL sdl_push_user_event(Uint32 type, ...);
+bool sdl_push_user_event(Uint32 type, ...);
 
 bool sdl_push_quit();
 
@@ -78,3 +80,12 @@ const char* sdl_error_string(Sint32 res);
 #define sdl_log_error(res, log, what) sdl_log_error_ex(res, log, what, __FILE__, __LINE__, __func__)
 BOOL sdl_log_error_ex(Sint32 res, wLog* log, const char* what, const char* file, size_t line,
                       const char* fkt);
+
+namespace sdl::utils
+{
+	std::string rdp_orientation_to_str(uint32_t orientation);
+	std::string sdl_orientation_to_str(SDL_DisplayOrientation orientation);
+	UINT32 orientaion_to_rdp(SDL_DisplayOrientation orientation);
+
+	std::string generate_uuid_v4();
+}
