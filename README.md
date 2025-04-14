@@ -17,19 +17,26 @@ interoperability can finally liberate your computing experience.
 
 ## Resources
 
-Project website: https://www.freerdp.com/  
-Issue tracker: https://github.com/FreeRDP/FreeRDP/issues  
-Sources: https://github.com/FreeRDP/FreeRDP/  
-Downloads: https://pub.freerdp.com/releases/  
-Wiki: https://github.com/FreeRDP/FreeRDP/wiki  
-API documentation: https://pub.freerdp.com/api/  
+Project website: https://www.freerdp.com/
+
+Issue tracker: https://github.com/FreeRDP/FreeRDP/issues
+
+Sources: https://github.com/FreeRDP/FreeRDP/
+
+Downloads: https://pub.freerdp.com/releases/
+
+Wiki: https://github.com/FreeRDP/FreeRDP/wiki
+
+API documentation: https://pub.freerdp.com/api/
 
 Security policy: https://github.com/FreeRDP/FreeRDP/security/policy
+
+FAQ: https://github.com/FreeRDP/FreeRDP/wiki/FAQ
 
 ### Contact
 
 * Matrix room : `#FreeRDP:matrix.org` (main)
-  * XMPP channel: `#FreeRDP#matrix.org@matrix.org` (bridged)
+  * ~~XMPP channel: `#FreeRDP#matrix.org@matrix.org` (bridged)~~ no longer available
   * IRC channel : `#freerdp @ irc.oftc.net` (bridged)
 * Mailing list: https://lists.sourceforge.net/lists/listinfo/freerdp-devel
 

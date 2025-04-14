@@ -1068,8 +1068,6 @@ static BOOL gdi_surface_bits(rdpContext* context, const SURFACE_BITS_COMMAND* cm
 	size_t size = 0;
 	REGION16 region;
 	RECTANGLE_16 cmdRect = { 0 };
-	UINT32 nbRects = 0;
-	const RECTANGLE_16* rects = NULL;
 
 	if (!context || !cmd)
 		return FALSE;
@@ -1145,15 +1143,26 @@ static BOOL gdi_surface_bits(rdpContext* context, const SURFACE_BITS_COMMAND* cm
 			break;
 	}
 
-	if (!(rects = region16_rects(&region, &nbRects)))
+	UINT32 nbRects = 0;
+	const RECTANGLE_16* rects = region16_rects(&region, &nbRects);
+	if (!rects && (nbRects > 0))
 		goto out;
 
+	if (nbRects == 0)
+	{
+		const int32_t w = cmdRect.right - cmdRect.left;
+		const int32_t h = cmdRect.bottom - cmdRect.top;
+		if (!gdi_InvalidateRegion(gdi->primary->hdc, cmdRect.left, cmdRect.top, w, h))
+			goto out;
+	}
 	for (UINT32 i = 0; i < nbRects; i++)
 	{
-		UINT32 left = rects[i].left;
-		UINT32 top = rects[i].top;
-		UINT32 width = rects[i].right - rects[i].left;
-		UINT32 height = rects[i].bottom - rects[i].top;
+		const RECTANGLE_16* rect = &rects[i];
+
+		UINT32 left = rect->left;
+		UINT32 top = rect->top;
+		UINT32 width = rect->right - rect->left;
+		UINT32 height = rect->bottom - rect->top;
 
 		if (!gdi_InvalidateRegion(gdi->primary->hdc, WINPR_ASSERTING_INT_CAST(int32_t, left),
 		                          WINPR_ASSERTING_INT_CAST(int32_t, top),
@@ -1451,25 +1460,29 @@ void gdi_free(freerdp* instance)
 
 BOOL gdi_send_suppress_output(rdpGdi* gdi, BOOL suppress)
 {
-	RECTANGLE_16 rect;
-	rdpSettings* settings = NULL;
-	rdpUpdate* update = NULL;
-
-	if (!gdi || !gdi->context->settings || !gdi->context->update)
+	if (!gdi || !gdi->context)
 		return FALSE;
 
 	if (gdi->suppressOutput == suppress)
 		return TRUE;
 
 	gdi->suppressOutput = suppress;
-	settings = gdi->context->settings;
-	update = gdi->context->update;
-	rect.left = 0;
-	rect.top = 0;
+
+	rdpContext* context = gdi->context;
+	rdpSettings* settings = context->settings;
+	WINPR_ASSERT(settings);
+
+	rdpUpdate* update = context->update;
+	WINPR_ASSERT(update);
 
 	const UINT32 w = freerdp_settings_get_uint32(settings, FreeRDP_DesktopWidth);
 	const UINT32 h = freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
-	rect.right = WINPR_ASSERTING_INT_CAST(UINT16, w);
-	rect.bottom = WINPR_ASSERTING_INT_CAST(UINT16, h);
-	return update->SuppressOutput(gdi->context, !suppress, &rect);
+
+	const RECTANGLE_16 rect = { .left = 0,
+		                        .top = 0,
+		                        .right = WINPR_ASSERTING_INT_CAST(UINT16, w),
+		                        .bottom = WINPR_ASSERTING_INT_CAST(UINT16, h) };
+
+	WINPR_ASSERT(update->SuppressOutput);
+	return update->SuppressOutput(context, !suppress, &rect);
 }

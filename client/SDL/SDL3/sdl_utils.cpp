@@ -18,6 +18,10 @@
  */
 
 #include <cassert>
+#include <sstream>
+#include <iomanip>
+#include <random>
+
 #include "sdl_utils.hpp"
 
 #include "sdl_freerdp.hpp"
@@ -193,7 +197,7 @@ BOOL sdl_log_error_ex(Sint32 res, wLog* log, const char* what, const char* file,
 	return TRUE;
 }
 
-BOOL sdl_push_user_event(Uint32 type, ...)
+bool sdl_push_user_event(Uint32 type, ...)
 {
 	SDL_Event ev = {};
 	SDL_UserEvent* event = &ev.user;
@@ -274,7 +278,7 @@ BOOL sdl_push_user_event(Uint32 type, ...)
 			break;
 		default:
 			va_end(ap);
-			return FALSE;
+			return false;
 	}
 	va_end(ap);
 	return SDL_PushEvent(&ev) == 1;
@@ -294,4 +298,93 @@ std::string sdl_window_event_str(Uint32 ev)
 		return sdl_event_type_str(ev);
 
 	return "SDL_EVENT_WINDOW_UNKNOWN";
+}
+
+UINT32 sdl::utils::orientaion_to_rdp(SDL_DisplayOrientation orientation)
+{
+	switch (orientation)
+	{
+		case SDL_ORIENTATION_LANDSCAPE:
+			return ORIENTATION_LANDSCAPE;
+		case SDL_ORIENTATION_LANDSCAPE_FLIPPED:
+			return ORIENTATION_LANDSCAPE_FLIPPED;
+		case SDL_ORIENTATION_PORTRAIT_FLIPPED:
+			return ORIENTATION_PORTRAIT_FLIPPED;
+		case SDL_ORIENTATION_PORTRAIT:
+		default:
+			return ORIENTATION_PORTRAIT;
+	}
+}
+
+std::string sdl::utils::sdl_orientation_to_str(SDL_DisplayOrientation orientation)
+{
+	switch (orientation)
+	{
+		case SDL_ORIENTATION_LANDSCAPE:
+			return "SDL_ORIENTATION_LANDSCAPE";
+		case SDL_ORIENTATION_LANDSCAPE_FLIPPED:
+			return "SDL_ORIENTATION_LANDSCAPE_FLIPPED";
+		case SDL_ORIENTATION_PORTRAIT_FLIPPED:
+			return "SDL_ORIENTATION_PORTRAIT_FLIPPED";
+		case SDL_ORIENTATION_PORTRAIT:
+			return "SDL_ORIENTATION_PORTRAIT";
+		default:
+			return "SDL_ORIENTATION_UNKNOWN";
+	}
+}
+
+std::string sdl::utils::rdp_orientation_to_str(uint32_t orientation)
+{
+	switch (orientation)
+	{
+		case ORIENTATION_LANDSCAPE:
+			return "ORIENTATION_LANDSCAPE";
+		case ORIENTATION_LANDSCAPE_FLIPPED:
+			return "ORIENTATION_LANDSCAPE_FLIPPED";
+		case ORIENTATION_PORTRAIT_FLIPPED:
+			return "ORIENTATION_PORTRAIT_FLIPPED";
+		case ORIENTATION_PORTRAIT:
+			return "ORIENTATION_PORTRAIT";
+		default:
+		{
+			std::stringstream ss;
+			ss << "ORIENTATION_UNKNOWN_" << std::hex << std::setfill('0') << std::setw(8)
+			   << orientation;
+			return ss.str();
+		}
+	}
+}
+
+std::string sdl::utils::generate_uuid_v4()
+{
+	static std::random_device rd;
+	static std::mt19937 gen(rd());
+	static std::uniform_int_distribution<> dis(0, 255);
+	std::stringstream ss;
+	ss << std::hex << std::setfill('0') << std::setw(2);
+	for (int i = 0; i < 4; i++)
+	{
+		ss << dis(gen);
+	}
+	ss << "-";
+	for (int i = 0; i < 2; i++)
+	{
+		ss << dis(gen);
+	}
+	ss << "-";
+	for (int i = 0; i < 2; i++)
+	{
+		ss << dis(gen);
+	}
+	ss << "-";
+	for (int i = 0; i < 2; i++)
+	{
+		ss << dis(gen);
+	}
+	ss << "-";
+	for (int i = 0; i < 6; i++)
+	{
+		ss << dis(gen);
+	}
+	return ss.str();
 }
