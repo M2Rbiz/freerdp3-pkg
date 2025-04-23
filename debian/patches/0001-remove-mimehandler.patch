@@ -1,0 +1,11 @@
+diff --git resources/freerdp.desktop.template resources/freerdp.desktop.template
+index 03ed7c715..d77730023 100644
+--- a/resources/freerdp.desktop.template
++++ b/resources/freerdp.desktop.template
+@@ -9,6 +9,5 @@ Terminal=true
+ Type=Application
+ Keywords=remote desktop;rdp;
+ Categories=GTK;GNOME;X-GNOME-NetworkSettings;Network;
+-MimeType=x-scheme-handler/rdp;
+ StartupNotify=true
+ StartupWMClass=com.freerdp.FreeRDP
