@@ -138,6 +138,7 @@ Files: .clang-tidy
  cmake/FindPAM.cmake
  cmake/FindPCSC.cmake
  cmake/FindPCSCWinPR.cmake
+ cmake/FindV4L.cmake
  cmake/Findlibsystemd.cmake
  cmake/Findlodepng.cmake
  cmake/GNUInstallDirsWrapper.cmake
@@ -1169,6 +1170,8 @@ Files: channels/audin/client/ios/CMakeLists.txt
  client/SDL/SDL2/sdl_window.cpp
  client/SDL/SDL2/sdl_window.hpp
  client/SDL/SDL3/dialogs/sdl_button.cpp
+ client/SDL/SDL3/dialogs/sdl_connection_dialog_wrapper.cpp
+ client/SDL/SDL3/dialogs/sdl_connection_dialog_wrapper.hpp
  client/SDL/SDL3/sdl_clip.cpp
  client/SDL/SDL3/sdl_clip.hpp
  client/SDL/SDL3/sdl_window.cpp
@@ -3515,9 +3518,11 @@ License: Apache-2.0
  FIXME
 
 Files: debian/copyright.in
-Copyright: 2001, Alexander Peslyak and it is hereby released to the
+Copyright: *No Copyright
+  2001, Alexander Peslyak and it is hereby released to the
   2004-2012, Jay Sorg <jay.sorg@gmail.com>
   2006, Andreas Schneider <mail@cynapses.org>
+  2006, Matthias Kretz <kretz@kde.org>
   2008, Kristian HÃ¸gsberg
   2008-2013, Kristian HÃ¸gsberg
   2009, Marc-Andre Moreau <marcandre.moreau@gmail.com>
@@ -3582,6 +3587,7 @@ Copyright: 2001, Alexander Peslyak and it is hereby released to the
   2014, Mike McDonald <Mike.McDonald@software.dell.com>
   2014, Norbert Federa <norbert.federa@thincast.com>
   2014, Thomas Erbesdobler
+  2014-2023, Belledonne Communications, Grenoble France
   2015, ANSSI, Author Thomas Calderon
   2015, Armin Novak <armin.novak@thincast.com>
   2015, Bernhard Miklautz <bernhard.miklautz@thincast.com>
@@ -3627,10 +3633,14 @@ Copyright: 2001, Alexander Peslyak and it is hereby released to the
   2023, David Fort <contact@hardening-consulting.com>
   2023, Joan Torres <joan.torres@suse.com>
   2023, Michael Saxl <mike@mwsys.mine.bz>
-  Copyright: *No Copyright
+  2024, Oleg Turovski <oleg2104@hotmail.com>
+  2024, ergnoorr
+  2025, Armin Novak <anoavk@thincast.com>
+  Copyright: *No copyright
   Iowa State University 2009-2010.
+  License: OFL-1.1
   NONE
-License: Apache-2.0 and/or BSD-2-clause and/or BSD-3-clause and/or BSL-1.0 and/or Expat and/or HPND and/or HPND-sell-variant and/or LGPL-2.1 and/or OFL-1.1-RFN and/or Zlib and/or public-domain
+License: Apache-2.0 and/or BSD-2-clause and/or BSD-3-clause and/or BSL-1.0 and/or Expat and/or GPL-2 and/or HPND-sell-variant and/or LGPL-2.1 and/or OFL-1.1-RFN and/or Zlib and/or public-domain
  FIXME
 
 Files: debian/copyright
@@ -3638,6 +3648,7 @@ Copyright: *No copyright
   2001, Alexander Peslyak and it is hereby released to the
   2004-2012, Jay Sorg <jay.sorg@gmail.com>
   2006, Andreas Schneider <mail@cynapses.org>
+  2006, Matthias Kretz <kretz@kde.org>
   2008, Kristian HÃ¸gsberg
   2008-2013, Kristian HÃ¸gsberg
   2009, Marc-Andre Moreau <marcandre.moreau@gmail.com>
@@ -3701,6 +3712,7 @@ Copyright: *No copyright
   2014, Mike McDonald <Mike.McDonald@software.dell.com>
   2014, Norbert Federa <norbert.federa@thincast.com>
   2014, Thomas Erbesdobler
+  2014-2023, Belledonne Communications, Grenoble France
   2015, ANSSI, Author Thomas Calderon
   2015, Armin Novak <armin.novak@thincast.com>
   2015, Bernhard Miklautz <bernhard.miklautz@thincast.com>
@@ -3747,9 +3759,12 @@ Copyright: *No copyright
   2023, David Fort <contact@hardening-consulting.com>
   2023, Joan Torres <joan.torres@suse.com>
   2023, Michael Saxl <mike@mwsys.mine.bz>
+  2024, Oleg Turovski <oleg2104@hotmail.com>
+  2024, ergnoorr
+  2025, Armin Novak <anoavk@thincast.com>
   Iowa State University 2009-2010.
   NONE
-License: Apache-2.0 or bsd_-2-clause_clause and/or BSD-2-clause and/or BSD-3-clause and/or BSL-1.0 and/or Expat and/or HPND and/or HPND-sell-variant and/or LGPL-2.1+ and/or NTP~disclaimer and/or OFL-1.1-RFN and/or Zlib and/or public-domain
+License: Apache-2.0 or bsd_-2-clause_clause and/or BSD-2-clause and/or BSD-3-clause and/or BSL-1.0 and/or Expat and/or GPL-2+ and/or HPND and/or HPND-sell-variant and/or LGPL-2.1+ and/or NTP~disclaimer and/or OFL-1.1-RFN and/or Zlib and/or public-domain
  FIXME
 
 Files: cmake/FindFFmpeg.cmake
@@ -3776,11 +3791,6 @@ License: Expat
 Files: libfreerdp/codec/test/TestFuzzCodecs.c
 Copyright: 2024, ergnoorr
 License: Expat
- FIXME
-
-Files: cmake/FindV4L.cmake
-Copyright: 2014-2023, Belledonne Communications, Grenoble France
-License: GPL-2+
  FIXME
 
 Files: uwac/libuwac/uwac-clipboard.c
