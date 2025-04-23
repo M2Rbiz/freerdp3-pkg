@@ -15,7 +15,7 @@ Build-Depends:
  libavcodec-dev, libavutil-dev, libswscale-dev,
 # cairo is used on ubuntu only (alternative to swscale from ffmpeg):
  libcairo2-dev,
- libcjson-dev,
+ libjson-c-dev,
  libcups2-dev,
  libfuse3-dev,
  libgsm1-dev,
@@ -165,6 +165,7 @@ Section: libdevel
 Architecture: any
 Depends:
  libssl-dev,
+ libjson-c-dev,
  libwinpr-tools3-3 (= ${binary:Version}),
  libwinpr3-3 (= ${binary:Version}),
  ${misc:Depends},
@@ -191,7 +192,6 @@ Depends:
  libfreerdp-shadow3-3 (= ${binary:Version}),
  libfreerdp3-3 (= ${binary:Version}),
  libwinpr3-dev (= ${binary:Version}),
- libcjson-dev,
  libfuse3-dev,
  winpr3-utils (= ${binary:Version}),
  ${misc:Depends},
