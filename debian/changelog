@@ -1,3 +1,26 @@
+freerdp3 (3.15.0+dfsg-2) unstable; urgency=medium
+
+  [ Bernhard Miklautz ]
+  * d/copyright: regenerate and update copyright
+  * d/control: use libjson-c instead of libcjson
+  * d/rules: enable AAD support on Ubuntu
+
+  [ Michael Tokarev ]
+  * pick numerous fixes from upstream:
+    client-sdl-force-primary-monitor-in-windowed-mode.patch
+    client-sdl-only-draw-to-window-if-connected.patch
+    core-settings-handle-empty-OrderSupport-and-received.patch
+    crypto-certificate-Add-a-fallback-for-weak-RSA-keys.patch
+    rdpei-server-Fix-incorrect-PDU-length-read.patch
+    cmake-json-improve-json-detection.patch
+    client-sdl-fix-SDL-ttf-usage.patch
+    cache-glyph-fix-GLYPH_FRAGMENT_USE.patch
+    winpr-sysinfo-use-a-single-clock-to-provide-System-a.patch
+    fix-resources-remove-MimeType-from-desktop-file.patch
+    gcc-fix-server-side-connection-with-multiple-monitor.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 24 Apr 2025 12:18:41 +0300
+
 freerdp3 (3.15.0+dfsg-1) unstable; urgency=medium
 
   [ Bernhard Miklautz ]
