@@ -1,0 +1,25 @@
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/fca297421953d4f277fa0739cd0dc98e7c0b9d6a
+Forwarded: not-needed
+From: Armin Novak <armin.novak@thincast.com>
+Date: Mon, 14 Apr 2025 16:17:49 +0200
+Subject: [client,sdl] force primary monitor in windowed mode
+
+---
+ client/SDL/SDL3/sdl_disp.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/client/SDL/SDL3/sdl_disp.cpp b/client/SDL/SDL3/sdl_disp.cpp
+index a441bfef4..2d5e0d461 100644
+--- a/client/SDL/SDL3/sdl_disp.cpp
++++ b/client/SDL/SDL3/sdl_disp.cpp
+@@ -296,6 +296,7 @@ bool sdlDispContext::updateMonitor(SDL_WindowID id)
+ 	const auto& window = _sdl->windows.at(id);
+ 	auto monitor = window.monitor();
+ 
++	monitor.is_primary = TRUE;
+ 	if (!freerdp_settings_set_monitor_def_array_sorted(settings, &monitor, 1))
+ 		return false;
+ 
+-- 
+2.39.5
+

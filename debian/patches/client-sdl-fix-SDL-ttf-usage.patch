@@ -1,0 +1,377 @@
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/45d42d1db32f45152d53664baf17e75693eaa46d
+Forwarded: not-needed
+From: akallabeth <akallabeth@posteo.net>
+Date: Tue, 22 Apr 2025 11:44:14 +0200
+Subject: [client,sdl] fix SDL-ttf usage
+
+* hide library in sdl/dialogs, do not call functions from outside
+---
+ .../SDL3/dialogs/sdl_connection_dialog.cpp    | 41 ++++++++++---------
+ .../SDL3/dialogs/sdl_connection_dialog.hpp    | 18 +++-----
+ .../dialogs/sdl_connection_dialog_wrapper.cpp | 19 +++++----
+ .../dialogs/sdl_connection_dialog_wrapper.hpp | 22 +++++++---
+ client/SDL/SDL3/dialogs/sdl_dialogs.cpp       | 11 +++++
+ client/SDL/SDL3/dialogs/sdl_dialogs.hpp       |  3 ++
+ client/SDL/SDL3/sdl_freerdp.cpp               |  5 ++-
+ 7 files changed, 72 insertions(+), 47 deletions(-)
+
+diff --git a/client/SDL/SDL3/dialogs/sdl_connection_dialog.cpp b/client/SDL/SDL3/dialogs/sdl_connection_dialog.cpp
+index 6732102a8..3c7738325 100644
+--- a/client/SDL/SDL3/dialogs/sdl_connection_dialog.cpp
++++ b/client/SDL/SDL3/dialogs/sdl_connection_dialog.cpp
+@@ -63,14 +63,14 @@ bool SDLConnectionDialog::setTitle(const char* fmt, ...)
+ 	_title = print(fmt, ap);
+ 	va_end(ap);
+ 
+-	return show(MSG_NONE);
++	return show(SdlConnectionDialogWrapper::MSG_NONE);
+ }
+ 
+ bool SDLConnectionDialog::showInfo(const char* fmt, ...)
+ {
+ 	va_list ap = {};
+ 	va_start(ap, fmt);
+-	auto rc = show(MSG_INFO, fmt, ap);
++	auto rc = show(SdlConnectionDialogWrapper::MSG_INFO, fmt, ap);
+ 	va_end(ap);
+ 	return rc;
+ }
+@@ -79,7 +79,7 @@ bool SDLConnectionDialog::showWarn(const char* fmt, ...)
+ {
+ 	va_list ap = {};
+ 	va_start(ap, fmt);
+-	auto rc = show(MSG_WARN, fmt, ap);
++	auto rc = show(SdlConnectionDialogWrapper::MSG_WARN, fmt, ap);
+ 	va_end(ap);
+ 	return rc;
+ }
+@@ -88,7 +88,7 @@ bool SDLConnectionDialog::showError(const char* fmt, ...)
+ {
+ 	va_list ap = {};
+ 	va_start(ap, fmt);
+-	auto rc = show(MSG_ERROR, fmt, ap);
++	auto rc = show(SdlConnectionDialogWrapper::MSG_ERROR, fmt, ap);
+ 	va_end(ap);
+ 	if (!rc)
+ 		return rc;
+@@ -104,7 +104,7 @@ bool SDLConnectionDialog::show()
+ bool SDLConnectionDialog::hide()
+ {
+ 	std::lock_guard lock(_mux);
+-	return show(MSG_DISCARD);
++	return show(SdlConnectionDialogWrapper::MSG_DISCARD);
+ }
+ 
+ bool SDLConnectionDialog::running() const
+@@ -118,13 +118,13 @@ bool SDLConnectionDialog::update()
+ 	std::lock_guard lock(_mux);
+ 	switch (_type)
+ 	{
+-		case MSG_INFO:
+-		case MSG_WARN:
+-		case MSG_ERROR:
++		case SdlConnectionDialogWrapper::MSG_INFO:
++		case SdlConnectionDialogWrapper::MSG_WARN:
++		case SdlConnectionDialogWrapper::MSG_ERROR:
+ 			_type_active = _type;
+ 			createWindow();
+ 			break;
+-		case MSG_DISCARD:
++		case SdlConnectionDialogWrapper::MSG_DISCARD:
+ 			resetTimer();
+ 			destroyWindow();
+ 			break;
+@@ -135,7 +135,7 @@ bool SDLConnectionDialog::update()
+ 			}
+ 			break;
+ 	}
+-	_type = MSG_NONE;
++	_type = SdlConnectionDialogWrapper::MSG_NONE;
+ 	return true;
+ }
+ 
+@@ -342,16 +342,16 @@ bool SDLConnectionDialog::createWindow()
+ 	SDL_Color res_bgcolor;
+ 	switch (_type_active)
+ 	{
+-		case MSG_INFO:
++		case SdlConnectionDialogWrapper::MSG_INFO:
+ 			res_bgcolor = infocolor;
+ 			break;
+-		case MSG_WARN:
++		case SdlConnectionDialogWrapper::MSG_WARN:
+ 			res_bgcolor = warncolor;
+ 			break;
+-		case MSG_ERROR:
++		case SdlConnectionDialogWrapper::MSG_ERROR:
+ 			res_bgcolor = errorcolor;
+ 			break;
+-		case MSG_DISCARD:
++		case SdlConnectionDialogWrapper::MSG_DISCARD:
+ 		default:
+ 			res_bgcolor = backgroundcolor;
+ 			break;
+@@ -361,16 +361,16 @@ bool SDLConnectionDialog::createWindow()
+ 	std::string res_name;
+ 	switch (_type_active)
+ 	{
+-		case MSG_INFO:
++		case SdlConnectionDialogWrapper::MSG_INFO:
+ 			res_name = "icon_info.svg";
+ 			break;
+-		case MSG_WARN:
++		case SdlConnectionDialogWrapper::MSG_WARN:
+ 			res_name = "icon_warning.svg";
+ 			break;
+-		case MSG_ERROR:
++		case SdlConnectionDialogWrapper::MSG_ERROR:
+ 			res_name = "icon_error.svg";
+ 			break;
+-		case MSG_DISCARD:
++		case SdlConnectionDialogWrapper::MSG_DISCARD:
+ 		default:
+ 			res_name = "";
+ 			break;
+@@ -429,14 +429,15 @@ void SDLConnectionDialog::destroyWindow()
+ 	_window = nullptr;
+ }
+ 
+-bool SDLConnectionDialog::show(MsgType type, const char* fmt, va_list ap)
++bool SDLConnectionDialog::show(SdlConnectionDialogWrapper::MsgType type, const char* fmt,
++                               va_list ap)
+ {
+ 	std::lock_guard lock(_mux);
+ 	_msg = print(fmt, ap);
+ 	return show(type);
+ }
+ 
+-bool SDLConnectionDialog::show(MsgType type)
++bool SDLConnectionDialog::show(SdlConnectionDialogWrapper::MsgType type)
+ {
+ 	_type = type;
+ 	return sdl_push_user_event(SDL_EVENT_USER_RETRY_DIALOG);
+diff --git a/client/SDL/SDL3/dialogs/sdl_connection_dialog.hpp b/client/SDL/SDL3/dialogs/sdl_connection_dialog.hpp
+index 70a0316a3..0665ff6a6 100644
+--- a/client/SDL/SDL3/dialogs/sdl_connection_dialog.hpp
++++ b/client/SDL/SDL3/dialogs/sdl_connection_dialog.hpp
+@@ -30,19 +30,11 @@
+ 
+ #include "sdl_widget.hpp"
+ #include "sdl_buttons.hpp"
++#include "sdl_connection_dialog_wrapper.hpp"
+ 
+ class SDLConnectionDialog
+ {
+   public:
+-	enum MsgType
+-	{
+-		MSG_NONE,
+-		MSG_INFO,
+-		MSG_WARN,
+-		MSG_ERROR,
+-		MSG_DISCARD
+-	};
+-
+ 	explicit SDLConnectionDialog(rdpContext* context);
+ 	SDLConnectionDialog(const SDLConnectionDialog& other) = delete;
+ 	SDLConnectionDialog(const SDLConnectionDialog&& other) = delete;
+@@ -78,8 +70,8 @@ class SDLConnectionDialog
+ 
+ 	bool update(SDL_Renderer* renderer);
+ 
+-	bool show(MsgType type, const char* fmt, va_list ap);
+-	bool show(MsgType type);
++	bool show(SdlConnectionDialogWrapper::MsgType type, const char* fmt, va_list ap);
++	bool show(SdlConnectionDialogWrapper::MsgType type);
+ 
+ 	static std::string print(const char* fmt, va_list ap);
+ 	bool setTimer(Uint32 timeoutMS = 15000);
+@@ -100,8 +92,8 @@ class SDLConnectionDialog
+ 	mutable std::mutex _mux;
+ 	std::string _title;
+ 	std::string _msg;
+-	MsgType _type = MSG_NONE;
+-	MsgType _type_active = MSG_NONE;
++	SdlConnectionDialogWrapper::MsgType _type = SdlConnectionDialogWrapper::MSG_NONE;
++	SdlConnectionDialogWrapper::MsgType _type_active = SdlConnectionDialogWrapper::MSG_NONE;
+ 	SDL_TimerID _timer = 0;
+ 	bool _running = false;
+ 	std::vector<widget_cfg_t> _list;
+diff --git a/client/SDL/SDL3/dialogs/sdl_connection_dialog_wrapper.cpp b/client/SDL/SDL3/dialogs/sdl_connection_dialog_wrapper.cpp
+index 0c4604e1d..c4e148a53 100644
+--- a/client/SDL/SDL3/dialogs/sdl_connection_dialog_wrapper.cpp
++++ b/client/SDL/SDL3/dialogs/sdl_connection_dialog_wrapper.cpp
+@@ -22,6 +22,10 @@
+ #include "sdl_connection_dialog.hpp"
+ #include "../sdl_utils.hpp"
+ 
++SdlConnectionDialogWrapper::SdlConnectionDialogWrapper() = default;
++
++SdlConnectionDialogWrapper::~SdlConnectionDialogWrapper() = default;
++
+ void SdlConnectionDialogWrapper::create(rdpContext* context)
+ {
+ 	std::unique_lock lock(_mux);
+@@ -106,7 +110,7 @@ void SdlConnectionDialogWrapper::showInfo(const char* fmt, ...)
+ 
+ void SdlConnectionDialogWrapper::showInfo(const std::string& info)
+ {
+-	show(SDLConnectionDialog::MSG_INFO, info);
++	show(MSG_INFO, info);
+ }
+ 
+ void SdlConnectionDialogWrapper::showWarn(const char* fmt, ...)
+@@ -119,7 +123,7 @@ void SdlConnectionDialogWrapper::showWarn(const char* fmt, ...)
+ 
+ void SdlConnectionDialogWrapper::showWarn(const std::string& info)
+ {
+-	show(SDLConnectionDialog::MSG_WARN, info);
++	show(MSG_WARN, info);
+ }
+ 
+ void SdlConnectionDialogWrapper::showError(const char* fmt, ...)
+@@ -132,10 +136,11 @@ void SdlConnectionDialogWrapper::showError(const char* fmt, ...)
+ 
+ void SdlConnectionDialogWrapper::showError(const std::string& error)
+ {
+-	show(SDLConnectionDialog::MSG_ERROR, error);
++	show(MSG_ERROR, error);
+ }
+ 
+-void SdlConnectionDialogWrapper::show(SDLConnectionDialog::MsgType type, const std::string& msg)
++void SdlConnectionDialogWrapper::show(SdlConnectionDialogWrapper::MsgType type,
++                                      const std::string& msg)
+ {
+ 	std::unique_lock lock(_mux);
+ 	_message = msg;
+@@ -166,13 +171,13 @@ void SdlConnectionDialogWrapper::handleShow()
+ 
+ 	switch (_type)
+ 	{
+-		case SDLConnectionDialog::MSG_INFO:
++		case SdlConnectionDialogWrapper::MSG_INFO:
+ 			_connection_dialog->showInfo(_message.c_str());
+ 			break;
+-		case SDLConnectionDialog::MSG_WARN:
++		case SdlConnectionDialogWrapper::MSG_WARN:
+ 			_connection_dialog->showWarn(_message.c_str());
+ 			break;
+-		case SDLConnectionDialog::MSG_ERROR:
++		case SdlConnectionDialogWrapper::MSG_ERROR:
+ 			_connection_dialog->showError(_message.c_str());
+ 			break;
+ 		default:
+diff --git a/client/SDL/SDL3/dialogs/sdl_connection_dialog_wrapper.hpp b/client/SDL/SDL3/dialogs/sdl_connection_dialog_wrapper.hpp
+index 69f1e822e..67562c356 100644
+--- a/client/SDL/SDL3/dialogs/sdl_connection_dialog_wrapper.hpp
++++ b/client/SDL/SDL3/dialogs/sdl_connection_dialog_wrapper.hpp
+@@ -25,14 +25,26 @@
+ #include <string>
+ 
+ #include <winpr/platform.h>
++#include <freerdp/types.h>
+ 
+-#include "sdl_connection_dialog.hpp"
++#include <SDL3/SDL.h>
++
++class SDLConnectionDialog;
+ 
+ class SdlConnectionDialogWrapper
+ {
+   public:
+-	SdlConnectionDialogWrapper() = default;
+-	~SdlConnectionDialogWrapper() = default;
++	enum MsgType
++	{
++		MSG_NONE,
++		MSG_INFO,
++		MSG_WARN,
++		MSG_ERROR,
++		MSG_DISCARD
++	};
++
++	SdlConnectionDialogWrapper();
++	~SdlConnectionDialogWrapper();
+ 
+ 	SdlConnectionDialogWrapper(const SdlConnectionDialogWrapper& other) = delete;
+ 	SdlConnectionDialogWrapper(SdlConnectionDialogWrapper&& other) = delete;
+@@ -64,7 +76,7 @@ class SdlConnectionDialogWrapper
+ 	void showError(WINPR_FORMAT_ARG const char* fmt, ...);
+ 	void showError(const std::string& error);
+ 
+-	void show(SDLConnectionDialog::MsgType type, const std::string& msg);
++	void show(SdlConnectionDialogWrapper::MsgType type, const std::string& msg);
+ 
+ 	void show(bool visible = true);
+ 
+@@ -75,6 +87,6 @@ class SdlConnectionDialogWrapper
+ 	std::string _title;
+ 	std::string _message;
+ 	bool _visible = false;
+-	SDLConnectionDialog::MsgType _type = SDLConnectionDialog::MSG_NONE;
++	SdlConnectionDialogWrapper::MsgType _type = SdlConnectionDialogWrapper::MSG_NONE;
+ 	std::unique_ptr<SDLConnectionDialog> _connection_dialog;
+ };
+diff --git a/client/SDL/SDL3/dialogs/sdl_dialogs.cpp b/client/SDL/SDL3/dialogs/sdl_dialogs.cpp
+index 9bdb73336..aa7d94f2f 100644
+--- a/client/SDL/SDL3/dialogs/sdl_dialogs.cpp
++++ b/client/SDL/SDL3/dialogs/sdl_dialogs.cpp
+@@ -32,6 +32,7 @@
+ #include "sdl_input_widgets.hpp"
+ #include "sdl_select.hpp"
+ #include "sdl_selectlist.hpp"
++#include "sdl_connection_dialog.hpp"
+ 
+ enum
+ {
+@@ -616,3 +617,13 @@ BOOL sdl_scard_dialog_show(const char* title, Sint32 count, const char** list)
+ 	Sint32 value = slist.run();
+ 	return sdl_push_user_event(SDL_EVENT_USER_SCARD_RESULT, value);
+ }
++
++void sdl_dialogs_uninit()
++{
++	TTF_Quit();
++}
++
++void sdl_dialogs_init()
++{
++	TTF_Init();
++}
+diff --git a/client/SDL/SDL3/dialogs/sdl_dialogs.hpp b/client/SDL/SDL3/dialogs/sdl_dialogs.hpp
+index ae9bbe6a0..db15de5c7 100644
+--- a/client/SDL/SDL3/dialogs/sdl_dialogs.hpp
++++ b/client/SDL/SDL3/dialogs/sdl_dialogs.hpp
+@@ -51,3 +51,6 @@ BOOL sdl_message_dialog_show(const char* title, const char* message, Sint32 flag
+ BOOL sdl_cert_dialog_show(const char* title, const char* message);
+ BOOL sdl_scard_dialog_show(const char* title, Sint32 count, const char** list);
+ BOOL sdl_auth_dialog_show(const SDL_UserAuthArg* args);
++
++void sdl_dialogs_init();
++void sdl_dialogs_uninit();
+diff --git a/client/SDL/SDL3/sdl_freerdp.cpp b/client/SDL/SDL3/sdl_freerdp.cpp
+index 96251e032..e2c02b0c6 100644
+--- a/client/SDL/SDL3/sdl_freerdp.cpp
++++ b/client/SDL/SDL3/sdl_freerdp.cpp
+@@ -639,7 +639,7 @@ static void sdl_cleanup_sdl(SdlContext* sdl)
+ 	sdl_destroy_primary(sdl);
+ 
+ 	freerdp_del_signal_cleanup_handler(sdl->context(), sdl_term_handler);
+-	TTF_Quit();
++	sdl_dialogs_uninit();
+ 	SDL_Quit();
+ }
+ 
+@@ -760,7 +760,8 @@ static int sdl_run(SdlContext* sdl)
+ 	}
+ 
+ 	SDL_Init(SDL_INIT_VIDEO);
+-	TTF_Init();
++	sdl_dialogs_init();
++
+ 	SDL_SetHint(SDL_HINT_ALLOW_ALT_TAB_WHILE_GRABBED, "0");
+ 	SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+ 
+-- 
+2.39.5
+

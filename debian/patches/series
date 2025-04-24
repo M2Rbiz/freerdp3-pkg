@@ -1,1 +1,11 @@
-0001-remove-mimehandler.patch
+client-sdl-force-primary-monitor-in-windowed-mode.patch
+client-sdl-only-draw-to-window-if-connected.patch
+core-settings-handle-empty-OrderSupport-and-received.patch
+crypto-certificate-Add-a-fallback-for-weak-RSA-keys.patch
+rdpei-server-Fix-incorrect-PDU-length-read.patch
+cmake-json-improve-json-detection.patch
+client-sdl-fix-SDL-ttf-usage.patch
+cache-glyph-fix-GLYPH_FRAGMENT_USE.patch
+winpr-sysinfo-use-a-single-clock-to-provide-System-a.patch
+fix-resources-remove-MimeType-from-desktop-file.patch
+gcc-fix-server-side-connection-with-multiple-monitor.patch

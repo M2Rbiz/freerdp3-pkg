@@ -1,0 +1,26 @@
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/2ac047d472d3cb07b208c4704ce9c2e33a8520d3
+Forwarded: not-needed
+From: Bernhard Miklautz <bernhard.miklautz@thincast.com>
+Date: Wed, 23 Apr 2025 11:41:51 +0200
+Subject: fix [resources]: remove MimeType from desktop file
+
+freerdp-file.desktop.template contains the MimeType handler and
+handles the arguments.
+---
+ resources/freerdp.desktop.template | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/resources/freerdp.desktop.template b/resources/freerdp.desktop.template
+index 03ed7c715..d77730023 100644
+--- a/resources/freerdp.desktop.template
++++ b/resources/freerdp.desktop.template
+@@ -9,6 +9,5 @@ Terminal=true
+ Type=Application
+ Keywords=remote desktop;rdp;
+ Categories=GTK;GNOME;X-GNOME-NetworkSettings;Network;
+-MimeType=x-scheme-handler/rdp;
+ StartupNotify=true
+ StartupWMClass=com.freerdp.FreeRDP
+-- 
+2.39.5
+
