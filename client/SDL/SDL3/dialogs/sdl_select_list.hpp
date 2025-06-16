@@ -5,22 +5,26 @@
 
 #include <SDL3/SDL.h>
 
+#include "sdl_widget_list.hpp"
 #include "sdl_select.hpp"
 #include "sdl_button.hpp"
 #include "sdl_buttons.hpp"
 
-class SdlSelectList
+class SdlSelectList : public SdlWidgetList
 {
   public:
 	SdlSelectList(const std::string& title, const std::vector<std::string>& labels);
 	SdlSelectList(const SdlSelectList& other) = delete;
 	SdlSelectList(SdlSelectList&& other) = delete;
-	virtual ~SdlSelectList();
+	~SdlSelectList() override;
 
 	SdlSelectList& operator=(const SdlSelectList& other) = delete;
 	SdlSelectList& operator=(SdlSelectList&& other) = delete;
 
 	int run();
+
+  protected:
+	bool updateInternal() override;
 
   private:
 	enum
@@ -30,12 +34,8 @@ class SdlSelectList
 	};
 
 	ssize_t get_index(const SDL_MouseButtonEvent& button);
-	bool update_text();
 	void reset_mouseover();
 	void reset_highlight();
 
-	SDL_Window* _window;
-	SDL_Renderer* _renderer;
 	std::vector<SdlSelectWidget> _list;
-	SdlButtonList _buttons;
 };

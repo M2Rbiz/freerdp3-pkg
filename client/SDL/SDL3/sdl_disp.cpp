@@ -296,6 +296,7 @@ bool sdlDispContext::updateMonitor(SDL_WindowID id)
 	const auto& window = _sdl->windows.at(id);
 	auto monitor = window.monitor();
 
+	monitor.is_primary = TRUE;
 	if (!freerdp_settings_set_monitor_def_array_sorted(settings, &monitor, 1))
 		return false;
 
@@ -478,8 +479,6 @@ bool sdlDispContext::uninit(DispClientContext* disp)
 
 sdlDispContext::sdlDispContext(SdlContext* sdl) : _sdl(sdl)
 {
-	SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO);
-
 	WINPR_ASSERT(_sdl);
 	WINPR_ASSERT(_sdl->context()->settings);
 	WINPR_ASSERT(_sdl->context()->pubSub);
@@ -499,5 +498,4 @@ sdlDispContext::~sdlDispContext()
 	PubSub_UnsubscribeActivated(pubSub, sdlDispContext::OnActivated);
 	PubSub_UnsubscribeGraphicsReset(pubSub, sdlDispContext::OnGraphicsReset);
 	SDL_RemoveTimer(_timer);
-	SDL_Quit();
 }

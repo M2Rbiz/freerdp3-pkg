@@ -23,16 +23,29 @@
 #include <mutex>
 #include <memory>
 #include <string>
+#include <queue>
 
 #include <winpr/platform.h>
+#include <freerdp/types.h>
 
-#include "sdl_connection_dialog.hpp"
+#include <SDL3/SDL.h>
+
+class SDLConnectionDialog;
 
 class SdlConnectionDialogWrapper
 {
   public:
-	SdlConnectionDialogWrapper() = default;
-	~SdlConnectionDialogWrapper() = default;
+	enum MsgType
+	{
+		MSG_NONE,
+		MSG_INFO,
+		MSG_WARN,
+		MSG_ERROR,
+		MSG_DISCARD
+	};
+
+	SdlConnectionDialogWrapper();
+	~SdlConnectionDialogWrapper();
 
 	SdlConnectionDialogWrapper(const SdlConnectionDialogWrapper& other) = delete;
 	SdlConnectionDialogWrapper(SdlConnectionDialogWrapper&& other) = delete;
@@ -64,17 +77,44 @@ class SdlConnectionDialogWrapper
 	void showError(WINPR_FORMAT_ARG const char* fmt, ...);
 	void showError(const std::string& error);
 
-	void show(SDLConnectionDialog::MsgType type, const std::string& msg);
+	void show(SdlConnectionDialogWrapper::MsgType type, const std::string& msg);
 
 	void show(bool visible = true);
 
 	void handleShow();
 
   private:
+	class EventArg
+	{
+	  public:
+		explicit EventArg(bool visible);
+		explicit EventArg(const std::string& title);
+		EventArg(SdlConnectionDialogWrapper::MsgType type, const std::string& msg, bool visible);
+
+		[[nodiscard]] bool hasTitle() const;
+		[[nodiscard]] const std::string& title() const;
+
+		[[nodiscard]] bool hasMessage() const;
+		[[nodiscard]] const std::string& message() const;
+
+		[[nodiscard]] bool hasType() const;
+		[[nodiscard]] SdlConnectionDialogWrapper::MsgType type() const;
+
+		[[nodiscard]] bool hasVisibility() const;
+		[[nodiscard]] bool visible() const;
+
+		[[nodiscard]] std::string str() const;
+
+	  private:
+		std::string _title;
+		std::string _message;
+		SdlConnectionDialogWrapper::MsgType _type = MSG_NONE;
+		bool _visible = false;
+		uint32_t _mask = 0;
+	};
+	void push(EventArg&& arg);
+
 	mutable std::mutex _mux;
-	std::string _title;
-	std::string _message;
-	bool _visible = false;
-	SDLConnectionDialog::MsgType _type = SDLConnectionDialog::MSG_NONE;
 	std::unique_ptr<SDLConnectionDialog> _connection_dialog;
+	std::queue<EventArg> _queue;
 };

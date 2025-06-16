@@ -174,6 +174,7 @@ static DWORD FileSetFilePointer(HANDLE hFile, LONG lDistanceToMove,
 		char ebuffer[256] = { 0 };
 		WLog_ERR(TAG, "_fseeki64(%s) failed with %s [0x%08X]", pFile->lpFileName,
 		         winpr_strerror(errno, ebuffer, sizeof(ebuffer)), errno);
+		SetLastError(map_posix_err(errno));
 		return INVALID_SET_FILE_POINTER;
 	}
 
@@ -209,6 +210,7 @@ static BOOL FileSetFilePointerEx(HANDLE hFile, LARGE_INTEGER liDistanceToMove,
 		char ebuffer[256] = { 0 };
 		WLog_ERR(TAG, "_fseeki64(%s) failed with %s [0x%08X]", pFile->lpFileName,
 		         winpr_strerror(errno, ebuffer, sizeof(ebuffer)), errno);
+		SetLastError(map_posix_err(errno));
 		return FALSE;
 	}
 
@@ -307,6 +309,7 @@ static DWORD FileGetFileSize(HANDLE Object, LPDWORD lpFileSizeHigh)
 		char ebuffer[256] = { 0 };
 		WLog_ERR(TAG, "_ftelli64(%s) failed with %s [0x%08X]", file->lpFileName,
 		         winpr_strerror(errno, ebuffer, sizeof(ebuffer)), errno);
+		SetLastError(map_posix_err(errno));
 		return INVALID_FILE_SIZE;
 	}
 
@@ -315,6 +318,7 @@ static DWORD FileGetFileSize(HANDLE Object, LPDWORD lpFileSizeHigh)
 		char ebuffer[256] = { 0 };
 		WLog_ERR(TAG, "_fseeki64(%s) failed with %s [0x%08X]", file->lpFileName,
 		         winpr_strerror(errno, ebuffer, sizeof(ebuffer)), errno);
+		SetLastError(map_posix_err(errno));
 		return INVALID_FILE_SIZE;
 	}
 
@@ -325,6 +329,7 @@ static DWORD FileGetFileSize(HANDLE Object, LPDWORD lpFileSizeHigh)
 		char ebuffer[256] = { 0 };
 		WLog_ERR(TAG, "_ftelli64(%s) failed with %s [0x%08X]", file->lpFileName,
 		         winpr_strerror(errno, ebuffer, sizeof(ebuffer)), errno);
+		SetLastError(map_posix_err(errno));
 		return INVALID_FILE_SIZE;
 	}
 
@@ -333,6 +338,7 @@ static DWORD FileGetFileSize(HANDLE Object, LPDWORD lpFileSizeHigh)
 		char ebuffer[256] = { 0 };
 		WLog_ERR(TAG, "_ftelli64(%s) failed with %s [0x%08X]", file->lpFileName,
 		         winpr_strerror(errno, ebuffer, sizeof(ebuffer)), errno);
+		SetLastError(map_posix_err(errno));
 		return INVALID_FILE_SIZE;
 	}
 
@@ -340,6 +346,32 @@ static DWORD FileGetFileSize(HANDLE Object, LPDWORD lpFileSizeHigh)
 		*lpFileSizeHigh = (UINT32)(size >> 32);
 
 	return (UINT32)(size & 0xFFFFFFFF);
+}
+
+static BOOL FileFlushFileBuffers(HANDLE hFile)
+{
+	WINPR_FILE* pFile = (WINPR_FILE*)hFile;
+
+	if (!pFile->fp)
+	{
+		SetLastError(ERROR_INVALID_HANDLE);
+		return FALSE;
+	}
+
+	// See: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers
+	if ((pFile->dwOpenMode & GENERIC_WRITE) == 0)
+	{
+		SetLastError(ERROR_ACCESS_DENIED);
+		return FALSE;
+	}
+
+	if (fflush(pFile->fp) != 0)
+	{
+		SetLastError(map_posix_err(errno));
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 static BOOL FileGetFileInformationByHandle(HANDLE hFile,
@@ -360,6 +392,7 @@ static BOOL FileGetFileInformationByHandle(HANDLE hFile,
 		char ebuffer[256] = { 0 };
 		WLog_ERR(TAG, "fstat failed with %s [%#08X]", errno,
 		         winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
+		SetLastError(map_posix_err(errno));
 		return FALSE;
 	}
 
@@ -456,6 +489,7 @@ static BOOL FileLockFileEx(HANDLE hFile, DWORD dwFlags, WINPR_ATTR_UNUSED DWORD 
 		char ebuffer[256] = { 0 };
 		WLog_ERR(TAG, "F_SETLK failed with %s [0x%08X]",
 		         winpr_strerror(errno, ebuffer, sizeof(ebuffer)), errno);
+		SetLastError(map_posix_err(errno));
 		return FALSE;
 	}
 #else
@@ -472,6 +506,7 @@ static BOOL FileLockFileEx(HANDLE hFile, DWORD dwFlags, WINPR_ATTR_UNUSED DWORD 
 		char ebuffer[256] = { 0 };
 		WLog_ERR(TAG, "flock failed with %s [0x%08X]",
 		         winpr_strerror(errno, ebuffer, sizeof(ebuffer)), errno);
+		SetLastError(map_posix_err(errno));
 		return FALSE;
 	}
 #endif
@@ -510,6 +545,7 @@ static BOOL FileUnlockFile(HANDLE hFile, WINPR_ATTR_UNUSED DWORD dwFileOffsetLow
 		char ebuffer[256] = { 0 };
 		WLog_ERR(TAG, "F_UNLCK on %s failed with %s [0x%08X]", pFile->lpFileName,
 		         winpr_strerror(errno, ebuffer, sizeof(ebuffer)), errno);
+		SetLastError(map_posix_err(errno));
 		return FALSE;
 	}
 
@@ -519,6 +555,7 @@ static BOOL FileUnlockFile(HANDLE hFile, WINPR_ATTR_UNUSED DWORD dwFileOffsetLow
 		char ebuffer[256] = { 0 };
 		WLog_ERR(TAG, "flock(LOCK_UN) %s failed with %s [0x%08X]", pFile->lpFileName,
 		         winpr_strerror(errno, ebuffer, sizeof(ebuffer)), errno);
+		SetLastError(map_posix_err(errno));
 		return FALSE;
 	}
 #endif
@@ -562,6 +599,7 @@ static BOOL FileUnlockFileEx(HANDLE hFile, WINPR_ATTR_UNUSED DWORD dwReserved,
 		char ebuffer[256] = { 0 };
 		WLog_ERR(TAG, "F_UNLCK on %s failed with %s [0x%08X]", pFile->lpFileName,
 		         winpr_strerror(errno, ebuffer, sizeof(ebuffer)), errno);
+		SetLastError(map_posix_err(errno));
 		return FALSE;
 	}
 #else
@@ -570,6 +608,7 @@ static BOOL FileUnlockFileEx(HANDLE hFile, WINPR_ATTR_UNUSED DWORD dwReserved,
 		char ebuffer[256] = { 0 };
 		WLog_ERR(TAG, "flock(LOCK_UN) %s failed with %s [0x%08X]", pFile->lpFileName,
 		         winpr_strerror(errno, ebuffer, sizeof(ebuffer)), errno);
+		SetLastError(map_posix_err(errno));
 		return FALSE;
 	}
 #endif
@@ -616,7 +655,13 @@ static BOOL FileSetFileTime(HANDLE hFile, WINPR_ATTR_UNUSED const FILETIME* lpCr
 	// TODO: Creation time can not be handled!
 	const int rc = futimens(fileno(pFile->fp), times);
 	if (rc != 0)
+	{
+		char ebuffer[256] = { 0 };
+		WLog_ERR(TAG, "futimens failed: %s [%d]", winpr_strerror(errno, ebuffer, sizeof(ebuffer)),
+		         errno);
+		SetLastError(map_posix_err(errno));
 		return FALSE;
+	}
 
 	return TRUE;
 }
@@ -661,7 +706,13 @@ static BOOL FileSetFileTime(HANDLE hFile, const FILETIME* lpCreationTime,
 
 	const int rc = fstat(fileno(pFile->fp), &buf);
 	if (rc < 0)
+	{
+		char ebuffer[256] = { 0 };
+		WLog_ERR(TAG, "fstat failed: %s [%d]", winpr_strerror(errno, ebuffer, sizeof(ebuffer)),
+		         errno);
+		SetLastError(map_posix_err(errno));
 		return FALSE;
+	}
 
 	struct timeval timevals[2] = { statToTimeval(&buf), statToTimeval(&buf) };
 	if (lpLastAccessTime)
@@ -674,7 +725,13 @@ static BOOL FileSetFileTime(HANDLE hFile, const FILETIME* lpCreationTime,
 	{
 		const int res = utimes(pFile->lpFileName, timevals);
 		if (res != 0)
+		{
+			char ebuffer[256] = { 0 };
+			WLog_ERR(TAG, "utimes failed: %s [%d]", winpr_strerror(errno, ebuffer, sizeof(ebuffer)),
+			         errno);
+			SetLastError(map_posix_err(errno));
 			return FALSE;
+		}
 	}
 
 	return TRUE;
@@ -707,7 +764,7 @@ static HANDLE_OPS fileOps = {
 	NULL, /* FileWriteEx */
 	NULL, /* FileWriteGather */
 	FileGetFileSize,
-	NULL, /*  FlushFileBuffers */
+	FileFlushFileBuffers,
 	FileSetEndOfFile,
 	FileSetFilePointer,
 	FileSetFilePointerEx,
@@ -985,8 +1042,13 @@ static HANDLE FileCreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dw
 
 	if (fstat(fileno(pFile->fp), &st) == 0 && dwFlagsAndAttributes & FILE_ATTRIBUTE_READONLY)
 	{
-		st.st_mode &= WINPR_ASSERTING_INT_CAST(mode_t, ~(S_IWUSR | S_IWGRP | S_IWOTH));
-		fchmod(fileno(pFile->fp), st.st_mode);
+		st.st_mode &= WINPR_ASSERTING_INT_CAST(mode_t, (mode_t)(~(S_IWUSR | S_IWGRP | S_IWOTH)));
+		if (fchmod(fileno(pFile->fp), st.st_mode) != 0)
+		{
+			SetLastError(map_posix_err(errno));
+			FileCloseHandle(pFile);
+			return INVALID_HANDLE_VALUE;
+		}
 	}
 
 	SetLastError(STATUS_SUCCESS);
@@ -1523,3 +1585,37 @@ cleanup:
 	return result;
 #endif
 }
+
+#if !defined(_UWP) && !defined(_WIN32)
+DWORD GetLogicalDriveStringsW(DWORD nBufferLength, LPWSTR lpBuffer)
+{
+	char* buffer = NULL;
+	if (nBufferLength > 0)
+	{
+		buffer = calloc(nBufferLength, sizeof(char));
+		if (!buffer)
+			return 0;
+	}
+
+	const DWORD rc = GetLogicalDriveStringsA(nBufferLength, buffer);
+	if (buffer)
+		ConvertMszUtf8NToWChar(buffer, rc, lpBuffer, nBufferLength);
+	free(buffer);
+	return rc;
+}
+
+DWORD GetLogicalDriveStringsA(DWORD nBufferLength, LPSTR lpBuffer)
+{
+	/* format is '<name1>\0<name2>\0...<nameX>\0\0'
+	 * for details see
+	 * https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getlogicaldrivestringsa
+	 */
+	const char path[] = "/\0";
+	const size_t len = sizeof(path);
+	if (nBufferLength < len)
+		return WINPR_ASSERTING_INT_CAST(DWORD, len);
+
+	memcpy(lpBuffer, path, len);
+	return len - 1;
+}
+#endif
