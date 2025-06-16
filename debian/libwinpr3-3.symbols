@@ -283,6 +283,8 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  GetLastError@Base 3.0.0
  GetLine@Base 3.0.0
  GetLocalTime@Base 3.0.0
+ GetLogicalDriveStringsA@Base 3.16.0
+ GetLogicalDriveStringsW@Base 3.16.0
  GetModuleFileNameA@Base 3.0.0
  GetModuleFileNameW@Base 3.0.0
  GetModuleHandleA@Base 3.0.0
@@ -1042,6 +1044,8 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  WINPR_JSON_IsString@Base 3.6.2
  WINPR_JSON_IsTrue@Base 3.6.2
  WINPR_JSON_Parse@Base 3.6.2
+ WINPR_JSON_ParseFromFile@Base 3.16.0
+ WINPR_JSON_ParseFromFileFP@Base 3.16.0
  WINPR_JSON_ParseWithLength@Base 3.6.2
  WINPR_JSON_Print@Base 3.6.2
  WINPR_JSON_PrintUnformatted@Base 3.6.2
@@ -1320,6 +1324,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_CloseThreadpoolTimer@Base 3.0.0
  winpr_CloseThreadpoolWait@Base 3.0.0
  winpr_CloseThreadpoolWork@Base 3.0.0
+ winpr_CreateFile@Base 3.16.0
  winpr_CreateThreadpool@Base 3.0.0
  winpr_CreateThreadpoolCleanupGroup@Base 3.0.0
  winpr_CreateThreadpoolIo@Base 3.0.0

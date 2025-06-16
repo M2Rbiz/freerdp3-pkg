@@ -231,6 +231,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  er_write_universal_tag@Base 3.0.0
  free_h264_metablock@Base 3.0.0
  freerdp_GetConfigFilePath@Base 3.9.0
+ freerdp_GetJSONConfigFile@Base 3.16.0
  freerdp_abort_connect@Base 3.0.0
  freerdp_abort_connect_context@Base 3.0.0
  freerdp_abort_event@Base 3.0.0
@@ -377,6 +378,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_free@Base 3.0.0
  freerdp_get_build_config@Base 3.0.0
  freerdp_get_build_revision@Base 3.0.0
+ freerdp_get_common_access_token@Base 3.16.0
  freerdp_get_current_addin_provider@Base 3.0.0
  freerdp_get_disconnect_ultimatum@Base 3.0.0
  freerdp_get_dynamic_addin_install_path@Base 3.0.0
@@ -447,11 +449,15 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_is_valid_mcs_create_request@Base 3.0.0
  freerdp_is_valid_mcs_create_response@Base 3.0.0
  freerdp_key_free@Base 3.0.0
+ freerdp_key_generate@Base 3.16.0
  freerdp_key_get_bits@Base 3.0.0
+ freerdp_key_get_pem@Base 3.16.0
  freerdp_key_is_rsa@Base 3.0.0
  freerdp_key_new@Base 3.0.0
  freerdp_key_new_from_file@Base 3.0.0
+ freerdp_key_new_from_file_enc@Base 3.16.0
  freerdp_key_new_from_pem@Base 3.0.0
+ freerdp_key_new_from_pem_enc@Base 3.16.0
  freerdp_keyboard_get_layout_id_from_name@Base 3.0.0
  freerdp_keyboard_get_layout_name_from_id@Base 3.0.0
  freerdp_keyboard_get_layouts@Base 3.0.0
@@ -504,6 +510,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_send_error_info@Base 3.0.0
  freerdp_server_license_issuers_copy@Base 3.0.0
  freerdp_server_license_issuers_free@Base 3.0.0
+ freerdp_set_common_access_token@Base 3.16.0
  freerdp_set_error_info@Base 3.0.0
  freerdp_set_focus@Base 3.0.0
  freerdp_set_gateway_usage_method@Base 3.0.0
@@ -515,6 +522,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_settings_clone@Base 3.0.0
  freerdp_settings_copy@Base 3.0.0
  freerdp_settings_copy_item@Base 3.0.0
+ freerdp_settings_deserialize@Base 3.16.0
  freerdp_settings_dump@Base 3.0.0
  freerdp_settings_free@Base 3.0.0
  freerdp_settings_get_bool@Base 3.0.0
@@ -542,6 +550,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_settings_get_uint64@Base 3.0.0
  freerdp_settings_new@Base 3.0.0
  freerdp_settings_print_diff@Base 3.0.0
+ freerdp_settings_serialize@Base 3.16.0
  freerdp_settings_set_bool@Base 3.0.0
  freerdp_settings_set_int16@Base 3.0.0
  freerdp_settings_set_int32@Base 3.0.0
@@ -569,6 +578,8 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_supported_color_depths_string@Base 3.0.0
  freerdp_target_net_addresses_copy@Base 3.0.0
  freerdp_target_net_addresses_free@Base 3.0.0
+ freerdp_timer_add@Base 3.16.0
+ freerdp_timer_remove@Base 3.16.0
  freerdp_update_gateway_usage_method@Base 3.0.0
  (optional)freerdp_utils_aad_get_access_token@Base 3.0.0
  freerdp_utils_aad_get_wellknown@Base 3.12.0
@@ -812,6 +823,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  ringbuffer_write@Base 3.0.0
  scard_get_ioctl_string@Base 3.0.0
  scard_log_status_error@Base 3.0.0
+ scard_log_status_error_wlog@Base 3.16.0
  setChannelError@Base 3.0.0
  smarcard_call_set_callbacks@Base 3.0.0
  smartcardCertInfo_Free@Base 3.0.0

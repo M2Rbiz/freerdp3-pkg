@@ -46,6 +46,7 @@ libfreerdp-client3.so.3 libfreerdp-client3-3 #MINVER#
  freerdp_client_del_static_channel@Base 3.0.0
  freerdp_client_encomsp_set_control@Base 3.0.0
  freerdp_client_encomsp_toggle_control@Base 3.0.0
+ freerdp_client_get_aad_url@Base 3.16.0
  freerdp_client_get_instance@Base 3.0.0
  freerdp_client_get_thread@Base 3.0.0
  freerdp_client_handle_pen@Base 3.0.0
