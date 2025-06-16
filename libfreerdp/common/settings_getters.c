@@ -493,6 +493,9 @@ BOOL freerdp_settings_get_bool(WINPR_ATTR_UNUSED const rdpSettings* settings,
 		case FreeRDP_RestrictedAdminModeRequired:
 			return settings->RestrictedAdminModeRequired;
 
+		case FreeRDP_RestrictedAdminModeSupported:
+			return settings->RestrictedAdminModeSupported;
+
 		case FreeRDP_SaltedChecksum:
 			return settings->SaltedChecksum;
 
@@ -1243,6 +1246,10 @@ BOOL freerdp_settings_set_bool(WINPR_ATTR_UNUSED rdpSettings* settings,
 
 		case FreeRDP_RestrictedAdminModeRequired:
 			settings->RestrictedAdminModeRequired = cnv.c;
+			break;
+
+		case FreeRDP_RestrictedAdminModeSupported:
+			settings->RestrictedAdminModeSupported = cnv.c;
 			break;
 
 		case FreeRDP_SaltedChecksum:
@@ -2366,8 +2373,7 @@ BOOL freerdp_settings_set_uint32(WINPR_ATTR_UNUSED rdpSettings* settings,
 			break;
 
 		case FreeRDP_ReceivedCapabilitiesSize:
-			settings->ReceivedCapabilitiesSize = cnv.c;
-			break;
+			return freerdp_capability_buffer_resize(settings, cnv.c);
 
 		case FreeRDP_RedirectedSessionId:
 			settings->RedirectedSessionId = cnv.c;
@@ -2494,8 +2500,7 @@ BOOL freerdp_settings_set_uint32(WINPR_ATTR_UNUSED rdpSettings* settings,
 			break;
 
 		case FreeRDP_TargetNetAddressCount:
-			settings->TargetNetAddressCount = cnv.c;
-			break;
+			return freerdp_target_net_addresses_resize(settings, cnv.c);
 
 		case FreeRDP_TcpAckTimeout:
 			settings->TcpAckTimeout = cnv.c;
@@ -2816,6 +2821,12 @@ const char* freerdp_settings_get_string(WINPR_ATTR_UNUSED const rdpSettings* set
 		case FreeRDP_GatewayAvdAadtenantid:
 			return settings->GatewayAvdAadtenantid;
 
+		case FreeRDP_GatewayAvdAccessAadFormat:
+			return settings->GatewayAvdAccessAadFormat;
+
+		case FreeRDP_GatewayAvdAccessTokenFormat:
+			return settings->GatewayAvdAccessTokenFormat;
+
 		case FreeRDP_GatewayAvdActivityhint:
 			return settings->GatewayAvdActivityhint;
 
@@ -2833,6 +2844,9 @@ const char* freerdp_settings_get_string(WINPR_ATTR_UNUSED const rdpSettings* set
 
 		case FreeRDP_GatewayAvdHubdiscoverygeourl:
 			return settings->GatewayAvdHubdiscoverygeourl;
+
+		case FreeRDP_GatewayAvdScope:
+			return settings->GatewayAvdScope;
 
 		case FreeRDP_GatewayAvdWvdEndpointPool:
 			return settings->GatewayAvdWvdEndpointPool;
@@ -3131,6 +3145,12 @@ char* freerdp_settings_get_string_writable(rdpSettings* settings, FreeRDP_Settin
 		case FreeRDP_GatewayAvdAadtenantid:
 			return settings->GatewayAvdAadtenantid;
 
+		case FreeRDP_GatewayAvdAccessAadFormat:
+			return settings->GatewayAvdAccessAadFormat;
+
+		case FreeRDP_GatewayAvdAccessTokenFormat:
+			return settings->GatewayAvdAccessTokenFormat;
+
 		case FreeRDP_GatewayAvdActivityhint:
 			return settings->GatewayAvdActivityhint;
 
@@ -3148,6 +3168,9 @@ char* freerdp_settings_get_string_writable(rdpSettings* settings, FreeRDP_Settin
 
 		case FreeRDP_GatewayAvdHubdiscoverygeourl:
 			return settings->GatewayAvdHubdiscoverygeourl;
+
+		case FreeRDP_GatewayAvdScope:
+			return settings->GatewayAvdScope;
 
 		case FreeRDP_GatewayAvdWvdEndpointPool:
 			return settings->GatewayAvdWvdEndpointPool;
@@ -3457,6 +3480,12 @@ BOOL freerdp_settings_set_string_(WINPR_ATTR_UNUSED rdpSettings* settings,
 		case FreeRDP_GatewayAvdAadtenantid:
 			return update_string_(&settings->GatewayAvdAadtenantid, cnv.c, len);
 
+		case FreeRDP_GatewayAvdAccessAadFormat:
+			return update_string_(&settings->GatewayAvdAccessAadFormat, cnv.c, len);
+
+		case FreeRDP_GatewayAvdAccessTokenFormat:
+			return update_string_(&settings->GatewayAvdAccessTokenFormat, cnv.c, len);
+
 		case FreeRDP_GatewayAvdActivityhint:
 			return update_string_(&settings->GatewayAvdActivityhint, cnv.c, len);
 
@@ -3474,6 +3503,9 @@ BOOL freerdp_settings_set_string_(WINPR_ATTR_UNUSED rdpSettings* settings,
 
 		case FreeRDP_GatewayAvdHubdiscoverygeourl:
 			return update_string_(&settings->GatewayAvdHubdiscoverygeourl, cnv.c, len);
+
+		case FreeRDP_GatewayAvdScope:
+			return update_string_(&settings->GatewayAvdScope, cnv.c, len);
 
 		case FreeRDP_GatewayAvdWvdEndpointPool:
 			return update_string_(&settings->GatewayAvdWvdEndpointPool, cnv.c, len);
@@ -3799,6 +3831,13 @@ BOOL freerdp_settings_set_string_copy_(WINPR_ATTR_UNUSED rdpSettings* settings,
 		case FreeRDP_GatewayAvdAadtenantid:
 			return update_string_copy_(&settings->GatewayAvdAadtenantid, cnv.cc, len, cleanup);
 
+		case FreeRDP_GatewayAvdAccessAadFormat:
+			return update_string_copy_(&settings->GatewayAvdAccessAadFormat, cnv.cc, len, cleanup);
+
+		case FreeRDP_GatewayAvdAccessTokenFormat:
+			return update_string_copy_(&settings->GatewayAvdAccessTokenFormat, cnv.cc, len,
+			                           cleanup);
+
 		case FreeRDP_GatewayAvdActivityhint:
 			return update_string_copy_(&settings->GatewayAvdActivityhint, cnv.cc, len, cleanup);
 
@@ -3818,6 +3857,9 @@ BOOL freerdp_settings_set_string_copy_(WINPR_ATTR_UNUSED rdpSettings* settings,
 		case FreeRDP_GatewayAvdHubdiscoverygeourl:
 			return update_string_copy_(&settings->GatewayAvdHubdiscoverygeourl, cnv.cc, len,
 			                           cleanup);
+
+		case FreeRDP_GatewayAvdScope:
+			return update_string_copy_(&settings->GatewayAvdScope, cnv.cc, len, cleanup);
 
 		case FreeRDP_GatewayAvdWvdEndpointPool:
 			return update_string_copy_(&settings->GatewayAvdWvdEndpointPool, cnv.cc, len, cleanup);

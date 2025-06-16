@@ -3,6 +3,7 @@
  * Client Interface
  *
  * Copyright 2013 Marc-Andre Moreau <marcandre.moreau@gmail.com>
+ * Copyright 2025 Siemens
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +41,11 @@
 #if defined(CHANNEL_ENCOMSP_CLIENT)
 #include <freerdp/client/encomsp.h>
 #endif
+
+/** @brief Opaqye handle for AAD wrapper
+ * @since version 3.16.0
+ */
+typedef struct MIBClientWrapper MIBClientWrapper;
 
 #ifdef __cplusplus
 extern "C"
@@ -136,7 +142,9 @@ extern "C"
 #endif
 		ALIGN64 FreeRDP_TouchContact contacts[FREERDP_MAX_TOUCH_CONTACTS]; /**< (offset 8) */
 		ALIGN64 FreeRDP_PenDevice pens[FREERDP_MAX_PEN_DEVICES];           /**< (offset 9) */
-		UINT64 reserved[128 - 9];                                          /**< (offset 9) */
+
+		ALIGN64 MIBClientWrapper* mibClientWrapper; /**< (offset 10) @since version 3.16.0 */
+		UINT64 reserved[129 - 11];                  /**< (offset 11) */
 	};
 
 	/* Common client functions */
@@ -312,6 +320,27 @@ extern "C"
 	FREERDP_API BOOL freerdp_client_encomsp_set_control(EncomspClientContext* encomsp,
 	                                                    BOOL control);
 #endif
+
+	/** @brief type of AAD request
+	 * @since version 3.16.0
+	 */
+	typedef enum
+	{
+		FREERDP_CLIENT_AAD_AUTH_REQUEST,
+		FREERDP_CLIENT_AAD_TOKEN_REQUEST,
+		FREERDP_CLIENT_AAD_AVD_AUTH_REQUEST,
+		FREERDP_CLIENT_AAD_AVD_TOKEN_REQUEST,
+	} freerdp_client_aad_type;
+
+	/** @brief helper function to construct a connection URL for AAD authentication
+	 *
+	 *  @param cctx The client context to use
+	 *  @return An allocated string that can be used to connect
+	 *  @since version 3.16.0
+	 */
+	WINPR_ATTR_MALLOC(free, 1)
+	FREERDP_API char* freerdp_client_get_aad_url(rdpClientContext* cctx,
+	                                             freerdp_client_aad_type type, ...);
 
 #ifdef __cplusplus
 }

@@ -645,6 +645,10 @@ BOOL freerdp_client_print_command_line_help_ex(int argc, char** argv,
 	       "/v:192.168.1.100\n",
 	       name);
 	printf("    %s /u:\\AzureAD\\user@corp.example /p:pwd /v:host\n", name);
+	printf("Use a generic pipe as transport:");
+	printf("    %s /v:/path/to/pipe\n", name);
+	printf("Use a external socket:");
+	printf("    %s /v:|:1234\n", name);
 	printf("\n");
 	printf("Clipboard Redirection: +clipboard\n");
 	printf("\n");
@@ -3726,9 +3730,14 @@ static int parse_aad_options(rdpSettings* settings, const COMMAND_LINE_ARGUMENT_
 			SSIZE_T id;
 			int (*fkt)(rdpSettings* settings, const char* value);
 		};
-		const struct app_map amap[] = { { "tenantid:", FreeRDP_GatewayAvdAadtenantid,
-			                              parse_app_option_program },
-			                            { "ad:", FreeRDP_GatewayAzureActiveDirectory, NULL } };
+		const struct app_map amap[] = {
+			{ "tenantid:", FreeRDP_GatewayAvdAadtenantid, parse_app_option_program },
+			{ "ad:", FreeRDP_GatewayAzureActiveDirectory, NULL },
+			{ "avd-access:", FreeRDP_GatewayAvdAccessAadFormat, NULL },
+			{ "avd-token:", FreeRDP_GatewayAvdAccessTokenFormat, NULL },
+			{ "avd-scope:", FreeRDP_GatewayAvdScope, NULL }
+
+		};
 		for (size_t x = 0; x < count; x++)
 		{
 			BOOL handled = FALSE;

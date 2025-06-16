@@ -1003,25 +1003,28 @@ static int pollAndHandshake(rdpTls* tls)
 
 	do
 	{
-		HANDLE event = NULL;
+		HANDLE events[] = { freerdp_abort_event(tls->context), NULL };
 		DWORD status = 0;
-		if (BIO_get_event(tls->bio, &event) < 0)
+		if (BIO_get_event(tls->bio, &events[1]) < 0)
 		{
 			WLog_ERR(TAG, "unable to retrieve BIO associated event");
 			return -1;
 		}
 
-		if (!event)
+		if (!events[1])
 		{
 			WLog_ERR(TAG, "unable to retrieve BIO event");
 			return -1;
 		}
 
-		status = WaitForSingleObjectEx(event, 50, TRUE);
+		status = WaitForMultipleObjectsEx(ARRAYSIZE(events), events, FALSE, INFINITE, TRUE);
 		switch (status)
 		{
-			case WAIT_OBJECT_0:
+			case WAIT_OBJECT_0 + 1:
 				break;
+			case WAIT_OBJECT_0:
+				WLog_DBG(TAG, "Abort event set, cancel connect");
+				return -1;
 			case WAIT_TIMEOUT:
 			case WAIT_IO_COMPLETION:
 				continue;
@@ -1498,42 +1501,6 @@ static int tls_config_parse_bool(WINPR_JSON* json, const char* opt)
 	return 0;
 }
 
-static char* tls_config_read(const char* configfile)
-{
-	char* data = NULL;
-	FILE* fp = winpr_fopen(configfile, "r");
-	if (!fp)
-		return NULL;
-
-	const int rc = fseek(fp, 0, SEEK_END);
-	if (rc != 0)
-		goto fail;
-
-	const INT64 size = _ftelli64(fp);
-	if (size <= 0)
-		goto fail;
-
-	const int rc2 = fseek(fp, 0, SEEK_SET);
-	if (rc2 != 0)
-		goto fail;
-
-	data = calloc((size_t)size + 1, sizeof(char));
-	if (!data)
-		goto fail;
-
-	const size_t read = fread(data, 1, (size_t)size, fp);
-	if (read != (size_t)size)
-	{
-		free(data);
-		data = NULL;
-		goto fail;
-	}
-
-fail:
-	fclose(fp);
-	return data;
-}
-
 static int tls_config_check_allowed_hashed(const char* configfile, const rdpCertificate* cert,
                                            WINPR_JSON* json)
 {
@@ -1604,26 +1571,12 @@ static int tls_config_check_certificate(const rdpCertificate* cert, BOOL* pAllow
 	WINPR_ASSERT(pAllowUserconfig);
 
 	int rc = 0;
-	char* configfile = freerdp_GetConfigFilePath(TRUE, "certificates.json");
-	WINPR_JSON* json = NULL;
+	const char configfile[] = "certificates.json";
+	WINPR_JSON* json = freerdp_GetJSONConfigFile(TRUE, configfile);
 
-	if (!configfile)
-	{
-		WLog_DBG(TAG, "No configuration file for certificate handling, asking user");
-		goto fail;
-	}
-
-	char* configdata = tls_config_read(configfile);
-	if (!configdata)
-	{
-		WLog_DBG(TAG, "Configuration file for certificate handling, asking user");
-		goto fail;
-	}
-	json = WINPR_JSON_Parse(configdata);
 	if (!json)
 	{
-		WLog_DBG(TAG, "No valid configuration file '%s' for certificate handling, asking user",
-		         configfile);
+		WLog_DBG(TAG, "No or no valid configuration file for certificate handling, asking user");
 		goto fail;
 	}
 
@@ -1659,7 +1612,6 @@ fail:
 
 	*pAllowUserconfig = (rc == 0);
 	WINPR_JSON_Delete(json);
-	free(configfile);
 	return rc;
 }
 

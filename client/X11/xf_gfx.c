@@ -29,6 +29,7 @@
 #include <freerdp/log.h>
 #include "xf_gfx.h"
 #include "xf_rail.h"
+#include "xf_utils.h"
 
 #include <X11/Xutil.h>
 
@@ -58,9 +59,9 @@ static UINT xf_OutputUpdate(xfContext* xfc, xfGfxSurface* surface)
 	surfaceRect.top = 0;
 	surfaceRect.right = WINPR_ASSERTING_INT_CAST(UINT16, surface->gdi.mappedWidth);
 	surfaceRect.bottom = WINPR_ASSERTING_INT_CAST(UINT16, surface->gdi.mappedHeight);
-	XSetClipMask(xfc->display, xfc->gc, None);
-	XSetFunction(xfc->display, xfc->gc, GXcopy);
-	XSetFillStyle(xfc->display, xfc->gc, FillSolid);
+	LogDynAndXSetClipMask(xfc->log, xfc->display, xfc->gc, None);
+	LogDynAndXSetFunction(xfc->log, xfc->display, xfc->gc, GXcopy);
+	LogDynAndXSetFillStyle(xfc->log, xfc->display, xfc->gc, FillSolid);
 	region16_intersect_rect(&(surface->gdi.invalidRegion), &(surface->gdi.invalidRegion),
 	                        &surfaceRect);
 
@@ -94,10 +95,11 @@ static UINT xf_OutputUpdate(xfContext* xfc, xfGfxSurface* surface)
 
 		if (xfc->remote_app)
 		{
-			XPutImage(xfc->display, xfc->primary, xfc->gc, surface->image,
-			          WINPR_ASSERTING_INT_CAST(int, nXSrc), WINPR_ASSERTING_INT_CAST(int, nYSrc),
-			          WINPR_ASSERTING_INT_CAST(int, nXDst), WINPR_ASSERTING_INT_CAST(int, nYDst),
-			          dwidth, dheight);
+			LogDynAndXPutImage(xfc->log, xfc->display, xfc->primary, xfc->gc, surface->image,
+			                   WINPR_ASSERTING_INT_CAST(int, nXSrc),
+			                   WINPR_ASSERTING_INT_CAST(int, nYSrc),
+			                   WINPR_ASSERTING_INT_CAST(int, nXDst),
+			                   WINPR_ASSERTING_INT_CAST(int, nYDst), dwidth, dheight);
 			xf_lock_x11(xfc);
 			xf_rail_paint_surface(xfc, surface->gdi.windowId, rect);
 			xf_unlock_x11(xfc);
@@ -107,10 +109,11 @@ static UINT xf_OutputUpdate(xfContext* xfc, xfGfxSurface* surface)
 		    if (freerdp_settings_get_bool(settings, FreeRDP_SmartSizing) ||
 		        freerdp_settings_get_bool(settings, FreeRDP_MultiTouchGestures))
 		{
-			XPutImage(xfc->display, xfc->primary, xfc->gc, surface->image,
-			          WINPR_ASSERTING_INT_CAST(int, nXSrc), WINPR_ASSERTING_INT_CAST(int, nYSrc),
-			          WINPR_ASSERTING_INT_CAST(int, nXDst), WINPR_ASSERTING_INT_CAST(int, nYDst),
-			          dwidth, dheight);
+			LogDynAndXPutImage(xfc->log, xfc->display, xfc->primary, xfc->gc, surface->image,
+			                   WINPR_ASSERTING_INT_CAST(int, nXSrc),
+			                   WINPR_ASSERTING_INT_CAST(int, nYSrc),
+			                   WINPR_ASSERTING_INT_CAST(int, nXDst),
+			                   WINPR_ASSERTING_INT_CAST(int, nYDst), dwidth, dheight);
 			xf_draw_screen(xfc, WINPR_ASSERTING_INT_CAST(int32_t, nXDst),
 			               WINPR_ASSERTING_INT_CAST(int32_t, nYDst),
 			               WINPR_ASSERTING_INT_CAST(int32_t, dwidth),
@@ -119,18 +122,19 @@ static UINT xf_OutputUpdate(xfContext* xfc, xfGfxSurface* surface)
 		else
 #endif
 		{
-			XPutImage(xfc->display, xfc->drawable, xfc->gc, surface->image,
-			          WINPR_ASSERTING_INT_CAST(int, nXSrc), WINPR_ASSERTING_INT_CAST(int, nYSrc),
-			          WINPR_ASSERTING_INT_CAST(int, nXDst), WINPR_ASSERTING_INT_CAST(int, nYDst),
-			          dwidth, dheight);
+			LogDynAndXPutImage(xfc->log, xfc->display, xfc->drawable, xfc->gc, surface->image,
+			                   WINPR_ASSERTING_INT_CAST(int, nXSrc),
+			                   WINPR_ASSERTING_INT_CAST(int, nYSrc),
+			                   WINPR_ASSERTING_INT_CAST(int, nXDst),
+			                   WINPR_ASSERTING_INT_CAST(int, nYDst), dwidth, dheight);
 		}
 	}
 
 	rc = CHANNEL_RC_OK;
 fail:
 	region16_clear(&surface->gdi.invalidRegion);
-	XSetClipMask(xfc->display, xfc->gc, None);
-	XSync(xfc->display, False);
+	LogDynAndXSetClipMask(xfc->log, xfc->display, xfc->gc, None);
+	LogDynAndXSync(xfc->log, xfc->display, False);
 	return rc;
 }
 
@@ -340,10 +344,11 @@ static UINT xf_CreateSurface(RdpgfxClientContext* context,
 	if (FreeRDPAreColorFormatsEqualNoAlpha(gdi->dstFormat, surface->gdi.format))
 	{
 		WINPR_ASSERT(xfc->depth != 0);
-		surface->image = XCreateImage(
-		    xfc->display, xfc->visual, WINPR_ASSERTING_INT_CAST(uint32_t, xfc->depth), ZPixmap, 0,
-		    (char*)surface->gdi.data, surface->gdi.mappedWidth, surface->gdi.mappedHeight,
-		    xfc->scanline_pad, WINPR_ASSERTING_INT_CAST(int, surface->gdi.scanline));
+		surface->image = LogDynAndXCreateImage(
+		    xfc->log, xfc->display, xfc->visual, WINPR_ASSERTING_INT_CAST(uint32_t, xfc->depth),
+		    ZPixmap, 0, (char*)surface->gdi.data, surface->gdi.mappedWidth,
+		    surface->gdi.mappedHeight, xfc->scanline_pad,
+		    WINPR_ASSERTING_INT_CAST(int, surface->gdi.scanline));
 	}
 	else
 	{
@@ -363,9 +368,9 @@ static UINT xf_CreateSurface(RdpgfxClientContext* context,
 
 		ZeroMemory(surface->stage, size);
 		WINPR_ASSERT(xfc->depth != 0);
-		surface->image = XCreateImage(
-		    xfc->display, xfc->visual, WINPR_ASSERTING_INT_CAST(uint32_t, xfc->depth), ZPixmap, 0,
-		    (char*)surface->stage, surface->gdi.mappedWidth, surface->gdi.mappedHeight,
+		surface->image = LogDynAndXCreateImage(
+		    xfc->log, xfc->display, xfc->visual, WINPR_ASSERTING_INT_CAST(uint32_t, xfc->depth),
+		    ZPixmap, 0, (char*)surface->stage, surface->gdi.mappedWidth, surface->gdi.mappedHeight,
 		    xfc->scanline_pad, WINPR_ASSERTING_INT_CAST(int, surface->stageScanline));
 	}
 

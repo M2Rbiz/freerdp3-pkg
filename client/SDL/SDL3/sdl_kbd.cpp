@@ -133,7 +133,7 @@ static const scancode_entry_t map[] = {
 	ENTRY(SDL_SCANCODE_KP_8, RDP_SCANCODE_NUMPAD8),
 	ENTRY(SDL_SCANCODE_KP_9, RDP_SCANCODE_NUMPAD9),
 	ENTRY(SDL_SCANCODE_KP_0, RDP_SCANCODE_NUMPAD0),
-	ENTRY(SDL_SCANCODE_KP_PERIOD, RDP_SCANCODE_OEM_PERIOD),
+	ENTRY(SDL_SCANCODE_KP_PERIOD, RDP_SCANCODE_DECIMAL),
 	ENTRY(SDL_SCANCODE_LCTRL, RDP_SCANCODE_LCONTROL),
 	ENTRY(SDL_SCANCODE_LSHIFT, RDP_SCANCODE_LSHIFT),
 	ENTRY(SDL_SCANCODE_LALT, RDP_SCANCODE_LMENU),
@@ -274,7 +274,7 @@ static const scancode_entry_t map[] = {
 	ENTRY(SDL_SCANCODE_KP_CLEARENTRY, RDP_SCANCODE_UNKNOWN),
 	ENTRY(SDL_SCANCODE_KP_BINARY, RDP_SCANCODE_UNKNOWN),
 	ENTRY(SDL_SCANCODE_KP_OCTAL, RDP_SCANCODE_UNKNOWN),
-	ENTRY(SDL_SCANCODE_KP_DECIMAL, RDP_SCANCODE_UNKNOWN),
+	ENTRY(SDL_SCANCODE_KP_DECIMAL, RDP_SCANCODE_DECIMAL),
 	ENTRY(SDL_SCANCODE_KP_HEXADECIMAL, RDP_SCANCODE_UNKNOWN),
 	ENTRY(SDL_SCANCODE_AC_REFRESH, RDP_SCANCODE_UNKNOWN),
 	ENTRY(SDL_SCANCODE_AC_BOOKMARKS, RDP_SCANCODE_UNKNOWN),
@@ -342,7 +342,7 @@ BOOL sdlInput::keyboard_set_indicators(rdpContext* context, UINT16 led_flags)
 {
 	WINPR_UNUSED(context);
 
-	int state = SDL_KMOD_NONE;
+	SDL_Keymod state = SDL_KMOD_NONE;
 
 	if ((led_flags & KBD_SYNC_NUM_LOCK) != 0)
 		state |= SDL_KMOD_NUM;
@@ -350,10 +350,10 @@ BOOL sdlInput::keyboard_set_indicators(rdpContext* context, UINT16 led_flags)
 		state |= SDL_KMOD_CAPS;
 	if ((led_flags & KBD_SYNC_SCROLL_LOCK) != 0)
 		state |= SDL_KMOD_SCROLL;
+	if ((led_flags & KBD_SYNC_KANA_LOCK) != 0)
+		state |= SDL_KMOD_LEVEL5;
 
-	// TODO: KBD_SYNC_KANA_LOCK
-
-	SDL_SetModState(static_cast<SDL_Keymod>(state));
+	SDL_SetModState(state);
 
 	return TRUE;
 }
@@ -589,7 +589,27 @@ BOOL sdlInput::keyboard_handle_event(const SDL_KeyboardEvent* ev)
 		}
 	}
 
+#if defined(WITH_DEBUG_KBD)
+	{
+		const BOOL ex = RDP_SCANCODE_EXTENDED(rdp_scancode);
+		const DWORD sc = RDP_SCANCODE_CODE(rdp_scancode);
+		WLog_Print(_sdl->log, WLOG_DEBUG,
+		           "SDL keycode: %02" PRIX32 " -> rdp code: [%04" PRIx16 "] %02" PRIX8 "%s",
+		           ev->scancode, rdp_scancode, sc, ex ? " extended" : "");
+	}
+#endif
+
 	auto scancode = freerdp_keyboard_remap_key(_remapTable, rdp_scancode);
+#if defined(WITH_DEBUG_KBD)
+	{
+		const BOOL ex = RDP_SCANCODE_EXTENDED(scancode);
+		const DWORD sc = RDP_SCANCODE_CODE(scancode);
+		WLog_Print(_sdl->log, WLOG_DEBUG,
+		           "SDL keycode: %02" PRIX32 " -> remapped rdp code: [%04" PRIx16 "] %02" PRIX8
+		           "%s",
+		           ev->scancode, scancode, sc, ex ? " extended" : "");
+	}
+#endif
 	return freerdp_input_send_keyboard_event_ex(
 	    _sdl->context()->input, ev->type == SDL_EVENT_KEY_DOWN, ev->repeat, scancode);
 }
