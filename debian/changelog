@@ -1,8 +1,10 @@
-freerdp3 (3.16.0+dfsg-1) UNRELEASED; urgency=medium
+freerdp3 (3.16.0+dfsg-1) unstable; urgency=medium
 
   * new upstream bugfix release with (again) much improved SDL3 and X11 client
+  * d/patches/: remove all patches (all were taken from upstream)
+  * d/lib*.symbols: add new symbols
 
- -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 16 Jun 2025 13:32:11 +0300
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 25 Jun 2025 17:01:08 +0300
 
 freerdp3 (3.15.0+dfsg-2) unstable; urgency=medium
 
