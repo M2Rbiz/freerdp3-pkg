@@ -1,0 +1,85 @@
+From: akallabeth <akallabeth@posteo.net>
+Date: Mon, 23 Jun 2025 16:38:55 +0200
+Subject: [common,settings] fix int casts
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/efbc9f7cbc887825dbd409ac1b3fa5f6003ad303
+Forwarded: not-needed
+Bug: https://github.com/FreeRDP/FreeRDP/issues/11698
+
+---
+ libfreerdp/common/settings.c        | 15 ++++++---------
+ libfreerdp/core/test/TestSettings.c |  4 ++--
+ 2 files changed, 8 insertions(+), 11 deletions(-)
+
+diff --git a/libfreerdp/common/settings.c b/libfreerdp/common/settings.c
+index 52380fb70..a3db1e0cf 100644
+--- a/libfreerdp/common/settings.c
++++ b/libfreerdp/common/settings.c
+@@ -3723,13 +3723,12 @@ char* freerdp_settings_serialize(const rdpSettings* settings, BOOL pretty, size_
+ 	if (!jpointer)
+ 		goto fail;
+ 
+-	for (SSIZE_T x = 0; x < FreeRDP_Settings_StableAPI_MAX; x++)
++	for (int x = 0; x < FreeRDP_Settings_StableAPI_MAX; x++)
+ 	{
+ 		union
+ 		{
+ 
+-			int i;
+-			SSIZE_T s;
++			int s;
+ 			FreeRDP_Settings_Keys_Bool b;
+ 			FreeRDP_Settings_Keys_Int16 i16;
+ 			FreeRDP_Settings_Keys_UInt16 u16;
+@@ -4340,13 +4339,12 @@ rdpSettings* freerdp_settings_deserialize(const char* jstr, size_t length)
+ 	if (!jpointer)
+ 		goto fail;
+ 
+-	for (SSIZE_T x = 0; x < FreeRDP_Settings_StableAPI_MAX; x++)
++	for (int x = 0; x < FreeRDP_Settings_StableAPI_MAX; x++)
+ 	{
+ 		union
+ 		{
+ 
+-			int i;
+-			SSIZE_T s;
++			int s;
+ 			FreeRDP_Settings_Keys_Bool b;
+ 			FreeRDP_Settings_Keys_Int16 i16;
+ 			FreeRDP_Settings_Keys_UInt16 u16;
+@@ -4371,13 +4369,12 @@ rdpSettings* freerdp_settings_deserialize(const char* jstr, size_t length)
+ 		}
+ 	}
+ 
+-	for (SSIZE_T x = 0; x < FreeRDP_Settings_StableAPI_MAX; x++)
++	for (int x = 0; x < FreeRDP_Settings_StableAPI_MAX; x++)
+ 	{
+ 		union
+ 		{
+ 
+-			int i;
+-			SSIZE_T s;
++			int s;
+ 			FreeRDP_Settings_Keys_Bool b;
+ 			FreeRDP_Settings_Keys_Int16 i16;
+ 			FreeRDP_Settings_Keys_UInt16 u16;
+diff --git a/libfreerdp/core/test/TestSettings.c b/libfreerdp/core/test/TestSettings.c
+index 3f48d939e..86c3313e5 100644
+--- a/libfreerdp/core/test/TestSettings.c
++++ b/libfreerdp/core/test/TestSettings.c
+@@ -1593,11 +1593,11 @@ static BOOL test_serialize_strings(DWORD flags, const char* str)
+ 	if (!src)
+ 		return FALSE;
+ 
+-	for (SSIZE_T x = 0; x < FreeRDP_Settings_StableAPI_MAX; x++)
++	for (int x = 0; x < FreeRDP_Settings_StableAPI_MAX; x++)
+ 	{
+ 		union
+ 		{
+-			SSIZE_T s;
++			int s;
+ 			FreeRDP_Settings_Keys_Pointer ptr;
+ 		} iter;
+ 		iter.s = x;
+-- 
+2.47.2
+
