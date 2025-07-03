@@ -1,0 +1,120 @@
+From 281b9245966f019a8aa0271a73acd8da8104baa9 Mon Sep 17 00:00:00 2001
+From: akallabeth <akallabeth@posteo.net>
+Date: Mon, 16 Jun 2025 12:50:07 +0200
+Subject: [PATCH] [client,sdl2] fix build with webview
+
+---
+ client/SDL/SDL2/CMakeLists.txt    | 12 +++++++++---
+ client/SDL/SDL2/sdl_config.hpp.in | 30 ++++++++++++++++++++++++++++++
+ client/SDL/SDL2/sdl_freerdp.cpp   | 11 ++++++-----
+ 3 files changed, 45 insertions(+), 8 deletions(-)
+ create mode 100644 client/SDL/SDL2/sdl_config.hpp.in
+
+diff --git a/client/SDL/SDL2/CMakeLists.txt b/client/SDL/SDL2/CMakeLists.txt
+index ad965ba14..a22b8da30 100644
+--- a/client/SDL/SDL2/CMakeLists.txt
++++ b/client/SDL/SDL2/CMakeLists.txt
+@@ -64,18 +64,24 @@ else()
+   set_target_properties(SDL2::SDL2 PROPERTIES SYSTEM TRUE)
+ endif()
+ 
++include_directories(${CMAKE_CURRENT_BINARY_DIR})
++
+ addtargetwithresourcefile(${MODULE_NAME} "${WIN32_GUI_FLAG}" "${PROJECT_VERSION}" SRCS)
+ 
+ target_link_libraries(${MODULE_NAME} PRIVATE ${LIBS})
+ 
+ set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "Client/SDL")
+ 
++get_target_property(SDL_CLIENT_BINARY_NAME ${MODULE_NAME} OUTPUT_NAME)
+ if(NOT WITH_CLIENT_SDL_VERSIONED)
+-  get_target_property(OUT_NAME ${MODULE_NAME} OUTPUT_NAME)
+-  string(REPLACE "${MODULE_NAME}" "${PROJECT_NAME}" OUT_NAME "${OUT_NAME}")
+-  set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME ${OUT_NAME})
++  string(REPLACE "${MODULE_NAME}" "${PROJECT_NAME}" SDL_CLIENT_BINARY_NAME "${SDL_CLIENT_BINARY_NAME}")
++  set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME ${SDL_CLIENT_BINARY_NAME})
+ endif()
+ 
++string(TIMESTAMP SDL_CLIENT_YEAR "%Y")
++set(SDL_CLIENT_UUID "com.freerdp.client.sdl3")
++configure_file(${CMAKE_CURRENT_SOURCE_DIR}/sdl_config.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/sdl_config.hpp @ONLY)
++
+ install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT client)
+ install_freerdp_desktop("${MODULE_NAME}")
+ 
+diff --git a/client/SDL/SDL2/sdl_config.hpp.in b/client/SDL/SDL2/sdl_config.hpp.in
+new file mode 100644
+index 000000000..97ee81a15
+--- /dev/null
++++ b/client/SDL/SDL2/sdl_config.hpp.in
+@@ -0,0 +1,30 @@
++/**
++ * FreeRDP: A Remote Desktop Protocol Implementation
++ * SDL config template
++ *
++ * Copyright 2025 Armin Novak <armin.novak@thincast.com>
++ * Copyright 2025 Thinast Technologies GmbH
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++#pragma once
++
++#cmakedefine WITH_WEBVIEW
++
++static const char SDL_CLIENT_NAME[] = "@SDL_CLIENT_BINARY_NAME@";
++static const char SDL_CLIENT_VERSION[] = "@FREERDP_VERSION_FULL@ (@GIT_REVISION@)";
++static const char SDL_CLIENT_VENDOR[] = "@VENDOR@";
++static const char SDL_CLIENT_UUID[] = "@SDL_CLIENT_UUID@";
++static const char SDL_CLIENT_COPYRIGHT[] = "FreeRDP project";
++static const char SDL_CLIENT_URL[] = "@PROJECT_URL@";
++static const char SDL_CLIENT_TYPE[] = "application"; 
+diff --git a/client/SDL/SDL2/sdl_freerdp.cpp b/client/SDL/SDL2/sdl_freerdp.cpp
+index afeeb02ff..fb8852e38 100644
+--- a/client/SDL/SDL2/sdl_freerdp.cpp
++++ b/client/SDL/SDL2/sdl_freerdp.cpp
+@@ -61,7 +61,11 @@
+ #include "dialogs/sdl_dialogs.hpp"
+ #include "scoped_guard.hpp"
+ 
++#include <sdl_config.hpp>
++
++#if defined(WITH_WEBVIEW)
+ #include <aad/sdl_webview.hpp>
++#endif
+ 
+ #define SDL_TAG CLIENT_TAG("SDL")
+ 
+@@ -141,10 +145,7 @@ struct sdl_exit_code_map_t
+ 	const char* code_tag;
+ };
+ 
+-#define ENTRY(x, y) \
+-	{               \
+-		x, y, #y    \
+-	}
++#define ENTRY(x, y) { x, y, #y }
+ static const struct sdl_exit_code_map_t sdl_exit_code_map[] = {
+ 	ENTRY(FREERDP_ERROR_SUCCESS, SDL_EXIT_SUCCESS), ENTRY(FREERDP_ERROR_NONE, SDL_EXIT_DISCONNECT),
+ 	ENTRY(FREERDP_ERROR_NONE, SDL_EXIT_LOGOFF), ENTRY(FREERDP_ERROR_NONE, SDL_EXIT_IDLE_TIMEOUT),
+@@ -1455,7 +1456,7 @@ static BOOL sdl_client_new(freerdp* instance, rdpContext* context)
+ 	instance->ChooseSmartcard = sdl_choose_smartcard;
+ 	instance->RetryDialog = sdl_retry_dialog;
+ 
+-#ifdef WITH_WEBVIEW
++#if defined(WITH_WEBVIEW)
+ 	instance->GetAccessToken = sdl_webview_get_access_token;
+ #else
+ 	instance->GetAccessToken = client_cli_get_access_token;
+-- 
+2.47.2
+

@@ -1,0 +1,28 @@
+From: David Fort <contact@hardening-consulting.com>
+Date: Wed, 2 Jul 2025 09:47:02 +0200
+Subject: nla: fix reading of TsCspDetail
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/a7b051b590b80a7a473d9eb890c3fd37175ff78f
+Forwarded: not-needed
+
+Due to a bug in the tag comparison, ReaderName, CardName, CspName and containerName
+were not read on server side during a smartcard logon, leading to incomplete settings.
+---
+ libfreerdp/core/nla.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libfreerdp/core/nla.c b/libfreerdp/core/nla.c
+index 759431893..c53881141 100644
+--- a/libfreerdp/core/nla.c
++++ b/libfreerdp/core/nla.c
+@@ -1112,7 +1112,7 @@ static BOOL set_creds_octetstring_to_settings(WinPrAsn1Decoder* dec, WinPrAsn1_t
+ 	if (optional)
+ 	{
+ 		WinPrAsn1_tagId itemTag = 0;
+-		if (!WinPrAsn1DecPeekTag(dec, &itemTag) || (itemTag != tagId))
++		if (!WinPrAsn1DecPeekTag(dec, &itemTag) || (itemTag != (ER_TAG_CONTEXTUAL | tagId)))
+ 			return TRUE;
+ 	}
+ 
+-- 
+2.47.2
+
