@@ -1,3 +1,10 @@
+freerdp3 (3.16.0+dfsg-2) unstable; urgency=medium
+
+  * common-settings-fix-int-casts.patch (fix test failure on BE hosts)
+  * 4 more fixes from upstream
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 14 Jul 2025 10:05:25 +0300
+
 freerdp3 (3.16.0+dfsg-1) unstable; urgency=medium
 
   * new upstream bugfix release with (again) much improved SDL3 and X11 client
