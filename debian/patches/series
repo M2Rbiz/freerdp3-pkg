@@ -1,5 +1,0 @@
-common-settings-fix-int-casts.patch
-Revert-core-settings-default-MonitorIds-size-to-Moni.patch
-client-sdl2-fix-build-with-webview.patch
-nla-fix-reading-of-TsCspDetail.patch
-client-desktop-fix-StartupWMClass-setting.patch
