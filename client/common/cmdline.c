@@ -74,6 +74,13 @@
 
 static const char str_force[] = "force";
 
+static const char* credential_args[] = { "p",         "smartcard-logon",
+#if defined(WITH_FREERDP_DEPRECATED_COMMANDLINE)
+	                                     "gp",        "gat",
+#endif
+	                                     "pth",       "reconnect-cookie",
+	                                     "assistance" };
+
 static const char* option_starts_with(const char* what, const char* val);
 static BOOL option_ends_with(const char* str, const char* ext);
 static BOOL option_equals(const char* what, const char* val);
@@ -1019,12 +1026,15 @@ static BOOL parseSubOptions(rdpSettings* settings, const CmdLineSubOptions* opts
 static int fail_at_(const COMMAND_LINE_ARGUMENT_A* arg, int rc, const char* file, const char* fkt,
                     size_t line)
 {
+	if (rc == 0)
+		return rc;
+
 	const DWORD level = WLOG_ERROR;
 	wLog* log = WLog_Get(TAG);
 	if (WLog_IsLevelActive(log, level))
-		WLog_PrintMessage(log, WLOG_MESSAGE_TEXT, level, line, file, fkt,
-		                  "Command line parsing failed at '%s' value '%s' [%d]", arg->Name,
-		                  arg->Value, rc);
+		WLog_PrintTextMessage(log, level, line, file, fkt,
+		                      "Command line parsing failed at '%s' value '%s' [%d]", arg->Name,
+		                      arg->Value, rc);
 	return rc;
 }
 
@@ -1460,7 +1470,7 @@ BOOL freerdp_set_connection_type(rdpSettings* settings, UINT32 type)
 		case CONNECTION_TYPE_AUTODETECT:
 			if (!freerdp_apply_connection_type(settings, type))
 				return FALSE;
-				/* Automatically activate GFX and RFX codec support */
+			/* Automatically activate GFX and RFX codec support */
 #ifdef WITH_GFX_H264
 			if (!freerdp_settings_set_bool(settings, FreeRDP_GfxAVC444v2, TRUE) ||
 			    !freerdp_settings_set_bool(settings, FreeRDP_GfxAVC444, TRUE) ||
@@ -3730,12 +3740,11 @@ static int parse_aad_options(rdpSettings* settings, const COMMAND_LINE_ARGUMENT_
 			SSIZE_T id;
 			int (*fkt)(rdpSettings* settings, const char* value);
 		};
-		const struct app_map amap[] = {
-			{ "tenantid:", FreeRDP_GatewayAvdAadtenantid, parse_app_option_program },
-			{ "ad:", FreeRDP_GatewayAzureActiveDirectory, NULL },
-			{ "avd-access:", FreeRDP_GatewayAvdAccessAadFormat, NULL },
-			{ "avd-token:", FreeRDP_GatewayAvdAccessTokenFormat, NULL },
-			{ "avd-scope:", FreeRDP_GatewayAvdScope, NULL }
+		const struct app_map amap[] = { { "tenantid:", FreeRDP_GatewayAvdAadtenantid, NULL },
+			                            { "ad:", FreeRDP_GatewayAzureActiveDirectory, NULL },
+			                            { "avd-access:", FreeRDP_GatewayAvdAccessAadFormat, NULL },
+			                            { "avd-token:", FreeRDP_GatewayAvdAccessTokenFormat, NULL },
+			                            { "avd-scope:", FreeRDP_GatewayAvdScope, NULL }
 
 		};
 		for (size_t x = 0; x < count; x++)
@@ -4080,8 +4089,43 @@ static BOOL parse_gateway_usage_option(rdpSettings* settings, const char* value)
 	return freerdp_set_gateway_usage_method(settings, type);
 }
 
+static char* unescape(const char* str)
+{
+	char* copy = _strdup(str);
+	if (!copy)
+		return NULL;
+
+	bool escaped = false;
+	char* dst = copy;
+	while (*str != '\0')
+	{
+		char cur = *str++;
+
+		switch (cur)
+		{
+			case '\\':
+				if (!escaped)
+				{
+					escaped = true;
+					continue;
+				}
+				// fallthrough
+				WINPR_FALLTHROUGH
+			default:
+				*dst++ = cur;
+				escaped = false;
+				break;
+		}
+	}
+
+	*dst = '\0';
+
+	return copy;
+}
+
 static BOOL parse_gateway_options(rdpSettings* settings, const COMMAND_LINE_ARGUMENT_A* arg)
 {
+	char* argval = NULL;
 	BOOL rc = FALSE;
 
 	WINPR_ASSERT(settings);
@@ -4100,9 +4144,10 @@ static BOOL parse_gateway_options(rdpSettings* settings, const COMMAND_LINE_ARGU
 	for (size_t x = 0; x < count; x++)
 	{
 		BOOL validOption = FALSE;
-		const char* argval = ptr[x];
-
-		WINPR_ASSERT(argval);
+		free(argval);
+		argval = unescape(ptr[x]);
+		if (!argval)
+			goto fail;
 
 		const char* gw = option_starts_with("g:", argval);
 		if (gw)
@@ -4209,6 +4254,7 @@ static BOOL parse_gateway_options(rdpSettings* settings, const COMMAND_LINE_ARGU
 
 	rc = TRUE;
 fail:
+	free(argval);
 	CommandLineParserFree(ptr);
 	return rc;
 }
@@ -4228,21 +4274,9 @@ static void fill_credential_string(COMMAND_LINE_ARGUMENT_A* args, const char* va
 
 static void fill_credential_strings(COMMAND_LINE_ARGUMENT_A* args)
 {
-	const char* credentials[] = {
-		"p",
-		"smartcard-logon",
-#if defined(WITH_FREERDP_DEPRECATED_COMMANDLINE)
-		"gp",
-		"gat",
-#endif
-		"pth",
-		"reconnect-cookie",
-		"assistance"
-	};
-
-	for (size_t x = 0; x < ARRAYSIZE(credentials); x++)
+	for (size_t x = 0; x < ARRAYSIZE(credential_args); x++)
 	{
-		const char* cred = credentials[x];
+		const char* cred = credential_args[x];
 		fill_credential_string(args, cred);
 	}
 
@@ -5466,10 +5500,39 @@ static int parse_command_line(rdpSettings* settings, const COMMAND_LINE_ARGUMENT
 	return 0;
 }
 
+static void warn_credential_args(const COMMAND_LINE_ARGUMENT_A* args)
+{
+	WINPR_ASSERT(args);
+	bool insecureArgFound = false;
+	for (size_t x = 0; x < ARRAYSIZE(credential_args); x++)
+	{
+		const char* cred = credential_args[x];
+		const COMMAND_LINE_ARGUMENT_A* arg = CommandLineFindArgumentA(args, cred);
+		if (!arg)
+			continue;
+		if ((arg->Flags & COMMAND_LINE_ARGUMENT_PRESENT) == 0)
+			continue;
+
+		WLog_WARN(TAG, "Using /%s is insecure", arg->Name);
+		insecureArgFound = true;
+	}
+
+	if (insecureArgFound)
+	{
+		WLog_WARN(TAG, "Passing credentials or secrets via command line might expose these in the "
+		               "process list");
+		WLog_WARN(TAG, "Consider using one of the following (more secure) alternatives:");
+		WLog_WARN(TAG, "  - /args-from: pipe in arguments from stdin, file or file descriptor");
+		WLog_WARN(TAG, "  - /from-stdin pass the credential via stdin");
+		WLog_WARN(TAG, "  - set environment variable FREERDP_ASKPASS to have a gui tool query for "
+		               "credentials");
+	}
+}
+
 static int freerdp_client_settings_parse_command_line_arguments_int(
     rdpSettings* settings, int argc, char* argv[], BOOL allowUnknown,
     COMMAND_LINE_ARGUMENT_A* largs, WINPR_ATTR_UNUSED size_t count,
-    freerdp_command_line_handle_option_t handle_option, void* handle_userdata)
+    freerdp_command_line_handle_option_t handle_option, void* handle_userdata, bool isArgsFrom)
 {
 	char* user = NULL;
 	int status = 0;
@@ -5507,33 +5570,33 @@ static int freerdp_client_settings_parse_command_line_arguments_int(
 		WLog_WARN(TAG, "FreeRDP 1.0 style syntax was dropped with version 3!");
 		return -1;
 	}
-	else
+
+	if (allowUnknown)
+		flags |= COMMAND_LINE_IGN_UNKNOWN_KEYWORD;
+
+	if (ext)
 	{
-		if (allowUnknown)
-			flags |= COMMAND_LINE_IGN_UNKNOWN_KEYWORD;
-
-		if (ext)
-		{
-			if (freerdp_client_settings_parse_connection_file(settings, argv[1]))
-				return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
-		}
-
-		if (assist)
-		{
-			if (freerdp_client_settings_parse_assistance_file(settings, argc, argv) < 0)
-				return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
-		}
-
-		CommandLineClearArgumentsA(largs);
-		status = CommandLineParseArgumentsA(argc, argv, largs, flags, settings,
-		                                    freerdp_client_command_line_pre_filter,
-		                                    freerdp_client_command_line_post_filter);
-
-		if (status < 0)
-			return status;
-
-		prepare_default_settings(settings, largs, ext);
+		if (freerdp_client_settings_parse_connection_file(settings, argv[1]))
+			return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
 	}
+
+	if (assist)
+	{
+		if (freerdp_client_settings_parse_assistance_file(settings, argc, argv) < 0)
+			return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
+	}
+
+	CommandLineClearArgumentsA(largs);
+	status = CommandLineParseArgumentsA(argc, argv, largs, flags, settings,
+	                                    freerdp_client_command_line_pre_filter,
+	                                    freerdp_client_command_line_post_filter);
+
+	if (status < 0)
+		return status;
+
+	prepare_default_settings(settings, largs, ext);
+	if (!isArgsFrom)
+		warn_credential_args(largs);
 
 	CommandLineFindArgumentA(largs, "v");
 	arg = largs;
@@ -5813,8 +5876,11 @@ int freerdp_client_settings_parse_command_line_arguments_ex(
 	int res = -1;
 	int aargc = 0;
 	char** aargv = NULL;
+
+	bool isArgsFrom = false;
 	if ((argc == 2) && option_starts_with("/args-from:", argv[1]))
 	{
+		isArgsFrom = true;
 		BOOL success = FALSE;
 		const char* file = strchr(argv[1], ':') + 1;
 		FILE* fp = stdin;
@@ -5854,7 +5920,8 @@ int freerdp_client_settings_parse_command_line_arguments_ex(
 		goto fail;
 
 	res = freerdp_client_settings_parse_command_line_arguments_int(
-	    settings, argc, argv, allowUnknown, largs, lcount, handle_option, handle_userdata);
+	    settings, argc, argv, allowUnknown, largs, lcount, handle_option, handle_userdata,
+	    isArgsFrom);
 fail:
 	free(largs);
 	argv_free(&aargc, &aargv);

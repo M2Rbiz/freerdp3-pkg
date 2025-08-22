@@ -1000,7 +1000,7 @@ static BOOL rdg_process_extauth_sspi(rdpRdg* rdg, wStream* s)
 	if (errorCode != ERROR_SUCCESS)
 	{
 		WLog_Print(rdg->log, WLOG_ERROR, "EXTAUTH_SSPI_NTLM failed with error %s [0x%08X]",
-		           GetSecurityStatusString(errorCode), errorCode);
+		           GetSecurityStatusString(errorCode), WINPR_CXX_COMPAT_CAST(UINT32, errorCode));
 		return FALSE;
 	}
 
@@ -1084,7 +1084,7 @@ static BOOL rdg_process_packet(rdpRdg* rdg, wStream* s)
 
 	if (Stream_Length(s) < packetLength)
 	{
-		WLog_Print(rdg->log, WLOG_ERROR, "Short packet %" PRIuz ", expected %" PRIuz,
+		WLog_Print(rdg->log, WLOG_ERROR, "Short packet %" PRIuz ", expected %" PRIu32,
 		           Stream_Length(s), packetLength);
 		return FALSE;
 	}
@@ -1380,6 +1380,10 @@ static BOOL rdg_establish_data_connection(rdpRdg* rdg, rdpTls* tls, const char* 
 				return FALSE;
 			}
 			case HTTP_STATUS_OK:
+				break;
+
+			case HTTP_STATUS_DENIED:
+				http_response_log_error_status(rdg->log, WLOG_DEBUG, response);
 				break;
 
 			default:
@@ -1773,7 +1777,8 @@ static BOOL rdg_process_unknown_packet(rdpRdg* rdg, int type)
 {
 	WINPR_UNUSED(rdg);
 	WINPR_UNUSED(type);
-	WLog_Print(rdg->log, WLOG_WARN, "Unknown Control Packet received: %X", type);
+	WLog_Print(rdg->log, WLOG_WARN, "Unknown Control Packet received: %" PRIX32,
+	           WINPR_CXX_COMPAT_CAST(UINT32, type));
 	return TRUE;
 }
 

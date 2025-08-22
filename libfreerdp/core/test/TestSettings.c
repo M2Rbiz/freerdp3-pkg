@@ -1593,11 +1593,11 @@ static BOOL test_serialize_strings(DWORD flags, const char* str)
 	if (!src)
 		return FALSE;
 
-	for (SSIZE_T x = 0; x < FreeRDP_Settings_StableAPI_MAX; x++)
+	for (int x = 0; x < FreeRDP_Settings_StableAPI_MAX; x++)
 	{
 		union
 		{
-			SSIZE_T s;
+			int s;
 			FreeRDP_Settings_Keys_Pointer ptr;
 		} iter;
 		iter.s = x;
@@ -1905,7 +1905,7 @@ static BOOL test_serialize(void)
 	return TRUE;
 }
 
-static BOOL test_bool_list(const rdpSettings* settings, const rdpSettings* cloned)
+static BOOL test_bool_list(rdpSettings* settings, const rdpSettings* cloned)
 {
 	BOOL rc = FALSE;
 	log_start();
@@ -1972,7 +1972,7 @@ fail:
 	return log_result(rc);
 }
 
-static BOOL test_uint16_list(const rdpSettings* settings, const rdpSettings* cloned)
+static BOOL test_uint16_list(rdpSettings* settings, const rdpSettings* cloned)
 {
 	BOOL rc = FALSE;
 	log_start();
@@ -2006,7 +2006,7 @@ fail:
 	return log_result(rc);
 }
 
-static BOOL test_int32_list(const rdpSettings* settings, const rdpSettings* cloned)
+static BOOL test_int32_list(rdpSettings* settings, const rdpSettings* cloned)
 {
 	BOOL rc = FALSE;
 	log_start();
@@ -2041,7 +2041,7 @@ fail:
 	return log_result(rc);
 }
 
-static BOOL test_uint32_list(const rdpSettings* settings, const rdpSettings* cloned)
+static BOOL test_uint32_list(rdpSettings* settings, const rdpSettings* cloned)
 {
 	BOOL rc = FALSE;
 	log_start();
@@ -2110,7 +2110,7 @@ fail:
 	return log_result(rc);
 }
 
-static BOOL test_uint64_list(const rdpSettings* settings, const rdpSettings* cloned)
+static BOOL test_uint64_list(rdpSettings* settings, const rdpSettings* cloned)
 {
 	BOOL rc = FALSE;
 	log_start();
@@ -2145,7 +2145,7 @@ fail:
 	return log_result(rc);
 }
 
-static BOOL test_string_list(const rdpSettings* settings, const rdpSettings* cloned)
+static BOOL test_string_list(rdpSettings* settings, const rdpSettings* cloned)
 {
 	BOOL rc = FALSE;
 	log_start();
