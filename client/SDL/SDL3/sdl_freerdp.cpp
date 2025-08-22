@@ -739,6 +739,8 @@ static int sdl_run(SdlContext* sdl)
 	}
 
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+	auto backend = SDL_GetCurrentVideoDriver();
+	WLog_Print(sdl->log, WLOG_DEBUG, "client is using backend '%s'", backend);
 	sdl_dialogs_init();
 
 	SDL_SetHint(SDL_HINT_ALLOW_ALT_TAB_WHILE_GRABBED, "0");
@@ -1637,8 +1639,8 @@ static void SDLCALL winpr_LogOutputFunction(void* userdata, int category, SDL_Lo
 	if (!WLog_IsLevelActive(log, level))
 		return;
 
-	WLog_PrintMessage(log, WLOG_MESSAGE_TEXT, level, __LINE__, __FILE__, __func__, "[%s] %s",
-	                  category2str(category), message);
+	WLog_PrintTextMessage(log, level, __LINE__, __FILE__, __func__, "[%s] %s",
+	                      category2str(category), message);
 }
 
 int main(int argc, char* argv[])

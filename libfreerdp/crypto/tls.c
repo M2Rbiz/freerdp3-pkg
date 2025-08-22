@@ -1202,6 +1202,19 @@ TlsHandshakeResult freerdp_tls_accept_ex(rdpTls* tls, BIO* underlying, rdpSettin
 		return TLS_HANDSHAKE_ERROR;
 	}
 
+	const size_t cnt = freerdp_certificate_get_chain_len(cert);
+	for (size_t x = 0; x < cnt; x++)
+	{
+		X509* xcert = freerdp_certificate_get_chain_at(cert, x);
+		WINPR_ASSERT(xcert);
+		const long rc = SSL_add1_chain_cert(tls->ssl, xcert);
+		if (rc != 1)
+		{
+			WLog_ERR(TAG, "SSL_add1_chain_cert failed");
+			return TLS_HANDSHAKE_ERROR;
+		}
+	}
+
 #if defined(MICROSOFT_IOS_SNI_BUG) && !defined(OPENSSL_NO_TLSEXT) && \
     !defined(LIBRESSL_VERSION_NUMBER)
 	SSL_set_tlsext_debug_callback(tls->ssl, tls_openssl_tlsext_debug_callback);
@@ -1220,10 +1233,10 @@ BOOL freerdp_tls_send_alert(rdpTls* tls)
 	if (!tls->ssl)
 		return TRUE;
 
-		/**
-		 * FIXME: The following code does not work on OpenSSL > 1.1.0 because the
-		 *        SSL struct is opaqe now
-		 */
+	/**
+	 * FIXME: The following code does not work on OpenSSL > 1.1.0 because the
+	 *        SSL struct is opaqe now
+	 */
 #if (!defined(LIBRESSL_VERSION_NUMBER) && (OPENSSL_VERSION_NUMBER < 0x10100000L)) || \
     (defined(LIBRESSL_VERSION_NUMBER) && (LIBRESSL_VERSION_NUMBER <= 0x2080300fL))
 
@@ -1631,12 +1644,11 @@ int tls_verify_certificate(rdpTls* tls, const rdpCertificate* cert, const char* 
 	rdpCertificateData* certificate_data = NULL;
 	BYTE* pemCert = NULL;
 	DWORD flags = VERIFY_CERT_FLAG_NONE;
-	freerdp* instance = NULL;
 
 	WINPR_ASSERT(tls);
-	WINPR_ASSERT(tls->context->settings);
+	WINPR_ASSERT(tls->context);
 
-	instance = (freerdp*)tls->context->settings->instance;
+	freerdp* instance = tls->context->instance;
 	WINPR_ASSERT(instance);
 
 	if (freerdp_shall_disconnect_context(instance->context))
@@ -1686,8 +1698,14 @@ int tls_verify_certificate(rdpTls* tls, const rdpCertificate* cert, const char* 
 		}
 	}
 	/* ignore certificate verification if user explicitly required it (discouraged) */
-	else if (tls->context->settings->IgnoreCertificate)
+	else if (freerdp_settings_get_bool(tls->context->settings, FreeRDP_IgnoreCertificate))
+	{
+		WLog_WARN(TAG, "[DANGER] Certificate not checked, /cert:ignore in use.");
+		WLog_WARN(TAG, "[DANGER] This prevents MITM attacks from being detected!");
+		WLog_WARN(TAG,
+		          "[DANGER] Avoid using this unless in a secure LAN (=no internet) environment");
 		verification_status = 1; /* success! */
+	}
 	else if (!tls->isGatewayTransport && (tls->context->settings->AuthenticationLevel == 0))
 		verification_status = 1; /* success! */
 	else

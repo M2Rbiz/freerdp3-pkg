@@ -66,14 +66,16 @@ static UINT cliprdr_packet_send(cliprdrPlugin* cliprdr, wStream* s)
 	WINPR_ASSERT(s);
 
 	const size_t pos = Stream_GetPosition(s);
-	const size_t dataLen = pos - 8;
-	WINPR_ASSERT(dataLen <= UINT32_MAX);
+	WINPR_ASSERT(pos >= 8ULL);
+	WINPR_ASSERT(pos <= UINT32_MAX - 8);
+
+	const uint32_t dataLen = WINPR_ASSERTING_INT_CAST(uint32_t, pos - 8UL);
 
 	Stream_SetPosition(s, 4);
-	Stream_Write_UINT32(s, (UINT32)dataLen);
+	Stream_Write_UINT32(s, dataLen);
 	Stream_SetPosition(s, pos);
 
-	WLog_Print(cliprdr->log, WLOG_DEBUG, "Cliprdr Sending (%" PRIu32 " bytes)", dataLen + 8);
+	WLog_Print(cliprdr->log, WLOG_DEBUG, "Cliprdr Sending (%" PRIuz " bytes)", pos);
 
 	if (!cliprdr)
 	{
@@ -700,7 +702,7 @@ static UINT cliprdr_client_format_list(CliprdrClientContext* context,
 		for (size_t x = 0; x < filterList.numFormats; x++)
 		{
 			const CLIPRDR_FORMAT* format = &filterList.formats[x];
-			WLog_Print(cliprdr->log, level, "[%" PRIu32 "]: id=0x%08" PRIx32 " [%s|%s]", x,
+			WLog_Print(cliprdr->log, level, "[%" PRIuz "]: id=0x%08" PRIx32 " [%s|%s]", x,
 			           format->formatId, ClipboardGetFormatIdString(format->formatId),
 			           format->formatName);
 		}

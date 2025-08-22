@@ -377,7 +377,6 @@ static LRESULT CALLBACK hotplug_proc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM 
 						char drive_name_upper, drive_name_lower;
 						ULONG_PTR* keys = NULL;
 						DEVICE_DRIVE_EXT* device_ext;
-						UINT32 ids[1];
 
 						for (int i = 0; i < 26; i++)
 						{
@@ -1454,8 +1453,7 @@ static BOOL device_announce(ULONG_PTR key, void* element, void* data)
 
 		arg->count++;
 		WLog_Print(rdpdr->log, WLOG_INFO,
-		           "registered [%09s] device #%" PRIu32 ": %05s (type=%2" PRIu32 " id=%2" PRIu32
-		           ")",
+		           "registered [%9s] device #%" PRIu32 ": %5s (type=%2" PRIu32 " id=%2" PRIu32 ")",
 		           rdpdr_device_type_string(device->type), arg->count, device->name, device->type,
 		           device->id);
 	}
