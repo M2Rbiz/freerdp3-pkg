@@ -1,5 +1,5 @@
 libfreerdp3.so.3 libfreerdp3-3 #MINVER#
-* Build-Depends-Package: freerdp3-dev
+* Build-Depends-Package: freerdp-dev
  Bitmap_Alloc@Base 3.0.0
  Bitmap_SetDimensions@Base 3.0.0
  Bitmap_SetRectangle@Base 3.0.0
