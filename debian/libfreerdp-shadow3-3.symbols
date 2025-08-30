@@ -1,5 +1,5 @@
 libfreerdp-shadow3.so.3 libfreerdp-shadow3-3 #MINVER#
-* Build-Depends-Package: freerdp3-dev
+* Build-Depends-Package: freerdp-dev
  rdtk_button_draw@Base 3.1.0
  rdtk_engine_free@Base 3.1.0
  rdtk_engine_new@Base 3.1.0
