@@ -135,6 +135,4 @@ override_dh_installdocs-arch:
 	for p in $$(dh_listpackages -a | grep -v '^${doc-pkg}$$'); do \
 	    mkdir -p debian/$$p/usr/share/doc; \
 	    ln -s ${doc-pkg} debian/$$p/usr/share/doc/$$p; \
-	    echo "dir_to_symlink /usr/share/doc/$$p ${doc-pkg} 3.17.1+dfsg-1~" >\
-		debian/$$p.maintscript; \
 	done
