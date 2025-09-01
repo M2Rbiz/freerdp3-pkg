@@ -35,6 +35,7 @@
 #include <winpr/wtsapi.h>
 
 #include <freerdp/settings.h>
+#include <freerdp/utils/helpers.h>
 #include <freerdp/build-config.h>
 
 #include "../crypto/certificate.h"
@@ -752,35 +753,9 @@ BOOL freerdp_settings_set_default_order_support(rdpSettings* settings)
 	return TRUE;
 }
 
-#if !defined(WITH_FULL_CONFIG_PATH)
-static char* freerdp_settings_get_legacy_config_path(void)
-{
-	char product[sizeof(FREERDP_PRODUCT_STRING)] = { 0 };
-
-	for (size_t i = 0; i < sizeof(product); i++)
-		product[i] = (char)tolower(FREERDP_PRODUCT_STRING[i]);
-
-	return GetKnownSubPath(KNOWN_PATH_XDG_CONFIG_HOME, product);
-}
-#endif
-
 char* freerdp_settings_get_config_path(void)
 {
-	char* path = NULL;
-	/* For default FreeRDP continue using same config directory
-	 * as in old releases.
-	 * Custom builds use <Vendor>/<Product> as config folder. */
-#if !defined(WITH_FULL_CONFIG_PATH)
-	if (_stricmp(FREERDP_VENDOR_STRING, FREERDP_PRODUCT_STRING) == 0)
-		return freerdp_settings_get_legacy_config_path();
-#endif
-
-	char* base = GetKnownSubPath(KNOWN_PATH_XDG_CONFIG_HOME, FREERDP_VENDOR_STRING);
-	if (base)
-		path = GetCombinedPath(base, FREERDP_PRODUCT_STRING);
-	free(base);
-
-	return path;
+	return freerdp_GetConfigFilePath(FALSE, "");
 }
 
 rdpSettings* freerdp_settings_new(DWORD flags)
@@ -1289,6 +1264,14 @@ static void freerdp_settings_free_internal(rdpSettings* settings)
 	freerdp_settings_free_keys(settings, TRUE);
 }
 
+static void freerdp_settings_free_internal_ensure_reset(rdpSettings* settings)
+{
+	settings->ServerLicenseProductIssuersCount = 0;
+	settings->ServerLicenseProductIssuers = NULL;
+
+	settings->ReceivedCapabilitiesSize = 0;
+}
+
 void freerdp_settings_free(rdpSettings* settings)
 {
 	if (!settings)
@@ -1511,15 +1494,13 @@ BOOL freerdp_settings_copy(rdpSettings* _settings, const rdpSettings* settings)
 
 	/* This is required to free all non string buffers */
 	freerdp_settings_free_internal(_settings);
+
 	/* This copies everything except allocated non string buffers. reset all allocated buffers to
 	 * NULL to fix issues during cleanup */
 	rc = freerdp_settings_clone_keys(_settings, settings);
-
-	_settings->ServerLicenseProductIssuersCount = 0;
-	_settings->ServerLicenseProductIssuers = NULL;
-
 	if (!rc)
 		goto out_fail;
+	freerdp_settings_free_internal_ensure_reset(_settings);
 
 	/* Begin copying */
 	if (!freerdp_settings_int_buffer_copy(_settings, settings))
