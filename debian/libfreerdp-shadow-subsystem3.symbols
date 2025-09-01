@@ -1,4 +1,4 @@
-libfreerdp-shadow-subsystem3.so.3 libfreerdp-shadow-subsystem3-3 #MINVER#
+libfreerdp-shadow-subsystem.so.3 libfreerdp-shadow-subsystem3 #MINVER#
 * Build-Depends-Package: freerdp-dev
  ShadowSubsystemEntry@Base 3.0.0
  ShadowSubsystemName@Base 3.0.0

@@ -49,6 +49,7 @@ DEB_CMAKE_EXTRA_FLAGS = \
     -DRDTK_FORCE_STATIC_BUILD=ON \
     -DUWAC_FORCE_STATIC_BUILD=ON \
     -DWITH_BINARY_VERSIONING=OFF \
+    -DWITH_LIBRARY_VERSIONING=OFF \
     -DWITH_VERBOSE_WINPR_ASSERT=OFF \
     -DWITH_INSTALL_CLIENT_DESKTOP_FILES=ON \
     -DWITH_JSONC_REQUIRED=ON \
@@ -126,9 +127,9 @@ override_dh_auto_install-indep:
 override_dh_auto_configure-arch:
 	dh_auto_configure -- $(DEB_CMAKE_EXTRA_FLAGS)
 
-# all packages depends on exact same version of libwinpr3-3: link docs to it
+# all packages depends on exact same version of libwinpr3: link docs to it
 # only do this for arch packages, as arch<=>indep dir_to_symlink is forbidden
-doc-pkg := libwinpr3-3
+doc-pkg := libwinpr3
 override_dh_installdocs-arch:
 	dh_installdocs -p ${doc-pkg}
 	for p in $$(dh_listpackages -a | grep -v '^${doc-pkg}$$'); do \
