@@ -2,10 +2,6 @@
 
 include /usr/share/dpkg/default.mk
 
-ifeq (,$(filter terse,$(DEB_BUILD_OPTIONS)))
-    export DH_VERBOSE = 1
-endif
-
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 export DPKG_GENSYMBOLS_CHECK_LEVEL = 4
 DPKG_EXPORT_BUILDFLAGS = 1
