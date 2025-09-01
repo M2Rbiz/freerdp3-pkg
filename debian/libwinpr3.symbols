@@ -1,4 +1,4 @@
-libwinpr3.so.3 libwinpr3-3 #MINVER#
+libwinpr.so.3 libwinpr3 #MINVER#
 * Build-Depends-Package: winpr-dev
  AddDllDirectory@Base 3.0.0
  AddVectoredContinueHandler@Base 3.0.0

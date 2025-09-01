@@ -1,0 +1,1 @@
+usr/lib/${DEB_HOST_MULTIARCH}/libfreerdp.so.3 usr/lib/${DEB_HOST_MULTIARCH}/libfreerdp3.so.3

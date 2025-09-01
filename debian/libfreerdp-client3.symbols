@@ -1,4 +1,4 @@
-libfreerdp-client3.so.3 libfreerdp-client3-3 #MINVER#
+libfreerdp-client.so.3 libfreerdp-client3 #MINVER#
 * Build-Depends-Package: freerdp-dev
  add_device@Base 3.0.0
  channel_client_create_handler@Base 3.0.0
