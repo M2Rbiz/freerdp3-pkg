@@ -95,7 +95,6 @@ Description: RDP client for Windows Terminal Services (X11 client tramsitional p
 Package: libfreerdp3
 Architecture: any
 Section: libs
-Provides: libfreerdp3-3 (= ${binary:Version})
 Replaces: libfreerdp3-3
 Breaks: libfreerdp3-3
 Depends:
@@ -114,7 +113,6 @@ Description: Free Remote Desktop Protocol library (core library)
 Package: libfreerdp-client3
 Architecture: any
 Section: libs
-Provides: libfreerdp-client3-3 (= ${binary:Version})
 Replaces: libfreerdp-client3-3
 Breaks: libfreerdp-client3-3
 Depends:
@@ -131,7 +129,6 @@ Description: Free Remote Desktop Protocol library (client library)
 Package: libfreerdp-server3
 Architecture: any
 Section: libs
-Provides: libfreerdp-server3-3 (= ${binary:Version})
 Replaces: libfreerdp-server3-3
 Breaks: libfreerdp-server3-3
 Depends:
@@ -148,7 +145,6 @@ Description: Free Remote Desktop Protocol library (server library)
 Package: libwinpr3
 Architecture: any
 Section: libs
-Provides: libwinpr3-3 (= ${binary:Version})
 Replaces: libwinpr3-3
 Breaks: libwinpr3-3
 Depends:
@@ -172,7 +168,6 @@ Description: Windows Portable Runtime library
 Package: libwinpr-tools3
 Architecture: any
 Section: libs
-Provides: libwinpr-tools3-3 (= ${binary:Version})
 Replaces: libwinpr-tools3-3
 Breaks: libwinpr-tools3-3
 Depends:
@@ -259,7 +254,6 @@ Description: Windows Portable Runtime library command line utilities (transition
 
 Package: libfreerdp-shadow3
 Architecture: any
-Provides: libfreerdp-shadow3-3 (= ${binary:Version})
 Replaces: libfreerdp-shadow3-3
 Breaks: libfreerdp-shadow3-3
 Section: libs
@@ -278,7 +272,6 @@ Description: FreeRDP Remote Desktop Protocol shadow libraries
 Package: libfreerdp-shadow-subsystem3
 Architecture: any
 Section: libs
-Provides: libfreerdp-shadow-subsystem3-3 (= ${binary:Version})
 Replaces: libfreerdp-shadow-subsystem3-3
 Breaks: libfreerdp-shadow-subsystem3-3
 Depends:
@@ -369,7 +362,6 @@ Description: RDP client for Windows Terminal Services (SDL client transitional p
 Package: libfreerdp-server-proxy3
 Architecture: any
 Section: libs
-Provides: libfreerdp-server-proxy3-3 (= ${binary:Version})
 Replaces: libfreerdp-server-proxy3-3
 Breaks: libfreerdp-server-proxy3-3
 Depends:
