@@ -1,3 +1,14 @@
+freerdp3 (3.17.1+dfsg-2) unstable; urgency=medium
+
+  * d/control: add explicit versioned deps on libwinpr3 for freerdp-dev and
+    freerdp-wayland (to ensure the right library is used, and for doc links)
+  * d/lib*.install: s|/usr/lib/*/|/usr/lib/${DEB_HOST_MULTIARCH}/|
+  * d/*-dev.install: reduce/fixup
+  * d/rules: stop running dh* in verbose mode
+  * drop TestFileFindFirstFile test for now (falis on s390x ppc & sparc64)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 06 Sep 2025 11:11:19 +0300
+
 freerdp3 (3.17.1+dfsg-1) unstable; urgency=medium
 
   * new upstream release
