@@ -55,11 +55,7 @@ struct S_YUV_CONTEXT
 	UINT32 width, height;
 	BOOL useThreads;
 	BOOL encoder;
-	UINT32 nthreads;
 	UINT32 heightStep;
-
-	PTP_POOL threadPool;
-	TP_CALLBACK_ENVIRON ThreadPoolEnv;
 
 	UINT32 work_object_count;
 	PTP_WORK* work_objects;
@@ -168,10 +164,11 @@ BOOL yuv_context_reset(YUV_CONTEXT* WINPR_RESTRICT context, UINT32 width, UINT32
 	context->width = width;
 	context->height = height;
 
-	context->heightStep = height > context->nthreads ? (height / context->nthreads) : 1;
+	context->heightStep = height;
 
 	if (context->useThreads)
 	{
+		context->heightStep = 16;
 		/* Preallocate workers for 16x16 tiles.
 		 * this is overallocation for most cases.
 		 *
@@ -237,33 +234,13 @@ YUV_CONTEXT* yuv_context_new(BOOL encoder, UINT32 ThreadingFlags)
 	primitives_get();
 
 	ret->encoder = encoder;
-	ret->nthreads = 1;
 	if (!(ThreadingFlags & THREADING_FLAGS_DISABLE_THREADS))
 	{
 		GetNativeSystemInfo(&sysInfos);
 		ret->useThreads = (sysInfos.dwNumberOfProcessors > 1);
-		if (ret->useThreads)
-		{
-			ret->nthreads = sysInfos.dwNumberOfProcessors;
-			ret->threadPool = CreateThreadpool(NULL);
-			if (!ret->threadPool)
-			{
-				goto error_threadpool;
-			}
-
-			InitializeThreadpoolEnvironment(&ret->ThreadPoolEnv);
-			SetThreadpoolCallbackPool(&ret->ThreadPoolEnv, ret->threadPool);
-		}
 	}
 
 	return ret;
-
-error_threadpool:
-	WINPR_PRAGMA_DIAG_PUSH
-	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
-	yuv_context_free(ret);
-	WINPR_PRAGMA_DIAG_POP
-	return NULL;
 }
 
 void yuv_context_free(YUV_CONTEXT* context)
@@ -272,9 +249,6 @@ void yuv_context_free(YUV_CONTEXT* context)
 		return;
 	if (context->useThreads)
 	{
-		if (context->threadPool)
-			CloseThreadpool(context->threadPool);
-		DestroyThreadpoolEnvironment(&context->ThreadPoolEnv);
 		winpr_aligned_free((void*)context->work_objects);
 		winpr_aligned_free(context->work_combined_params);
 		winpr_aligned_free(context->work_enc_params);
@@ -330,7 +304,7 @@ static BOOL submit_object(PTP_WORK* WINPR_RESTRICT work_object, PTP_WORK_CALLBAC
 	if (!param || !context)
 		return FALSE;
 
-	*work_object = CreateThreadpoolWork(cb, cnv.pv, &context->ThreadPoolEnv);
+	*work_object = CreateThreadpoolWork(cb, cnv.pv, NULL);
 	if (!*work_object)
 		return FALSE;
 
@@ -789,6 +763,14 @@ static INLINE YUV_ENCODE_WORK_PARAM pool_encode_fill(
 	return current;
 }
 
+static uint32_t getSteps(uint32_t height, uint32_t step)
+{
+	const uint32_t steps = (height + step / 2 + 1) / step;
+	if (steps < 1)
+		return 1;
+	return steps;
+}
+
 static BOOL pool_encode(YUV_CONTEXT* WINPR_RESTRICT context, PTP_WORK_CALLBACK cb,
                         const BYTE* WINPR_RESTRICT pSrcData, UINT32 nSrcStep, UINT32 SrcFormat,
                         const UINT32 iStride[], BYTE* WINPR_RESTRICT pYUVLumaData[],
@@ -829,7 +811,7 @@ static BOOL pool_encode(YUV_CONTEXT* WINPR_RESTRICT context, PTP_WORK_CALLBACK c
 	{
 		const RECTANGLE_16* rect = &regionRects[x];
 		const UINT32 height = rect->bottom - rect->top;
-		const UINT32 steps = (height + context->heightStep / 2) / context->heightStep;
+		const UINT32 steps = getSteps(height, context->heightStep);
 
 		waitCount += steps;
 	}
@@ -838,7 +820,7 @@ static BOOL pool_encode(YUV_CONTEXT* WINPR_RESTRICT context, PTP_WORK_CALLBACK c
 	{
 		const RECTANGLE_16* rect = &regionRects[x];
 		const UINT32 height = rect->bottom - rect->top;
-		const UINT32 steps = (height + context->heightStep / 2) / context->heightStep;
+		const UINT32 steps = getSteps(height, context->heightStep);
 
 		for (UINT32 y = 0; y < steps; y++)
 		{

@@ -770,9 +770,6 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 
 	if (!server && !remote)
 	{
-		if (!freerdp_settings_set_string(settings, FreeRDP_GatewayAvdScope,
-		                                 "https%%3A%%2F%%2F%s%%2F%s%%2Foauth2%%2Fnativeclient"))
-			goto out_fail;
 		if (!freerdp_settings_set_string(settings, FreeRDP_GatewayAvdAccessTokenFormat,
 		                                 "ms-appx-web%%3a%%2f%%2fMicrosoft.AAD.BrokerPlugin%%2f%s"))
 			goto out_fail;
@@ -1404,8 +1401,6 @@ static BOOL freerdp_settings_int_buffer_copy(rdpSettings* _settings, const rdpSe
 		    freerdp_settings_get_pointer_array(settings, FreeRDP_TargetNetAddresses, i);
 		const UINT32* port =
 		    freerdp_settings_get_pointer_array(settings, FreeRDP_TargetNetPorts, i);
-		WINPR_ASSERT(address);
-		WINPR_ASSERT(port);
 
 		if (!freerdp_settings_set_pointer_array(_settings, FreeRDP_TargetNetAddresses, i, address))
 			goto out_fail;
