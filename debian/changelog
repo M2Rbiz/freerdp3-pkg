@@ -1,3 +1,11 @@
+freerdp3 (3.17.2+dfsg-2) unstable; urgency=medium
+
+  * winpr-path-fix-endianness-issues.patch: fix tests failure on various
+    architectures
+  * core-arm-extract-redirected-username.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 20 Sep 2025 00:54:08 +0300
+
 freerdp3 (3.17.2+dfsg-1) unstable; urgency=medium
 
   * new upstream release
