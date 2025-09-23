@@ -1,3 +1,10 @@
+freerdp3 (3.17.2+dfsg-3) unstable; urgency=medium
+
+  * cmake-pkg-config-properly-set-requires-fields.patch
+  * codec-planar-fix-datatypes-in-plane-encode.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 23 Sep 2025 11:50:02 +0300
+
 freerdp3 (3.17.2+dfsg-2) unstable; urgency=medium
 
   * winpr-path-fix-endianness-issues.patch: fix tests failure on various
