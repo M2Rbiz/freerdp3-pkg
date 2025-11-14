@@ -157,7 +157,6 @@ Files: .clang-tidy
  cmake/FindFAAD2.cmake
  cmake/FindFeature.cmake
  cmake/FindGSM.cmake
- cmake/FindJSONC.cmake
  cmake/FindKRB5.cmake
  cmake/FindLAME.cmake
  cmake/FindMbedTLS.cmake
