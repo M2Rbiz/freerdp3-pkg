@@ -1,4 +1,0 @@
-winpr-path-fix-endianness-issues.patch
-core-arm-extract-redirected-username.patch
-cmake-pkg-config-properly-set-requires-fields.patch
-codec-planar-fix-datatypes-in-plane-encode.patch
