@@ -320,7 +320,7 @@ BOOL freerdp_image_copy_from_monochrome(BYTE* WINPR_RESTRICT pDstData, UINT32 Ds
 	return TRUE;
 }
 
-static INLINE UINT32 freerdp_image_inverted_pointer_color(UINT32 x, UINT32 y, UINT32 format)
+static inline UINT32 freerdp_image_inverted_pointer_color(UINT32 x, UINT32 y, UINT32 format)
 {
 	/**
 	 * Inverted pointer colors (where individual pixels can change their
@@ -362,12 +362,12 @@ static void fill_gdi_palette_for_icon(const BYTE* colorTable, UINT16 cbColorTabl
 	}
 }
 
-static INLINE UINT32 div_ceil(UINT32 a, UINT32 b)
+static inline UINT32 div_ceil(UINT32 a, UINT32 b)
 {
 	return (a + (b - 1)) / b;
 }
 
-static INLINE UINT32 round_up(UINT32 a, UINT32 b)
+static inline UINT32 round_up(UINT32 a, UINT32 b)
 {
 	return b * div_ceil(a, b);
 }
@@ -773,7 +773,7 @@ BOOL freerdp_image_copy_from_pointer_data(BYTE* WINPR_RESTRICT pDstData, UINT32 
 	                                                andMask, andMaskLength, xorBpp, palette);
 }
 
-static INLINE BOOL overlapping(const BYTE* pDstData, UINT32 nYDst, UINT32 nDstStep,
+static inline BOOL overlapping(const BYTE* pDstData, UINT32 nYDst, UINT32 nDstStep,
                                const BYTE* pSrcData, UINT32 nYSrc, UINT32 nSrcStep, UINT32 nHeight)
 {
 	const uintptr_t src = (uintptr_t)pSrcData;
@@ -792,7 +792,7 @@ static INLINE BOOL overlapping(const BYTE* pDstData, UINT32 nYDst, UINT32 nDstSt
 	return FALSE;
 }
 
-static INLINE BOOL freerdp_image_copy_bgr24_bgrx32(BYTE* WINPR_RESTRICT pDstData, UINT32 nDstStep,
+static inline BOOL freerdp_image_copy_bgr24_bgrx32(BYTE* WINPR_RESTRICT pDstData, UINT32 nDstStep,
                                                    UINT32 nXDst, UINT32 nYDst, UINT32 nWidth,
                                                    UINT32 nHeight,
                                                    const BYTE* WINPR_RESTRICT pSrcData,
@@ -822,7 +822,7 @@ static INLINE BOOL freerdp_image_copy_bgr24_bgrx32(BYTE* WINPR_RESTRICT pDstData
 	return TRUE;
 }
 
-static INLINE BOOL freerdp_image_copy_bgrx32_bgrx32(BYTE* WINPR_RESTRICT pDstData, UINT32 nDstStep,
+static inline BOOL freerdp_image_copy_bgrx32_bgrx32(BYTE* WINPR_RESTRICT pDstData, UINT32 nDstStep,
                                                     UINT32 nXDst, UINT32 nYDst, UINT32 nWidth,
                                                     UINT32 nHeight,
                                                     const BYTE* WINPR_RESTRICT pSrcData,
@@ -852,7 +852,7 @@ static INLINE BOOL freerdp_image_copy_bgrx32_bgrx32(BYTE* WINPR_RESTRICT pDstDat
 	return TRUE;
 }
 
-static INLINE BOOL freerdp_image_copy_generic(
+static inline BOOL freerdp_image_copy_generic(
     BYTE* WINPR_RESTRICT pDstData, UINT32 DstFormat, UINT32 nDstStep, UINT32 nXDst, UINT32 nYDst,
     UINT32 nWidth, UINT32 nHeight, const BYTE* WINPR_RESTRICT pSrcData, UINT32 SrcFormat,
     UINT32 nSrcStep, UINT32 nXSrc, UINT32 nYSrc, const gdiPalette* WINPR_RESTRICT palette,
@@ -894,7 +894,7 @@ static INLINE BOOL freerdp_image_copy_generic(
 	return TRUE;
 }
 
-static INLINE BOOL freerdp_image_copy_no_overlap_dst_alpha(
+static inline BOOL freerdp_image_copy_no_overlap_dst_alpha(
     BYTE* WINPR_RESTRICT pDstData, DWORD DstFormat, UINT32 nDstStep, UINT32 nXDst, UINT32 nYDst,
     UINT32 nWidth, UINT32 nHeight, const BYTE* WINPR_RESTRICT pSrcData, DWORD SrcFormat,
     UINT32 nSrcStep, UINT32 nXSrc, UINT32 nYSrc, const gdiPalette* WINPR_RESTRICT palette,
@@ -1284,80 +1284,73 @@ DWORD FreeRDPAreColorFormatsEqualNoAlpha(DWORD first, DWORD second)
 
 const char* FreeRDPGetColorFormatName(UINT32 format)
 {
+#define ENTRY(x) \
+	case x:      \
+		return #x;
+
 	switch (format)
 	{
-		/* 32bpp formats */
-		case PIXEL_FORMAT_ARGB32:
-			return "PIXEL_FORMAT_ARGB32";
-
-		case PIXEL_FORMAT_XRGB32:
-			return "PIXEL_FORMAT_XRGB32";
-
-		case PIXEL_FORMAT_ABGR32:
-			return "PIXEL_FORMAT_ABGR32";
-
-		case PIXEL_FORMAT_XBGR32:
-			return "PIXEL_FORMAT_XBGR32";
-
-		case PIXEL_FORMAT_BGRA32:
-			return "PIXEL_FORMAT_BGRA32";
-
-		case PIXEL_FORMAT_BGRX32:
-			return "PIXEL_FORMAT_BGRX32";
-
-		case PIXEL_FORMAT_RGBA32:
-			return "PIXEL_FORMAT_RGBA32";
-
-		case PIXEL_FORMAT_RGBX32:
-			return "PIXEL_FORMAT_RGBX32";
-
-		case PIXEL_FORMAT_BGRX32_DEPTH30:
-			return "PIXEL_FORMAT_BGRX32_DEPTH30";
-
-		case PIXEL_FORMAT_RGBX32_DEPTH30:
-			return "PIXEL_FORMAT_RGBX32_DEPTH30";
-
-		/* 24bpp formats */
-		case PIXEL_FORMAT_RGB24:
-			return "PIXEL_FORMAT_RGB24";
-
-		case PIXEL_FORMAT_BGR24:
-			return "PIXEL_FORMAT_BGR24";
-
-		/* 16bpp formats */
-		case PIXEL_FORMAT_RGB16:
-			return "PIXEL_FORMAT_RGB16";
-
-		case PIXEL_FORMAT_BGR16:
-			return "PIXEL_FORMAT_BGR16";
-
-		case PIXEL_FORMAT_ARGB15:
-			return "PIXEL_FORMAT_ARGB15";
-
-		case PIXEL_FORMAT_RGB15:
-			return "PIXEL_FORMAT_RGB15";
-
-		case PIXEL_FORMAT_ABGR15:
-			return "PIXEL_FORMAT_ABGR15";
-
-		case PIXEL_FORMAT_BGR15:
-			return "PIXEL_FORMAT_BGR15";
-
-		/* 8bpp formats */
-		case PIXEL_FORMAT_RGB8:
-			return "PIXEL_FORMAT_RGB8";
-
-		/* 4 bpp formats */
-		case PIXEL_FORMAT_A4:
-			return "PIXEL_FORMAT_A4";
-
-		/* 1bpp formats */
-		case PIXEL_FORMAT_MONO:
-			return "PIXEL_FORMAT_MONO";
+		ENTRY(PIXEL_FORMAT_ARGB32)
+		ENTRY(PIXEL_FORMAT_XRGB32)
+		ENTRY(PIXEL_FORMAT_ABGR32)
+		ENTRY(PIXEL_FORMAT_XBGR32)
+		ENTRY(PIXEL_FORMAT_BGRA32)
+		ENTRY(PIXEL_FORMAT_BGRX32)
+		ENTRY(PIXEL_FORMAT_RGBA32)
+		ENTRY(PIXEL_FORMAT_RGBX32)
+		ENTRY(PIXEL_FORMAT_BGRX32_DEPTH30)
+		ENTRY(PIXEL_FORMAT_RGBX32_DEPTH30)
+		ENTRY(PIXEL_FORMAT_RGB24)
+		ENTRY(PIXEL_FORMAT_BGR24)
+		ENTRY(PIXEL_FORMAT_RGB16)
+		ENTRY(PIXEL_FORMAT_BGR16)
+		ENTRY(PIXEL_FORMAT_ARGB15)
+		ENTRY(PIXEL_FORMAT_RGB15)
+		ENTRY(PIXEL_FORMAT_ABGR15)
+		ENTRY(PIXEL_FORMAT_BGR15)
+		ENTRY(PIXEL_FORMAT_RGB8)
+		ENTRY(PIXEL_FORMAT_A4)
+		ENTRY(PIXEL_FORMAT_MONO)
 
 		default:
 			return "UNKNOWN";
 	}
+#undef ENTRY
+}
+
+uint32_t FreeRDPGetColorFromatFromName(const char* name)
+{
+#define ENTRY(x)               \
+	if (strcmp(name, #x) == 0) \
+		return x;
+
+	if (!name)
+		return 0;
+
+	ENTRY(PIXEL_FORMAT_ARGB32)
+	ENTRY(PIXEL_FORMAT_XRGB32)
+	ENTRY(PIXEL_FORMAT_ABGR32)
+	ENTRY(PIXEL_FORMAT_XBGR32)
+	ENTRY(PIXEL_FORMAT_BGRA32)
+	ENTRY(PIXEL_FORMAT_BGRX32)
+	ENTRY(PIXEL_FORMAT_RGBA32)
+	ENTRY(PIXEL_FORMAT_RGBX32)
+	ENTRY(PIXEL_FORMAT_BGRX32_DEPTH30)
+	ENTRY(PIXEL_FORMAT_RGBX32_DEPTH30)
+	ENTRY(PIXEL_FORMAT_RGB24)
+	ENTRY(PIXEL_FORMAT_BGR24)
+	ENTRY(PIXEL_FORMAT_RGB16)
+	ENTRY(PIXEL_FORMAT_BGR16)
+	ENTRY(PIXEL_FORMAT_ARGB15)
+	ENTRY(PIXEL_FORMAT_RGB15)
+	ENTRY(PIXEL_FORMAT_ABGR15)
+	ENTRY(PIXEL_FORMAT_BGR15)
+	ENTRY(PIXEL_FORMAT_RGB8)
+	ENTRY(PIXEL_FORMAT_A4)
+	ENTRY(PIXEL_FORMAT_MONO)
+
+	return 0;
+#undef ENTRY
 }
 
 void FreeRDPSplitColor(UINT32 color, UINT32 format, BYTE* _r, BYTE* _g, BYTE* _b, BYTE* _a,

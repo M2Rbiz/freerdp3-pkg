@@ -27,7 +27,7 @@
 
 /** @defgroup WINPR_JSON WinPR JSON wrapper
  *  @since version 3.6.0
- *  @brief Wrapper around cJSON or JSONC libraries
+ *  @brief Wrapper around cJSON, JSONC or jansson libraries
  *  @{
  */
 
@@ -119,14 +119,14 @@ extern "C"
 	/**
 	 * @brief Return a pointer to an JSON object item
 	 * @param object the JSON object
-	 * @param string the name of the object
+	 * @param string the name of the object (case is ignored)
 	 * @return A pointer to the object identified by @ref string or \b NULL
 	 * @since version 3.6.0
 	 */
 	WINPR_API WINPR_JSON* WINPR_JSON_GetObjectItem(const WINPR_JSON* object, const char* string);
 
 	/**
-	 * @brief Same as @ref WINPR_JSON_GetObjectItem but with case insensitive matching
+	 * @brief Same as @ref WINPR_JSON_GetObjectItem but with case sensitive matching
 	 *
 	 * @param object the JSON instance to query
 	 * @param string the name of the object
@@ -347,6 +347,16 @@ extern "C"
 	                                                   double number);
 
 	/**
+	 * @brief WINPR_JSON_AddIntegerToObject
+	 * @param object The JSON object the new item is added to
+	 * @param name The name of the object
+	 * @return the new JSON item added
+	 * @since version 3.6.0
+	 */
+	WINPR_API WINPR_JSON* WINPR_JSON_AddIntegerToObject(WINPR_JSON* object, const char* name,
+	                                                    int64_t number);
+
+	/**
 	 * @brief WINPR_JSON_AddStringToObject
 	 * @param object The JSON object the new item is added to
 	 * @param name The name of the object
@@ -391,6 +401,7 @@ extern "C"
 	 * @return A string representation of the JSON instance or \b NULL
 	 * @since version 3.6.0
 	 */
+	WINPR_ATTR_MALLOC(free, 1)
 	WINPR_API char* WINPR_JSON_Print(WINPR_JSON* item);
 
 	/**
@@ -401,6 +412,7 @@ extern "C"
 	 * @return A string representation of the JSON instance or \b NULL
 	 * @since version 3.6.0
 	 */
+	WINPR_ATTR_MALLOC(free, 1)
 	WINPR_API char* WINPR_JSON_PrintUnformatted(WINPR_JSON* item);
 
 #ifdef __cplusplus
