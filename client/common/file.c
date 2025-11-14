@@ -1063,14 +1063,14 @@ BOOL freerdp_client_parse_rdp_file_ex(rdpFile* file, const char* name, rdp_file_
 	return status;
 }
 
-static INLINE void freerdp_client_file_string_reset(char** target)
+static inline void freerdp_client_file_string_reset(char** target)
 {
 	WINPR_ASSERT(target);
 	freerdp_client_file_string_check_free(*target);
 	*target = (void*)~((size_t)NULL);
 }
 
-static INLINE BOOL FILE_POPULATE_STRING(char** _target, const rdpSettings* _settings,
+static inline BOOL FILE_POPULATE_STRING(char** _target, const rdpSettings* _settings,
                                         FreeRDP_Settings_Keys_String _option)
 {
 	WINPR_ASSERT(_target);
@@ -1957,7 +1957,8 @@ BOOL freerdp_client_populate_settings_from_rdp_file_unchecked(const rdpFile* fil
 
 	if (~file->EnableRdsAadAuth)
 	{
-		if (!freerdp_settings_set_bool(settings, FreeRDP_AadSecurity, file->EnableRdsAadAuth != 0))
+		const BOOL val = file->EnableRdsAadAuth != 0;
+		if (!freerdp_settings_set_bool(settings, FreeRDP_AadSecurity, val))
 			return FALSE;
 	}
 
