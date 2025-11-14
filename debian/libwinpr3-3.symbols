@@ -1018,6 +1018,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  WINPR_JSON_AddArrayToObject@Base 3.6.2
  WINPR_JSON_AddBoolToObject@Base 3.6.2
  WINPR_JSON_AddFalseToObject@Base 3.6.2
+ WINPR_JSON_AddIntegerToObject@Base 3.18.0
  WINPR_JSON_AddItemToArray@Base 3.9.0
  WINPR_JSON_AddNullToObject@Base 3.6.2
  WINPR_JSON_AddNumberToObject@Base 3.6.2

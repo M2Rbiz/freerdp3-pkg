@@ -85,6 +85,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  FreeRDPAreColorFormatsEqualNoAlpha@Base 3.0.0
  FreeRDPGetColor@Base 3.0.0
  FreeRDPGetColorFormatName@Base 3.0.0
+ FreeRDPGetColorFromatFromName@Base 3.18.0
  FreeRDPReadColor@Base 3.0.0
  FreeRDPSplitColor@Base 3.0.0
  FreeRDPWriteColor@Base 3.0.0
@@ -261,6 +262,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_assistance_set_connection_string2@Base 3.0.0
  freerdp_bitmap_compress@Base 3.0.0
  freerdp_bitmap_compress_planar@Base 3.0.0
+ freerdp_bitmap_decompress_planar@Base 3.18.0
  freerdp_bitmap_planar_context_free@Base 3.0.0
  freerdp_bitmap_planar_context_new@Base 3.0.0
  freerdp_bitmap_planar_context_reset@Base 3.0.0
@@ -337,6 +339,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_client_codecs_new@Base 3.6.2
  freerdp_client_codecs_prepare@Base 3.0.0
  freerdp_client_codecs_reset@Base 3.0.0
+ freerdp_codec_id_to_str@Base 3.18.0
  freerdp_codepages_free@Base 3.0.0
  freerdp_connect@Base 3.0.0
  freerdp_context_free@Base 3.0.0
