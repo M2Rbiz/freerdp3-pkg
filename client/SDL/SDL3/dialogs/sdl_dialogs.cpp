@@ -117,7 +117,7 @@ BOOL sdl_authenticate_ex(freerdp* instance, char** username, char** password, ch
 	size_t titlesize = 0;
 	winpr_asprintf(&title, &titlesize, "Credentials required for %s", target);
 
-	std::unique_ptr<char, decltype(&free)> guard(title, free);
+	CStringPtr guard(title, free);
 	char* u = nullptr;
 	char* d = nullptr;
 	char* p = nullptr;
@@ -246,7 +246,7 @@ SSIZE_T sdl_retry_dialog(freerdp* instance, const char* what, size_t current,
 
 	sdl->dialog.showInfo("[%s] retry %" PRIuz "/%" PRIuz ", delaying %" PRIuz
 	                     "ms before next attempt",
-	                     what, current, max, delay);
+	                     what, current + 1, max, delay);
 	return WINPR_ASSERTING_INT_CAST(ssize_t, delay);
 }
 

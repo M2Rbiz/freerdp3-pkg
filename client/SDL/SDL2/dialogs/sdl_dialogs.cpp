@@ -117,7 +117,7 @@ BOOL sdl_authenticate_ex(freerdp* instance, char** username, char** password, ch
 	size_t titlesize = 0;
 	winpr_asprintf(&title, &titlesize, "Credentials required for %s", target);
 
-	std::unique_ptr<char, decltype(&free)> scope(title, free);
+	CStringPtr scope(title, free);
 	char* u = nullptr;
 	char* d = nullptr;
 	char* p = nullptr;
@@ -211,7 +211,7 @@ SSIZE_T sdl_retry_dialog(freerdp* instance, const char* what, size_t current,
 	auto sdl = get_context(instance->context);
 	auto settings = instance->context->settings;
 	const size_t delay = freerdp_settings_get_uint32(settings, FreeRDP_TcpConnectTimeout);
-	std::lock_guard<CriticalSection> lock(sdl->critical);
+	std::scoped_lock lock(sdl->critical);
 	if (!sdl->connection_dialog)
 		return WINPR_ASSERTING_INT_CAST(SSIZE_T, delay);
 
@@ -253,7 +253,7 @@ SSIZE_T sdl_retry_dialog(freerdp* instance, const char* what, size_t current,
 
 	sdl->connection_dialog->showInfo("[%s] retry %" PRIuz "/%" PRIuz ", delaying %" PRIuz
 	                                 "ms before next attempt",
-	                                 what, current, max, delay);
+	                                 what, current + 1, max, delay);
 	return WINPR_ASSERTING_INT_CAST(SSIZE_T, delay);
 }
 

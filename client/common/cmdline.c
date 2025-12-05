@@ -689,7 +689,7 @@ BOOL freerdp_client_print_command_line_help_ex(int argc, char** argv,
 #else
 	printf("    export https_proxy=http://proxy.contoso.com:3128/\n");
 #endif
-	printf("    %s /g:rdp.contoso.com ...\n", name);
+	printf("    %s /gateway:g:rdp.contoso.com ...\n", name);
 	printf("\n");
 	printf("More documentation is coming, in the meantime consult source files\n");
 	printf("\n");
@@ -4860,6 +4860,7 @@ static int parse_command_line(rdpSettings* settings, const COMMAND_LINE_ARGUMENT
 			if (!freerdp_settings_set_bool(settings, FreeRDP_RestrictedAdminModeRequired, enable))
 				return fail_at(arg, COMMAND_LINE_ERROR);
 		}
+#ifndef CHANNEL_RDPEAR_CLIENT
 		CommandLineSwitchCase(arg, "remoteGuard")
 		{
 			if (!freerdp_settings_set_bool(settings, FreeRDP_RemoteCredentialGuard, TRUE))
@@ -4867,6 +4868,7 @@ static int parse_command_line(rdpSettings* settings, const COMMAND_LINE_ARGUMENT
 			if (!freerdp_settings_set_bool(settings, FreeRDP_ExtSecurity, TRUE))
 				return fail_at(arg, COMMAND_LINE_ERROR);
 		}
+#endif
 		CommandLineSwitchCase(arg, "pth")
 		{
 			if (!freerdp_settings_set_bool(settings, FreeRDP_ConsoleSession, TRUE))
