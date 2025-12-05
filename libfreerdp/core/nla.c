@@ -1196,6 +1196,40 @@ static BOOL nla_read_KERB_TICKET_LOGON(WINPR_ATTR_UNUSED rdpNla* nla, wStream* s
 	return TRUE;
 }
 
+WINPR_ATTR_MALLOC(free, 1)
+static MSV1_0_REMOTE_SUPPLEMENTAL_CREDENTIAL* nla_read_NtlmCreds(WINPR_ATTR_UNUSED rdpNla* nla,
+                                                                 wStream* s)
+{
+	WINPR_ASSERT(nla);
+	WINPR_ASSERT(s);
+
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 32 + 4))
+		return NULL;
+
+	size_t pos = Stream_GetPosition(s);
+	Stream_Seek(s, 32);
+
+	ULONG EncryptedCredsSize = Stream_Get_UINT32(s);
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, EncryptedCredsSize))
+		return NULL;
+
+	Stream_SetPosition(s, pos);
+
+	MSV1_0_REMOTE_SUPPLEMENTAL_CREDENTIAL* ret = (MSV1_0_REMOTE_SUPPLEMENTAL_CREDENTIAL*)calloc(
+	    1, sizeof(MSV1_0_REMOTE_SUPPLEMENTAL_CREDENTIAL) - 1 + EncryptedCredsSize);
+	if (!ret)
+		return NULL;
+
+	ret->Version = Stream_Get_UINT32(s);
+	ret->Flags = Stream_Get_UINT32(s);
+	Stream_Read(s, ret->CredentialKey.Data, MSV1_0_CREDENTIAL_KEY_LENGTH);
+	ret->CredentialKeyType = Stream_Get_UINT32(s);
+	ret->EncryptedCredsSize = EncryptedCredsSize;
+	Stream_Read(s, ret->EncryptedCreds, EncryptedCredsSize);
+
+	return ret;
+}
+
 /** @brief kind of RCG credentials */
 typedef enum
 {
@@ -1372,10 +1406,11 @@ static BOOL nla_read_ts_credentials(rdpNla* nla, SecBuffer* data)
 			}
 
 			/* supplementalCreds [1] SEQUENCE OF TSRemoteGuardPackageCred OPTIONAL, */
-			MSV1_0_SUPPLEMENTAL_CREDENTIAL* suppCreds = NULL;
+			MSV1_0_REMOTE_SUPPLEMENTAL_CREDENTIAL* suppCreds = NULL;
 			WinPrAsn1Decoder suppCredsSeq = { 0 };
 
-			if (WinPrAsn1DecReadContextualSequence(&dec2, 1, &error, &suppCredsSeq))
+			if (WinPrAsn1DecReadContextualSequence(&dec2, 1, &error, &suppCredsSeq) &&
+			    Stream_GetRemainingLength(&suppCredsSeq.source))
 			{
 				WinPrAsn1Decoder ntlmCredsSeq = { 0 };
 				if (!WinPrAsn1DecReadSequence(&suppCredsSeq, &ntlmCredsSeq))
@@ -1393,7 +1428,12 @@ static BOOL nla_read_ts_credentials(rdpNla* nla, SecBuffer* data)
 					return FALSE;
 				}
 
-				/* TODO: suppCreds = &ntlmCreds; and parse NTLM creds */
+				suppCreds = nla_read_NtlmCreds(nla, &ntlmPayload);
+				if (!suppCreds)
+				{
+					WLog_ERR(TAG, "invalid supplementalCreds");
+					return FALSE;
+				}
 			}
 			else if (error)
 			{
@@ -1403,6 +1443,7 @@ static BOOL nla_read_ts_credentials(rdpNla* nla, SecBuffer* data)
 
 			freerdp_peer* peer = nla->rdpcontext->peer;
 			ret = IFCALLRESULT(TRUE, peer->RemoteCredentials, peer, &kerbLogon, suppCreds);
+			free(suppCreds);
 			break;
 		}
 		default:
@@ -1486,6 +1527,214 @@ out:
 	return ret;
 }
 
+static BOOL nla_write_TSRemoteGuardNtlmCred(rdpNla* nla, WinPrAsn1Encoder* enc,
+                                            const MSV1_0_REMOTE_SUPPLEMENTAL_CREDENTIAL* pntlm)
+{
+	WINPR_UNUSED(nla);
+	BOOL ret = FALSE;
+	BYTE ntlm[] = { 'N', '\0', 'T', '\0', 'L', '\0', 'M', '\0' };
+	const WinPrAsn1_OctetString packageName = { sizeof(ntlm), ntlm };
+
+	/* packageName [0] OCTET STRING */
+	if (!WinPrAsn1EncContextualOctetString(enc, 0, &packageName))
+		return FALSE;
+
+	/* credBuffer [1] OCTET STRING */
+	wStream* s = Stream_New(NULL, 300);
+	if (!s)
+		goto out;
+
+	Stream_Write_UINT32(s, pntlm->Version); /* Version */
+	Stream_Write_UINT32(s, pntlm->Flags);   /* Flags */
+
+	Stream_Write(s, pntlm->CredentialKey.Data, MSV1_0_CREDENTIAL_KEY_LENGTH);
+	Stream_Write_UINT32(s, pntlm->CredentialKeyType);
+	Stream_Write_UINT32(s, pntlm->EncryptedCredsSize);
+	Stream_Write(s, pntlm->EncryptedCreds, pntlm->EncryptedCredsSize);
+	Stream_Zero(s, 6 + 16 * 4 + 14);
+
+	WinPrAsn1_OctetString credBuffer = { Stream_GetPosition(s), Stream_Buffer(s) };
+	ret = WinPrAsn1EncContextualOctetString(enc, 1, &credBuffer) != 0;
+
+out:
+	Stream_Free(s, TRUE);
+	return ret;
+}
+
+static BOOL nla_encode_ts_smartcard_credentials(rdpNla* nla, WinPrAsn1Encoder* enc)
+{
+	struct
+	{
+		WinPrAsn1_tagId tag;
+		FreeRDP_Settings_Keys_String setting_id;
+	} cspData_fields[] = { { 1, FreeRDP_CardName },
+		                   { 2, FreeRDP_ReaderName },
+		                   { 3, FreeRDP_ContainerName },
+		                   { 4, FreeRDP_CspName } };
+	WinPrAsn1_OctetString octet_string = { 0 };
+
+	WINPR_ASSERT(nla);
+	WINPR_ASSERT(enc);
+	WINPR_ASSERT(nla->rdpcontext);
+
+	const rdpSettings* settings = nla->rdpcontext->settings;
+	WINPR_ASSERT(settings);
+
+	/* TSSmartCardCreds */
+	if (!WinPrAsn1EncSeqContainer(enc))
+		return FALSE;
+
+	/* pin [0] OCTET STRING */
+	size_t ss = 0;
+	octet_string.data =
+	    (BYTE*)freerdp_settings_get_string_as_utf16(settings, FreeRDP_Password, &ss);
+	octet_string.len = ss * sizeof(WCHAR);
+	BOOL res = WinPrAsn1EncContextualOctetString(enc, 0, &octet_string) > 0;
+	free(octet_string.data);
+	if (!res)
+		return FALSE;
+
+	/* cspData [1] SEQUENCE */
+	if (!WinPrAsn1EncContextualSeqContainer(enc, 1))
+		return FALSE;
+
+	/* keySpec [0] INTEGER */
+	if (!WinPrAsn1EncContextualInteger(
+	        enc, 0,
+	        WINPR_ASSERTING_INT_CAST(WinPrAsn1_INTEGER,
+	                                 freerdp_settings_get_uint32(settings, FreeRDP_KeySpec))))
+		return FALSE;
+
+	for (size_t i = 0; i < ARRAYSIZE(cspData_fields); i++)
+	{
+		size_t len = 0;
+
+		octet_string.data = (BYTE*)freerdp_settings_get_string_as_utf16(
+		    settings, cspData_fields[i].setting_id, &len);
+		octet_string.len = len * sizeof(WCHAR);
+		if (octet_string.len)
+		{
+			const BOOL res2 =
+			    WinPrAsn1EncContextualOctetString(enc, cspData_fields[i].tag, &octet_string) > 0;
+			free(octet_string.data);
+			if (!res2)
+				return FALSE;
+		}
+	}
+
+	/* End cspData */
+	if (!WinPrAsn1EncEndContainer(enc))
+		return FALSE;
+
+	/* userHint [2] OCTET STRING OPTIONAL, */
+	if (freerdp_settings_get_string(settings, FreeRDP_Username))
+	{
+		octet_string.data =
+		    (BYTE*)freerdp_settings_get_string_as_utf16(settings, FreeRDP_Username, &ss);
+		octet_string.len = ss * sizeof(WCHAR);
+		res = WinPrAsn1EncContextualOctetString(enc, 2, &octet_string) > 0;
+		free(octet_string.data);
+		if (!res)
+			return FALSE;
+	}
+
+	/* domainHint [3] OCTET STRING OPTIONAL */
+	if (freerdp_settings_get_string(settings, FreeRDP_Domain))
+	{
+		octet_string.data =
+		    (BYTE*)freerdp_settings_get_string_as_utf16(settings, FreeRDP_Domain, &ss);
+		octet_string.len = ss * sizeof(WCHAR);
+		res = WinPrAsn1EncContextualOctetString(enc, 3, &octet_string) > 0;
+		free(octet_string.data);
+		if (!res)
+			return FALSE;
+	}
+
+	/* End TSSmartCardCreds */
+	return WinPrAsn1EncEndContainer(enc) != 0;
+}
+
+static BOOL nla_encode_ts_password_credentials(rdpNla* nla, WinPrAsn1Encoder* enc)
+{
+	WinPrAsn1_OctetString username = { 0 };
+	WinPrAsn1_OctetString domain = { 0 };
+	WinPrAsn1_OctetString password = { 0 };
+
+	WINPR_ASSERT(nla);
+	WINPR_ASSERT(enc);
+	WINPR_ASSERT(nla->rdpcontext);
+
+	const rdpSettings* settings = nla->rdpcontext->settings;
+	WINPR_ASSERT(settings);
+
+	/* TSPasswordCreds */
+	if (!WinPrAsn1EncSeqContainer(enc))
+		return FALSE;
+
+	if (!settings->DisableCredentialsDelegation && nla->identity)
+	{
+		username.len = nla->identity->UserLength * sizeof(WCHAR);
+		username.data = (BYTE*)nla->identity->User;
+
+		domain.len = nla->identity->DomainLength * sizeof(WCHAR);
+		domain.data = (BYTE*)nla->identity->Domain;
+
+		password.len = nla->identity->PasswordLength * sizeof(WCHAR);
+		password.data = (BYTE*)nla->identity->Password;
+	}
+
+	if (WinPrAsn1EncContextualOctetString(enc, 0, &domain) == 0)
+		return FALSE;
+	if (WinPrAsn1EncContextualOctetString(enc, 1, &username) == 0)
+		return FALSE;
+	if (WinPrAsn1EncContextualOctetString(enc, 2, &password) == 0)
+		return FALSE;
+
+	/* End TSPasswordCreds */
+	return WinPrAsn1EncEndContainer(enc) != 0;
+}
+
+static BOOL nla_encode_ts_remoteguard_credentials(rdpNla* nla, WinPrAsn1Encoder* enc)
+{
+	WINPR_ASSERT(nla);
+	WINPR_ASSERT(enc);
+
+	/* TSRemoteGuardCreds */
+	if (!WinPrAsn1EncSeqContainer(enc))
+		return FALSE;
+
+	/* logonCred [0] TSRemoteGuardPackageCred, */
+	if (!WinPrAsn1EncContextualSeqContainer(enc, 0))
+		return FALSE;
+
+	if (!nla_write_TSRemoteGuardKerbCred(nla, enc) || !WinPrAsn1EncEndContainer(enc))
+		return FALSE;
+
+	/* TODO: compute the NTLM supplemental creds */
+	MSV1_0_REMOTE_SUPPLEMENTAL_CREDENTIAL* ntlm = NULL;
+	if (ntlm)
+	{
+		/* supplementalCreds [1] SEQUENCE OF TSRemoteGuardPackageCred OPTIONAL */
+		if (!WinPrAsn1EncContextualSeqContainer(enc, 1))
+			return FALSE;
+
+		if (!WinPrAsn1EncSeqContainer(enc)) /* start NTLM */
+			return FALSE;
+
+		if (!nla_write_TSRemoteGuardNtlmCred(nla, enc, ntlm))
+			return FALSE;
+
+		if (!WinPrAsn1EncEndContainer(enc)) /* end NTLM */
+			return FALSE;
+
+		if (!WinPrAsn1EncEndContainer(enc)) /* supplementalCreds */
+			return FALSE;
+	}
+
+	/* End TSRemoteGuardCreds */
+	return WinPrAsn1EncEndContainer(enc) != 0;
+}
+
 /**
  * Encode TSCredentials structure.
  * @param nla A pointer to the NLA to use
@@ -1533,148 +1782,17 @@ static BOOL nla_encode_ts_credentials(rdpNla* nla)
 	switch (credType)
 	{
 		case TSCREDS_SMARTCARD:
-		{
-			struct
-			{
-				WinPrAsn1_tagId tag;
-				FreeRDP_Settings_Keys_String setting_id;
-			} cspData_fields[] = { { 1, FreeRDP_CardName },
-				                   { 2, FreeRDP_ReaderName },
-				                   { 3, FreeRDP_ContainerName },
-				                   { 4, FreeRDP_CspName } };
-			WinPrAsn1_OctetString octet_string = { 0 };
-
-			/* TSSmartCardCreds */
-			if (!WinPrAsn1EncSeqContainer(enc))
-				goto out;
-
-			/* pin [0] OCTET STRING */
-			size_t ss = 0;
-			octet_string.data =
-			    (BYTE*)freerdp_settings_get_string_as_utf16(settings, FreeRDP_Password, &ss);
-			octet_string.len = ss * sizeof(WCHAR);
-			BOOL res = WinPrAsn1EncContextualOctetString(enc, 0, &octet_string) > 0;
-			free(octet_string.data);
-			if (!res)
-				goto out;
-
-			/* cspData [1] SEQUENCE */
-			if (!WinPrAsn1EncContextualSeqContainer(enc, 1))
-				goto out;
-
-			/* keySpec [0] INTEGER */
-			if (!WinPrAsn1EncContextualInteger(
-			        enc, 0,
-			        WINPR_ASSERTING_INT_CAST(
-			            WinPrAsn1_INTEGER, freerdp_settings_get_uint32(settings, FreeRDP_KeySpec))))
-				goto out;
-
-			for (size_t i = 0; i < ARRAYSIZE(cspData_fields); i++)
-			{
-				size_t len = 0;
-
-				octet_string.data = (BYTE*)freerdp_settings_get_string_as_utf16(
-				    settings, cspData_fields[i].setting_id, &len);
-				octet_string.len = len * sizeof(WCHAR);
-				if (octet_string.len)
-				{
-					const BOOL res2 = WinPrAsn1EncContextualOctetString(enc, cspData_fields[i].tag,
-					                                                    &octet_string) > 0;
-					free(octet_string.data);
-					if (!res2)
-						goto out;
-				}
-			}
-
-			/* End cspData */
-			if (!WinPrAsn1EncEndContainer(enc))
-				goto out;
-
-			/* userHint [2] OCTET STRING OPTIONAL, */
-			if (freerdp_settings_get_string(settings, FreeRDP_Username))
-			{
-				octet_string.data =
-				    (BYTE*)freerdp_settings_get_string_as_utf16(settings, FreeRDP_Username, &ss);
-				octet_string.len = ss * sizeof(WCHAR);
-				res = WinPrAsn1EncContextualOctetString(enc, 2, &octet_string) > 0;
-				free(octet_string.data);
-				if (!res)
-					goto out;
-			}
-
-			/* domainHint [3] OCTET STRING OPTIONAL */
-			if (freerdp_settings_get_string(settings, FreeRDP_Domain))
-			{
-				octet_string.data =
-				    (BYTE*)freerdp_settings_get_string_as_utf16(settings, FreeRDP_Domain, &ss);
-				octet_string.len = ss * sizeof(WCHAR);
-				res = WinPrAsn1EncContextualOctetString(enc, 3, &octet_string) > 0;
-				free(octet_string.data);
-				if (!res)
-					goto out;
-			}
-
-			/* End TSSmartCardCreds */
-			if (!WinPrAsn1EncEndContainer(enc))
+			if (!nla_encode_ts_smartcard_credentials(nla, enc))
 				goto out;
 			break;
-		}
+
 		case TSCREDS_USER_PASSWD:
-		{
-			WinPrAsn1_OctetString username = { 0 };
-			WinPrAsn1_OctetString domain = { 0 };
-			WinPrAsn1_OctetString password = { 0 };
-
-			/* TSPasswordCreds */
-			if (!WinPrAsn1EncSeqContainer(enc))
-				goto out;
-
-			if (!settings->DisableCredentialsDelegation && nla->identity)
-			{
-				username.len = nla->identity->UserLength * sizeof(WCHAR);
-				username.data = (BYTE*)nla->identity->User;
-
-				domain.len = nla->identity->DomainLength * sizeof(WCHAR);
-				domain.data = (BYTE*)nla->identity->Domain;
-
-				password.len = nla->identity->PasswordLength * sizeof(WCHAR);
-				password.data = (BYTE*)nla->identity->Password;
-			}
-
-			if (WinPrAsn1EncContextualOctetString(enc, 0, &domain) == 0)
-				goto out;
-			if (WinPrAsn1EncContextualOctetString(enc, 1, &username) == 0)
-				goto out;
-			if (WinPrAsn1EncContextualOctetString(enc, 2, &password) == 0)
-				goto out;
-
-			/* End TSPasswordCreds */
-			if (!WinPrAsn1EncEndContainer(enc))
+			if (!nla_encode_ts_password_credentials(nla, enc))
 				goto out;
 			break;
-		}
+
 		case TSCREDS_REMOTEGUARD:
-			/* TSRemoteGuardCreds */
-			if (!WinPrAsn1EncSeqContainer(enc))
-				goto out;
-
-			/* logonCred [0] TSRemoteGuardPackageCred, */
-			if (!WinPrAsn1EncContextualSeqContainer(enc, 0))
-				goto out;
-
-			if (!nla_write_TSRemoteGuardKerbCred(nla, enc) || !WinPrAsn1EncEndContainer(enc))
-				goto out;
-
-			/* supplementalCreds [1] SEQUENCE OF TSRemoteGuardPackageCred OPTIONAL,
-			 *
-			 * no NTLM supplemental creds for now
-			 *
-			 */
-			if (!WinPrAsn1EncContextualSeqContainer(enc, 1) || !WinPrAsn1EncEndContainer(enc))
-				goto out;
-
-			/* End TSRemoteGuardCreds */
-			if (!WinPrAsn1EncEndContainer(enc))
+			if (!nla_encode_ts_remoteguard_credentials(nla, enc))
 				goto out;
 			break;
 		default:
