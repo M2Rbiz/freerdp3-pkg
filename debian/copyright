@@ -3,7 +3,6 @@ Upstream-Name: FreeRDP
 Upstream-Contact: FreeRDP project <freerdp-devel@lists.sourceforge.net>
 Source: https://github.com/FreeRDP/FreeRDP
 Files-Excluded:
- .github
  ci
  client/Android
  client/iOS
