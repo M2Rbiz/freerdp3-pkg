@@ -25,7 +25,6 @@ Build-Depends:
  libopus-dev,
  libpam0g-dev,
  libpcsclite-dev,
- libpkcs11-helper1-dev,
  libpng-dev,
  libpulse-dev,
  libsdl2-dev <pkg.freerdp3.sdl2>,
