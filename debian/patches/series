@@ -12,3 +12,4 @@ gcc-fix-server-side-connection-with-multiple-monitor.patch
 CVE-2025-4478.patch
 core-redirection-Ensure-stream-has-space-for-cert.patch
 core-redirection-Ensure-stream-has-space-for-all-params.patch
+client-desktop-fix-StartupWMClass-setting.patch
