@@ -1,0 +1,50 @@
+From 25e51878a1c80d4c7e2acae837d36bd97737662b Mon Sep 17 00:00:00 2001
+From: Pascal Nowack <Pascal.Nowack@gmx.de>
+Date: Sun, 31 Aug 2025 11:50:38 +0200
+Subject: core/redirection: Ensure stream has enough space for all parameters
+Bug-Debian: https://bugs.debian.org/1112191
+Forwarded: not-needed
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/pull/11830
+
+While commit a08e3fc5315af8a10c9b1d1333ec3c3d1066a172 fixed the case,
+where the stream did not have enough space for the target certificate,
+it did miss out a few other cases where the remaining length is just
+checked, but not increased when needed. Fix this by now also covering
+the remaining cases.
+
+Fixes: a08e3fc5315af8a10c9b1d1333ec3c3d1066a172
+---
+ libfreerdp/core/redirection.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/libfreerdp/core/redirection.c b/libfreerdp/core/redirection.c
+index b4324e99c..e9cdfc6cb 100644
+--- a/libfreerdp/core/redirection.c
++++ b/libfreerdp/core/redirection.c
+@@ -203,12 +203,12 @@ static BOOL rdp_redirection_write_data(wStream* s, size_t length, const void* da
+ 	WINPR_ASSERT(data || (length == 0));
+ 	WINPR_ASSERT(length <= UINT32_MAX);
+ 
+-	if (!Stream_CheckAndLogRequiredCapacity(TAG, s, 4))
++	if (!Stream_EnsureRemainingCapacity(s, 4))
+ 		return FALSE;
+ 
+ 	Stream_Write_UINT32(s, (UINT32)length);
+ 
+-	if (!Stream_CheckAndLogRequiredCapacity(TAG, s, length))
++	if (!Stream_EnsureRemainingCapacity(s, length))
+ 		return FALSE;
+ 
+ 	Stream_Write(s, data, length);
+@@ -332,7 +332,7 @@ static BOOL rdp_target_cert_write_element(wStream* s, UINT32 Type, UINT32 Encodi
+ 	WINPR_ASSERT(data || (length == 0));
+ 	WINPR_ASSERT(length <= UINT32_MAX);
+ 
+-	if (!Stream_CheckAndLogRequiredCapacity(TAG, s, 12))
++	if (!Stream_EnsureRemainingCapacity(s, 12))
+ 		return FALSE;
+ 
+ 	Stream_Write_UINT32(s, Type);
+-- 
+2.47.3
+

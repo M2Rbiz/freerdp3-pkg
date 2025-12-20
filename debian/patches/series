@@ -10,3 +10,5 @@ winpr-sysinfo-use-a-single-clock-to-provide-System-a.patch
 fix-resources-remove-MimeType-from-desktop-file.patch
 gcc-fix-server-side-connection-with-multiple-monitor.patch
 CVE-2025-4478.patch
+core-redirection-Ensure-stream-has-space-for-cert.patch
+core-redirection-Ensure-stream-has-space-for-all-params.patch

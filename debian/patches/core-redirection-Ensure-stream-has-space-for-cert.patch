@@ -1,0 +1,34 @@
+From a08e3fc5315af8a10c9b1d1333ec3c3d1066a172 Mon Sep 17 00:00:00 2001
+From: Pascal Nowack <Pascal.Nowack@gmx.de>
+Date: Wed, 6 Aug 2025 09:08:01 +0200
+Subject: core/redirection: Ensure stream has enough space for the certificate
+Bug-Debian: https://bugs.debian.org/1112191
+Forwarded: not-needed
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/pull/11762
+
+Instead of checking whether enough space for the certificate is
+available, simply use Stream_EnsureRemainingCapacity() to extend the
+buffer size if needed. Otherwise, server redirection might fail despite
+having a valid certificate.
+
+See also: https://gitlab.gnome.org/GNOME/gnome-remote-desktop/-/issues/274
+---
+ libfreerdp/core/redirection.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libfreerdp/core/redirection.c b/libfreerdp/core/redirection.c
+index 57d1f056a..b4324e99c 100644
+--- a/libfreerdp/core/redirection.c
++++ b/libfreerdp/core/redirection.c
+@@ -339,7 +339,7 @@ static BOOL rdp_target_cert_write_element(wStream* s, UINT32 Type, UINT32 Encodi
+ 	Stream_Write_UINT32(s, Encoding);
+ 	Stream_Write_UINT32(s, (UINT32)length);
+ 
+-	if (!Stream_CheckAndLogRequiredCapacity(TAG, s, length))
++	if (!Stream_EnsureRemainingCapacity(s, length))
+ 		return FALSE;
+ 
+ 	Stream_Write(s, data, length);
+-- 
+2.47.3
+
