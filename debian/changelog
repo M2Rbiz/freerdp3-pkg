@@ -1,3 +1,14 @@
+freerdp3 (3.15.0+dfsg-2.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Cherry-picking patch from upstream:
+    - A flaw was found where a crafted RDP packet could trigger a segmentation
+      fault. This causes FreeRDP to crash and remain defunct, resulting in a
+      denial of service. Initializing function pointers in transport.c after
+      resource allocation fixes this [CVE-2025-4478] (Closes: #1105917).
+
+ -- Daniel Baumann <daniel@debian.org>  Mon, 26 May 2025 14:38:19 +0200
+
 freerdp3 (3.15.0+dfsg-2) unstable; urgency=medium
 
   [ Bernhard Miklautz ]

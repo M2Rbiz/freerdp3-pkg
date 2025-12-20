@@ -9,3 +9,4 @@ cache-glyph-fix-GLYPH_FRAGMENT_USE.patch
 winpr-sysinfo-use-a-single-clock-to-provide-System-a.patch
 fix-resources-remove-MimeType-from-desktop-file.patch
 gcc-fix-server-side-connection-with-multiple-monitor.patch
+CVE-2025-4478.patch
