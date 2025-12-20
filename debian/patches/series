@@ -13,3 +13,4 @@ CVE-2025-4478.patch
 core-redirection-Ensure-stream-has-space-for-cert.patch
 core-redirection-Ensure-stream-has-space-for-all-params.patch
 client-desktop-fix-StartupWMClass-setting.patch
+client-x11-fix-clipboard-issues.patch
