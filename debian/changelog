@@ -1,3 +1,29 @@
+freerdp (3.20.2+dfsg-1+exp1) experimental; urgency=medium
+
+  * package rename.  We had freerdp, freerdp2, freerdp3, - due to big rewrite
+    upstream from 1.x to 2.x which was going in parallel with 1.x, and it was
+    unclear when 2.x will be ready.  Next, during 2.x to 3.x, it was a steady
+    update, which stayed compatible with 2.x series.  But the project itself
+    is named "freerdp" without any version suffix.  And we had no upgrade path
+    from bookworm (which has freerdp2 only) to trixie (freerdp3 only).  There's
+    no actual reason to carry the suffix, at least not anymore.  Let's name it
+    "freerdp" without any suffix, and provide compatibility end-user packages
+    with compatibility naming.
+  * rename source package from freerdp3 to freerdp
+  * rename end-user binary packages: freerdp3-x11, freerdp3-sdl,
+    freerdp3-wayland, freerdp3-proxy, freerdp3-proxy-modules, winpr3-utils
+    to drop the "3" version suffix from both the name of the package and
+    the name of the binary.  Provide transitional packages with old names,
+    containing symlinks to new binaries
+  * rename library packages to drop double-3 (3-3) names from both package
+    and library names inside (libfreerdp3-3 => libfreerdp3), providing old
+    naming inside.  When upgrading, these should be replaced automatically
+    when any package depending on these libraries is installed
+  * re-do the packaging 4 months later (first attempt was on Sep-01, still
+    waiting in the NEW queue)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 14 Jan 2026 16:47:31 +0300
+
 freerdp3 (3.20.2+dfsg-1) unstable; urgency=medium
 
   * new upstream release, with multiple security fixes for:
