@@ -251,7 +251,7 @@ static int bio_rdp_tls_puts(BIO* bio, const char* str)
 	if (!str)
 		return 0;
 
-	const int max = (INT_MAX > SIZE_MAX) ? SIZE_MAX : INT_MAX;
+	const size_t max = (INT_MAX > SIZE_MAX) ? SIZE_MAX : INT_MAX;
 	const size_t size = strnlen(str, max);
 	if (size >= max)
 		return -1;
@@ -683,11 +683,13 @@ static SecPkgContext_Bindings* tls_get_channel_bindings(const rdpCertificate* ce
 	if (!ContextBindings)
 		goto out_free;
 
-	const size_t slen = sizeof(SEC_CHANNEL_BINDINGS) + ChannelBindingTokenLength;
-	if (slen > UINT32_MAX)
-		goto out_free;
+	{
+		const size_t slen = sizeof(SEC_CHANNEL_BINDINGS) + ChannelBindingTokenLength;
+		if (slen > UINT32_MAX)
+			goto out_free;
 
-	ContextBindings->BindingsLength = (UINT32)slen;
+		ContextBindings->BindingsLength = (UINT32)slen;
+	}
 	ChannelBindings = (SEC_CHANNEL_BINDINGS*)calloc(1, ContextBindings->BindingsLength);
 
 	if (!ChannelBindings)
@@ -912,7 +914,7 @@ TlsHandshakeResult freerdp_tls_connect_ex(rdpTls* tls, BIO* underlying, const SS
 	adjustSslOptions(&options);
 
 	if (!tls_prepare(tls, underlying, methods, options, TRUE))
-		return 0;
+		return TLS_HANDSHAKE_ERROR;
 
 #if !defined(OPENSSL_NO_TLSEXT)
 	const char* str = tls_get_server_name(tls);
@@ -1448,11 +1450,13 @@ static BOOL is_accepted_fingerprint(const rdpCertificate* cert,
 			if (!h)
 				goto next;
 
-			const char* fp = h + strlen(h) + 1;
-			if (compare_fingerprint_all(fp, h, cert))
 			{
-				rc = TRUE;
-				break;
+				const char* fp = h + strlen(h) + 1;
+				if (compare_fingerprint_all(fp, h, cert))
+				{
+					rc = TRUE;
+					break;
+				}
 			}
 		next:
 			cur = strtok_s(NULL, ",", &context);

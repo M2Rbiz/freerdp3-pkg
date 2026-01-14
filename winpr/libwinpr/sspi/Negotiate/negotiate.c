@@ -541,8 +541,21 @@ static BOOL negotiate_read_neg_token(PSecBuffer input, NegToken* token)
 					WinPrAsn1_ENUMERATED rd = 0;
 					if (!WinPrAsn1DecReadEnumerated(&dec2, &rd))
 						return FALSE;
-					token->negState = rd;
-					WLog_DBG(TAG, "\tnegState [0] (%d)", token->negState);
+					switch (rd)
+					{
+						case NOSTATE:
+						case ACCEPT_COMPLETED:
+						case ACCEPT_INCOMPLETE:
+						case REJECT:
+						case REQUEST_MIC:
+							break;
+						default:
+							WLog_ERR(TAG, "Invalid negState enumeration value %d", rd);
+							return FALSE;
+					}
+
+					token->negState = WINPR_ASSERTING_INT_CAST(enum NegState, rd);
+					WLog_DBG(TAG, "\tnegState [0] (%d)", rd);
 				}
 				break;
 			case 1:
@@ -663,7 +676,7 @@ static SECURITY_STATUS SEC_ENTRY negotiate_InitializeSecurityContextW(
     PCtxtHandle phNewContext, PSecBufferDesc pOutput, PULONG pfContextAttr, PTimeStamp ptsExpiry)
 {
 	NEGOTIATE_CONTEXT* context = NULL;
-	NEGOTIATE_CONTEXT init_context = { 0 };
+	NEGOTIATE_CONTEXT init_context = NEGOTIATE_CONTEXT_init();
 	MechCred* creds = NULL;
 	PCtxtHandle sub_context = NULL;
 	PCredHandle sub_cred = NULL;
@@ -1009,7 +1022,7 @@ static SECURITY_STATUS SEC_ENTRY negotiate_AcceptSecurityContext(
     PTimeStamp ptsTimeStamp)
 {
 	NEGOTIATE_CONTEXT* context = NULL;
-	NEGOTIATE_CONTEXT init_context = { 0 };
+	NEGOTIATE_CONTEXT init_context = NEGOTIATE_CONTEXT_init();
 	MechCred* creds = NULL;
 	PCredHandle sub_cred = NULL;
 	NegToken input_token = empty_neg_token;
