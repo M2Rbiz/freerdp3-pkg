@@ -196,9 +196,12 @@ static void* smartcard_context_new(void* smartcard, SCARDCONTEXT hContext)
 		WLog_ERR(TAG, "MessageQueue_New failed!");
 		goto fail;
 	}
-	wObject* obj = MessageQueue_Object(pContext->IrpQueue);
-	WINPR_ASSERT(obj);
-	obj->fnObjectFree = smartcard_operation_queue_free;
+
+	{
+		wObject* obj = MessageQueue_Object(pContext->IrpQueue);
+		WINPR_ASSERT(obj);
+		obj->fnObjectFree = smartcard_operation_queue_free;
+	}
 
 	pContext->thread = CreateThread(NULL, 0, smartcard_context_thread, pContext, 0, NULL);
 
@@ -224,6 +227,7 @@ void smartcard_context_free(void* pCtx)
 	/* cancel blocking calls like SCardGetStatusChange */
 	WINPR_ASSERT(pContext->smartcard);
 	smartcard_call_cancel_context(pContext->smartcard->callctx, pContext->hContext);
+	smartcard_call_context_signal_stop(pContext->smartcard->callctx, FALSE);
 
 	if (pContext->IrpQueue)
 	{
