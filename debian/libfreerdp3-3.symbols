@@ -421,6 +421,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_get_version@Base 3.0.0
  freerdp_get_version_string@Base 3.0.0
  freerdp_glyph_convert@Base 3.0.0
+ freerdp_glyph_convert_ex@Base 3.21.0
  freerdp_handle_signals@Base 3.0.0
  freerdp_heartbeat_send_heartbeat_pdu@Base 3.0.0
  freerdp_http_request@Base 3.0.0
@@ -758,7 +759,9 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  rdpdr_component_string@Base 3.0.0
  rdpdr_dump_received_packet@Base 3.0.0
  rdpdr_dump_send_packet@Base 3.0.0
+ rdpdr_irp_mask2str@Base 3.21.0
  rdpdr_irp_string@Base 3.0.0
+ rdpdr_irp_val2str@Base 3.21.0
  rdpdr_packetid_string@Base 3.0.0
  rdpdr_read_capset_header@Base 3.0.0
  rdpdr_write_capset_header@Base 3.0.0
