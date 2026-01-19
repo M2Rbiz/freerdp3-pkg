@@ -1,3 +1,27 @@
+freerdp3 (3.21.0+dfsg-1) unstable; urgency=medium
+
+  * new upstream release, with multiple security fixes for the following
+    client-side vulnerabilities (medium):
+    CVE-2026-23530: Heap buffer overflow in planar_decompress_plane_rle
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-r4hv-852m-fq7p
+    CVE-2026-23531: Heap buffer overflow in clear_decompress
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-xj5h-9cr5-23c5
+    CVE-2026-23532: Heap buffer overflow in gdi_SurfaceToSurface
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-fq8c-87hj-7gvr
+    CVE-2026-23533: Heap buffer overflow in clear_decompress_residual_data
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-32q9-m5qr-9j2v
+    CVE-2026-23534: Heap buffer overflow in clear_decompress_bands_data
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-3frr-mp8w-4599
+    CVE-2026-23732: Heap buffer overflow in Glyph_Alloc
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-7qxp-j2fj-c3pp
+    CVE-2026-23883: Heap use after free in update_pointer_new
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-qcrr-85qx-4p6x
+    CVE-2026-23884: Heap use after free in gdi_set_bounds
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-cfgj-vc84-f3pp
+  * d/libfreerdp3-3.symbols: add 3 new symbols
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 19 Jan 2026 22:46:38 +0300
+
 freerdp3 (3.20.2+dfsg-1) unstable; urgency=medium
 
   * new upstream release, with multiple security fixes for the following
