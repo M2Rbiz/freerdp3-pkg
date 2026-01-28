@@ -257,14 +257,16 @@ BOOL freerdp_connect(freerdp* instance)
 
 		while (pcap_has_next_record(update->pcap_rfx) && status)
 		{
-			pcap_get_next_record_header(update->pcap_rfx, &record);
+			if (!pcap_get_next_record_header(update->pcap_rfx, &record))
+				break;
 
 			s = transport_take_from_pool(rdp->transport, record.length);
 			if (!s)
 				break;
 
 			record.data = Stream_Buffer(s);
-			pcap_get_next_record_content(update->pcap_rfx, &record);
+			if (!pcap_get_next_record_content(update->pcap_rfx, &record))
+				break;
 			Stream_SetLength(s, record.length);
 			Stream_SetPosition(s, 0);
 
@@ -1340,7 +1342,27 @@ SECURITY_STATUS freerdp_nla_QueryContextAttributes(rdpContext* context, DWORD ul
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(context->rdp);
 
-	return nla_QueryContextAttributes(context->rdp->nla, ulAttr, pBuffer);
+	rdpNla* nla = context->rdp->nla;
+	if (!nla)
+		nla = transport_get_nla(context->rdp->transport);
+
+	WINPR_ASSERT(nla);
+
+	return nla_QueryContextAttributes(nla, ulAttr, pBuffer);
+}
+
+SECURITY_STATUS freerdp_nla_FreeContextBuffer(rdpContext* context, PVOID pBuffer)
+{
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(context->rdp);
+
+	rdpNla* nla = context->rdp->nla;
+	if (!nla)
+		nla = transport_get_nla(context->rdp->transport);
+
+	WINPR_ASSERT(nla);
+
+	return nla_FreeContextBuffer(nla, pBuffer);
 }
 
 HANDLE getChannelErrorEventHandle(rdpContext* context)

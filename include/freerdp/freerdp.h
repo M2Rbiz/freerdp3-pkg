@@ -691,6 +691,7 @@ owned by rdpRdp */
 	FREERDP_API void freerdp_free(freerdp* instance);
 
 	WINPR_ATTR_MALLOC(freerdp_free, 1)
+	WINPR_ATTR_NODISCARD
 	FREERDP_API freerdp* freerdp_new(void);
 
 	FREERDP_API BOOL freerdp_focus_required(freerdp* instance);
@@ -766,6 +767,17 @@ owned by rdpRdp */
 	 */
 	FREERDP_API SECURITY_STATUS freerdp_nla_QueryContextAttributes(rdpContext* context,
 	                                                               DWORD ulAttr, PVOID pBuffer);
+
+	/** Calls FreeContextbuffer on the SSPI context associated with the NLA part of the RDP context
+	 *
+	 *	\param context the RDP context
+	 *	\param pBuffer an opaque pointer to free
+	 *	\returns a SECURITY_STATUS indicating if the operation completed successfully
+	 *	\since version 3.22.0
+	 *
+	 *  Supported buffers are ones retrieved from SECPKG_ATTR_PACKAGE_INFO.
+	 */
+	FREERDP_API SECURITY_STATUS freerdp_nla_FreeContextBuffer(rdpContext* context, PVOID pBuffer);
 
 	FREERDP_API void clearChannelError(rdpContext* context);
 	FREERDP_API HANDLE getChannelErrorEventHandle(rdpContext* context);

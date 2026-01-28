@@ -71,8 +71,21 @@ extern "C"
 	typedef BOOL (*psPeerCapabilities)(freerdp_peer* peer);
 	typedef BOOL (*psPeerPostConnect)(freerdp_peer* peer);
 	typedef BOOL (*psPeerActivate)(freerdp_peer* peer);
+
+	/** @brief Callback after the initial RDP authentication (NLA) succeeded or anonymous tunnel was
+	 * established (RDP, TLS, ...)
+	 *
+	 *  @param peer A pointer to a peer context to work on
+	 *  @param identity A pointer to the identity of the peer
+	 *  @param automatic \b TRUE in case the connection is already authenticated, \b FALSE in case
+	 * of \b RDP, \b TLS or similar anonymous tunnels
+	 *
+	 *  @return \b TRUE if the connection is allowed, \b FALSE if denied. Defaults to \b TRUE if the
+	 * callback is unused.
+	 */
 	typedef BOOL (*psPeerLogon)(freerdp_peer* peer, const SEC_WINNT_AUTH_IDENTITY* identity,
 	                            BOOL automatic);
+
 	typedef BOOL (*psPeerSendServerRedirection)(freerdp_peer* peer,
 	                                            const rdpRedirection* redirection);
 	typedef BOOL (*psPeerAdjustMonitorsLayout)(freerdp_peer* peer);
@@ -216,6 +229,7 @@ extern "C"
 	FREERDP_API void freerdp_peer_free(freerdp_peer* client);
 
 	WINPR_ATTR_MALLOC(freerdp_peer_free, 1)
+	WINPR_ATTR_NODISCARD
 	FREERDP_API freerdp_peer* freerdp_peer_new(int sockfd);
 
 	FREERDP_API BOOL freerdp_peer_set_local_and_hostname(freerdp_peer* client,
