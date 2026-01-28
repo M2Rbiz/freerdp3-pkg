@@ -246,6 +246,7 @@ static BOOL isValidIP(const char* ipAddress)
 
 #if defined(WITH_KRB5_MIT)
 WINPR_ATTR_MALLOC(free, 1)
+WINPR_ATTR_NODISCARD
 static char* get_realm_name(krb5_data realm, size_t* plen)
 {
 	WINPR_ASSERT(plen);
@@ -260,6 +261,7 @@ static char* get_realm_name(krb5_data realm, size_t* plen)
 }
 #elif defined(WITH_KRB5_HEIMDAL)
 WINPR_ATTR_MALLOC(free, 1)
+WINPR_ATTR_NODISCARD
 static char* get_realm_name(Realm realm, size_t* plen)
 {
 	WINPR_ASSERT(plen);
@@ -1706,6 +1708,108 @@ static SECURITY_STATUS kerberos_ATTR_SIZES(KRB_CONTEXT* context, KRB_CREDENTIALS
 	return SEC_E_OK;
 }
 
+static SECURITY_STATUS kerberos_ATTR_AUTH_IDENTITY(KRB_CONTEXT* context,
+                                                   KRB_CREDENTIALS* credentials,
+                                                   SecPkgContext_AuthIdentity* AuthIdentity)
+{
+	const SecPkgContext_AuthIdentity empty = { 0 };
+
+	WINPR_ASSERT(context);
+	WINPR_ASSERT(context->auth_ctx);
+	WINPR_ASSERT(credentials);
+
+	WINPR_ASSERT(AuthIdentity);
+	*AuthIdentity = empty;
+
+	krb5glue_authenticator authenticator = NULL;
+	krb5_error_code rv = krb_log_exec(krb5_auth_con_getauthenticator, credentials->ctx,
+	                                  context->auth_ctx, &authenticator);
+	if (rv)
+		goto fail;
+
+	{
+		rv = -1;
+
+#if defined(WITH_KRB5_HEIMDAL)
+		const Realm data = authenticator->crealm;
+		if (!data)
+			goto fail;
+		const size_t data_len = length_Realm(&data);
+#else
+		krb5_data* realm_data = krb5_princ_realm(credentials->ctx, authenticator->client);
+		if (!realm_data)
+			goto fail;
+		const char* data = realm_data->data;
+		if (!data)
+			goto fail;
+		const size_t data_len = realm_data->length;
+#endif
+
+		if (data_len > (sizeof(AuthIdentity->Domain) - 1))
+			goto fail;
+		strncpy(AuthIdentity->Domain, data, data_len);
+	}
+
+	{
+#if defined(WITH_KRB5_HEIMDAL)
+		const PrincipalName* principal = &authenticator->cname;
+		const size_t name_length = length_PrincipalName(principal);
+		if (!principal->name_string.val)
+			goto fail;
+		const char* name = *principal->name_string.val;
+#else
+		char* name = NULL;
+		rv = krb_log_exec(krb5_unparse_name_flags, credentials->ctx, authenticator->client,
+		                  KRB5_PRINCIPAL_UNPARSE_NO_REALM, &name);
+		if (rv)
+			goto fail;
+
+		const size_t name_length = strlen(name);
+#endif
+
+		const bool ok = (name_length <= (sizeof(AuthIdentity->User) - 1));
+		if (ok)
+			strncpy(AuthIdentity->User, name, name_length);
+
+		rv = ok ? 0 : -1;
+
+#if !defined(WITH_KRB5_HEIMDAL)
+		krb5_free_unparsed_name(credentials->ctx, name);
+#endif
+	}
+
+fail:
+	krb5glue_free_authenticator(credentials->ctx, authenticator);
+	return krb5_error_to_SECURITY_STATUS(rv);
+}
+
+static SECURITY_STATUS kerberos_ATTR_PACKAGE_INFO(WINPR_ATTR_UNUSED KRB_CONTEXT* context,
+                                                  WINPR_ATTR_UNUSED KRB_CREDENTIALS* credentials,
+                                                  SecPkgContext_PackageInfo* PackageInfo)
+{
+	size_t size = sizeof(SecPkgInfoA);
+	SecPkgInfoA* pPackageInfo =
+	    (SecPkgInfoA*)sspi_ContextBufferAlloc(QuerySecurityPackageInfoIndex, size);
+
+	if (!pPackageInfo)
+		return SEC_E_INSUFFICIENT_MEMORY;
+
+	pPackageInfo->fCapabilities = KERBEROS_SecPkgInfoA.fCapabilities;
+	pPackageInfo->wVersion = KERBEROS_SecPkgInfoA.wVersion;
+	pPackageInfo->wRPCID = KERBEROS_SecPkgInfoA.wRPCID;
+	pPackageInfo->cbMaxToken = KERBEROS_SecPkgInfoA.cbMaxToken;
+	pPackageInfo->Name = _strdup(KERBEROS_SecPkgInfoA.Name);
+	pPackageInfo->Comment = _strdup(KERBEROS_SecPkgInfoA.Comment);
+
+	if (!pPackageInfo->Name || !pPackageInfo->Comment)
+	{
+		sspi_ContextBufferFree(pPackageInfo);
+		return SEC_E_INSUFFICIENT_MEMORY;
+	}
+	PackageInfo->PackageInfo = pPackageInfo;
+	return SEC_E_OK;
+}
+
 static SECURITY_STATUS kerberos_ATTR_TICKET_LOGON(KRB_CONTEXT* context,
                                                   KRB_CREDENTIALS* credentials,
                                                   KERB_TICKET_LOGON* ticketLogon)
@@ -1803,6 +1907,14 @@ static SECURITY_STATUS SEC_ENTRY kerberos_QueryContextAttributesA(PCtxtHandle ph
 	{
 		case SECPKG_ATTR_SIZES:
 			return kerberos_ATTR_SIZES(context, credentials, (SecPkgContext_Sizes*)pBuffer);
+
+		case SECPKG_ATTR_AUTH_IDENTITY:
+			return kerberos_ATTR_AUTH_IDENTITY(context, credentials,
+			                                   (SecPkgContext_AuthIdentity*)pBuffer);
+
+		case SECPKG_ATTR_PACKAGE_INFO:
+			return kerberos_ATTR_PACKAGE_INFO(context, credentials,
+			                                  (SecPkgContext_PackageInfo*)pBuffer);
 
 		case SECPKG_CRED_ATTR_TICKET_LOGON:
 			return kerberos_ATTR_TICKET_LOGON(context, credentials, (KERB_TICKET_LOGON*)pBuffer);

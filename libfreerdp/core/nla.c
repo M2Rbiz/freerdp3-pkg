@@ -1250,6 +1250,7 @@ static BOOL nla_credentialTypeValid(UINT32 type)
 }
 
 WINPR_ATTR_MALLOC(free, 1)
+WINPR_ATTR_NODISCARD
 static MSV1_0_REMOTE_SUPPLEMENTAL_CREDENTIAL* nla_read_NtlmCreds(WINPR_ATTR_UNUSED rdpNla* nla,
                                                                  wStream* s)
 {
@@ -2454,4 +2455,15 @@ SECURITY_STATUS nla_QueryContextAttributes(rdpNla* nla, DWORD ulAttr, PVOID pBuf
 	credssp_auth_tableAndContext(nla->auth, &table, &context);
 
 	return table->QueryContextAttributes(&context, ulAttr, pBuffer);
+}
+
+SECURITY_STATUS nla_FreeContextBuffer(rdpNla* nla, PVOID pBuffer)
+{
+	WINPR_ASSERT(nla);
+
+	SecurityFunctionTable* table = NULL;
+	CtxtHandle context = { 0 };
+	credssp_auth_tableAndContext(nla->auth, &table, &context);
+
+	return table->FreeContextBuffer(pBuffer);
 }
