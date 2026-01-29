@@ -14,3 +14,18 @@ core-redirection-Ensure-stream-has-space-for-cert.patch
 core-redirection-Ensure-stream-has-space-for-all-params.patch
 client-desktop-fix-StartupWMClass-setting.patch
 client-x11-fix-clipboard-issues.patch
+client-sdl-lock-primary-while-used-CVE-2026-22851.patch
+channels-audin-free-up-old-audio-formats-CVE-2026-22852.patch
+channels-rdpear-add-checks-for-itemSize-CVE-2026-22853.patch
+channels-drive-fix-constant-type-CVE-2026-22854.patch
+# 3 fixes & logging improvements to prepare for CVE-2026-22855:
+utils-smartcard-handle-output-buffer-too-small.patch
+utils-smartcard-improve-trace-log.patch
+utils-smartcard-better-logging-and-error-checks.patch
+utils-smartcard-add-length-validity-checks-CVE-2026-22855.patch
+channels-serial-explicitly-lock-serial-IrpThreads-CVE-2026-22856.patch
+channels-serial-fix-use-after-free-CVE-2026-22857.patch
+# bugfix and preparation for CVE-2026-22858:
+crypto-base64-ensure-char-is-singend.patch
+crypto-base64-do-proper-length-checks-CVE-2026-22858.patch
+channels-urbdrc-check-interface-indices-before-use-CVE-2026-22859.patch
