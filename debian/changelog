@@ -46,11 +46,40 @@ freerdp3 (3.15.0+dfsg-2.1+deb13u1) UNRELEASED; urgency=medium
       https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-56f5-76qv-2r36
       channels-urbdrc-check-interface-indices-before-use-CVE-2026-22859.patch
 
-    These fixes introduces symbols into libfreerdp3, which don't exist in
-    versions before 3.20.1, - add them to this version with a virtual package
-    libfreerdp3-partial-api-3-20, with an alternative Depends field for rdeps:
-       libfreerdp3-partial-api-3-20 | libfreerdp3-3 (>>3.20.1)
-    so apt dependency solver does the right thing
+  * security fixes for client from 3.21 (medium):
+
+    CVE-2026-23530: Heap buffer overflow in planar_decompress_plane_rle
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-r4hv-852m-fq7p
+      codec-planar-fix-decoder-length-checks-CVE-2026-23530.patch
+    CVE-2026-23531: Heap buffer overflow in clear_decompress
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-xj5h-9cr5-23c5
+      codec-clear-fix-missing-length-checks-CVE-2026-23531.patch
+    CVE-2026-23532: Heap buffer overflow in gdi_SurfaceToSurface
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-fq8c-87hj-7gvr
+      gdi-gfx-properly-clamp-SurfaceToSurface-CVE-2026-23532.patch
+    CVE-2026-23533: Heap buffer overflow in clear_decompress_residual_data
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-32q9-m5qr-9j2v
+      codec-clear-fix-clear_resize_buffer-checks-CVE-2026-23533.patch
+    CVE-2026-23534: Heap buffer overflow in clear_decompress_bands_data
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-3frr-mp8w-4599
+      codec-clear-fix-off-by-one-length-check-CVE-2026-23534.patch
+    CVE-2026-23732: Heap buffer overflow in Glyph_Alloc
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-7qxp-j2fj-c3pp
+      codec-color-add-freerdp_glyph_convert_ex-CVE-2026-23732.patch
+      gdi-graphics-Use-freerdp_glyph_convert_ex-CVE-2026-23732.patch
+    CVE-2026-23883: Heap use after free in update_pointer_new
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-qcrr-85qx-4p6x
+      client-x11-fix-double-free-in-case-of-invalid-pointe-CVE-2026-23883.patch
+    CVE-2026-23884: Heap use after free in gdi_set_bounds
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-cfgj-vc84-f3pp
+      cache-offscreen-invalidate-bitmap-before-free-CVE-2026-23884.patch
+
+  * These fixes introduces symbols into libfreerdp3, which don't exist in
+    versions before 3.21.0, - add them to this version with a virtual package
+    libfreerdp3-partial-api-3-21, with an alternative Depends field:
+       libfreerdp3-partial-api-3-21 | libfreerdp3-3 (>>3.21.0)
+    so apt dependency solver does the right thing for users of these symbols.
+    This virtual package (libfreerdp3-partial-api-3-21) exists in trixie only.
 
  -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 30 Jan 2026 09:52:47 +0300
 
