@@ -87,7 +87,7 @@ Depends:
  ${misc:Depends},
  ${shlibs:Depends},
  libwinpr3-3 (= ${binary:Version}),
-Provides: libfreerdp3-partial-api-3-20
+Provides: libfreerdp3-partial-api-3-21
 Multi-Arch: same
 Suggests:
  freerdp3-x11,
