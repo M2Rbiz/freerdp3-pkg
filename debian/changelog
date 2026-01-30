@@ -1,3 +1,15 @@
+freerdp3 (3.15.0+dfsg-2.1+deb13u1) UNRELEASED; urgency=medium
+
+  * two patches from upstream (from 3.16) (Closes: #1112191):
+    core-redirection-Ensure-stream-has-space-for-cert.patch
+    core-redirection-Ensure-stream-has-space-for-all-params.patch
+  * client-x11-fix-clipboard-issues.patch (Closes: #1121299)
+  * client-desktop-fix-StartupWMClass-setting.patch:
+    restore x11 desktop icon for xfreerdp3
+  * d/patches/README: remove obsolete file
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 30 Jan 2026 09:52:47 +0300
+
 freerdp3 (3.15.0+dfsg-2.1) unstable; urgency=medium
 
   * Non-maintainer upload.
