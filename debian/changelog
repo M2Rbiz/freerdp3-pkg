@@ -1,3 +1,9 @@
+freerdp3 (3.22.0+dfsg-1~bpo13+0) trixie-backports; urgency=medium
+
+  * Rebuild for trixie-backports (no changes needed).
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 31 Jan 2026 13:43:52 +0300
+
 freerdp3 (3.22.0+dfsg-1) unstable; urgency=medium
 
   * new upstream major bugfix release, with overhaul of SDL3 client and
