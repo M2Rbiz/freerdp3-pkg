@@ -2,18 +2,30 @@ freerdp3 (3.22.0+dfsg-1) unstable; urgency=medium
 
   * new upstream major bugfix release, with overhaul of SDL3 client and
     multiple security fixes for the following client-side vulnerabilities:
-    CVE-2026-23948
-    CVE-2026-24682
-    CVE-2026-24683
-    CVE-2026-24676
-    CVE-2026-24677
-    CVE-2026-24678
-    CVE-2026-24684
-    CVE-2026-24679
-    CVE-2026-24681
-    CVE-2026-24675
-    CVE-2026-24491
-    CVE-2026-24680
+    CVE-2026-23948 NULL Pointer Dereference in rdp_write_logon_info_v2()
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-6f3c-qvqq-2px5
+    CVE-2026-24491 Heap-use-after-free in video_timer
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-4x6j-w49r-869g
+    CVE-2026-24675 Heap-use-after-free in urb_select_interface
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-x9jr-99h2-g7mj
+    CVE-2026-24676 Heap-use-after-free in audio_format_compatible
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-qh5p-frq4-pgxj
+    CVE-2026-24677 Heap-buffer-overflow in ecam_encoder_compress_h264
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-xw37-j744-f8v7
+    CVE-2026-24678 Heap-use-after-free in cam_v4l_stream_capture_thread
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-6gvg-29wx-6v7h
+    CVE-2026-24679 Heap-buffer-overflow in urb_select_interface
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-2jp4-67x6-gv7x
+    CVE-2026-24680 Heap-use-after-free in update_pointer_new(SDL)
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-j893-9wg8-33rc
+    CVE-2026-24681 Heap-use-after-free in urb_bulk_transfer_cb
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-ccvv-hg2w-6x9j
+    CVE-2026-24682 Heap-buffer-overflow in audio_formats_free
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-vcw2-pqgw-mx6g
+    CVE-2026-24683 Heap-use-after-free in ainput_send_input_event
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-45pf-68pj-fg8q
+    CVE-2026-24684 Heap-use-after-free in play_thread
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-vcgv-xgjp-h83q
   * update libfreerdp symbols file (add new symbols)
 
  -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 29 Jan 2026 11:22:26 +0300
