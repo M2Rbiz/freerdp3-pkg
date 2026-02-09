@@ -1,0 +1,163 @@
+From: Armin Novak <armin.novak@thincast.com>
+Date: Thu, 8 Jan 2026 10:32:29 +0100
+Subject: [clang,warnings] fix Wjump-misses-init
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/f7ee8dadcee9aa567bb13f99ce349a1f5f87fde4
+Forwarded: not-needed
+Comment: preparation for CVE-2026-24677 fix
+
+---
+ channels/remdesk/server/remdesk_main.c | 118 +++++++++++++------------
+ 1 file changed, 60 insertions(+), 58 deletions(-)
+
+diff --git a/channels/remdesk/server/remdesk_main.c b/channels/remdesk/server/remdesk_main.c
+--- a/channels/remdesk/server/remdesk_main.c
++++ b/channels/remdesk/server/remdesk_main.c
+@@ -457,85 +457,87 @@ static DWORD WINAPI remdesk_server_thread(LPVOID arg)
+ 		goto out;
+ 	}
+ 
+-	DWORD nCount = 0;
+-	events[nCount++] = ChannelEvent;
+-	events[nCount++] = context->priv->StopEvent;
+-
+-	if ((error = remdesk_send_ctl_version_info_pdu(context)))
+-	{
+-		WLog_ERR(TAG, "remdesk_send_ctl_version_info_pdu failed with error %" PRIu32 "!", error);
+-		goto out;
+-	}
+-
+-	while (1)
+ 	{
+-		DWORD status = WaitForMultipleObjects(nCount, events, FALSE, INFINITE);
++		DWORD nCount = 0;
++		events[nCount++] = ChannelEvent;
++		events[nCount++] = context->priv->StopEvent;
+ 
+-		if (status == WAIT_FAILED)
++		if ((error = remdesk_send_ctl_version_info_pdu(context)))
+ 		{
+-			error = GetLastError();
+-			WLog_ERR(TAG, "WaitForMultipleObjects failed with error %" PRIu32 "", error);
+-			break;
++			WLog_ERR(TAG, "remdesk_send_ctl_version_info_pdu failed with error %" PRIu32 "!",
++			         error);
++			goto out;
+ 		}
+ 
+-		status = WaitForSingleObject(context->priv->StopEvent, 0);
+-
+-		if (status == WAIT_FAILED)
++		while (1)
+ 		{
+-			error = GetLastError();
+-			WLog_ERR(TAG, "WaitForSingleObject failed with error %" PRIu32 "", error);
+-			break;
+-		}
++			DWORD status = WaitForMultipleObjects(nCount, events, FALSE, INFINITE);
+ 
+-		if (status == WAIT_OBJECT_0)
+-		{
+-			break;
+-		}
+-
+-		const size_t len = Stream_Capacity(s);
+-		if (len > UINT32_MAX)
+-		{
+-			error = ERROR_INTERNAL_ERROR;
+-			break;
+-		}
+-		if (WTSVirtualChannelRead(context->priv->ChannelHandle, 0, Stream_BufferAs(s, char),
+-		                          (UINT32)len, &BytesReturned))
+-		{
+-			if (BytesReturned)
+-				Stream_Seek(s, BytesReturned);
+-		}
+-		else
+-		{
+-			if (!Stream_EnsureRemainingCapacity(s, BytesReturned))
++			if (status == WAIT_FAILED)
+ 			{
+-				WLog_ERR(TAG, "Stream_EnsureRemainingCapacity failed!");
+-				error = CHANNEL_RC_NO_MEMORY;
++				error = GetLastError();
++				WLog_ERR(TAG, "WaitForMultipleObjects failed with error %" PRIu32 "", error);
+ 				break;
+ 			}
+-		}
+ 
+-		if (Stream_GetPosition(s) >= 8)
+-		{
+-			const UINT32* pHeader = Stream_BufferAs(s, UINT32);
+-			const UINT32 PduLength = pHeader[0] + pHeader[1] + 8;
++			status = WaitForSingleObject(context->priv->StopEvent, 0);
+ 
+-			if (PduLength >= Stream_GetPosition(s))
++			if (status == WAIT_FAILED)
+ 			{
+-				Stream_SealLength(s);
+-				Stream_SetPosition(s, 0);
++				error = GetLastError();
++				WLog_ERR(TAG, "WaitForSingleObject failed with error %" PRIu32 "", error);
++				break;
++			}
++
++			if (status == WAIT_OBJECT_0)
++			{
++				break;
++			}
+ 
+-				if ((error = remdesk_server_receive_pdu(context, s)))
++			const size_t len = Stream_Capacity(s);
++			if (len > UINT32_MAX)
++			{
++				error = ERROR_INTERNAL_ERROR;
++				break;
++			}
++			if (WTSVirtualChannelRead(context->priv->ChannelHandle, 0, Stream_BufferAs(s, char),
++			                          (UINT32)len, &BytesReturned))
++			{
++				if (BytesReturned)
++					Stream_Seek(s, BytesReturned);
++			}
++			else
++			{
++				if (!Stream_EnsureRemainingCapacity(s, BytesReturned))
+ 				{
+-					WLog_ERR(TAG, "remdesk_server_receive_pdu failed with error %" PRIu32 "!",
+-					         error);
++					WLog_ERR(TAG, "Stream_EnsureRemainingCapacity failed!");
++					error = CHANNEL_RC_NO_MEMORY;
+ 					break;
+ 				}
++			}
++
++			if (Stream_GetPosition(s) >= 8)
++			{
++				const UINT32* pHeader = Stream_BufferAs(s, UINT32);
++				const UINT32 PduLength = pHeader[0] + pHeader[1] + 8;
+ 
+-				Stream_SetPosition(s, 0);
++				if (PduLength >= Stream_GetPosition(s))
++				{
++					Stream_SealLength(s);
++					Stream_SetPosition(s, 0);
++
++					if ((error = remdesk_server_receive_pdu(context, s)))
++					{
++						WLog_ERR(TAG, "remdesk_server_receive_pdu failed with error %" PRIu32 "!",
++						         error);
++						break;
++					}
++
++					Stream_SetPosition(s, 0);
++				}
+ 			}
+ 		}
+ 	}
+-
+ out:
+ 	Stream_Free(s, TRUE);
+ 
+-- 
+2.47.3
+

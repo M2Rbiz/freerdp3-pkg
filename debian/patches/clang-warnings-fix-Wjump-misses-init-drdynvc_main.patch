@@ -1,0 +1,35 @@
+From: Armin Novak <armin.novak@thincast.com>
+Date: Thu, 8 Jan 2026 10:32:29 +0100
+Subject: [clang,warnings] fix Wjump-misses-init
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/3c95b2729bb8f6dfb7e6926f52dc7edb9bb5fc58
+Forwarded: not-needed
+Comment: preparation for CVE-2026-24491 fix
+
+---
+ channels/drdynvc/client/drdynvc_main.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/channels/drdynvc/client/drdynvc_main.c b/channels/drdynvc/client/drdynvc_main.c
+--- a/channels/drdynvc/client/drdynvc_main.c
++++ b/channels/drdynvc/client/drdynvc_main.c
+@@ -506,11 +506,13 @@ static UINT dvcman_channel_close(DVCMAN_CHANNEL* channel, BOOL perRequest, BOOL
+ 
+ 			channel->state = DVC_CHANNEL_CLOSED;
+ 
+-			IWTSVirtualChannelCallback* cb = channel->channel_callback;
+-			if (cb)
+ 			{
+-				check_open_close_receive(channel);
+-				IFCALL(cb->OnClose, cb);
++				IWTSVirtualChannelCallback* cb = channel->channel_callback;
++				if (cb)
++				{
++					check_open_close_receive(channel);
++					IFCALL(cb->OnClose, cb);
++				}
+ 			}
+ 
+ 			channel->channel_callback = NULL;
+-- 
+2.47.3
+

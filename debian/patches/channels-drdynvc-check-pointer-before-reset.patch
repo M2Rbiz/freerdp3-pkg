@@ -1,0 +1,32 @@
+From: Armin Novak <armin.novak@thincast.com>
+Date: Tue, 27 Jan 2026 08:58:21 +0100
+Subject: [channels,drdynvc] check pointer before reset
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/cb7f295bc750de86480d60a3b58cebc56a57a1c4
+Forwarded: not-needed
+Comment: additional fix after CVE-2026-24491 fix
+
+---
+ channels/drdynvc/client/drdynvc_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/channels/drdynvc/client/drdynvc_main.c b/channels/drdynvc/client/drdynvc_main.c
+index fe2821a6a..c14d66dff 100644
+--- a/channels/drdynvc/client/drdynvc_main.c
++++ b/channels/drdynvc/client/drdynvc_main.c
+@@ -509,11 +509,12 @@ static UINT dvcman_channel_close(DVCMAN_CHANNEL* channel, BOOL perRequest, BOOL
+ 			channel->state = DVC_CHANNEL_CLOSED;
+ 
+ 			{
++				check_open_close_receive(channel);
++
+ 				IWTSVirtualChannelCallback* cb = channel->channel_callback;
+ 				channel->channel_callback = NULL;
+ 				if (cb)
+ 				{
+-					check_open_close_receive(channel);
+ 					IFCALL(cb->OnClose, cb);
+ 				}
+ 			}
+-- 
+2.47.3
+

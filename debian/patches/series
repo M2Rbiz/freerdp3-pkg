@@ -38,3 +38,24 @@ codec-color-add-freerdp_glyph_convert_ex-CVE-2026-23732.patch
 gdi-graphics-Use-freerdp_glyph_convert_ex-CVE-2026-23732.patch
 client-x11-fix-double-free-in-case-of-invalid-pointe-CVE-2026-23883.patch
 cache-offscreen-invalidate-bitmap-before-free-CVE-2026-23884.patch
+# fixes from 3.22:
+core-info-fix-missing-NULL-check-CVE-2026-23948.patch
+clang-warnings-fix-Wjump-misses-init-drdynvc_main.patch
+channels-drdynvc-reset-channel_callback-before-close-CVE-2026-24491.patch
+channels-drdynvc-check-pointer-before-reset.patch
+channels-urbdrc-do-not-free-MsConfig-on-failure-CVE-2026-24675.patch
+channels-audin-reset-audin-format-CVE-2026-24676.patch
+# 4 patches to sync context for CVE-2026-24677
+clang-warnings-fix-Wjump-misses-init-remdesk_main.patch
+channels-rdpecam-improve-log-messages.patch
+rdpecam-fix-camera-sample-grabbing.patch
+channels-rpdecam-log-dropped-samples.patch
+channels-rdpecam-ensure-sws-context-size-matches-CVE-2026-24677.patch
+channels-rdpecam-ensure-all-streams-are-stopped-CVE-2026-24678.patch
+channels-urbdrc-ensure-InterfaceNumber-is-within-ran-CVE-2026-24679.patch
+client-sdl-reset-pointer-after-memory-release-CVE-2026-24680.patch
+channels-urbdrc-cancel-all-usb-transfers-on-channel--CVE-2026-24681.patch
+channels-audin-fix-audin_server_recv_formats-cleanup-CVE-2026-24682.patch
+channels-ainput-lock-context-when-updating-listener-CVE-2026-24683.patch
+channels-rdpsnd-terminate-thread-before-free-CVE-2026-24684.patch
+channel-rdpsnd-only-clean-up-thread-before-free-CVE-2026-24684.patch
