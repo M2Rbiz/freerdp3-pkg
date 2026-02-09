@@ -74,6 +74,56 @@ freerdp3 (3.15.0+dfsg-2.1+deb13u1) UNRELEASED; urgency=medium
       https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-cfgj-vc84-f3pp
       cache-offscreen-invalidate-bitmap-before-free-CVE-2026-23884.patch
 
+  * security fixes for client from 3.22 (medium):
+
+    CVE-2026-23948: NULL Pointer Dereference in rdp_write_logon_info_v2()
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-6f3c-qvqq-2px5
+      core-info-fix-missing-NULL-check-CVE-2026-23948.patch
+    CVE-2026-24491: Heap-use-after-free in video_timer
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-4x6j-w49r-869g
+      channels-drdynvc-reset-channel_callback-before-close-CVE-2026-24491.patch
+      also pick:
+        clang-warnings-fix-Wjump-misses-init-drdynvc_main.patch
+        channels-drdynvc-check-pointer-before-reset.patch (fixup on top)
+    CVE-2026-24675: Heap-use-after-free in urb_select_interface
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-x9jr-99h2-g7mj
+      channels-urbdrc-do-not-free-MsConfig-on-failure-CVE-2026-24491.patch
+    CVE-2026-24676: Heap-use-after-free in audio_format_compatible
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-qh5p-frq4-pgxj
+      channels-audin-reset-audin-format-CVE-2026-24676.patch
+    CVE-2026-24677: Heap-buffer-overflow in ecam_encoder_compress_h264
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-xw37-j744-f8v7
+      channels-rdpecam-ensure-sws-context-size-matches-CVE-2026-24677.patch
+      also pick:
+        clang-warnings-fix-Wjump-misses-init-remdesk_main.patch
+        channels-rdpecam-improve-log-messages.patch
+        rdpecam-fix-camera-sample-grabbing.patch
+        channels-rpdecam-log-dropped-samples.patch
+      fix-camera-sample-grabbing is a separate bugfix, but it also
+      removes the need to back-port the main fix to 3.15
+    CVE-2026-24678: Heap-use-after-free in cam_v4l_stream_capture_thread
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-6gvg-29wx-6v7h
+      channels-rdpecam-ensure-all-streams-are-stopped-CVE-2026-24678.patch
+    CVE-2026-24679: Heap-buffer-overflow in urb_select_interface
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-2jp4-67x6-gv7x
+      channels-urbdrc-ensure-InterfaceNumber-is-within-ran-CVE-2026-24679.patch
+    CVE-2026-24680: Heap-use-after-free in update_pointer_new(SDL)
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-j893-9wg8-33rc
+      client-sdl-reset-pointer-after-memory-release-CVE-2026-24680.patch
+    CVE-2026-24681: Heap-use-after-free in urb_bulk_transfer_cb
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-ccvv-hg2w-6x9j
+      channels-urbdrc-cancel-all-usb-transfers-on-channel--CVE-2026-24681.patch
+    CVE-2026-24682: Heap-buffer-overflow in audio_formats_free
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-vcw2-pqgw-mx6g
+      channels-audin-fix-audin_server_recv_formats-cleanup-CVE-2026-24682.patch
+    CVE-2026-24683: Heap-use-after-free in ainput_send_input_event
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-45pf-68pj-fg8q
+      channels-ainput-lock-context-when-updating-listener-CVE-2026-24683.patch
+    CVE-2026-24684: Heap-use-after-free in play_thread
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-vcgv-xgjp-h83q
+      channel-rdpsnd-only-clean-up-thread-before-free-CVE-2026-24684.patch
+      channels-rdpsnd-terminate-thread-before-free-CVE-2026-24684.patch
+
   * These fixes introduces symbols into libfreerdp3, which don't exist in
     versions before 3.21.0, - add them to this version with a virtual package
     libfreerdp3-partial-api-3-21, with an alternative Depends field:
