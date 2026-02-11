@@ -1,3 +1,22 @@
+freerdp3 (3.22.0+dfsg-3) unstable; urgency=medium
+
+  * d/control: add libwinpr3-3:Replaces: libwinpr2-2 to override wlog.7.
+    There's no upgrade path from freerdp2 in bookworm to freerdp3 in trixie,
+    so if the user had freerdp2 installed in bookworm and upgraded the system
+    to trixie, it is very likely they still have freerdp2 installed (obsolete
+    package).  And the new libwinp3-3 ships the same manpage as the old
+    libwinpr2-2.  Allow replacing this file when installing new libwinpr3-3.
+    Do not add Breaks: though, since this way, all freerdp2 packages has to
+    be removed (which might be a good thing in the end, but for that we ought
+    to provide xfreerdp2 etc binaries too).  Also Breaks libwinpr2-2t64, since
+    apparently some users managed to install the t64 packages on a bookworm
+    system somehow.  (Closes: #1127622)
+  * rename source package back to freerdp3.  It turned out this is too much
+    pain (security tracker, bug reports, autopkgtests, etc) for nothing.
+    Suggest renaming it to freerdp at freerdp4 time.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 11 Feb 2026 12:08:45 +0300
+
 freerdp (3.22.0+dfsg-2) unstable; urgency=medium
 
   * package rename.  We had freerdp, freerdp2, freerdp3, - due to big rewrite
