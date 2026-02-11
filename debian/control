@@ -1,4 +1,4 @@
-Source: freerdp
+Source: freerdp3
 Section: x11
 Priority: optional
 Maintainer: Debian Remote Maintainers <debian-remote@lists.debian.org>
@@ -28,12 +28,12 @@ Build-Depends-Arch:
  libpcsclite-dev,
  libpng-dev,
  libpulse-dev,
- libsdl2-dev <pkg.freerdp.sdl2>,
- libsdl2-image-dev <pkg.freerdp.sdl2>,
- libsdl2-ttf-dev <pkg.freerdp.sdl2>,
- libsdl3-dev <!pkg.freerdp.sdl2>,
- libsdl3-image-dev <!pkg.freerdp.sdl2>,
- libsdl3-ttf-dev <!pkg.freerdp.sdl2>,
+ libsdl2-dev <pkg.freerdp3.sdl2>,
+ libsdl2-image-dev <pkg.freerdp3.sdl2>,
+ libsdl2-ttf-dev <pkg.freerdp3.sdl2>,
+ libsdl3-dev <!pkg.freerdp3.sdl2>,
+ libsdl3-image-dev <!pkg.freerdp3.sdl2>,
+ libsdl3-ttf-dev <!pkg.freerdp3.sdl2>,
  libssl-dev,
  libv4l-dev [linux-any],
  libswresample-dev,
