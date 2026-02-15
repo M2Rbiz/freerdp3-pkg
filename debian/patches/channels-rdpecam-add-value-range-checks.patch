@@ -1,0 +1,581 @@
+From: akallabeth <akallabeth@posteo.net>
+Date: Fri, 9 Jan 2026 09:18:24 +0100
+Subject: [channels,rdpecam] add value range checks
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/508a0db07c8216e86edd1ce7f7f8398342868a91
+Forwarded: not-needed
+Comment:
+
+When reading a enum value from network, first check the value range and
+abort with a log message if an invalid value is found
+---
+ channels/rdpecam/server/CMakeLists.txt        |   2 +-
+ .../server/camera_device_enumerator_main.c    |   9 +-
+ channels/rdpecam/server/camera_device_main.c  | 111 +++++-
+ channels/rdpecam/server/rdpecam-utils.h       | 325 ++++++++++++++++++
+ 4 files changed, 428 insertions(+), 19 deletions(-)
+ create mode 100644 channels/rdpecam/server/rdpecam-utils.h
+
+diff --git a/channels/rdpecam/server/CMakeLists.txt b/channels/rdpecam/server/CMakeLists.txt
+index bd843379f..8d7d25abf 100644
+--- a/channels/rdpecam/server/CMakeLists.txt
++++ b/channels/rdpecam/server/CMakeLists.txt
+@@ -17,7 +17,7 @@
+ 
+ define_channel_server("rdpecam")
+ 
+-set(${MODULE_PREFIX}_SRCS camera_device_enumerator_main.c camera_device_main.c)
++set(${MODULE_PREFIX}_SRCS camera_device_enumerator_main.c camera_device_main.c rdpecam-utils.h)
+ 
+ set(${MODULE_PREFIX}_LIBS freerdp)
+ 
+diff --git a/channels/rdpecam/server/camera_device_enumerator_main.c b/channels/rdpecam/server/camera_device_enumerator_main.c
+index 8b99fac10..33ac6b727 100644
+--- a/channels/rdpecam/server/camera_device_enumerator_main.c
++++ b/channels/rdpecam/server/camera_device_enumerator_main.c
+@@ -25,6 +25,8 @@
+ #include <freerdp/channels/log.h>
+ #include <freerdp/server/rdpecam-enumerator.h>
+ 
++#include "rdpecam-utils.h"
++
+ #define TAG CHANNELS_TAG("rdpecam-enumerator.server")
+ 
+ typedef enum
+@@ -301,7 +303,12 @@ static UINT enumerator_process_message(enumerator_server* enumerator)
+ 		return ERROR_NO_DATA;
+ 
+ 	Stream_Read_UINT8(s, header.Version);
+-	Stream_Read_UINT8(s, header.MessageId);
++	{
++		const UINT8 id = Stream_Get_UINT8(s);
++		if (!rdpecam_valid_messageId(id))
++			return ERROR_INVALID_DATA;
++		header.MessageId = (CAM_MSG_ID)id;
++	}
+ 
+ 	switch (header.MessageId)
+ 	{
+diff --git a/channels/rdpecam/server/camera_device_main.c b/channels/rdpecam/server/camera_device_main.c
+index 0741eb094..b5abe9d1d 100644
+--- a/channels/rdpecam/server/camera_device_main.c
++++ b/channels/rdpecam/server/camera_device_main.c
+@@ -25,6 +25,8 @@
+ #include <freerdp/channels/log.h>
+ #include <freerdp/server/rdpecam.h>
+ 
++#include "rdpecam-utils.h"
++
+ #define TAG CHANNELS_TAG("rdpecam.server")
+ 
+ typedef enum
+@@ -156,7 +158,12 @@ static UINT device_server_recv_error_response(CameraDeviceServerContext* context
+ 	if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
+ 		return ERROR_NO_DATA;
+ 
+-	Stream_Read_UINT32(s, pdu.ErrorCode);
++	{
++		const UINT32 val = Stream_Get_UINT32(s);
++		if (!rdpecam_valid_CamErrorCode(val))
++			return ERROR_INVALID_DATA;
++		pdu.ErrorCode = (CAM_ERROR_CODE)val;
++	}
+ 
+ 	IFCALLRET(context->ErrorResponse, error, context, &pdu);
+ 	if (error)
+@@ -188,8 +195,18 @@ static UINT device_server_recv_stream_list_response(CameraDeviceServerContext* c
+ 	{
+ 		CAM_STREAM_DESCRIPTION* StreamDescription = &pdu.StreamDescriptions[i];
+ 
+-		Stream_Read_UINT16(s, StreamDescription->FrameSourceTypes);
+-		Stream_Read_UINT8(s, StreamDescription->StreamCategory);
++		{
++			const UINT16 val = Stream_Get_UINT16(s);
++			if (!rdpecam_valid_CamStreamFrameSourceType(val))
++				return ERROR_INVALID_DATA;
++			StreamDescription->FrameSourceTypes = (CAM_STREAM_FRAME_SOURCE_TYPES)val;
++		}
++		{
++			const UINT8 val = Stream_Get_UINT8(s);
++			if (!rdpecam_valid_CamStreamCategory(val))
++				return ERROR_INVALID_DATA;
++			StreamDescription->StreamCategory = (CAM_STREAM_CATEGORY)val;
++		}
+ 		Stream_Read_UINT8(s, StreamDescription->Selected);
+ 		Stream_Read_UINT8(s, StreamDescription->CanBeShared);
+ 	}
+@@ -230,14 +247,30 @@ static UINT device_server_recv_media_type_list_response(CameraDeviceServerContex
+ 	{
+ 		CAM_MEDIA_TYPE_DESCRIPTION* MediaTypeDescriptions = &pdu.MediaTypeDescriptions[i];
+ 
+-		Stream_Read_UINT8(s, MediaTypeDescriptions->Format);
++		{
++			const UINT8 val = Stream_Get_UINT8(s);
++			if (!rdpecam_valid_CamMediaFormat(val))
++			{
++				free(pdu.MediaTypeDescriptions);
++				return ERROR_INVALID_DATA;
++			}
++			MediaTypeDescriptions->Format = (CAM_MEDIA_FORMAT)val;
++		}
+ 		Stream_Read_UINT32(s, MediaTypeDescriptions->Width);
+ 		Stream_Read_UINT32(s, MediaTypeDescriptions->Height);
+ 		Stream_Read_UINT32(s, MediaTypeDescriptions->FrameRateNumerator);
+ 		Stream_Read_UINT32(s, MediaTypeDescriptions->FrameRateDenominator);
+ 		Stream_Read_UINT32(s, MediaTypeDescriptions->PixelAspectRatioNumerator);
+ 		Stream_Read_UINT32(s, MediaTypeDescriptions->PixelAspectRatioDenominator);
+-		Stream_Read_UINT8(s, MediaTypeDescriptions->Flags);
++		{
++			const UINT8 val = Stream_Get_UINT8(s);
++			if (!rdpecam_valid_MediaTypeDescriptionFlags(val))
++			{
++				free(pdu.MediaTypeDescriptions);
++				return ERROR_INVALID_DATA;
++			}
++			MediaTypeDescriptions->Flags = (CAM_MEDIA_TYPE_DESCRIPTION_FLAGS)val;
++		}
+ 	}
+ 
+ 	IFCALLRET(context->MediaTypeListResponse, error, context, &pdu);
+@@ -264,14 +297,25 @@ static UINT device_server_recv_current_media_type_response(CameraDeviceServerCon
+ 	if (!Stream_CheckAndLogRequiredLength(TAG, s, 26))
+ 		return ERROR_NO_DATA;
+ 
+-	Stream_Read_UINT8(s, pdu.MediaTypeDescription.Format);
++	{
++		const UINT8 val = Stream_Get_UINT8(s);
++		if (!rdpecam_valid_CamMediaFormat(val))
++			return ERROR_INVALID_DATA;
++		pdu.MediaTypeDescription.Format = (CAM_MEDIA_FORMAT)val;
++	}
++
+ 	Stream_Read_UINT32(s, pdu.MediaTypeDescription.Width);
+ 	Stream_Read_UINT32(s, pdu.MediaTypeDescription.Height);
+ 	Stream_Read_UINT32(s, pdu.MediaTypeDescription.FrameRateNumerator);
+ 	Stream_Read_UINT32(s, pdu.MediaTypeDescription.FrameRateDenominator);
+ 	Stream_Read_UINT32(s, pdu.MediaTypeDescription.PixelAspectRatioNumerator);
+ 	Stream_Read_UINT32(s, pdu.MediaTypeDescription.PixelAspectRatioDenominator);
+-	Stream_Read_UINT8(s, pdu.MediaTypeDescription.Flags);
++	{
++		const UINT8 val = Stream_Get_UINT8(s);
++		if (!rdpecam_valid_MediaTypeDescriptionFlags(val))
++			return ERROR_INVALID_DATA;
++		pdu.MediaTypeDescription.Flags = (CAM_MEDIA_TYPE_DESCRIPTION_FLAGS)val;
++	}
+ 
+ 	IFCALLRET(context->CurrentMediaTypeResponse, error, context, &pdu);
+ 	if (error)
+@@ -321,7 +365,12 @@ static UINT device_server_recv_sample_error_response(CameraDeviceServerContext*
+ 		return ERROR_NO_DATA;
+ 
+ 	Stream_Read_UINT8(s, pdu.StreamIndex);
+-	Stream_Read_UINT32(s, pdu.ErrorCode);
++	{
++		const UINT32 val = Stream_Get_UINT32(s);
++		if (!rdpecam_valid_CamErrorCode(val))
++			return ERROR_INVALID_DATA;
++		pdu.ErrorCode = (CAM_ERROR_CODE)val;
++	}
+ 
+ 	IFCALLRET(context->SampleErrorResponse, error, context, &pdu);
+ 	if (error)
+@@ -356,13 +405,30 @@ static UINT device_server_recv_property_list_response(CameraDeviceServerContext*
+ 
+ 		for (size_t i = 0; i < pdu.N_Properties; ++i)
+ 		{
+-			Stream_Read_UINT8(s, pdu.Properties[i].PropertySet);
+-			Stream_Read_UINT8(s, pdu.Properties[i].PropertyId);
+-			Stream_Read_UINT8(s, pdu.Properties[i].Capabilities);
+-			Stream_Read_INT32(s, pdu.Properties[i].MinValue);
+-			Stream_Read_INT32(s, pdu.Properties[i].MaxValue);
+-			Stream_Read_INT32(s, pdu.Properties[i].Step);
+-			Stream_Read_INT32(s, pdu.Properties[i].DefaultValue);
++			CAM_PROPERTY_DESCRIPTION* cur = &pdu.Properties[i];
++			{
++				const UINT8 val = Stream_Get_UINT8(s);
++				if (!rdpecam_valid_CamPropertySet(val))
++				{
++					free(pdu.Properties);
++					return ERROR_INVALID_DATA;
++				}
++				cur->PropertySet = (CAM_PROPERTY_SET)val;
++			}
++			Stream_Read_UINT8(s, cur->PropertyId);
++			{
++				const UINT8 val = Stream_Get_UINT8(s);
++				if (!rdpecam_valid_CamPropertyCapabilities(val))
++				{
++					free(pdu.Properties);
++					return ERROR_INVALID_DATA;
++				}
++				cur->Capabilities = (CAM_PROPERTY_CAPABILITIES)val;
++			}
++			Stream_Read_INT32(s, cur->MinValue);
++			Stream_Read_INT32(s, cur->MaxValue);
++			Stream_Read_INT32(s, cur->Step);
++			Stream_Read_INT32(s, cur->DefaultValue);
+ 		}
+ 	}
+ 
+@@ -390,7 +456,13 @@ static UINT device_server_recv_property_value_response(CameraDeviceServerContext
+ 	if (!Stream_CheckAndLogRequiredLength(TAG, s, 5))
+ 		return ERROR_NO_DATA;
+ 
+-	Stream_Read_UINT8(s, pdu.PropertyValue.Mode);
++	{
++		const UINT8 val = Stream_Get_UINT8(s);
++		if (!rdpecam_valid_CamPropertyMode(val))
++			return ERROR_INVALID_DATA;
++		pdu.PropertyValue.Mode = (CAM_PROPERTY_MODE)val;
++	}
++
+ 	Stream_Read_INT32(s, pdu.PropertyValue.Value);
+ 
+ 	IFCALLRET(context->PropertyValueResponse, error, context, &pdu);
+@@ -444,7 +516,12 @@ static UINT device_process_message(device_server* device)
+ 		return ERROR_NO_DATA;
+ 
+ 	Stream_Read_UINT8(s, header.Version);
+-	Stream_Read_UINT8(s, header.MessageId);
++	{
++		const UINT8 id = Stream_Get_UINT8(s);
++		if (!rdpecam_valid_messageId(id))
++			return ERROR_INVALID_DATA;
++		header.MessageId = (CAM_MSG_ID)id;
++	}
+ 
+ 	switch (header.MessageId)
+ 	{
+diff --git a/channels/rdpecam/server/rdpecam-utils.h b/channels/rdpecam/server/rdpecam-utils.h
+new file mode 100644
+index 000000000..38186a24d
+--- /dev/null
++++ b/channels/rdpecam/server/rdpecam-utils.h
+@@ -0,0 +1,325 @@
++/**
++ * FreeRDP: A Remote Desktop Protocol Implementation
++ * Video Capture Virtual Channel Extension
++ *
++ * Copyright 2026 Armin Novak <anovak@thincast.com>
++ * Copyright 2026 Thincast Technologies GmbH
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#pragma once
++
++#include <freerdp/config.h>
++
++#if defined(CHANNEL_RDPECAM)
++#include <stdbool.h>
++#include <winpr/wtypes.h>
++#include <freerdp/channels/rdpecam.h>
++
++WINPR_ATTR_FORMAT_ARG(5, 6)
++static inline void rdpecam_PrintWarning(wLog* log, const char* file, const char* fkt, size_t line,
++                                        WINPR_FORMAT_ARG const char* fmt, ...)
++{
++	const DWORD level = WLOG_WARN;
++	va_list ap;
++
++	va_start(ap, fmt);
++	if (WLog_IsLevelActive(log, level))
++		WLog_PrintTextMessageVA(log, level, line, file, fkt, fmt, ap);
++	va_end(ap);
++}
++
++/** @brief check input data is a valid \ref CAM_MSG_ID value
++ *
++ *  @param id The message id to check
++ *  @param log The logger to use
++ *  @param file The file name the function is called from
++ *  @param fkt The function calling this function
++ *  @param line The line number where the function is called
++ *
++ *  @return \b true for success, \b false if invalid
++ *  @since version 3.20.1
++ */
++#define rdpecam_valid_messageId(id) \
++	rdpecam_valid_messageId_((id), WLog_Get(TAG), __FILE__, __func__, __LINE__)
++static inline bool rdpecam_valid_messageId_(UINT8 id, wLog* log, const char* file, const char* fkt,
++                                            size_t line)
++{
++	switch (id)
++	{
++		case CAM_MSG_ID_SuccessResponse:
++		case CAM_MSG_ID_ErrorResponse:
++		case CAM_MSG_ID_SelectVersionRequest:
++		case CAM_MSG_ID_SelectVersionResponse:
++		case CAM_MSG_ID_DeviceAddedNotification:
++		case CAM_MSG_ID_DeviceRemovedNotification:
++		case CAM_MSG_ID_ActivateDeviceRequest:
++		case CAM_MSG_ID_DeactivateDeviceRequest:
++		case CAM_MSG_ID_StreamListRequest:
++		case CAM_MSG_ID_StreamListResponse:
++		case CAM_MSG_ID_MediaTypeListRequest:
++		case CAM_MSG_ID_MediaTypeListResponse:
++		case CAM_MSG_ID_CurrentMediaTypeRequest:
++		case CAM_MSG_ID_CurrentMediaTypeResponse:
++		case CAM_MSG_ID_StartStreamsRequest:
++		case CAM_MSG_ID_StopStreamsRequest:
++		case CAM_MSG_ID_SampleRequest:
++		case CAM_MSG_ID_SampleResponse:
++		case CAM_MSG_ID_SampleErrorResponse:
++		case CAM_MSG_ID_PropertyListRequest:
++		case CAM_MSG_ID_PropertyListResponse:
++		case CAM_MSG_ID_PropertyValueRequest:
++		case CAM_MSG_ID_PropertyValueResponse:
++		case CAM_MSG_ID_SetPropertyValueRequest:
++			return true;
++		default:
++			rdpecam_PrintWarning(log, file, fkt, line, "Invalid CAM_MSG_ID %" PRIu8, id);
++			return false;
++	}
++}
++
++/** @brief check input data is a valid \ref CAM_ERROR_CODE value
++ *
++ *  @param code The code to check
++ *  @param log The logger to use
++ *  @param file The file name the function is called from
++ *  @param fkt The function calling this function
++ *  @param line The line number where the function is called
++ *
++ *  @return \b true for success, \b false if invalid
++ *  @since version 3.20.1
++ */
++#define rdpecam_valid_CamErrorCode(code) \
++	rdpecam_valid_CamErrorCode_((code), WLog_Get(TAG), __FILE__, __func__, __LINE__)
++static inline bool rdpecam_valid_CamErrorCode_(UINT32 code, wLog* log, const char* file,
++                                               const char* fkt, size_t line)
++{
++	switch (code)
++	{
++		case CAM_ERROR_CODE_UnexpectedError:
++		case CAM_ERROR_CODE_InvalidMessage:
++		case CAM_ERROR_CODE_NotInitialized:
++		case CAM_ERROR_CODE_InvalidRequest:
++		case CAM_ERROR_CODE_InvalidStreamNumber:
++		case CAM_ERROR_CODE_InvalidMediaType:
++		case CAM_ERROR_CODE_OutOfMemory:
++		case CAM_ERROR_CODE_ItemNotFound:
++		case CAM_ERROR_CODE_SetNotFound:
++		case CAM_ERROR_CODE_OperationNotSupported:
++			return true;
++		default:
++			rdpecam_PrintWarning(log, file, fkt, line, "Invalid CAM_ERROR_CODE %" PRIu32, code);
++			return false;
++	}
++}
++
++/** @brief check input data is a valid \ref CAM_STREAM_FRAME_SOURCE_TYPES value
++ *
++ *  @param val The value to check
++ *  @param log The logger to use
++ *  @param file The file name the function is called from
++ *  @param fkt The function calling this function
++ *  @param line The line number where the function is called
++ *
++ *  @return \b true for success, \b false if invalid
++ *  @since version 3.20.1
++ */
++#define rdpecam_valid_CamStreamFrameSourceType(val) \
++	rdpecam_valid_CamStreamFrameSourceType_((val), WLog_Get(TAG), __FILE__, __func__, __LINE__)
++static inline bool rdpecam_valid_CamStreamFrameSourceType_(UINT16 val, wLog* log, const char* file,
++                                                           const char* fkt, size_t line)
++{
++	switch (val)
++	{
++		case CAM_STREAM_FRAME_SOURCE_TYPE_Color:
++		case CAM_STREAM_FRAME_SOURCE_TYPE_Infrared:
++		case CAM_STREAM_FRAME_SOURCE_TYPE_Custom:
++			return true;
++		default:
++			rdpecam_PrintWarning(log, file, fkt, line,
++			                     "Invalid CAM_STREAM_FRAME_SOURCE_TYPES %" PRIu16, val);
++			return false;
++	}
++}
++
++/** @brief check input data is a valid \ref CAM_STREAM_CATEGORY value
++ *
++ *  @param val The value to check
++ *  @param log The logger to use
++ *  @param file The file name the function is called from
++ *  @param fkt The function calling this function
++ *  @param line The line number where the function is called
++ *
++ *  @return \b true for success, \b false if invalid
++ *  @since version 3.20.1
++ */
++#define rdpecam_valid_CamStreamCategory(val) \
++	rdpecam_valid_CamStreamCategory_((val), WLog_Get(TAG), __FILE__, __func__, __LINE__)
++static inline bool rdpecam_valid_CamStreamCategory_(UINT8 val, wLog* log, const char* file,
++                                                    const char* fkt, size_t line)
++{
++	switch (val)
++	{
++		case CAM_STREAM_CATEGORY_Capture:
++			return true;
++		default:
++			rdpecam_PrintWarning(log, file, fkt, line, "Invalid CAM_STREAM_CATEGORY %" PRIu8, val);
++			return false;
++	}
++}
++
++/** @brief check input data is a valid \ref CAM_MEDIA_FORMAT value
++ *
++ *  @param val The value to check
++ *  @param log The logger to use
++ *  @param file The file name the function is called from
++ *  @param fkt The function calling this function
++ *  @param line The line number where the function is called
++ *
++ *  @return \b true for success, \b false if invalid
++ *  @since version 3.20.1
++ */
++#define rdpecam_valid_CamMediaFormat(val) \
++	rdpecam_valid_CamMediaFormat_((val), WLog_Get(TAG), __FILE__, __func__, __LINE__)
++static inline bool rdpecam_valid_CamMediaFormat_(UINT8 val, wLog* log, const char* file,
++                                                 const char* fkt, size_t line)
++{
++	switch (val)
++	{
++		case CAM_MEDIA_FORMAT_INVALID:
++		case CAM_MEDIA_FORMAT_H264:
++		case CAM_MEDIA_FORMAT_MJPG:
++		case CAM_MEDIA_FORMAT_YUY2:
++		case CAM_MEDIA_FORMAT_NV12:
++		case CAM_MEDIA_FORMAT_I420:
++		case CAM_MEDIA_FORMAT_RGB24:
++		case CAM_MEDIA_FORMAT_RGB32:
++			return true;
++		default:
++			rdpecam_PrintWarning(log, file, fkt, line, "Invalid CAM_MEDIA_FORMAT %" PRIu8, val);
++			return false;
++	}
++}
++
++/** @brief check input data is a valid \ref CAM_MEDIA_TYPE_DESCRIPTION_FLAGS value
++ *
++ *  @param val The value to check
++ *  @param log The logger to use
++ *  @param file The file name the function is called from
++ *  @param fkt The function calling this function
++ *  @param line The line number where the function is called
++ *
++ *  @return \b true for success, \b false if invalid
++ *  @since version 3.20.1
++ */
++#define rdpecam_valid_MediaTypeDescriptionFlags(val) \
++	rdpecam_valid_MediaTypeDescriptionFlags_((val), WLog_Get(TAG), __FILE__, __func__, __LINE__)
++static inline bool rdpecam_valid_MediaTypeDescriptionFlags_(UINT8 val, wLog* log, const char* file,
++                                                            const char* fkt, size_t line)
++{
++	switch (val)
++	{
++		case CAM_MEDIA_TYPE_DESCRIPTION_FLAG_DecodingRequired:
++		case CAM_MEDIA_TYPE_DESCRIPTION_FLAG_BottomUpImage:
++			return true;
++		default:
++			rdpecam_PrintWarning(log, file, fkt, line,
++			                     "Invalid CAM_MEDIA_TYPE_DESCRIPTION_FLAGS %" PRIu8, val);
++			return false;
++	}
++}
++
++/** @brief check input data is a valid \ref CAM_PROPERTY_MODE value
++ *
++ *  @param val The value to check
++ *  @param log The logger to use
++ *  @param file The file name the function is called from
++ *  @param fkt The function calling this function
++ *  @param line The line number where the function is called
++ *
++ *  @return \b true for success, \b false if invalid
++ *  @since version 3.20.1
++ */
++#define rdpecam_valid_CamPropertyMode(val) \
++	rdpecam_valid_CamPropertyMode_((val), WLog_Get(TAG), __FILE__, __func__, __LINE__)
++static inline bool rdpecam_valid_CamPropertyMode_(UINT8 val, wLog* log, const char* file,
++                                                  const char* fkt, size_t line)
++{
++	switch (val)
++	{
++		case CAM_PROPERTY_MODE_Manual:
++		case CAM_PROPERTY_MODE_Auto:
++			return true;
++		default:
++			rdpecam_PrintWarning(log, file, fkt, line, "Invalid CAM_PROPERTY_MODE %" PRIu8, val);
++			return false;
++	}
++}
++
++/** @brief check input data is a valid \ref CAM_PROPERTY_SET value
++ *
++ *  @param val The value to check
++ *  @param log The logger to use
++ *  @param file The file name the function is called from
++ *  @param fkt The function calling this function
++ *  @param line The line number where the function is called
++ *
++ *  @return \b true for success, \b false if invalid
++ *  @since version 3.20.1
++ */
++#define rdpecam_valid_CamPropertySet(val) \
++	rdpecam_valid_CamPropertySet_((val), WLog_Get(TAG), __FILE__, __func__, __LINE__)
++static inline bool rdpecam_valid_CamPropertySet_(UINT8 val, wLog* log, const char* file,
++                                                 const char* fkt, size_t line)
++{
++	switch (val)
++	{
++		case CAM_PROPERTY_SET_CameraControl:
++		case CAM_PROPERTY_SET_VideoProcAmp:
++			return true;
++		default:
++			rdpecam_PrintWarning(log, file, fkt, line, "Invalid CAM_PROPERTY_SET %" PRIu8, val);
++			return false;
++	}
++}
++
++/** @brief check input data is a valid \ref CAM_PROPERTY_CAPABILITIES value
++ *
++ *  @param val The value to check
++ *  @param log The logger to use
++ *  @param file The file name the function is called from
++ *  @param fkt The function calling this function
++ *  @param line The line number where the function is called
++ *
++ *  @return \b true for success, \b false if invalid
++ *  @since version 3.20.1
++ */
++#define rdpecam_valid_CamPropertyCapabilities(val) \
++	rdpecam_valid_CamPropertyCapabilities_((val), WLog_Get(TAG), __FILE__, __func__, __LINE__)
++static inline bool rdpecam_valid_CamPropertyCapabilities_(UINT8 val, wLog* log, const char* file,
++                                                          const char* fkt, size_t line)
++{
++	switch (val)
++	{
++		case CAM_PROPERTY_CAPABILITY_Manual:
++		case CAM_PROPERTY_CAPABILITY_Auto:
++			return true;
++		default:
++			rdpecam_PrintWarning(log, file, fkt, line, "Invalid CAM_PROPERTY_CAPABILITIES %" PRIu8,
++			                     val);
++			return false;
++	}
++}
++
++#endif
+-- 
+2.47.3
+

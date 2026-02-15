@@ -1,0 +1,167 @@
+From: akallabeth <akallabeth@posteo.net>
+Date: Wed, 28 Jan 2026 08:33:50 +0100
+Subject: [channels,rdpecam] fix PROPERTY_DESCRIPTION parsing
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/067524438a284d06c78b124c5858d8773279f70f
+Forwarded: not-needed
+Comment: correctness fixup after CVE-2026-24677 fix
+
+* The Capabilities field is a mask, so allow combination of all valid
+  values.
+* Adjust header to hold a mask
+* Use enum to define constants for parsed values
+---
+ channels/rdpecam/server/camera_device_main.c | 33 +++++++-----------
+ channels/rdpecam/server/rdpecam-utils.h      | 15 ++++----
+ include/freerdp/channels/rdpecam.h           | 36 ++++++++++++--------
+ 3 files changed, 40 insertions(+), 44 deletions(-)
+
+diff --git a/channels/rdpecam/server/camera_device_main.c b/channels/rdpecam/server/camera_device_main.c
+index b5abe9d1d..0f799e7f6 100644
+--- a/channels/rdpecam/server/camera_device_main.c
++++ b/channels/rdpecam/server/camera_device_main.c
+@@ -384,7 +384,7 @@ static UINT device_server_recv_property_list_response(CameraDeviceServerContext*
+                                                       const CAM_SHARED_MSG_HEADER* header)
+ {
+ 	CAM_PROPERTY_LIST_RESPONSE pdu = { 0 };
+-	UINT error = CHANNEL_RC_OK;
++	UINT error = ERROR_INVALID_DATA;
+ 
+ 	WINPR_ASSERT(context);
+ 	WINPR_ASSERT(header);
+@@ -409,30 +409,23 @@ static UINT device_server_recv_property_list_response(CameraDeviceServerContext*
+ 			{
+ 				const UINT8 val = Stream_Get_UINT8(s);
+ 				if (!rdpecam_valid_CamPropertySet(val))
+-				{
+-					free(pdu.Properties);
+-					return ERROR_INVALID_DATA;
+-				}
++					goto fail;
+ 				cur->PropertySet = (CAM_PROPERTY_SET)val;
+ 			}
+-			Stream_Read_UINT8(s, cur->PropertyId);
+-			{
+-				const UINT8 val = Stream_Get_UINT8(s);
+-				if (!rdpecam_valid_CamPropertyCapabilities(val))
+-				{
+-					free(pdu.Properties);
+-					return ERROR_INVALID_DATA;
+-				}
+-				cur->Capabilities = (CAM_PROPERTY_CAPABILITIES)val;
+-			}
+-			Stream_Read_INT32(s, cur->MinValue);
+-			Stream_Read_INT32(s, cur->MaxValue);
+-			Stream_Read_INT32(s, cur->Step);
+-			Stream_Read_INT32(s, cur->DefaultValue);
++			cur->PropertyId = Stream_Get_UINT8(s);
++			cur->Capabilities = Stream_Get_UINT8(s);
++			if (!rdpecam_valid_CamPropertyCapabilities(cur->Capabilities))
++				goto fail;
++			cur->MinValue = Stream_Get_INT32(s);
++			cur->MaxValue = Stream_Get_INT32(s);
++			cur->Step = Stream_Get_INT32(s);
++			cur->DefaultValue = Stream_Get_INT32(s);
+ 		}
+ 	}
+ 
+-	IFCALLRET(context->PropertyListResponse, error, context, &pdu);
++	error = IFCALLRESULT(CHANNEL_RC_OK, context->PropertyListResponse, context, &pdu);
++
++fail:
+ 	if (error)
+ 		WLog_ERR(TAG, "context->PropertyListResponse failed with error %" PRIu32 "", error);
+ 
+diff --git a/channels/rdpecam/server/rdpecam-utils.h b/channels/rdpecam/server/rdpecam-utils.h
+index 38186a24d..b1a81a8bf 100644
+--- a/channels/rdpecam/server/rdpecam-utils.h
++++ b/channels/rdpecam/server/rdpecam-utils.h
+@@ -307,19 +307,16 @@ static inline bool rdpecam_valid_CamPropertySet_(UINT8 val, wLog* log, const cha
+  */
+ #define rdpecam_valid_CamPropertyCapabilities(val) \
+ 	rdpecam_valid_CamPropertyCapabilities_((val), WLog_Get(TAG), __FILE__, __func__, __LINE__)
+-static inline bool rdpecam_valid_CamPropertyCapabilities_(UINT8 val, wLog* log, const char* file,
++static inline bool rdpecam_valid_CamPropertyCapabilities_(UINT32 val, wLog* log, const char* file,
+                                                           const char* fkt, size_t line)
+ {
+-	switch (val)
++	if ((val & ~(CAM_PROPERTY_CAPABILITY_Manual | CAM_PROPERTY_CAPABILITY_Auto)) != 0)
+ 	{
+-		case CAM_PROPERTY_CAPABILITY_Manual:
+-		case CAM_PROPERTY_CAPABILITY_Auto:
+-			return true;
+-		default:
+-			rdpecam_PrintWarning(log, file, fkt, line, "Invalid CAM_PROPERTY_CAPABILITIES %" PRIu8,
+-			                     val);
+-			return false;
++		rdpecam_PrintWarning(log, file, fkt, line, "Invalid CAM_PROPERTY_CAPABILITIES %" PRIu8,
++		                     val);
++		return false;
+ 	}
++	return true;
+ }
+ 
+ #endif
+diff --git a/include/freerdp/channels/rdpecam.h b/include/freerdp/channels/rdpecam.h
+index e1ce73172..36075252e 100644
+--- a/include/freerdp/channels/rdpecam.h
++++ b/include/freerdp/channels/rdpecam.h
+@@ -269,35 +269,41 @@ typedef struct
+ typedef enum
+ {
+ 	CAM_PROPERTY_SET_CameraControl = 0x01,
+-	CAM_PROPERTY_SET_VideoProcAmp = 0x02,
++	CAM_PROPERTY_SET_VideoProcAmp = 0x02
+ } CAM_PROPERTY_SET;
+ 
+ /* CameraControl properties */
+-#define CAM_PROPERTY_ID_CAMERA_CONTROL_Exposure 0x01
+-#define CAM_PROPERTY_ID_CAMERA_CONTROL_Focus 0x02
+-#define CAM_PROPERTY_ID_CAMERA_CONTROL_Pan 0x03
+-#define CAM_PROPERTY_ID_CAMERA_CONTROL_Roll 0x04
+-#define CAM_PROPERTY_ID_CAMERA_CONTROL_Tilt 0x05
+-#define CAM_PROPERTY_ID_CAMERA_CONTROL_Zoom 0x06
++typedef enum
++{
++	CAM_PROPERTY_ID_CAMERA_CONTROL_Exposure = 0x01,
++	CAM_PROPERTY_ID_CAMERA_CONTROL_Focus = 0x02,
++	CAM_PROPERTY_ID_CAMERA_CONTROL_Pan = 0x03,
++	CAM_PROPERTY_ID_CAMERA_CONTROL_Roll = 0x04,
++	CAM_PROPERTY_ID_CAMERA_CONTROL_Tilt = 0x05,
++	CAM_PROPERTY_ID_CAMERA_CONTROL_Zoom = 0x06
++} CAM_PROPERTY_ID;
+ 
+ /* VideoProcAmp properties */
+-#define CAM_PROPERTY_ID_VIDEO_PROC_AMP_BacklightCompensation 0x01
+-#define CAM_PROPERTY_ID_VIDEO_PROC_AMP_Brightness 0x02
+-#define CAM_PROPERTY_ID_VIDEO_PROC_AMP_Contrast 0x03
+-#define CAM_PROPERTY_ID_VIDEO_PROC_AMP_Hue 0x04
+-#define CAM_PROPERTY_ID_VIDEO_PROC_AMP_WhiteBalance 0x05
++typedef enum
++{
++	CAM_PROPERTY_ID_VIDEO_PROC_AMP_BacklightCompensation = 0x01,
++	CAM_PROPERTY_ID_VIDEO_PROC_AMP_Brightness = 0x02,
++	CAM_PROPERTY_ID_VIDEO_PROC_AMP_Contrast = 0x03,
++	CAM_PROPERTY_ID_VIDEO_PROC_AMP_Hue = 0x04,
++	CAM_PROPERTY_ID_VIDEO_PROC_AMP_WhiteBalance = 0x05
++} CAM_PROPERTY_ID_VIDEO;
+ 
+ typedef enum
+ {
+-	CAM_PROPERTY_CAPABILITY_Manual = 0x01,
+-	CAM_PROPERTY_CAPABILITY_Auto = 0x02,
++	CAM_PROPERTY_CAPABILITY_Manual = 0x01u,
++	CAM_PROPERTY_CAPABILITY_Auto = 0x02u
+ } CAM_PROPERTY_CAPABILITIES;
+ 
+ typedef struct
+ {
+ 	CAM_PROPERTY_SET PropertySet;
+ 	BYTE PropertyId;
+-	CAM_PROPERTY_CAPABILITIES Capabilities;
++	UINT32 Capabilities;
+ 	INT32 MinValue;
+ 	INT32 MaxValue;
+ 	INT32 Step;
+-- 
+2.47.3
+

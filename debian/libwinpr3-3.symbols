@@ -1,4 +1,7 @@
 libwinpr3.so.3 libwinpr3-3 #MINVER#
+| libwinpr3-partial-api-3-17 | libwinpr3-3 (>>3.17.0)
+ WLog_PrintTextMessage@Base 3.15.0+dfsg-2.1+deb13u1 1
+ WLog_PrintTextMessageVA@Base 3.15.0+dfsg-2.1+deb13u1 1
 * Build-Depends-Package: winpr3-dev
  AddDllDirectory@Base 3.0.0
  AddVectoredContinueHandler@Base 3.0.0

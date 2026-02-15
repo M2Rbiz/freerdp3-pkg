@@ -59,3 +59,8 @@ channels-audin-fix-audin_server_recv_formats-cleanup-CVE-2026-24682.patch
 channels-ainput-lock-context-when-updating-listener-CVE-2026-24683.patch
 channels-rdpsnd-terminate-thread-before-free-CVE-2026-24684.patch
 channel-rdpsnd-only-clean-up-thread-before-free-CVE-2026-24684.patch
+# fix for CVE-2026-24677 fix:
+winpr-wlog-Add-specialized-text-log-functions.patch
+warnings-Fix-format-string-errors-partial.patch
+channels-rdpecam-add-value-range-checks.patch
+channels-rdpecam-fix-PROPERTY_DESCRIPTION-parsing.patch

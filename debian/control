@@ -134,6 +134,7 @@ Depends:
 Multi-Arch: same
 Suggests:
  freerdp3-x11,
+Provides: libwinpr3-partial-api-3-17
 Description: Windows Portable Runtime library
  WinPR is a spin-off project of FreeRDP which aims at providing a portable
  implementation of important portions of the Windows API. Just like FreeRDP,

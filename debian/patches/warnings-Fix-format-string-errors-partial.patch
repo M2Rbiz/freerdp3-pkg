@@ -1,0 +1,1515 @@
+From: akallabeth <akallabeth@posteo.net>
+Date: Wed, 13 Aug 2025 09:00:25 +0200
+Subject: [warnings] Fix format string errors
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/65f18983edfcfbf02614273f2b9da405f96562fe
+Forwarded: not-needed
+Comment: after winpr-wlog-Add-specialized-text-log-functions.patch, a lot of issues
+ has been identified and fixed in usage of printf-format-strings.  This is a partial
+ upstream commit, with only hunks which can be applied to 3.15 are left, and hunks
+ which don't apply, were deleted.  Diffstat is for the original upstream patch.
+
+* Fix casts of format string arguments (%p requires void*)
+* Fix format string to match type of arguments
+---
+ channels/audin/client/alsa/audin_alsa.c    |   4 +-
+ channels/audin/client/audin_main.c         |   2 +-
+ channels/audin/server/audin.c              |   2 +-
+ channels/cliprdr/client/cliprdr_format.c   |   4 +-
+ channels/cliprdr/client/cliprdr_main.c     |   6 +-
+ channels/drdynvc/client/drdynvc_main.c     |  32 ++++-
+ channels/parallel/client/parallel_main.c   |   2 +-
+ channels/rdpdr/client/rdpdr_main.c         |   3 +-
+ channels/rdpdr/server/rdpdr_main.c         |  20 +--
+ channels/rdpear/common/rdpear_common.c     |   2 +-
+ channels/rdpsnd/client/rdpsnd_main.c       |   2 +-
+ channels/serial/client/serial_main.c       |   4 +-
+ channels/urbdrc/client/data_transfer.c     |   9 +-
+ channels/urbdrc/client/urbdrc_main.c       |   3 +-
+ client/SDL/SDL3/sdl_clip.cpp               |   2 +-
+ client/X11/xf_keyboard.c                   |   5 +-
+ client/X11/xf_utils.c                      | 146 +++++++++----------
+ client/common/client_cliprdr_file.c        |   8 +-
+ libfreerdp/codec/dsp.c                     |   4 +-
+ libfreerdp/codec/progressive.c             |  25 ++--
+ libfreerdp/codec/rfx.c                     |  12 +-
+ libfreerdp/common/assistance.c             |   6 +-
+ libfreerdp/core/aad.c                      |   4 +-
+ libfreerdp/core/autodetect.c               |   6 +-
+ libfreerdp/core/capabilities.c             |  27 ++--
+ libfreerdp/core/gateway/arm.c              |   4 +-
+ libfreerdp/core/gateway/rdg.c              |   7 +-
+ libfreerdp/core/gateway/rpc_client.c       |   2 +-
+ libfreerdp/core/gateway/rts.c              |  18 +--
+ libfreerdp/core/gateway/tsg.c              |   2 +-
+ libfreerdp/core/gcc.c                      |   4 +-
+ libfreerdp/core/license.c                  |  27 ++--
+ libfreerdp/core/orders.c                   |  10 +-
+ libfreerdp/core/rdp.c                      |  20 +--
+ libfreerdp/core/rdstls.c                   |  29 ++--
+ libfreerdp/core/tpkt.c                     |   4 +-
+ libfreerdp/core/transport.c                |  15 +-
+ libfreerdp/core/window.c                   |   4 +-
+ libfreerdp/emu/scard/smartcard_emulate.c   | 157 +++++++++++----------
+ libfreerdp/utils/smartcard_call.c          |   7 +-
+ libfreerdp/utils/smartcard_pack.c          |  79 +++++++----
+ server/proxy/channels/pf_channel_drdynvc.c |   4 +-
+ server/proxy/channels/pf_channel_rdpdr.c   |   4 +-
+ winpr/libwinpr/comm/comm.c                 |   8 +-
+ winpr/libwinpr/comm/comm_ioctl.c           |   2 +-
+ winpr/libwinpr/comm/comm_serial_sys.c      |   4 +-
+ winpr/libwinpr/ncrypt/ncrypt_pkcs11.c      |   3 +-
+ winpr/libwinpr/sspi/sspi.c                 |  60 ++++----
+ winpr/libwinpr/timezone/timezone.c         |   6 +-
+ winpr/libwinpr/utils/print.c               |   2 +-
+ winpr/libwinpr/utils/stream.c              |   2 +-
+ 51 files changed, 439 insertions(+), 385 deletions(-)
+
+diff --git a/channels/audin/client/alsa/audin_alsa.c b/channels/audin/client/alsa/audin_alsa.c
+index 82ce66e64..96649568b 100644
+--- a/channels/audin/client/alsa/audin_alsa.c
++++ b/channels/audin/client/alsa/audin_alsa.c
+@@ -195,4 +195,4 @@ static DWORD WINAPI audin_alsa_thread_func(LPVOID arg)
+ 		{
+-			WLog_Print(alsa->log, WLOG_ERROR, "audin_alsa_thread_receive failed with error %ld",
+-			           error);
++			WLog_Print(alsa->log, WLOG_ERROR,
++			           "audin_alsa_thread_receive failed with error %" PRIu32, error);
+ 			break;
+diff --git a/channels/audin/client/audin_main.c b/channels/audin/client/audin_main.c
+index eaf7281d0..d3676b96f 100644
+--- a/channels/audin/client/audin_main.c
++++ b/channels/audin/client/audin_main.c
+@@ -388,3 +388,3 @@ static UINT audin_receive_wave_data(const AUDIO_FORMAT* format, const BYTE* data
+ 	audio_format_print(audin->log, WLOG_TRACE, audin->format);
+-	WLog_Print(audin->log, WLOG_TRACE, "[%" PRIdz "/%" PRIdz "]", size,
++	WLog_Print(audin->log, WLOG_TRACE, "[%" PRIuz "/%" PRIuz "]", size,
+ 	           Stream_GetPosition(audin->data) - 1);
+diff --git a/channels/audin/server/audin.c b/channels/audin/server/audin.c
+index f32ac5e5d..73e5fbb5d 100644
+--- a/channels/audin/server/audin.c
++++ b/channels/audin/server/audin.c
+@@ -816,3 +816,3 @@ static UINT audin_server_open_reply_default(audin_server_context* context,
+ 	/* TODO: Implement failure handling */
+-	WLog_Print(audin->log, WLOG_DEBUG, "Open Reply PDU: Result: %i", open_reply->Result);
++	WLog_Print(audin->log, WLOG_DEBUG, "Open Reply PDU: Result: %" PRIu32, open_reply->Result);
+ 	return CHANNEL_RC_OK;
+diff --git a/channels/cliprdr/client/cliprdr_format.c b/channels/cliprdr/client/cliprdr_format.c
+index 6c0415438..c76e3b6e3 100644
+--- a/channels/cliprdr/client/cliprdr_format.c
++++ b/channels/cliprdr/client/cliprdr_format.c
+@@ -142,3 +142,3 @@ UINT cliprdr_process_format_list(cliprdrPlugin* cliprdr, wStream* s, UINT32 data
+ 			const CLIPRDR_FORMAT* format = &formatList.formats[x];
+-			WLog_Print(cliprdr->log, level, "[%" PRIu32 "]: id=0x%08" PRIx32 " [%s|%s]", x,
++			WLog_Print(cliprdr->log, level, "[%" PRIuz "]: id=0x%08" PRIx32 " [%s|%s]", x,
+ 			           format->formatId, ClipboardGetFormatIdString(format->formatId),
+@@ -152,3 +152,3 @@ UINT cliprdr_process_format_list(cliprdrPlugin* cliprdr, wStream* s, UINT32 data
+ 			const CLIPRDR_FORMAT* format = &filteredFormatList.formats[x];
+-			WLog_Print(cliprdr->log, level, "[%" PRIu32 "]: id=0x%08" PRIx32 " [%s|%s]", x,
++			WLog_Print(cliprdr->log, level, "[%" PRIuz "]: id=0x%08" PRIx32 " [%s|%s]", x,
+ 			           format->formatId, ClipboardGetFormatIdString(format->formatId),
+diff --git a/channels/cliprdr/client/cliprdr_main.c b/channels/cliprdr/client/cliprdr_main.c
+index 613a5247d..5a9c40a88 100644
+--- a/channels/cliprdr/client/cliprdr_main.c
++++ b/channels/cliprdr/client/cliprdr_main.c
+@@ -68,3 +68,3 @@ static UINT cliprdr_packet_send(cliprdrPlugin* cliprdr, wStream* s)
+ 	const size_t pos = Stream_GetPosition(s);
+-	const size_t dataLen = pos - 8;
++	const size_t dataLen = pos - 8ULL;
+ 	WINPR_ASSERT(dataLen <= UINT32_MAX);
+@@ -75,3 +75,3 @@ static UINT cliprdr_packet_send(cliprdrPlugin* cliprdr, wStream* s)
+ 
+-	WLog_Print(cliprdr->log, WLOG_DEBUG, "Cliprdr Sending (%" PRIu32 " bytes)", dataLen + 8);
++	WLog_Print(cliprdr->log, WLOG_DEBUG, "Cliprdr Sending (%" PRIuz " bytes)", dataLen + 8UL);
+ 
+@@ -702,3 +702,3 @@ static UINT cliprdr_client_format_list(CliprdrClientContext* context,
+ 			const CLIPRDR_FORMAT* format = &filterList.formats[x];
+-			WLog_Print(cliprdr->log, level, "[%" PRIu32 "]: id=0x%08" PRIx32 " [%s|%s]", x,
++			WLog_Print(cliprdr->log, level, "[%" PRIuz "]: id=0x%08" PRIx32 " [%s|%s]", x,
+ 			           format->formatId, ClipboardGetFormatIdString(format->formatId),
+diff --git a/channels/drdynvc/client/drdynvc_main.c b/channels/drdynvc/client/drdynvc_main.c
+index 65dc5fd4f..5a970909c 100644
+--- a/channels/drdynvc/client/drdynvc_main.c
++++ b/channels/drdynvc/client/drdynvc_main.c
+@@ -36,2 +36,17 @@
+ 
++static const char* channel_state2str(DVC_CHANNEL_STATE state)
++{
++	switch (state)
++	{
++		case DVC_CHANNEL_INIT:
++			return "DVC_CHANNEL_INIT";
++		case DVC_CHANNEL_RUNNING:
++			return "DVC_CHANNEL_RUNNING";
++		case DVC_CHANNEL_CLOSED:
++			return "DVC_CHANNEL_CLOSED";
++		default:
++			return "DVC_CHANNEL_UNKNOWN";
++	}
++}
++
+ static void dvcman_channel_free(DVCMAN_CHANNEL* channel);
+@@ -476,7 +491,10 @@ static UINT dvcman_channel_close(DVCMAN_CHANNEL* channel, BOOL perRequest, BOOL
+ 				{
+-					const char* msg = "error when sending close confirm for '%s'";
+ 					if (perRequest)
+-						msg = "error when sending closeRequest for '%s'";
+-
+-					WLog_Print(drdynvc->log, WLOG_DEBUG, msg, channel->channel_name);
++						WLog_Print(drdynvc->log, WLOG_DEBUG,
++						           "error when sending closeRequest for '%s'",
++						           channel->channel_name);
++					else
++						WLog_Print(drdynvc->log, WLOG_DEBUG,
++						           "error when sending close confirm for '%s'",
++						           channel->channel_name);
+ 				}
+@@ -690,6 +708,8 @@ static DVCMAN_CHANNEL* dvcman_create_channel(drdynvcPlugin* drdynvc,
+ 			default:
+-				WLog_Print(drdynvc->log, WLOG_ERROR, "not expecting a createChannel from state %d",
+-				           channel->state);
++			{
++				WLog_Print(drdynvc->log, WLOG_ERROR, "not expecting a createChannel from state %s",
++				           channel_state2str(channel->state));
+ 				*res = CHANNEL_RC_INITIALIZATION_ERROR;
+ 				goto out;
++			}
+ 		}
+diff --git a/channels/parallel/client/parallel_main.c b/channels/parallel/client/parallel_main.c
+index 44d7a23fc..59ff9a08e 100644
+--- a/channels/parallel/client/parallel_main.c
++++ b/channels/parallel/client/parallel_main.c
+@@ -318,3 +318,3 @@ static UINT parallel_process_irp(PARALLEL_DEVICE* parallel, IRP* irp)
+ 	           rdpdr_irp_string(irp->MajorFunction), irp->MajorFunction, WTSErrorToString(error),
+-	           error, NtStatus2Tag(irp->IoStatus), irp->IoStatus);
++	           error, NtStatus2Tag(irp->IoStatus), WINPR_CXX_COMPAT_CAST(UINT32, irp->IoStatus));
+ 
+diff --git a/channels/rdpdr/client/rdpdr_main.c b/channels/rdpdr/client/rdpdr_main.c
+index 66b6b7a9a..efed61ac0 100644
+--- a/channels/rdpdr/client/rdpdr_main.c
++++ b/channels/rdpdr/client/rdpdr_main.c
+@@ -1456,4 +1456,3 @@ static BOOL device_announce(ULONG_PTR key, void* element, void* data)
+ 		WLog_Print(rdpdr->log, WLOG_INFO,
+-		           "registered [%09s] device #%" PRIu32 ": %05s (type=%2" PRIu32 " id=%2" PRIu32
+-		           ")",
++		           "registered [%9s] device #%" PRIu32 ": %5s (type=%2" PRIu32 " id=%2" PRIu32 ")",
+ 		           rdpdr_device_type_string(device->type), arg->count, device->name, device->type,
+diff --git a/channels/rdpdr/server/rdpdr_main.c b/channels/rdpdr/server/rdpdr_main.c
+index 48c3e486a..cd31fcbb1 100644
+--- a/channels/rdpdr/server/rdpdr_main.c
++++ b/channels/rdpdr/server/rdpdr_main.c
+@@ -227,3 +227,3 @@ static const WCHAR* rdpdr_read_ustring(wLog* log, wStream* s, size_t bytelen)
+ 	{
+-		WLog_Print(log, WLOG_WARN, "[rdpdr] unicode string not '\0' terminated");
++		WLog_Print(log, WLOG_WARN, "[rdpdr] unicode string not '\\0' terminated");
+ 		return NULL;
+@@ -1333,3 +1333,3 @@ static UINT rdpdr_server_receive_io_write_request(RdpdrServerContext* context, w
+ 	           "[MS-RDPEFS] 2.2.1.4.4 Device Write Request (DR_WRITE_REQ) not implemented");
+-	WLog_Print(context->priv->log, WLOG_WARN, "TODO: parse %p", data);
++	WLog_Print(context->priv->log, WLOG_WARN, "TODO: parse %p", (const void*)data);
+ 
+@@ -1366,4 +1366,4 @@ static UINT rdpdr_server_receive_io_device_control_request(RdpdrServerContext* c
+ 	WLog_Print(context->priv->log, WLOG_WARN,
+-	           "TODO: parse %p [%" PRIu32 "], OutputBufferLength=%" PRIu32, InputBuffer,
+-	           InputBufferLength, OutputBufferLength);
++	           "TODO: parse %p [%" PRIu32 "], OutputBufferLength=%" PRIu32,
++	           (const void*)InputBuffer, InputBufferLength, OutputBufferLength);
+ 
+@@ -1399,3 +1399,3 @@ static UINT rdpdr_server_receive_io_query_volume_information_request(
+ 	           "(DR_DRIVE_QUERY_VOLUME_INFORMATION_REQ) not implemented");
+-	WLog_Print(context->priv->log, WLOG_WARN, "TODO: parse %p", QueryVolumeBuffer);
++	WLog_Print(context->priv->log, WLOG_WARN, "TODO: parse %p", (const void*)QueryVolumeBuffer);
+ 
+@@ -1433,3 +1433,3 @@ static UINT rdpdr_server_receive_io_set_volume_information_request(
+ 	           "(DR_DRIVE_SET_VOLUME_INFORMATION_REQ) not implemented");
+-	WLog_Print(context->priv->log, WLOG_WARN, "TODO: parse %p", SetVolumeBuffer);
++	WLog_Print(context->priv->log, WLOG_WARN, "TODO: parse %p", (const void*)SetVolumeBuffer);
+ 
+@@ -1469,3 +1469,3 @@ static UINT rdpdr_server_receive_io_query_information_request(RdpdrServerContext
+ 	           "(DR_DRIVE_QUERY_INFORMATION_REQ) not implemented");
+-	WLog_Print(context->priv->log, WLOG_WARN, "TODO: parse %p", QueryBuffer);
++	WLog_Print(context->priv->log, WLOG_WARN, "TODO: parse %p", (const void*)QueryBuffer);
+ 
+@@ -1504,3 +1504,3 @@ static UINT rdpdr_server_receive_io_set_information_request(RdpdrServerContext*
+ 	           "(DR_DRIVE_SET_INFORMATION_REQ) not implemented");
+-	WLog_Print(context->priv->log, WLOG_WARN, "TODO: parse %p", SetBuffer);
++	WLog_Print(context->priv->log, WLOG_WARN, "TODO: parse %p", (const void*)SetBuffer);
+ 
+@@ -1619,3 +1619,3 @@ static UINT rdpdr_server_receive_io_lock_control_request(RdpdrServerContext* con
+ 	           "IRP_MJ_LOCK_CONTROL, Operation=%s, Lock=0x%08" PRIx32 ", NumLocks=%" PRIu32,
+-	           DR_DRIVE_LOCK_REQ2str(Operation));
++	           DR_DRIVE_LOCK_REQ2str(Operation), Lock, NumLocks);
+ 
+@@ -1867,3 +1867,3 @@ static UINT rdpdr_server_receive_prn_cache_update_printer(RdpdrServerContext* co
+ 	    "[MS-RDPEPC] 2.2.2.4 Update Printer Cachedata (DR_PRN_UPDATE_CACHEDATA) not implemented");
+-	WLog_Print(context->priv->log, WLOG_WARN, "TODO: parse %p", config);
++	WLog_Print(context->priv->log, WLOG_WARN, "TODO: parse %p", (const void*)config);
+ 	return CHANNEL_RC_OK;
+diff --git a/channels/rdpear/common/rdpear_common.c b/channels/rdpear/common/rdpear_common.c
+index f47af1858..616b83cc6 100644
+--- a/channels/rdpear/common/rdpear_common.c
++++ b/channels/rdpear/common/rdpear_common.c
+@@ -231,3 +231,3 @@ void ndr_dump_RPC_UNICODE_STRING(wLog* logger, UINT32 lvl, size_t indentLevel,
+ 	WINPR_UNUSED(indentLevel);
+-	WLog_Print(logger, lvl, "\tLength=%d MaximumLength=%d", obj->lenHints.length,
++	WLog_Print(logger, lvl, "\tLength=%u MaximumLength=%u", obj->lenHints.length,
+ 	           obj->lenHints.maxLength);
+diff --git a/channels/rdpsnd/client/rdpsnd_main.c b/channels/rdpsnd/client/rdpsnd_main.c
+index 5be4f179b..af313f8d7 100644
+--- a/channels/rdpsnd/client/rdpsnd_main.c
++++ b/channels/rdpsnd/client/rdpsnd_main.c
+@@ -625,3 +625,3 @@ static UINT rdpsnd_treat_wave(rdpsndPlugin* rdpsnd, wStream* s, size_t size)
+ 	WLog_Print(rdpsnd->log, WLOG_DEBUG,
+-	           "%s Wave: cBlockNo: %" PRIu8 " wTimeStamp: %" PRIu16 ", size: %" PRIdz,
++	           "%s Wave: cBlockNo: %" PRIu8 " wTimeStamp: %" PRIu16 ", size: %" PRIuz,
+ 	           rdpsnd_is_dyn_str(rdpsnd->dynamic), rdpsnd->cBlockNo, rdpsnd->wTimeStamp, size);
+diff --git a/channels/serial/client/serial_main.c b/channels/serial/client/serial_main.c
+index b3012c620..f8f95ce53 100644
+--- a/channels/serial/client/serial_main.c
++++ b/channels/serial/client/serial_main.c
+@@ -508,3 +508,3 @@ static UINT serial_process_irp(SERIAL_DEVICE* serial, IRP* irp)
+ 	           rdpdr_irp_string(irp->MajorFunction), irp->MajorFunction, WTSErrorToString(error),
+-	           error, NtStatus2Tag(irp->IoStatus), irp->IoStatus);
++	           error, NtStatus2Tag(irp->IoStatus), WINPR_CXX_COMPAT_CAST(UINT32, irp->IoStatus));
+ 
+@@ -949,3 +949,3 @@ FREERDP_ENTRY_POINT(
+ 
+-		WLog_Print(serial->log, WLOG_DEBUG, "Server's serial driver: %s (id: %d)", driver,
++		WLog_Print(serial->log, WLOG_DEBUG, "Server's serial driver: %s (id: %u)", driver,
+ 		           serial->ServerSerialDriverId);
+diff --git a/channels/urbdrc/client/data_transfer.c b/channels/urbdrc/client/data_transfer.c
+index 768c5446b..e2270e565 100644
+--- a/channels/urbdrc/client/data_transfer.c
++++ b/channels/urbdrc/client/data_transfer.c
+@@ -395,3 +395,3 @@ static UINT urbdrc_process_internal_io_control(IUDEVICE* pdev, GENERIC_CHANNEL_C
+ 	{
+-		WLog_Print(urbdrc->log, WLOG_DEBUG, "out_size %" PRIu32 " > OutputBufferSize %" PRIu32, 4,
++		WLog_Print(urbdrc->log, WLOG_DEBUG, "out_size %" PRIu32 " > OutputBufferSize %" PRIu32, 4u,
+ 		           OutputBufferSize);
+@@ -1316,3 +1316,3 @@ static UINT urb_pipe_request(IUDEVICE* pdev, GENERIC_CHANNEL_CALLBACK* callback,
+ 			if (rc < 0)
+-				WLog_Print(urbdrc->log, WLOG_DEBUG, "PIPE SET HALT: error %d", ret);
++				WLog_Print(urbdrc->log, WLOG_DEBUG, "PIPE SET HALT: error %u", ret);
+ 			else
+@@ -1329,3 +1329,3 @@ static UINT urb_pipe_request(IUDEVICE* pdev, GENERIC_CHANNEL_CALLBACK* callback,
+ 			if (rc < 0)
+-				WLog_Print(urbdrc->log, WLOG_DEBUG, "PIPE RESET: error %d", ret);
++				WLog_Print(urbdrc->log, WLOG_DEBUG, "PIPE RESET: error %u", ret);
+ 			else
+@@ -1411,3 +1411,4 @@ static UINT urb_get_current_frame_number(IUDEVICE* pdev, GENERIC_CHANNEL_CALLBAC
+ 	{
+-		WLog_Print(urbdrc->log, WLOG_WARN, "OutputBufferSize=%" PRIu32 ", expected 0");
++		WLog_Print(urbdrc->log, WLOG_WARN, "OutputBufferSize=%" PRIu32 ", expected 0",
++		           OutputBufferSize);
+ 	}
+diff --git a/channels/urbdrc/client/urbdrc_main.c b/channels/urbdrc/client/urbdrc_main.c
+index b94dd357c..f10962b8f 100644
+--- a/channels/urbdrc/client/urbdrc_main.c
++++ b/channels/urbdrc/client/urbdrc_main.c
+@@ -206,3 +206,4 @@ static UINT urbdrc_process_channel_create(GENERIC_CHANNEL_CALLBACK* callback, wS
+ 		WLog_Print(urbdrc->log, WLOG_WARN,
+-		           "server supports USB channel version %" PRIu32 ".%" PRIu32);
++		           "server supports USB channel version %" PRIu32 ".%" PRIu32, MajorVersion,
++		           MinorVersion);
+ 		WLog_Print(urbdrc->log, WLOG_WARN, "we only support channel version 1.0");
+diff --git a/client/SDL/SDL3/sdl_clip.cpp b/client/SDL/SDL3/sdl_clip.cpp
+index 9ea0c0549..ccf81b49b 100644
+--- a/client/SDL/SDL3/sdl_clip.cpp
++++ b/client/SDL/SDL3/sdl_clip.cpp
+@@ -229,3 +229,3 @@ bool sdlClip::handle_update(const SDL_ClipboardEvent& ev)
+ 
+-	WLog_Print(_log, WLOG_TRACE, "SDL has %d formats", nformats);
++	WLog_Print(_log, WLOG_TRACE, "SDL has %" PRIuz " formats", nformats);
+ 
+diff --git a/client/X11/xf_keyboard.c b/client/X11/xf_keyboard.c
+index 94ede4404..0347c0f2b 100644
+--- a/client/X11/xf_keyboard.c
++++ b/client/X11/xf_keyboard.c
+@@ -505,4 +505,5 @@ static int load_map_from_xkbfile(xfContext* xfc)
+ 			{
+-				WLog_Print(xfc->log, WLOG_WARN, "%4s: keycode: 0x%02X -> no RDP scancode found",
+-				           xkb_keyname, i);
++				WLog_Print(xfc->log, WLOG_WARN,
++				           "%4s: keycode: 0x%02" PRIx32 " -> no RDP scancode found", xkb_keyname,
++				           WINPR_ASSERTING_INT_CAST(UINT32, i));
+ 			}
+diff --git a/client/X11/xf_utils.c b/client/X11/xf_utils.c
+index f44d85cd8..0cd7d5bf1 100644
+--- a/client/X11/xf_utils.c
++++ b/client/X11/xf_utils.c
+@@ -133,4 +123,5 @@ Atom Logging_XInternAtom(wLog* log, Display* display, _Xconst char* atom_name, B
+ 	{
+-		WLog_Print(log, log_level, "XInternAtom(0x%08" PRIx32 ", %s, %s) -> 0x%08" PRIx32, display,
+-		           atom_name, only_if_exists ? "True" : "False", atom);
++		WLog_Print(log, log_level, "XInternAtom(%p, %s, %s) -> 0x%08" PRIx32, (void*)display,
++		           atom_name, only_if_exists ? "True" : "False",
++		           WINPR_CXX_COMPAT_CAST(UINT32, atom));
+ 	}
+@@ -154,4 +145,4 @@ int LogDynAndXChangeProperty_ex(wLog* log, const char* file, const char* fkt, si
+ 		write_log(log, log_level, file, fkt, line,
+-		          "XChangeProperty(%p, %d, %s [%d], %s [%d], %d, %d, %p, %d)", display, w, propstr,
+-		          property, typestr, type, format, mode, data, nelements);
++		          "XChangeProperty(%p, %lu, %s [%lu], %s [%lu], %d, %d, %p, %d)", (void*)display, w,
++		          propstr, property, typestr, type, format, mode, (const void*)data, nelements);
+ 		XFree(propstr);
+@@ -170,4 +161,4 @@ int LogDynAndXDeleteProperty_ex(wLog* log, const char* file, const char* fkt, si
+ 		char* propstr = Safe_XGetAtomName(log, display, property);
+-		write_log(log, log_level, file, fkt, line, "XDeleteProperty(%p, %d, %s [%d])", display, w,
+-		          propstr, property);
++		write_log(log, log_level, file, fkt, line, "XDeleteProperty(%p, %lu, %s [%lu])",
++		          (void*)display, w, propstr, property);
+ 		XFree(propstr);
+@@ -189,4 +180,4 @@ int LogDynAndXConvertSelection_ex(wLog* log, const char* file, const char* fkt,
+ 		write_log(log, log_level, file, fkt, line,
+-		          "XConvertSelection(%p, %s [%d], %s [%d], %s [%d], %d, %lu)", display, selectstr,
+-		          selection, targetstr, target, propstr, property, requestor, time);
++		          "XConvertSelection(%p, %s [%lu], %s [%lu], %s [%lu], %lu, %lu)", (void*)display,
++		          selectstr, selection, targetstr, target, propstr, property, requestor, time);
+ 		XFree(propstr);
+@@ -211,7 +202,8 @@ int LogDynAndXGetWindowProperty_ex(wLog* log, const char* file, const char* fkt,
+ 		char* req_type_str = Safe_XGetAtomName(log, display, req_type);
+-		write_log(log, log_level, file, fkt, line,
+-		          "XGetWindowProperty(%p, %d, %s [%d], %ld, %ld, %d, %s [%d], %p, %p, %p, %p, %p)",
+-		          display, w, propstr, property, long_offset, long_length, delete, req_type_str,
+-		          req_type, actual_type_return, actual_format_return, nitems_return,
+-		          bytes_after_return, prop_return);
++		write_log(
++		    log, log_level, file, fkt, line,
++		    "XGetWindowProperty(%p, %lu, %s [%lu], %ld, %ld, %d, %s [%lu], %p, %p, %p, %p, %p)",
++		    (void*)display, w, propstr, property, long_offset, long_length, delete, req_type_str,
++		    req_type, (void*)actual_type_return, (void*)actual_format_return, (void*)nitems_return,
++		    (void*)bytes_after_return, (void*)prop_return);
+ 		XFree(propstr);
+diff --git a/client/common/client_cliprdr_file.c b/client/common/client_cliprdr_file.c
+index 9769b9298..3f4c513bc 100644
+--- a/client/common/client_cliprdr_file.c
++++ b/client/common/client_cliprdr_file.c
+@@ -1355,4 +1355,4 @@ static BOOL dump_streams(const void* key, void* value, WINPR_ATTR_UNUSED void* a
+ 		const CliprdrLocalFile* file = &cur->files[x];
+-		writelog(cur->context->log, WLOG_WARN, __FILE__, __func__, __LINE__, "file [%" PRIuz "] ",
+-		         x, file->name, file->size);
++		writelog(cur->context->log, WLOG_WARN, __FILE__, __func__, __LINE__,
++		         "file [%" PRIuz "] %s: %" PRId64, x, file->name, file->size);
+ 	}
+@@ -1377,3 +1377,3 @@ static CliprdrLocalFile* file_info_for_request(CliprdrFileContext* file, UINT32
+ 			writelog(file->log, WLOG_WARN, __FILE__, __func__, __LINE__,
+-			         "invalid entry index for lockID %" PRIu32 ", index %" PRIu32 " [count %" PRIu32
++			         "invalid entry index for lockID %" PRIu32 ", index %" PRIu32 " [count %" PRIuz
+ 			         "] [locked %d]",
+@@ -2499,3 +2499,3 @@ BOOL cliprdr_file_context_update_client_data(CliprdrFileContext* file, const cha
+ 
+-	WLog_Print(file->log, WLOG_DEBUG, "update client file list (stream=%p)...", stream);
++	WLog_Print(file->log, WLOG_DEBUG, "update client file list (stream=%p)...", (void*)stream);
+ 	if (stream)
+diff --git a/libfreerdp/codec/dsp.c b/libfreerdp/codec/dsp.c
+index cf0d70a09..dbd11f1b0 100644
+--- a/libfreerdp/codec/dsp.c
++++ b/libfreerdp/codec/dsp.c
+@@ -748,3 +748,3 @@ static const struct
+ 
+-static BYTE dsp_encode_ima_adpcm_sample(ADPCM* WINPR_RESTRICT adpcm, int channel, INT16 sample)
++static BYTE dsp_encode_ima_adpcm_sample(ADPCM* WINPR_RESTRICT adpcm, size_t channel, INT16 sample)
+ {
+@@ -894,3 +894,3 @@ static const INT32 ms_adpcm_coeffs2[7] = { 0, -256, 0, 64, 0, -208, -232 };
+ static INLINE INT16 freerdp_dsp_decode_ms_adpcm_sample(ADPCM* WINPR_RESTRICT adpcm, BYTE sample,
+-                                                       int channel)
++                                                       size_t channel)
+ {
+diff --git a/libfreerdp/codec/progressive.c b/libfreerdp/codec/progressive.c
+index c7ccf730f..6396e0f2a 100644
+--- a/libfreerdp/codec/progressive.c
++++ b/libfreerdp/codec/progressive.c
+@@ -1630,4 +1630,4 @@ static INLINE SSIZE_T progressive_process_tiles(
+ 		{
+-			WLog_Print(progressive->log, WLOG_ERROR, "Expected >= %" PRIu32 " remaining %" PRIuz, 6,
+-			           blockLen);
++			WLog_Print(progressive->log, WLOG_ERROR, "Expected >= %" PRIu32 " remaining %" PRIu32,
++			           6u, blockLen);
+ 			return -1003;
+@@ -1760,3 +1760,3 @@ static INLINE SSIZE_T progressive_wb_sync(PROGRESSIVE_CONTEXT* WINPR_RESTRICT pr
+ 		           "PROGRESSIVE_BLOCK_SYNC::blockLen = 0x%08" PRIx32 " != 0x%08" PRIx32,
+-		           sync.blockLen, 12);
++		           sync.blockLen, 12u);
+ 		return -1005;
+@@ -1810,3 +1810,3 @@ static INLINE SSIZE_T progressive_wb_frame_begin(PROGRESSIVE_CONTEXT* WINPR_REST
+ 		           " RFX_PROGRESSIVE_FRAME_BEGIN::blockLen = 0x%08" PRIx32 " != 0x%08" PRIx32,
+-		           frameBegin.blockLen, 12);
++		           frameBegin.blockLen, 12u);
+ 		return -1005;
+@@ -1862,3 +1862,3 @@ static INLINE SSIZE_T progressive_wb_frame_end(PROGRESSIVE_CONTEXT* WINPR_RESTRI
+ 		           " RFX_PROGRESSIVE_FRAME_END::blockLen = 0x%08" PRIx32 " != 0x%08" PRIx32,
+-		           frameEnd.blockLen, 6);
++		           frameEnd.blockLen, 6u);
+ 		return -1005;
+@@ -1869,4 +1869,4 @@ static INLINE SSIZE_T progressive_wb_frame_end(PROGRESSIVE_CONTEXT* WINPR_RESTRI
+ 		WLog_Print(progressive->log, WLOG_ERROR,
+-		           "ProgressiveFrameEnd short %" PRIuz ", expected %" PRIuz,
+-		           Stream_GetRemainingLength(s), 0);
++		           "ProgressiveFrameEnd short %" PRIuz ", expected %u",
++		           Stream_GetRemainingLength(s), 0U);
+ 		return -1008;
+@@ -1898,4 +1898,4 @@ static INLINE SSIZE_T progressive_wb_context(PROGRESSIVE_CONTEXT* WINPR_RESTRICT
+ 		WLog_Print(progressive->log, WLOG_ERROR,
+-		           "RFX_PROGRESSIVE_CONTEXT::blockLen = 0x%08" PRIx32 " != 0x%08" PRIx32,
+-		           context->blockLen, 10);
++		           "RFX_PROGRESSIVE_CONTEXT::blockLen = 0x%08" PRIx32 " != 0x%08x",
++		           context->blockLen, 10u);
+ 		return -1005;
+@@ -1957,4 +1957,3 @@ static INLINE SSIZE_T progressive_wb_read_region_header(
+ 		WLog_Print(progressive->log, WLOG_ERROR,
+-		           "ProgressiveRegion tile size %" PRIu8 ", expected %" PRIuz, region->tileSize,
+-		           64);
++		           "ProgressiveRegion tile size %" PRIu8 ", expected %u", region->tileSize, 64U);
+ 		return -1012;
+@@ -1972,4 +1971,4 @@ static INLINE SSIZE_T progressive_wb_read_region_header(
+ 		WLog_Print(progressive->log, WLOG_ERROR,
+-		           "ProgressiveRegion quant count too high %" PRIu8 ", expected < %" PRIuz,
+-		           region->numQuant, 7);
++		           "ProgressiveRegion quant count too high %" PRIu8 ", expected < %u",
++		           region->numQuant, 7U);
+ 		return -1014;
+diff --git a/libfreerdp/codec/rfx.c b/libfreerdp/codec/rfx.c
+index 12f17e213..8832cd740 100644
+--- a/libfreerdp/codec/rfx.c
++++ b/libfreerdp/codec/rfx.c
+@@ -924,4 +924,4 @@ static INLINE BOOL rfx_process_message_tileset(RFX_CONTEXT* WINPR_RESTRICT conte
+ 		WLog_Print(context->priv->log, WLOG_DEBUG,
+-		           "quant %d (%" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32
+-		           " %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 ").",
++		           "quant %" PRIuz " (%" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32
++		           " %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 ").",
+ 		           i, context->quants[i * 10], context->quants[i * 10 + 1],
+@@ -987,4 +987,4 @@ static INLINE BOOL rfx_process_message_tileset(RFX_CONTEXT* WINPR_RESTRICT conte
+ 				WLog_Print(context->priv->log, WLOG_ERROR,
+-				           "RfxMessageTileSet packet too small to read tile %d/%" PRIu16 "", i,
+-				           message->numTiles);
++				           "RfxMessageTileSet packet too small to read tile %" PRIuz "/%" PRIu16 "",
++				           i, message->numTiles);
+ 				rc = FALSE;
+@@ -1007,3 +1007,3 @@ static INLINE BOOL rfx_process_message_tileset(RFX_CONTEXT* WINPR_RESTRICT conte
+ 				WLog_Print(context->priv->log, WLOG_ERROR,
+-				           "RfxMessageTileSet not enough bytes to read tile %d/%" PRIu16
++				           "RfxMessageTileSet not enough bytes to read tile %" PRIuz "/%" PRIu16
+ 				           " with blocklen=%" PRIu32 "",
+@@ -1224,3 +1224,3 @@ BOOL rfx_process_message(RFX_CONTEXT* WINPR_RESTRICT context, const BYTE* WINPR_
+ 			WLog_Print(context->priv->log, WLOG_ERROR,
+-			           "blockLen too small(%" PRIu32 "), must be >= 6 + %" PRIu16, blockLen,
++			           "blockLen too small(%" PRIu32 "), must be >= 6 + %" PRIuz, blockLen,
+ 			           extraBlockLen);
+diff --git a/libfreerdp/common/assistance.c b/libfreerdp/common/assistance.c
+index dfdfff890..d45017ec1 100644
+--- a/libfreerdp/common/assistance.c
++++ b/libfreerdp/common/assistance.c
+@@ -1470,5 +1470,5 @@ void freerdp_assistance_print_file(rdpAssistanceFile* file, wLog* log, DWORD lev
+ 
+-		WLog_Print(log, level, "MachineAddress [%" PRIdz ": %s", x, addr);
+-		WLog_Print(log, level, "MachinePort    [%" PRIdz ": %" PRIu32, x, port);
+-		WLog_Print(log, level, "MachineURI     [%" PRIdz ": %s", x, uri);
++		WLog_Print(log, level, "MachineAddress [%" PRIuz ": %s", x, addr);
++		WLog_Print(log, level, "MachinePort    [%" PRIuz ": %" PRIu32, x, port);
++		WLog_Print(log, level, "MachineURI     [%" PRIuz ": %s", x, uri);
+ 	}
+diff --git a/libfreerdp/core/aad.c b/libfreerdp/core/aad.c
+index 5bbfca9bb..7099c2422 100644
+--- a/libfreerdp/core/aad.c
++++ b/libfreerdp/core/aad.c
+@@ -508,3 +508,3 @@ static int aad_send_auth_request(rdpAad* aad, const char* ts_nonce)
+ 	{
+-		WLog_Print(aad->log, WLOG_ERROR, "transport_write [%" PRIdz " bytes] failed",
++		WLog_Print(aad->log, WLOG_ERROR, "transport_write [%" PRIuz " bytes] failed",
+ 		           Stream_Length(s));
+@@ -595,3 +595,3 @@ int aad_recv(rdpAad* aad, wStream* s)
+ 		default:
+-			WLog_Print(aad->log, WLOG_ERROR, "Invalid AAD_STATE %d", aad->state);
++			WLog_Print(aad->log, WLOG_ERROR, "Invalid AAD_STATE %u", aad->state);
+ 			return -1;
+diff --git a/libfreerdp/core/autodetect.c b/libfreerdp/core/autodetect.c
+index 0262ee630..90f65ee53 100644
+--- a/libfreerdp/core/autodetect.c
++++ b/libfreerdp/core/autodetect.c
+@@ -239,4 +239,4 @@ autodetect_send_bandwidth_measure_payload(rdpAutoDetect* autodetect,
+ 	{
+-		WLog_Print(autodetect->log, WLOG_ERROR, "Failed to ensure %" PRIuz " bytes in stream",
+-		           8ull + payloadLength);
++		WLog_Print(autodetect->log, WLOG_ERROR, "Failed to ensure %lu bytes in stream",
++		           8ul + payloadLength);
+ 		Stream_Release(s);
+@@ -300,3 +300,3 @@ static BOOL autodetect_send_bandwidth_measure_stop(rdpAutoDetect* autodetect,
+ 				WLog_Print(autodetect->log, WLOG_ERROR,
+-				           "Failed to ensure %" PRIuz " bytes in stream", payloadLength);
++				           "Failed to ensure %" PRIu16 " bytes in stream", payloadLength);
+ 				Stream_Release(s);
+diff --git a/libfreerdp/core/capabilities.c b/libfreerdp/core/capabilities.c
+index d6062caad..b52f71f33 100644
+--- a/libfreerdp/core/capabilities.c
++++ b/libfreerdp/core/capabilities.c
+@@ -218,3 +218,4 @@ static BOOL rdp_read_general_capability_set(wLog* log, wStream* s, rdpSettings*
+ 		           ") != TS_CAPS_PROTOCOLVERSION(0x%04" PRIx32 ")",
+-		           settings->CapsProtocolVersion, TS_CAPS_PROTOCOLVERSION);
++		           settings->CapsProtocolVersion,
++		           WINPR_CXX_COMPAT_CAST(UINT32, TS_CAPS_PROTOCOLVERSION));
+ 		if (settings->CapsProtocolVersion == 0x0000)
+@@ -286,4 +287,5 @@ static BOOL rdp_write_general_capability_set(wLog* log, wStream* s, const rdpSet
+ 		           "OsMajorType=%08" PRIx32 ", OsMinorType=%08" PRIx32
+-		           " they need to be smaller %04" PRIx16,
+-		           settings->OsMajorType, settings->OsMinorType, UINT16_MAX);
++		           " they need to be smaller %04" PRIx32,
++		           settings->OsMajorType, settings->OsMinorType,
++		           WINPR_CXX_COMPAT_CAST(UINT32, UINT16_MAX));
+ 		return FALSE;
+@@ -295,3 +297,4 @@ static BOOL rdp_write_general_capability_set(wLog* log, wStream* s, const rdpSet
+ 		           ") != TS_CAPS_PROTOCOLVERSION(0x%04" PRIx32 ")",
+-		           settings->CapsProtocolVersion, TS_CAPS_PROTOCOLVERSION);
++		           settings->CapsProtocolVersion,
++		           WINPR_CXX_COMPAT_CAST(UINT32, TS_CAPS_PROTOCOLVERSION));
+ 		return FALSE;
+@@ -1134,3 +1137,4 @@ static BOOL rdp_read_pointer_capability_set(wLog* log, wStream* s, rdpSettings*
+ 		           "(TS_POINTER_CAPABILITYSET)::colorPointerFlag received is %" PRIu16
+-		           ". Value is ignored and always assumed to be TRUE");
++		           ". Value is ignored and always assumed to be TRUE",
++		           colorPointerFlag);
+ 	}
+@@ -2876,3 +2880,4 @@ static BOOL rdp_read_large_pointer_capability_set(wLog* log, wStream* s, rdpSett
+ 		    "TS_LARGE_POINTER_CAPABILITYSET with unsupported flags %04X (all flags %04X) received",
+-		    largePointerSupportFlags & ~(LARGE_POINTER_FLAG_96x96 | LARGE_POINTER_FLAG_384x384),
++		    WINPR_CXX_COMPAT_CAST(UINT32, largePointerSupportFlags & ~(LARGE_POINTER_FLAG_96x96 |
++		                                                               LARGE_POINTER_FLAG_384x384)),
+ 		    largePointerSupportFlags);
+@@ -3158,3 +3163,3 @@ static BOOL rdp_read_codec_ts_rfx_icap(wLog* log, wStream* sub, rdpSettings* set
+ 		           " unsupported, expecting size %" PRIu16 " not supported",
+-		           icapLen, 8);
++		           icapLen, 8u);
+ 		return FALSE;
+@@ -3236,4 +3241,4 @@ static BOOL rdp_read_codec_ts_rfx_icap(wLog* log, wStream* sub, rdpSettings* set
+ 		           "[MS-RDPRFX] 2.2.1.1.1.1.1 TS_RFX_ICAP::flags unknown value "
+-		           "0x%02" PRIx8,
+-		           (codecFlags & ~CODEC_MODE));
++		           "0x%02" PRIx32,
++		           WINPR_CXX_COMPAT_CAST(UINT32, (codecFlags & ~CODEC_MODE)));
+ 
+@@ -3364,3 +3369,3 @@ static BOOL rdp_read_codec_ts_rfx_caps(wLog* log, wStream* sub, rdpSettings* set
+ 		WLog_Print(log, WLOG_ERROR,
+-		           "[MS_RDPRFX] 2.2.1.1.1.1 TS_RFX_CAPSET::numIcaps[" PRIu16 "] != 1", numCapsets);
++		           "[MS_RDPRFX] 2.2.1.1.1.1 TS_RFX_CAPSET::numIcaps[%" PRIu16 "] != 1", numCapsets);
+ 		return FALSE;
+@@ -4564,3 +4569,3 @@ static BOOL rdp_read_capability_sets(wLog* log, wStream* s, rdpSettings* setting
+ 	{
+-		WLog_Print(log, WLOG_ERROR, "Capability length expected %" PRIu16 ", actual %" PRIdz,
++		WLog_Print(log, WLOG_ERROR, "Capability length expected %" PRIu16 ", actual %" PRIuz,
+ 		           totalLength, len);
+diff --git a/libfreerdp/core/gateway/arm.c b/libfreerdp/core/gateway/arm.c
+index 6afebaf03..42e281ee4 100644
+--- a/libfreerdp/core/gateway/arm.c
++++ b/libfreerdp/core/gateway/arm.c
+@@ -411,4 +411,4 @@ static WINPR_CIPHER_CTX* treatAuthBlob(wLog* log, const BYTE* pbInput, size_t cb
+ 	{
+-		WLog_Print(log, WLOG_ERROR, "unsupported authBlob version %d, expecting %d", dwVersion,
+-		           BCRYPT_KEY_DATA_BLOB_VERSION1);
++		WLog_Print(log, WLOG_ERROR, "unsupported authBlob version %" PRIu32 ", expecting %d",
++		           dwVersion, BCRYPT_KEY_DATA_BLOB_VERSION1);
+ 		return NULL;
+diff --git a/libfreerdp/core/gateway/rdg.c b/libfreerdp/core/gateway/rdg.c
+index a7b0591ea..0b16142bd 100644
+--- a/libfreerdp/core/gateway/rdg.c
++++ b/libfreerdp/core/gateway/rdg.c
+@@ -1002,3 +1002,3 @@ static BOOL rdg_process_extauth_sspi(rdpRdg* rdg, wStream* s)
+ 		WLog_Print(rdg->log, WLOG_ERROR, "EXTAUTH_SSPI_NTLM failed with error %s [0x%08X]",
+-		           GetSecurityStatusString(errorCode), errorCode);
++		           GetSecurityStatusString(errorCode), WINPR_CXX_COMPAT_CAST(UINT32, errorCode));
+ 		return FALSE;
+@@ -1086,3 +1086,3 @@ static BOOL rdg_process_packet(rdpRdg* rdg, wStream* s)
+ 	{
+-		WLog_Print(rdg->log, WLOG_ERROR, "Short packet %" PRIuz ", expected %" PRIuz,
++		WLog_Print(rdg->log, WLOG_ERROR, "Short packet %" PRIuz ", expected %" PRIu32,
+ 		           Stream_Length(s), packetLength);
+@@ -1779,3 +1779,4 @@ static BOOL rdg_process_unknown_packet(rdpRdg* rdg, int type)
+ 	WINPR_UNUSED(type);
+-	WLog_Print(rdg->log, WLOG_WARN, "Unknown Control Packet received: %X", type);
++	WLog_Print(rdg->log, WLOG_WARN, "Unknown Control Packet received: %" PRIX32,
++	           WINPR_CXX_COMPAT_CAST(UINT32, type));
+ 	return TRUE;
+diff --git a/libfreerdp/core/gateway/rpc_client.c b/libfreerdp/core/gateway/rpc_client.c
+index ce6de8ea4..b1a1fda83 100644
+--- a/libfreerdp/core/gateway/rpc_client.c
++++ b/libfreerdp/core/gateway/rpc_client.c
+@@ -327,3 +327,3 @@ static int rpc_client_recv_pdu_int(rdpRpc* rpc, RPC_PDU* pdu)
+ 		{
+-			WLog_Print(rpc->log, WLOG_ERROR, "invalid rpc->State: %d", rpc->State);
++			WLog_Print(rpc->log, WLOG_ERROR, "invalid rpc->State: %u", rpc->State);
+ 		}
+diff --git a/libfreerdp/core/gateway/rts.c b/libfreerdp/core/gateway/rts.c
+index c0b851c33..fc1d56169 100644
+--- a/libfreerdp/core/gateway/rts.c
++++ b/libfreerdp/core/gateway/rts.c
+@@ -1256,5 +1256,6 @@ static BOOL rts_receive_window_size_command_read(rdpRpc* rpc, wStream* buffer,
+ 		WLog_Print(rpc->log, WLOG_ERROR,
+-		           "[MS-RPCH] 2.2.3.5.1 ReceiveWindowSize::CommandType must be 0x08" PRIx32 ", got "
++		           "[MS-RPCH] 2.2.3.5.1 ReceiveWindowSize::CommandType must be 0x%08" PRIx32
++		           ", got "
+ 		           "0x%08" PRIx32,
+-		           RTS_CMD_RECEIVE_WINDOW_SIZE, CommandType);
++		           WINPR_CXX_COMPAT_CAST(UINT32, RTS_CMD_RECEIVE_WINDOW_SIZE), CommandType);
+ 		return FALSE;
+@@ -1356,5 +1357,6 @@ static BOOL rts_connection_timeout_command_read(WINPR_ATTR_UNUSED rdpRpc* rpc, w
+ 		WLog_Print(rpc->log, WLOG_ERROR,
+-		           "[MS-RPCH] 2.2.3.5.3 ConnectionTimeout::CommandType must be 0x08" PRIx32 ", got "
++		           "[MS-RPCH] 2.2.3.5.3 ConnectionTimeout::CommandType must be 0x%08" PRIx32
++		           ", got "
+ 		           "0x%08" PRIx32,
+-		           RTS_CMD_CONNECTION_TIMEOUT, CommandType);
++		           WINPR_CXX_COMPAT_CAST(UINT32, RTS_CMD_CONNECTION_TIMEOUT), CommandType);
+ 		return FALSE;
+@@ -1424,5 +1426,5 @@ static BOOL rts_version_command_read(rdpRpc* rpc, wStream* buffer, uint32_t* pve
+ 		WLog_Print(rpc->log, WLOG_ERROR,
+-		           "[MS-RPCH] 2.2.3.5.7 Version::CommandType must be 0x08" PRIx32 ", got "
++		           "[MS-RPCH] 2.2.3.5.7 Version::CommandType must be 0x%08" PRIx32 ", got "
+ 		           "0x%08" PRIx32,
+-		           RTS_CMD_VERSION, CommandType);
++		           WINPR_CXX_COMPAT_CAST(UINT32, RTS_CMD_VERSION), CommandType);
+ 		return FALSE;
+@@ -1660,3 +1662,3 @@ BOOL rts_recv_CONN_A3_pdu(rdpRpc* rpc, wStream* buffer)
+ 		           ", expected 0x%08" PRIx32,
+-		           header.rts.Flags, RTS_FLAG_NONE);
++		           header.rts.Flags, WINPR_CXX_COMPAT_CAST(UINT32, RTS_FLAG_NONE));
+ 		goto fail;
+@@ -1769,3 +1771,3 @@ BOOL rts_recv_CONN_C2_pdu(rdpRpc* rpc, wStream* buffer)
+ 		           ", expected 0x%08" PRIx32,
+-		           header.rts.Flags, RTS_FLAG_NONE);
++		           header.rts.Flags, WINPR_CXX_COMPAT_CAST(UINT32, RTS_FLAG_NONE));
+ 		goto fail;
+diff --git a/libfreerdp/core/gateway/tsg.c b/libfreerdp/core/gateway/tsg.c
+index 873adf977..85640f820 100644
+--- a/libfreerdp/core/gateway/tsg.c
++++ b/libfreerdp/core/gateway/tsg.c
+@@ -1572,3 +1572,3 @@ static BOOL tsg_ndr_read_TSG_PACKET_MSG_RESPONSE(wLog* log, rdpContext* context,
+ 		WLog_Print(log, WLOG_DEBUG,
+-		           "Message {0x%08" PRIx32 "} [%s]::isMsgPresent=%" PRIu32 ", MsgPtr=0x%08" PRIx32,
++		           "Message {0x%08" PRIx32 "} [%s]::isMsgPresent=%" PRId32 ", MsgPtr=0x%08" PRIx32,
+ 		           pkg->msgType, tsg_packet_id_to_string(pkg->msgType), pkg->isMsgPresent, MsgPtr);
+diff --git a/libfreerdp/core/license.c b/libfreerdp/core/license.c
+index 2449af948..0115f0dd8 100644
+--- a/libfreerdp/core/license.c
++++ b/libfreerdp/core/license.c
+@@ -1187,4 +1187,4 @@ BOOL license_encrypt_premaster_secret(rdpLicense* license)
+ 	{
+-		WLog_Print(license->log, WLOG_ERROR, "info=%p, license->certificate=%p", info,
+-		           license->certificate);
++		WLog_Print(license->log, WLOG_ERROR, "info=%p, license->certificate=%p", (const void*)info,
++		           (void*)license->certificate);
+ 		return FALSE;
+@@ -1204,3 +1204,3 @@ BOOL license_encrypt_premaster_secret(rdpLicense* license)
+ 		           "EncryptedPremasterSecret=%p, info->ModulusLength=%" PRIu32,
+-		           EncryptedPremasterSecret, info->ModulusLength);
++		           (const void*)EncryptedPremasterSecret, info->ModulusLength);
+ 		return FALSE;
+@@ -1217,5 +1217,4 @@ BOOL license_encrypt_premaster_secret(rdpLicense* license)
+ 		{
+-			WLog_Print(license->log, WLOG_ERROR,
+-			           "RSA public encrypt length=%" PRIdz " < 0 || > %" PRIu16, length,
+-			           UINT16_MAX);
++			WLog_Print(license->log, WLOG_ERROR, "RSA public encrypt length=%" PRIdz " < 0 || > %d",
++			           length, UINT16_MAX);
+ 			return FALSE;
+@@ -1262,3 +1261,3 @@ error_buffer:
+ 	WLog_Print(license->log, WLOG_ERROR, "Failed to create/update RC4: len=%" PRIuz ", buffer=%p",
+-	           len, buffer);
++	           len, (const void*)buffer);
+ 	winpr_RC4_Free(rc4);
+@@ -1504,3 +1503,3 @@ BOOL license_read_binary_blob_data(wLog* log, LICENSE_BLOB* blob, UINT16 wBlobTy
+ 		WLog_Print(log, WLOG_ERROR, "license binary blob::length=%" PRIu16 ", blob::data=%p",
+-		           blob->length, blob->data);
++		           blob->length, (const void*)blob->data);
+ 		return FALSE;
+@@ -2186,4 +2185,4 @@ BOOL license_read_new_or_upgrade_license_packet(rdpLicense* license, wStream* s)
+ 		WLog_Print(license->log, WLOG_ERROR,
+-		           "license::blob::data=%p, license::blob::length=%" PRIu16, calBlob->data,
+-		           calBlob->length);
++		           "license::blob::data=%p, license::blob::length=%" PRIu16,
++		           (const void*)calBlob->data, calBlob->length);
+ 		goto fail;
+@@ -2908,4 +2907,4 @@ static BOOL license_set_string(wLog* log, const char* what, const char* value, B
+ 	{
+-		WLog_Print(log, WLOG_ERROR, "license->ProductInfo: %s == %p || %" PRIu32 " > UINT32_MAX",
+-		           what, *cnv.w, len);
++		WLog_Print(log, WLOG_ERROR, "license->ProductInfo: %s == %p || %" PRIuz " > UINT32_MAX",
++		           what, (void*)(*cnv.w), len);
+ 		return FALSE;
+@@ -2993,4 +2992,4 @@ BOOL license_server_configure(rdpLicense* license)
+ 			WLog_Print(license->log, WLOG_WARN,
+-			           "%s: Invalid issuer at position %" PRIuz ": length 0 < %" PRIuz
+-			           " <= %" PRIu16 " ['%s']",
++			           "Invalid issuer at position %" PRIuz ": length 0 < %" PRIuz " <= %d"
++			           " ['%s']",
+ 			           x, length, UINT16_MAX, name);
+diff --git a/libfreerdp/core/rdp.c b/libfreerdp/core/rdp.c
+index f50059b70..6e105fa42 100644
+--- a/libfreerdp/core/rdp.c
++++ b/libfreerdp/core/rdp.c
+@@ -278,5 +278,5 @@ BOOL rdp_read_share_control_header(rdpRdp* rdp, wStream* s, UINT16* tpktLength,
+ 		WLog_Print(rdp->log, WLOG_DEBUG,
+-		           "[Flow control PDU] type=%s, tpktLength=%" PRIuz ", remainingLength=%" PRIuz,
+-		           pdu_type_to_str(*type, buffer, sizeof(buffer)), tpktLength ? *tpktLength : 0,
+-		           remainingLength ? *remainingLength : 0);
++		           "[Flow control PDU] type=%s, tpktLength=%" PRIu16 ", remainingLength=%" PRIu16,
++		           pdu_type_to_str(*type, buffer, sizeof(buffer)), tpktLength ? *tpktLength : 0u,
++		           remainingLength ? *remainingLength : 0u);
+ 		return TRUE;
+@@ -313,3 +313,3 @@ BOOL rdp_read_share_control_header(rdpRdp* rdp, wStream* s, UINT16* tpktLength,
+ 	char buffer[128] = { 0 };
+-	WLog_Print(rdp->log, WLOG_DEBUG, "type=%s, tpktLength=%" PRIuz ", remainingLength=%" PRIuz,
++	WLog_Print(rdp->log, WLOG_DEBUG, "type=%s, tpktLength=%" PRIu16 ", remainingLength=%" PRIuz,
+ 	           pdu_type_to_str(*type, buffer, sizeof(buffer)), len, remLen);
+@@ -504,3 +504,3 @@ BOOL rdp_set_error_info(rdpRdp* rdp, UINT32 errorInfo)
+ 		else
+-			WLog_Print(rdp->log, WLOG_ERROR, "missing context=%p", context);
++			WLog_Print(rdp->log, WLOG_ERROR, "missing context=%p", (void*)context);
+ 	}
+@@ -1037,3 +1037,3 @@ static BOOL rdp_recv_server_set_keyboard_indicators_pdu(rdpRdp* rdp, wStream* s)
+ 		           "[MS-RDPBCGR] 2.2.8.2.1.1 Set Keyboard Indicators PDU Data "
+-		           "(TS_SET_KEYBOARD_INDICATORS_PDU)::unitId should be 0, is %" PRIu8,
++		           "(TS_SET_KEYBOARD_INDICATORS_PDU)::unitId should be 0, is %" PRIu16,
+ 		           unitId);
+@@ -1057,3 +1057,3 @@ static BOOL rdp_recv_server_set_keyboard_ime_status_pdu(rdpRdp* rdp, wStream* s)
+ 		           "[MS-RDPBCGR] 2.2.8.2.2.1 Set Keyboard IME Status PDU Data "
+-		           "(TS_SET_KEYBOARD_IME_STATUS_PDU)::unitId should be 0, is %" PRIu8,
++		           "(TS_SET_KEYBOARD_IME_STATUS_PDU)::unitId should be 0, is %" PRIu16,
+ 		           unitId);
+@@ -1776,3 +1776,3 @@ static state_run_t rdp_recv_tpkt_pdu(rdpRdp* rdp, wStream* s)
+ 				WLog_Print(rdp->log, WLOG_WARN,
+-				           "pduType %s not properly parsed, %" PRIdz
++				           "pduType %s not properly parsed, %" PRIuz
+ 				           " bytes remaining unhandled. Skipping.",
+@@ -2173,3 +2173,3 @@ static state_run_t rdp_recv_callback_int(WINPR_ATTR_UNUSED rdpTransport* transpo
+ 		default:
+-			WLog_Print(rdp->log, WLOG_ERROR, "%s state %d", rdp_get_state_string(rdp),
++			WLog_Print(rdp->log, WLOG_ERROR, "%s state %u", rdp_get_state_string(rdp),
+ 			           rdp_get_state(rdp));
+@@ -2965,3 +2965,3 @@ static void log_build_warn(rdpRdp* rdp, const char* what, const char* msg,
+ 			}
+-			WLog_Print(rdp->log, WLOG_WARN, "");
++			WLog_Print(rdp->log, WLOG_WARN, "*");
+ 			WLog_Print(rdp->log, WLOG_WARN, "[%s] build options %s", what, msg);
+diff --git a/libfreerdp/core/rdstls.c b/libfreerdp/core/rdstls.c
+index de35c73dc..8a896997e 100644
+--- a/libfreerdp/core/rdstls.c
++++ b/libfreerdp/core/rdstls.c
+@@ -174,3 +174,3 @@ static BOOL check_transition(wLog* log, RDSTLS_STATE current, RDSTLS_STATE expec
+ 		WLog_Print(log, WLOG_ERROR,
+-		           "Unexpected rdstls state transition from %s [%d] to %s [%d], expected %s [%d]",
++		           "Unexpected rdstls state transition from %s [%u] to %s [%u], expected %s [%u]",
+ 		           rdstls_get_state_str(current), current, rdstls_get_state_str(requested),
+@@ -209,3 +209,3 @@ static BOOL rdstls_set_state(rdpRdstls* rdstls, RDSTLS_STATE state)
+ 			WLog_Print(rdstls->log, WLOG_ERROR,
+-			           "Invalid rdstls state %s [%d], requested transition to %s [%d]",
++			           "Invalid rdstls state %s [%u], requested transition to %s [%u]",
+ 			           rdstls_get_state_str(rdstls->state), rdstls->state,
+@@ -337,4 +337,4 @@ static BOOL rdstls_process_capabilities(rdpRdstls* rdstls, wStream* s)
+ 		WLog_Print(rdstls->log, WLOG_ERROR,
+-		           "received invalid DataType=0x%04" PRIX16 ", expected 0x%04" PRIX16, dataType,
+-		           RDSTLS_DATA_CAPABILITIES);
++		           "received invalid DataType=0x%04" PRIX16 ", expected 0x%04" PRIX32, dataType,
++		           WINPR_CXX_COMPAT_CAST(UINT32, RDSTLS_DATA_CAPABILITIES));
+ 		return FALSE;
+@@ -346,4 +346,4 @@ static BOOL rdstls_process_capabilities(rdpRdstls* rdstls, wStream* s)
+ 		WLog_Print(rdstls->log, WLOG_ERROR,
+-		           "received invalid supportedVersions=0x%04" PRIX16 ", expected 0x%04" PRIX16,
+-		           supportedVersions, RDSTLS_VERSION_1);
++		           "received invalid supportedVersions=0x%04" PRIX16 ", expected 0x%04" PRIX32,
++		           supportedVersions, WINPR_CXX_COMPAT_CAST(UINT32, RDSTLS_VERSION_1));
+ 		return FALSE;
+@@ -542,5 +542,6 @@ static BOOL rdstls_process_authentication_request(rdpRdstls* rdstls, wStream* s)
+ 			WLog_Print(rdstls->log, WLOG_ERROR,
+-			           "received invalid DataType=0x%04" PRIX16 ", expected 0x%04" PRIX16
+-			           " or 0x%04" PRIX16,
+-			           dataType, RDSTLS_DATA_PASSWORD_CREDS, RDSTLS_DATA_AUTORECONNECT_COOKIE);
++			           "received invalid DataType=0x%04" PRIX16 ", expected 0x%04" PRIX32
++			           " or 0x%04" PRIX32,
++			           dataType, WINPR_CXX_COMPAT_CAST(UINT32, RDSTLS_DATA_PASSWORD_CREDS),
++			           WINPR_CXX_COMPAT_CAST(UINT32, RDSTLS_DATA_AUTORECONNECT_COOKIE));
+ 			return FALSE;
+@@ -563,4 +564,4 @@ static BOOL rdstls_process_authentication_response(rdpRdstls* rdstls, wStream* s
+ 		WLog_Print(rdstls->log, WLOG_ERROR,
+-		           "received invalid DataType=0x%04" PRIX16 ", expected 0x%04" PRIX16, dataType,
+-		           RDSTLS_DATA_RESULT_CODE);
++		           "received invalid DataType=0x%04" PRIX16 ", expected 0x%04" PRIX32, dataType,
++		           WINPR_CXX_COMPAT_CAST(UINT32, RDSTLS_DATA_RESULT_CODE));
+ 		return FALSE;
+@@ -657,3 +658,3 @@ static BOOL rdstls_send(WINPR_ATTR_UNUSED rdpTransport* transport, wStream* s, v
+ 		default:
+-			WLog_Print(rdstls->log, WLOG_ERROR, "Invalid rdstls state %s [%d]",
++			WLog_Print(rdstls->log, WLOG_ERROR, "Invalid rdstls state %s [%" PRIu32 "]",
+ 			           rdstls_get_state_str(state), state);
+@@ -686,3 +687,3 @@ static int rdstls_recv(WINPR_ATTR_UNUSED rdpTransport* transport, wStream* s, vo
+ 		           "received invalid RDSTLS Version=0x%04" PRIX16 ", expected 0x%04" PRIX16,
+-		           version, RDSTLS_VERSION_1);
++		           version, WINPR_CXX_COMPAT_CAST(UINT32, RDSTLS_VERSION_1));
+ 		return -1;
+diff --git a/libfreerdp/core/tpkt.c b/libfreerdp/core/tpkt.c
+index 5d7beef20..d446b953a 100644
+--- a/libfreerdp/core/tpkt.c
++++ b/libfreerdp/core/tpkt.c
+@@ -138,3 +138,3 @@ BOOL tpkt_ensure_stream_consumed_(wLog* log, wStream* s, size_t length, const ch
+ 	{
+-		WLog_Print(log, WLOG_ERROR, "[%s] length %" PRIuz " > %" PRIu16, fkt, length, UINT16_MAX);
++		WLog_Print(log, WLOG_ERROR, "[%s] length %" PRIuz " > %d", fkt, length, UINT16_MAX);
+ 		return FALSE;
+@@ -146,3 +146,3 @@ BOOL tpkt_ensure_stream_consumed_(wLog* log, wStream* s, size_t length, const ch
+ 		WLog_Print(log, WLOG_ERROR,
+-		           "[%s] Received invalid TPKT header length %" PRIu16 ", %" PRIdz
++		           "[%s] Received invalid TPKT header length %" PRIuz ", %" PRIuz
+ 		           " bytes too long!",
+diff --git a/libfreerdp/core/window.c b/libfreerdp/core/window.c
+index 9ce080cf8..e51a0cf7c 100644
+--- a/libfreerdp/core/window.c
++++ b/libfreerdp/core/window.c
+@@ -804,3 +804,3 @@ static void dump_window_state_order(wLog* log, const char* msg, const WINDOW_ORD
+ 
+-	WLog_Print(log, WLOG_DEBUG, buffer);
++	WLog_Print(log, WLOG_DEBUG, "%s", buffer);
+ }
+@@ -1082,3 +1082,3 @@ static void dump_monitored_desktop(wLog* log, const char* msg, const WINDOW_ORDE
+ 	}
+-	WLog_Print(log, WLOG_DEBUG, buffer);
++	WLog_Print(log, WLOG_DEBUG, "%s", buffer);
+ }
+diff --git a/libfreerdp/emu/scard/smartcard_emulate.c b/libfreerdp/emu/scard/smartcard_emulate.c
+index bb613c33b..f8c67dd78 100644
+--- a/libfreerdp/emu/scard/smartcard_emulate.c
++++ b/libfreerdp/emu/scard/smartcard_emulate.c
+@@ -407,3 +407,3 @@ LONG WINAPI Emulate_SCardEstablishContext(SmartcardEmulationContext* smartcard,
+ 	           "SCardEstablishContext } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -434,3 +434,3 @@ LONG WINAPI Emulate_SCardReleaseContext(SmartcardEmulationContext* smartcard, SC
+ 	           "SCardReleaseContext } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -461,3 +461,3 @@ LONG WINAPI Emulate_SCardIsValidContext(SmartcardEmulationContext* smartcard, SC
+ 	           "SCardIsValidContext } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -484,3 +484,3 @@ LONG WINAPI Emulate_SCardListReaderGroupsA(
+ 	           "SCardListReaderGroupsA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -507,3 +507,3 @@ LONG WINAPI Emulate_SCardListReaderGroupsW(
+ 	           "SCardListReaderGroupsW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -546,3 +546,3 @@ LONG WINAPI Emulate_SCardListReadersA(SmartcardEmulationContext* smartcard, SCAR
+ 	           "SCardListReadersA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -590,3 +590,3 @@ LONG WINAPI Emulate_SCardListReadersW(SmartcardEmulationContext* smartcard, SCAR
+ 	           "SCardListReadersW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -618,3 +618,3 @@ LONG WINAPI Emulate_SCardListCardsA(SmartcardEmulationContext* smartcard, SCARDC
+ 	           "SCardListCardsA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -646,3 +646,3 @@ LONG WINAPI Emulate_SCardListCardsW(SmartcardEmulationContext* smartcard, SCARDC
+ 	           "SCardListCardsW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -670,3 +670,3 @@ LONG WINAPI Emulate_SCardListInterfacesA(
+ 	           "SCardListInterfacesA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -694,3 +694,3 @@ LONG WINAPI Emulate_SCardListInterfacesW(
+ 	           "SCardListInterfacesW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -716,3 +716,3 @@ LONG WINAPI Emulate_SCardGetProviderIdA(SmartcardEmulationContext* smartcard, SC
+ 	           "SCardGetProviderIdA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -738,3 +738,3 @@ LONG WINAPI Emulate_SCardGetProviderIdW(SmartcardEmulationContext* smartcard, SC
+ 	           "SCardGetProviderIdW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -764,3 +764,3 @@ LONG WINAPI Emulate_SCardGetCardTypeProviderNameA(
+ 	           "SCardGetCardTypeProviderNameA } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -790,3 +790,3 @@ LONG WINAPI Emulate_SCardGetCardTypeProviderNameW(
+ 	           "SCardGetCardTypeProviderNameW } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -811,3 +811,3 @@ LONG WINAPI Emulate_SCardIntroduceReaderGroupA(SmartcardEmulationContext* smartc
+ 	           "SCardIntroduceReaderGroupA } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -832,3 +832,3 @@ LONG WINAPI Emulate_SCardIntroduceReaderGroupW(SmartcardEmulationContext* smartc
+ 	           "SCardIntroduceReaderGroupW } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -853,3 +853,3 @@ LONG WINAPI Emulate_SCardForgetReaderGroupA(SmartcardEmulationContext* smartcard
+ 	           "SCardForgetReaderGroupA } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -874,3 +874,3 @@ LONG WINAPI Emulate_SCardForgetReaderGroupW(SmartcardEmulationContext* smartcard
+ 	           "SCardForgetReaderGroupW } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -899,3 +899,3 @@ LONG WINAPI Emulate_SCardIntroduceReaderA(SmartcardEmulationContext* smartcard,
+ 	           "SCardIntroduceReaderA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -924,3 +924,3 @@ LONG WINAPI Emulate_SCardIntroduceReaderW(SmartcardEmulationContext* smartcard,
+ 	           "SCardIntroduceReaderW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -946,3 +946,3 @@ LONG WINAPI Emulate_SCardForgetReaderA(SmartcardEmulationContext* smartcard, SCA
+ 	           "SCardForgetReaderA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -968,3 +968,3 @@ LONG WINAPI Emulate_SCardForgetReaderW(SmartcardEmulationContext* smartcard, SCA
+ 	           "SCardForgetReaderW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -993,3 +993,3 @@ LONG WINAPI Emulate_SCardAddReaderToGroupA(SmartcardEmulationContext* smartcard,
+ 	           "SCardAddReaderToGroupA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1018,3 +1018,3 @@ LONG WINAPI Emulate_SCardAddReaderToGroupW(SmartcardEmulationContext* smartcard,
+ 	           "SCardAddReaderToGroupW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1043,3 +1043,3 @@ LONG WINAPI Emulate_SCardRemoveReaderFromGroupA(SmartcardEmulationContext* smart
+ 	           "SCardRemoveReaderFromGroupA } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1068,3 +1068,3 @@ LONG WINAPI Emulate_SCardRemoveReaderFromGroupW(SmartcardEmulationContext* smart
+ 	           "SCardRemoveReaderFromGroupW } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1098,3 +1098,3 @@ LONG WINAPI Emulate_SCardIntroduceCardTypeA(SmartcardEmulationContext* smartcard
+ 	           "SCardIntroduceCardTypeA } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1128,3 +1128,3 @@ LONG WINAPI Emulate_SCardIntroduceCardTypeW(SmartcardEmulationContext* smartcard
+ 	           "SCardIntroduceCardTypeW } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1152,3 +1152,3 @@ LONG WINAPI Emulate_SCardSetCardTypeProviderNameA(SmartcardEmulationContext* sma
+ 	           "SCardSetCardTypeProviderNameA } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1176,3 +1176,3 @@ LONG WINAPI Emulate_SCardSetCardTypeProviderNameW(SmartcardEmulationContext* sma
+ 	           "SCardSetCardTypeProviderNameW } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1197,3 +1197,3 @@ LONG WINAPI Emulate_SCardForgetCardTypeA(SmartcardEmulationContext* smartcard,
+ 	           "SCardForgetCardTypeA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1218,3 +1218,3 @@ LONG WINAPI Emulate_SCardForgetCardTypeW(SmartcardEmulationContext* smartcard,
+ 	           "SCardForgetCardTypeW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1241,3 +1241,3 @@ LONG WINAPI Emulate_SCardFreeMemory(SmartcardEmulationContext* smartcard, SCARDC
+ 	           "SCardFreeMemory } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1293,3 +1293,3 @@ LONG WINAPI Emulate_SCardLocateCardsA(SmartcardEmulationContext* smartcard, SCAR
+ 	           "SCardLocateCardsA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1317,3 +1317,3 @@ LONG WINAPI Emulate_SCardLocateCardsW(SmartcardEmulationContext* smartcard, SCAR
+ 	           "SCardLocateCardsW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1343,3 +1343,3 @@ LONG WINAPI Emulate_SCardLocateCardsByATRA(SmartcardEmulationContext* smartcard,
+ 	           "SCardLocateCardsByATRA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1369,3 +1369,3 @@ LONG WINAPI Emulate_SCardLocateCardsByATRW(SmartcardEmulationContext* smartcard,
+ 	           "SCardLocateCardsByATRW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1451,3 +1451,3 @@ LONG WINAPI Emulate_SCardGetStatusChangeA(SmartcardEmulationContext* smartcard,
+ 	           "SCardGetStatusChangeA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1532,3 +1532,3 @@ LONG WINAPI Emulate_SCardGetStatusChangeW(SmartcardEmulationContext* smartcard,
+ 	           "SCardGetStatusChangeW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1552,3 +1552,4 @@ LONG WINAPI Emulate_SCardCancel(SmartcardEmulationContext* smartcard, SCARDCONTE
+ 	WLog_Print(smartcard->log, smartcard->log_default_level,
+-	           "SCardCancel } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status), status);
++	           "SCardCancel } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1651,3 +1652,4 @@ LONG WINAPI Emulate_SCardConnectA(SmartcardEmulationContext* smartcard, SCARDCON
+ 	WLog_Print(smartcard->log, smartcard->log_default_level,
+-	           "SCardConnectA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status), status);
++	           "SCardConnectA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1676,3 +1678,4 @@ LONG WINAPI Emulate_SCardConnectW(SmartcardEmulationContext* smartcard, SCARDCON
+ 	WLog_Print(smartcard->log, smartcard->log_default_level,
+-	           "SCardConnectW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status), status);
++	           "SCardConnectW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1708,3 +1711,3 @@ LONG WINAPI Emulate_SCardReconnect(SmartcardEmulationContext* smartcard, SCARDHA
+ 	           "SCardReconnect } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1735,3 +1738,3 @@ LONG WINAPI Emulate_SCardDisconnect(SmartcardEmulationContext* smartcard, SCARDH
+ 	           "SCardDisconnect } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1759,3 +1762,3 @@ LONG WINAPI Emulate_SCardBeginTransaction(SmartcardEmulationContext* smartcard,
+ 	           "SCardBeginTransaction } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1786,3 +1789,3 @@ LONG WINAPI Emulate_SCardEndTransaction(SmartcardEmulationContext* smartcard, SC
+ 	           "SCardEndTransaction } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1810,3 +1813,3 @@ LONG WINAPI Emulate_SCardCancelTransaction(SmartcardEmulationContext* smartcard,
+ 	           "SCardCancelTransaction } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1868,3 +1871,4 @@ LONG WINAPI Emulate_SCardState(SmartcardEmulationContext* smartcard, SCARDHANDLE
+ 	WLog_Print(smartcard->log, smartcard->log_default_level,
+-	           "SCardState } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status), status);
++	           "SCardState } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1916,3 +1920,4 @@ LONG WINAPI Emulate_SCardStatusA(SmartcardEmulationContext* smartcard, SCARDHAND
+ 	WLog_Print(smartcard->log, smartcard->log_default_level,
+-	           "SCardStatusA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status), status);
++	           "SCardStatusA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -1963,3 +1968,4 @@ LONG WINAPI Emulate_SCardStatusW(SmartcardEmulationContext* smartcard, SCARDHAND
+ 	WLog_Print(smartcard->log, smartcard->log_default_level,
+-	           "SCardStatusW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status), status);
++	           "SCardStatusW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2009,3 +2015,4 @@ LONG WINAPI Emulate_SCardTransmit(SmartcardEmulationContext* smartcard, SCARDHAN
+ 	WLog_Print(smartcard->log, smartcard->log_default_level,
+-	           "SCardTransmit } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status), status);
++	           "SCardTransmit } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2035,3 +2042,3 @@ LONG WINAPI Emulate_SCardGetTransmitCount(SmartcardEmulationContext* smartcard,
+ 	           "SCardGetTransmitCount } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2064,3 +2071,4 @@ LONG WINAPI Emulate_SCardControl(
+ 	WLog_Print(smartcard->log, smartcard->log_default_level,
+-	           "SCardControl } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status), status);
++	           "SCardControl } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2089,3 +2097,3 @@ LONG WINAPI Emulate_SCardGetAttrib(SmartcardEmulationContext* smartcard, SCARDHA
+ 	           "SCardGetAttrib } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2112,3 +2120,3 @@ LONG WINAPI Emulate_SCardSetAttrib(SmartcardEmulationContext* smartcard, SCARDHA
+ 	           "SCardSetAttrib } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2133,3 +2141,3 @@ LONG WINAPI Emulate_SCardUIDlgSelectCardA(SmartcardEmulationContext* smartcard,
+ 	           "SCardUIDlgSelectCardA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2154,3 +2162,3 @@ LONG WINAPI Emulate_SCardUIDlgSelectCardW(SmartcardEmulationContext* smartcard,
+ 	           "SCardUIDlgSelectCardW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2175,3 +2183,3 @@ LONG WINAPI Emulate_GetOpenCardNameA(SmartcardEmulationContext* smartcard,
+ 	           "GetOpenCardNameA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2196,3 +2204,3 @@ LONG WINAPI Emulate_GetOpenCardNameW(SmartcardEmulationContext* smartcard,
+ 	           "GetOpenCardNameW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2214,3 +2222,3 @@ LONG WINAPI Emulate_SCardDlgExtendedError(SmartcardEmulationContext* smartcard)
+ 	           "SCardDlgExtendedError } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2258,3 +2266,3 @@ LONG WINAPI Emulate_SCardReadCacheA(SmartcardEmulationContext* smartcard, SCARDC
+ 	           "SCardReadCacheA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2301,3 +2309,3 @@ LONG WINAPI Emulate_SCardReadCacheW(SmartcardEmulationContext* smartcard, SCARDC
+ 	           "SCardReadCacheW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2375,3 +2383,3 @@ LONG WINAPI Emulate_SCardWriteCacheA(SmartcardEmulationContext* smartcard, SCARD
+ 	           "SCardWriteCacheA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2409,3 +2417,3 @@ LONG WINAPI Emulate_SCardWriteCacheW(SmartcardEmulationContext* smartcard, SCARD
+ 	           "SCardWriteCacheW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2442,3 +2450,3 @@ LONG WINAPI Emulate_SCardGetReaderIconA(SmartcardEmulationContext* smartcard, SC
+ 	           "SCardGetReaderIconA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2475,3 +2483,3 @@ LONG WINAPI Emulate_SCardGetReaderIconW(SmartcardEmulationContext* smartcard, SC
+ 	           "SCardGetReaderIconW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2502,3 +2510,3 @@ LONG WINAPI Emulate_SCardGetDeviceTypeIdA(SmartcardEmulationContext* smartcard,
+ 	           "SCardGetDeviceTypeIdA } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2529,3 +2537,3 @@ LONG WINAPI Emulate_SCardGetDeviceTypeIdW(SmartcardEmulationContext* smartcard,
+ 	           "SCardGetDeviceTypeIdW } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
+-	           status);
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2556,3 +2564,3 @@ LONG WINAPI Emulate_SCardGetReaderDeviceInstanceIdA(
+ 	           "SCardGetReaderDeviceInstanceIdA } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2583,3 +2591,3 @@ LONG WINAPI Emulate_SCardGetReaderDeviceInstanceIdW(
+ 	           "SCardGetReaderDeviceInstanceIdW } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2608,3 +2616,3 @@ LONG WINAPI Emulate_SCardListReadersWithDeviceInstanceIdA(
+ 	           "SCardListReadersWithDeviceInstanceIdA } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2632,3 +2640,3 @@ LONG WINAPI Emulate_SCardListReadersWithDeviceInstanceIdW(
+ 	           "SCardListReadersWithDeviceInstanceIdW } status: %s (0x%08" PRIX32 ")",
+-	           SCardGetErrorString(status), status);
++	           SCardGetErrorString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+@@ -2652,3 +2660,4 @@ LONG WINAPI Emulate_SCardAudit(SmartcardEmulationContext* smartcard, SCARDCONTEX
+ 	WLog_Print(smartcard->log, smartcard->log_default_level,
+-	           "SCardAudit } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status), status);
++	           "SCardAudit } status: %s (0x%08" PRIX32 ")", SCardGetErrorString(status),
++	           WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 
+diff --git a/server/proxy/channels/pf_channel_drdynvc.c b/server/proxy/channels/pf_channel_drdynvc.c
+index 0d0ba6e90..afcc5532a 100644
+--- a/server/proxy/channels/pf_channel_drdynvc.c
++++ b/server/proxy/channels/pf_channel_drdynvc.c
+@@ -402,3 +402,3 @@ static PfChannelResult DynvcTrackerPeekFn(ChannelStateTracker* tracker, BOOL fir
+ 
+-				WLog_Print(dynChannelContext->log, WLOG_DEBUG, "Adding channel '%s'[%d]",
++				WLog_Print(dynChannelContext->log, WLOG_DEBUG, "Adding channel '%s'[%" PRIu32 "]",
+ 				           dynChannel->channelName, dynChannel->channelId);
+@@ -589,3 +589,3 @@ static PfChannelResult DynvcTrackerPeekFn(ChannelStateTracker* tracker, BOOL fir
+ 		default:
+-			WLog_Print(dynChannelContext->log, WLOG_ERROR, "unknown channel mode %d",
++			WLog_Print(dynChannelContext->log, WLOG_ERROR, "unknown channel mode %u",
+ 			           dynChannel->channelMode);
+diff --git a/server/proxy/channels/pf_channel_rdpdr.c b/server/proxy/channels/pf_channel_rdpdr.c
+index e46f5d956..0025997a1 100644
+--- a/server/proxy/channels/pf_channel_rdpdr.c
++++ b/server/proxy/channels/pf_channel_rdpdr.c
+@@ -321,3 +321,3 @@ static BOOL rdpdr_check_version(BOOL server, wLog* log, UINT16 versionMajor, UIN
+ 	{
+-		RX_LOG(server, log, WLOG_WARN, "[%s | %s] expected MajorVersion %" PRIu16 ", got %" PRIu16,
++		RX_LOG(server, log, WLOG_WARN, "[%s | %s] expected MajorVersion %d, got %" PRIu16,
+ 		       rdpdr_component_string(component), rdpdr_packetid_string(PacketId),
+@@ -468,3 +468,3 @@ static UINT rdpdr_process_client_name_request(pf_channel_server_context* rdpdr,
+ 		SERVER_RX_LOG(
+-		    rdpdr->log, WLOG_WARN, "[%s | %s]: missing data, got %" PRIu32 ", expected %" PRIu32,
++		    rdpdr->log, WLOG_WARN, "[%s | %s]: missing data, got %" PRIuz ", expected %" PRIu32,
+ 		    rdpdr_component_string(RDPDR_CTYP_CORE), rdpdr_packetid_string(PAKID_CORE_CLIENT_NAME),
+diff --git a/winpr/libwinpr/comm/comm.c b/winpr/libwinpr/comm/comm.c
+index 8dd5b74e7..301af0529 100644
+--- a/winpr/libwinpr/comm/comm.c
++++ b/winpr/libwinpr/comm/comm.c
+@@ -647,3 +647,3 @@ BOOL SetCommState(HANDLE hFile, LPDCB lpDCB)
+ 		default:
+-			CommLog_Print(WLOG_WARN, "Unexpected fDtrControl value: %" PRIu32 "\n",
++			CommLog_Print(WLOG_WARN, "Unexpected fDtrControl value: %" PRId32 "\n",
+ 			              lpDCB->fDtrControl);
+@@ -702,3 +702,3 @@ BOOL SetCommState(HANDLE hFile, LPDCB lpDCB)
+ 		default:
+-			CommLog_Print(WLOG_WARN, "Unexpected fRtsControl value: %" PRIu32 "\n",
++			CommLog_Print(WLOG_WARN, "Unexpected fRtsControl value: %" PRId32 "\n",
+ 			              lpDCB->fRtsControl);
+diff --git a/winpr/libwinpr/comm/comm_ioctl.c b/winpr/libwinpr/comm/comm_ioctl.c
+index 979f1e7b8..5e4bd594d 100644
+--- a/winpr/libwinpr/comm/comm_ioctl.c
++++ b/winpr/libwinpr/comm/comm_ioctl.c
+@@ -103,3 +103,3 @@ static BOOL s_CommDeviceIoControl(HANDLE hDevice, DWORD dwIoControlCode, LPVOID
+ 		default:
+-			CommLog_Print(WLOG_DEBUG, "Unknown remote serial driver (%d), using SerCx2.sys",
++			CommLog_Print(WLOG_DEBUG, "Unknown remote serial driver (%u), using SerCx2.sys",
+ 			              pComm->serverSerialDriverId);
+diff --git a/winpr/libwinpr/comm/comm_serial_sys.c b/winpr/libwinpr/comm/comm_serial_sys.c
+index 039234dc2..131cacca9 100644
+--- a/winpr/libwinpr/comm/comm_serial_sys.c
++++ b/winpr/libwinpr/comm/comm_serial_sys.c
+@@ -1153,3 +1153,3 @@ static BOOL set_queue_size(WINPR_ATTR_UNUSED WINPR_COMM* pComm, const SERIAL_QUE
+ 		              "Requested an incompatible input buffer size: %" PRIu32
+-		              ", keeping on with a %" PRIu32 " bytes buffer.",
++		              ", keeping on with a %d bytes buffer.",
+ 		              pQueueSize->InSize, N_TTY_BUF_SIZE);
+@@ -1159,3 +1159,3 @@ static BOOL set_queue_size(WINPR_ATTR_UNUSED WINPR_COMM* pComm, const SERIAL_QUE
+ 		              "Requested an incompatible output buffer size: %" PRIu32
+-		              ", keeping on with a %" PRIu32 " bytes buffer.",
++		              ", keeping on with a %d bytes buffer.",
+ 		              pQueueSize->OutSize, N_TTY_BUF_SIZE);
+diff --git a/winpr/libwinpr/sspi/sspi.c b/winpr/libwinpr/sspi/sspi.c
+index d795cb491..01076856f 100644
+--- a/winpr/libwinpr/sspi/sspi.c
++++ b/winpr/libwinpr/sspi/sspi.c
+@@ -525,3 +525,3 @@ SECURITY_STATUS SEC_ENTRY sspi_EnumerateSecurityPackagesW(ULONG* pcPackages,
+ 	WLog_Print(g_Log, WLOG_DEBUG, "EnumerateSecurityPackagesW: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -544,3 +544,3 @@ SECURITY_STATUS SEC_ENTRY sspi_EnumerateSecurityPackagesA(ULONG* pcPackages,
+ 	WLog_Print(g_Log, WLOG_DEBUG, "EnumerateSecurityPackagesA: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -577,3 +577,3 @@ SECURITY_STATUS SEC_ENTRY sspi_QuerySecurityPackageInfoW(SEC_WCHAR* pszPackageNa
+ 	WLog_Print(g_Log, WLOG_DEBUG, "QuerySecurityPackageInfoW: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -596,3 +596,3 @@ SECURITY_STATUS SEC_ENTRY sspi_QuerySecurityPackageInfoA(SEC_CHAR* pszPackageNam
+ 	WLog_Print(g_Log, WLOG_DEBUG, "QuerySecurityPackageInfoA: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -621,3 +621,3 @@ SECURITY_STATUS SEC_ENTRY sspi_AcquireCredentialsHandleW(
+ 	WLog_Print(g_Log, WLOG_DEBUG, "AcquireCredentialsHandleW: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -644,3 +644,3 @@ SECURITY_STATUS SEC_ENTRY sspi_AcquireCredentialsHandleA(
+ 	WLog_Print(g_Log, WLOG_DEBUG, "AcquireCredentialsHandleA: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -663,3 +663,3 @@ SECURITY_STATUS SEC_ENTRY sspi_ExportSecurityContext(PCtxtHandle phContext, ULON
+ 	WLog_Print(g_Log, WLOG_DEBUG, "ExportSecurityContext: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -681,3 +681,3 @@ SECURITY_STATUS SEC_ENTRY sspi_FreeCredentialsHandle(PCredHandle phCredential)
+ 	WLog_Print(g_Log, WLOG_DEBUG, "FreeCredentialsHandle: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -701,3 +701,3 @@ SECURITY_STATUS SEC_ENTRY sspi_ImportSecurityContextW(SEC_WCHAR* pszPackage,
+ 	WLog_Print(g_Log, WLOG_DEBUG, "ImportSecurityContextW: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -721,3 +721,3 @@ SECURITY_STATUS SEC_ENTRY sspi_ImportSecurityContextA(SEC_CHAR* pszPackage,
+ 	WLog_Print(g_Log, WLOG_DEBUG, "ImportSecurityContextA: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -740,3 +740,3 @@ SECURITY_STATUS SEC_ENTRY sspi_QueryCredentialsAttributesW(PCredHandle phCredent
+ 	WLog_Print(g_Log, WLOG_DEBUG, "QueryCredentialsAttributesW: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -759,3 +759,3 @@ SECURITY_STATUS SEC_ENTRY sspi_QueryCredentialsAttributesA(PCredHandle phCredent
+ 	WLog_Print(g_Log, WLOG_DEBUG, "QueryCredentialsAttributesA: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -786,3 +786,3 @@ SECURITY_STATUS SEC_ENTRY sspi_AcceptSecurityContext(PCredHandle phCredential,
+ 	WLog_Print(g_Log, WLOG_DEBUG, "AcceptSecurityContext: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -804,3 +804,3 @@ SECURITY_STATUS SEC_ENTRY sspi_ApplyControlToken(PCtxtHandle phContext, PSecBuff
+ 	WLog_Print(g_Log, WLOG_DEBUG, "ApplyControlToken: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -822,3 +822,3 @@ SECURITY_STATUS SEC_ENTRY sspi_CompleteAuthToken(PCtxtHandle phContext, PSecBuff
+ 	WLog_Print(g_Log, WLOG_DEBUG, "CompleteAuthToken: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -840,3 +840,3 @@ SECURITY_STATUS SEC_ENTRY sspi_DeleteSecurityContext(PCtxtHandle phContext)
+ 	WLog_Print(g_Log, WLOG_DEBUG, "DeleteSecurityContext: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -858,3 +858,3 @@ SECURITY_STATUS SEC_ENTRY sspi_FreeContextBuffer(void* pvContextBuffer)
+ 	WLog_Print(g_Log, WLOG_DEBUG, "FreeContextBuffer: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -876,3 +876,3 @@ SECURITY_STATUS SEC_ENTRY sspi_ImpersonateSecurityContext(PCtxtHandle phContext)
+ 	WLog_Print(g_Log, WLOG_DEBUG, "ImpersonateSecurityContext: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -899,3 +899,3 @@ SECURITY_STATUS SEC_ENTRY sspi_InitializeSecurityContextW(
+ 	WLog_Print(g_Log, WLOG_DEBUG, "InitializeSecurityContextW: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -922,3 +922,3 @@ SECURITY_STATUS SEC_ENTRY sspi_InitializeSecurityContextA(
+ 	WLog_Print(g_Log, WLOG_DEBUG, "InitializeSecurityContextA: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -941,3 +941,3 @@ SECURITY_STATUS SEC_ENTRY sspi_QueryContextAttributesW(PCtxtHandle phContext, UL
+ 	WLog_Print(g_Log, WLOG_DEBUG, "QueryContextAttributesW: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -960,3 +960,3 @@ SECURITY_STATUS SEC_ENTRY sspi_QueryContextAttributesA(PCtxtHandle phContext, UL
+ 	WLog_Print(g_Log, WLOG_DEBUG, "QueryContextAttributesA: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -978,3 +978,3 @@ SECURITY_STATUS SEC_ENTRY sspi_QuerySecurityContextToken(PCtxtHandle phContext,
+ 	WLog_Print(g_Log, WLOG_DEBUG, "QuerySecurityContextToken: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -997,3 +997,3 @@ SECURITY_STATUS SEC_ENTRY sspi_SetContextAttributesW(PCtxtHandle phContext, ULON
+ 	WLog_Print(g_Log, WLOG_DEBUG, "SetContextAttributesW: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -1016,3 +1016,3 @@ SECURITY_STATUS SEC_ENTRY sspi_SetContextAttributesA(PCtxtHandle phContext, ULON
+ 	WLog_Print(g_Log, WLOG_DEBUG, "SetContextAttributesA: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -1034,3 +1034,3 @@ SECURITY_STATUS SEC_ENTRY sspi_RevertSecurityContext(PCtxtHandle phContext)
+ 	WLog_Print(g_Log, WLOG_DEBUG, "RevertSecurityContext: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -1055,3 +1055,3 @@ SECURITY_STATUS SEC_ENTRY sspi_DecryptMessage(PCtxtHandle phContext, PSecBufferD
+ 	WLog_Print(g_Log, WLOG_DEBUG, "DecryptMessage: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -1074,3 +1074,3 @@ SECURITY_STATUS SEC_ENTRY sspi_EncryptMessage(PCtxtHandle phContext, ULONG fQOP,
+ 	WLog_Print(g_Log, WLOG_DEBUG, "EncryptMessage: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -1093,3 +1093,3 @@ SECURITY_STATUS SEC_ENTRY sspi_MakeSignature(PCtxtHandle phContext, ULONG fQOP,
+ 	WLog_Print(g_Log, WLOG_DEBUG, "MakeSignature: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+@@ -1112,3 +1112,3 @@ SECURITY_STATUS SEC_ENTRY sspi_VerifySignature(PCtxtHandle phContext, PSecBuffer
+ 	WLog_Print(g_Log, WLOG_DEBUG, "VerifySignature: %s (0x%08" PRIX32 ")",
+-	           GetSecurityStatusString(status), status);
++	           GetSecurityStatusString(status), WINPR_CXX_COMPAT_CAST(UINT32, status));
+ 	return status;
+diff --git a/winpr/libwinpr/timezone/timezone.c b/winpr/libwinpr/timezone/timezone.c
+index bd3454374..2166c00c2 100644
+--- a/winpr/libwinpr/timezone/timezone.c
++++ b/winpr/libwinpr/timezone/timezone.c
+@@ -618,3 +618,3 @@ static void log_timezone_(const DYNAMIC_TIME_ZONE_INFORMATION* tzif, DWORD resul
+ 
+-	log_print(log, level, file, fkt, line, "  Bias=%" PRIu32, tzif->Bias);
++	log_print(log, level, file, fkt, line, "  Bias=%" PRId32, tzif->Bias);
+ 	(void)ConvertWCharNToUtf8(tzif->StandardName, ARRAYSIZE(tzif->StandardName), buffer,
+@@ -624,3 +624,3 @@ static void log_timezone_(const DYNAMIC_TIME_ZONE_INFORMATION* tzif, DWORD resul
+ 	          systemtime2str(&tzif->StandardDate, buffer, sizeof(buffer)));
+-	log_print(log, level, file, fkt, line, "  StandardBias=%" PRIu32, tzif->StandardBias);
++	log_print(log, level, file, fkt, line, "  StandardBias=%" PRId32, tzif->StandardBias);
+ 
+@@ -631,3 +631,3 @@ static void log_timezone_(const DYNAMIC_TIME_ZONE_INFORMATION* tzif, DWORD resul
+ 	          systemtime2str(&tzif->DaylightDate, buffer, sizeof(buffer)));
+-	log_print(log, level, file, fkt, line, "  DaylightBias=%" PRIu32, tzif->DaylightBias);
++	log_print(log, level, file, fkt, line, "  DaylightBias=%" PRId32, tzif->DaylightBias);
+ 	(void)ConvertWCharNToUtf8(tzif->TimeZoneKeyName, ARRAYSIZE(tzif->TimeZoneKeyName), buffer,
+diff --git a/winpr/libwinpr/utils/print.c b/winpr/libwinpr/utils/print.c
+index 4ab89edeb..7ecd305c9 100644
+--- a/winpr/libwinpr/utils/print.c
++++ b/winpr/libwinpr/utils/print.c
+@@ -72,3 +72,3 @@ void winpr_HexLogDump(wLog* log, UINT32 level, const void* data, size_t length)
+ 		char ebuffer[256] = { 0 };
+-		WLog_Print(log, WLOG_ERROR, "malloc(%" PRIuz ") failed with [%" PRIuz "] %s", blen, errno,
++		WLog_Print(log, WLOG_ERROR, "malloc(%" PRIuz ") failed with [%d] %s", blen, errno,
+ 		           winpr_strerror(errno, ebuffer, sizeof(ebuffer)));
+diff --git a/winpr/libwinpr/utils/stream.c b/winpr/libwinpr/utils/stream.c
+index 0572c4177..7a43e57e1 100644
+--- a/winpr/libwinpr/utils/stream.c
++++ b/winpr/libwinpr/utils/stream.c
+@@ -360,3 +360,3 @@ BOOL Stream_CheckAndLogRequiredCapacityWLogExVa(wLog* log, DWORD level, wStream*
+ 		WLog_Print(log, level,
+-		           "[%s] invalid remaining capacity, got %" PRIuz ", require at least %" PRIu64
++		           "[%s] invalid remaining capacity, got %" PRIuz ", require at least %" PRIuz
+ 		           " [element size=%" PRIuz "]",
+-- 
+2.47.3
+

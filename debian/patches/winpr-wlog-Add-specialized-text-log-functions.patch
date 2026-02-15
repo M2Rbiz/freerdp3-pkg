@@ -1,0 +1,217 @@
+From: akallabeth <akallabeth@posteo.net>
+Date: Wed, 13 Aug 2025 09:00:53 +0200
+Subject: [winpr,wlog] Add specialized text log functions
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/df89b04424599bed520461f10c1893509189f862
+Forwarded: not-needed
+Comment: preparation for the subsequent patch
+ (channels-rdpecam-add-value-range-checks.patch)
+ which uses functions provided in this change.
+Comment: this patch introduces a build failure due to wrong printf()-like
+ format strings usage, which is fixed by the next upstream patch.
+ The issues the next patch fixes, were in the code for a long time,
+ but due to missing arguments checking, went unnoticed.
+Comment: This change introduces two new symbols into libwinpr3-3,
+ so to be backwards- and forward-compatible, we use libwinpr3-partial-api-3-17
+ trick in the symbols and control files.
+
+The generic WLog_PrintMessage(VA) functions lack proper checks of the
+supplied format strings.
+Add WLog_PrintTextMessage(VA) functions that do compile time checks of
+supplied format strings to uncover usage errors early and use them in
+the logger macros.
+---
+ winpr/include/winpr/wlog.h       | 86 +++++++++++++++++++++++++++-----
+ winpr/libwinpr/utils/wlog/wlog.c | 47 +++++++++++++++++
+ 2 files changed, 121 insertions(+), 12 deletions(-)
+
+diff --git a/winpr/include/winpr/wlog.h b/winpr/include/winpr/wlog.h
+index 2749897c6..61afed879 100644
+--- a/winpr/include/winpr/wlog.h
++++ b/winpr/include/winpr/wlog.h
+@@ -47,13 +47,16 @@ extern "C"
+ #define WLOG_OFF 6
+ #define WLOG_LEVEL_INHERIT 0xFFFF
+ 
+-/**
+- * Log Message
++/** @defgroup LogMessageTypes Log Message
++ *  @{
+  */
+ #define WLOG_MESSAGE_TEXT 0
+ #define WLOG_MESSAGE_DATA 1
+ #define WLOG_MESSAGE_IMAGE 2
+ #define WLOG_MESSAGE_PACKET 3
++/**
++ * @}
++ */
+ 
+ /**
+  * Log Appenders
+@@ -106,8 +109,69 @@ extern "C"
+ #define WLOG_PACKET_INBOUND 1
+ #define WLOG_PACKET_OUTBOUND 2
+ 
++	/** @brief specialized function to print text log messages.
++	 *  Same as @ref WLog_PrintMessage with \b type = WLOG_MESSAGE_TEXT but with compile time checks
++	 * for issues in format string.
++	 *
++	 *  @param log A pointer to the logger to use
++	 *  @param line the file line the log message originates from
++	 *  @param file the file name the log message originates from
++	 *  @param function the function name the log message originates from
++	 *  @param fmt the printf style format string
++	 *
++	 *  @return \b TRUE for success, \b FALSE otherwise.
++	 *  @since version 3.17.0
++	 */
++	WINPR_ATTR_FORMAT_ARG(6, 7)
++	WINPR_API BOOL WLog_PrintTextMessage(wLog* log, DWORD level, size_t line, const char* file,
++	                                     const char* function, WINPR_FORMAT_ARG const char* fmt,
++	                                     ...);
++
++	/** @brief specialized function to print text log messages.
++	 *  Same as @ref WLog_PrintMessageVA with \b type = WLOG_MESSAGE_TEXT but with compile time
++	 * checks for issues in format string.
++	 *
++	 *  @param log A pointer to the logger to use
++	 *  @param line the file line the log message originates from
++	 *  @param file the file name the log message originates from
++	 *  @param function the function name the log message originates from
++	 *  @param fmt the printf style format string
++	 *
++	 *  @return \b TRUE for success, \b FALSE otherwise.
++	 *  @since version 3.17.0
++	 */
++	WINPR_ATTR_FORMAT_ARG(6, 0)
++	WINPR_API BOOL WLog_PrintTextMessageVA(wLog* log, DWORD level, size_t line, const char* file,
++	                                       const char* function, WINPR_FORMAT_ARG const char* fmt,
++	                                       va_list args);
++
++	/** @brief log something of a specified type.
++	 *  @bug For /b WLOG_MESSAGE_TEXT the format string is not validated at compile time. Use \ref
++	 * WLog_PrintTextMessage instead.
++	 *
++	 *  @param log A pointer to the logger to use
++	 *  @param type The type of message to log, can be any of \ref LogMessageTypes
++	 *  @param line the file line the log message originates from
++	 *  @param file the file name the log message originates from
++	 *  @param function the function name the log message originates from
++	 *
++	 *  @return \b TRUE for success, \b FALSE otherwise.
++	 */
+ 	WINPR_API BOOL WLog_PrintMessage(wLog* log, DWORD type, DWORD level, size_t line,
+ 	                                 const char* file, const char* function, ...);
++
++	/** @brief log something of a specified type.
++	 *  @bug For /b WLOG_MESSAGE_TEXT the format string is not validated at compile time. Use \ref
++	 * WLog_PrintTextMessageVA instead.
++	 *
++	 *  @param log A pointer to the logger to use
++	 *  @param type The type of message to log, can be any of \ref LogMessageTypes
++	 *  @param line the file line the log message originates from
++	 *  @param file the file name the log message originates from
++	 *  @param function the function name the log message originates from
++	 *
++	 *  @return \b TRUE for success, \b FALSE otherwise.
++	 */
+ 	WINPR_API BOOL WLog_PrintMessageVA(wLog* log, DWORD type, DWORD level, size_t line,
+ 	                                   const char* file, const char* function, va_list args);
+ 
+@@ -128,11 +192,10 @@ extern "C"
+ 	 */
+ 	WINPR_API BOOL WLog_SetContext(wLog* log, const char* (*fkt)(void*), void* context);
+ 
+-#define WLog_Print_unchecked(_log, _log_level, ...)                                          \
+-	do                                                                                       \
+-	{                                                                                        \
+-		WLog_PrintMessage(_log, WLOG_MESSAGE_TEXT, _log_level, __LINE__, __FILE__, __func__, \
+-		                  __VA_ARGS__);                                                      \
++#define WLog_Print_unchecked(_log, _log_level, ...)                                         \
++	do                                                                                      \
++	{                                                                                       \
++		WLog_PrintTextMessage(_log, _log_level, __LINE__, __FILE__, __func__, __VA_ARGS__); \
+ 	} while (0)
+ 
+ #define WLog_Print(_log, _log_level, ...)                        \
+@@ -153,11 +216,10 @@ extern "C"
+ 		WLog_Print(_log_cached_ptr, _log_level, __VA_ARGS__); \
+ 	} while (0)
+ 
+-#define WLog_PrintVA_unchecked(_log, _log_level, _args)                                        \
+-	do                                                                                         \
+-	{                                                                                          \
+-		WLog_PrintMessageVA(_log, WLOG_MESSAGE_TEXT, _log_level, __LINE__, __FILE__, __func__, \
+-		                    _args);                                                            \
++#define WLog_PrintVA_unchecked(_log, _log_level, _args)                                 \
++	do                                                                                  \
++	{                                                                                   \
++		WLog_PrintTextMessageVA(_log, _log_level, __LINE__, __FILE__, __func__, _args); \
+ 	} while (0)
+ 
+ #define WLog_PrintVA(_log, _log_level, _args)                \
+diff --git a/winpr/libwinpr/utils/wlog/wlog.c b/winpr/libwinpr/utils/wlog/wlog.c
+index e8a88373e..d69d2403f 100644
+--- a/winpr/libwinpr/utils/wlog/wlog.c
++++ b/winpr/libwinpr/utils/wlog/wlog.c
+@@ -415,6 +415,42 @@ BOOL WLog_PrintMessageVA(wLog* log, DWORD type, DWORD level, size_t line, const
+ 	return status;
+ }
+ 
++BOOL WLog_PrintTextMessageVA(wLog* log, DWORD level, size_t line, const char* file,
++                             const char* function, const char* fmt, va_list args)
++{
++	BOOL status = FALSE;
++	wLogMessage message = { 0 };
++	message.Type = WLOG_MESSAGE_TEXT;
++	message.Level = level;
++	message.LineNumber = line;
++	message.FileName = file;
++	message.FunctionName = function;
++
++	message.FormatString = fmt;
++
++	if (!strchr(message.FormatString, '%'))
++	{
++		message.TextString = message.FormatString;
++		status = WLog_Write(log, &message);
++	}
++	else
++	{
++		char formattedLogMessage[WLOG_MAX_STRING_SIZE] = { 0 };
++
++		WINPR_PRAGMA_DIAG_PUSH
++		WINPR_PRAGMA_DIAG_IGNORED_FORMAT_NONLITERAL
++		if (vsnprintf(formattedLogMessage, WLOG_MAX_STRING_SIZE - 1, message.FormatString, args) <
++		    0)
++			return FALSE;
++		WINPR_PRAGMA_DIAG_POP
++
++		message.TextString = formattedLogMessage;
++		status = WLog_Write(log, &message);
++	}
++
++	return status;
++}
++
+ BOOL WLog_PrintMessage(wLog* log, DWORD type, DWORD level, size_t line, const char* file,
+                        const char* function, ...)
+ {
+@@ -426,6 +462,17 @@ BOOL WLog_PrintMessage(wLog* log, DWORD type, DWORD level, size_t line, const ch
+ 	return status;
+ }
+ 
++BOOL WLog_PrintTextMessage(wLog* log, DWORD level, size_t line, const char* file,
++                           const char* function, const char* fmt, ...)
++{
++	BOOL status = 0;
++	va_list args;
++	va_start(args, fmt);
++	status = WLog_PrintTextMessageVA(log, level, line, file, function, fmt, args);
++	va_end(args);
++	return status;
++}
++
+ DWORD WLog_GetLogLevel(wLog* log)
+ {
+ 	if (!log)
+
