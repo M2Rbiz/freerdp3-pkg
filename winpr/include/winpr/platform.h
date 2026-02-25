@@ -59,7 +59,11 @@
 #endif
 
 // C23 related macros
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201904L)
+#if defined(__cplusplus) && (__cplusplus >= 201703L)
+#define WINPR_FALLTHROUGH \
+	(void)0;              \
+	[[fallthrough]];
+#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201904L)
 #define WINPR_FALLTHROUGH \
 	(void)0;              \
 	[[fallthrough]];
@@ -75,10 +79,16 @@
 #define WINPR_FALLTHROUGH (void)0;
 #endif
 
-#if defined(__clang__)
+#if defined(WINPR_DEFINE_ATTR_NODISCARD)
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202003L)
+#define WINPR_ATTR_NODISCARD [[nodiscard]]
+#elif defined(__clang__)
 #define WINPR_ATTR_NODISCARD __attribute__((warn_unused_result))
 #elif defined(__GNUC__) && (__GNUC__ >= 7)
 #define WINPR_ATTR_NODISCARD __attribute__((warn_unused_result))
+#else
+#define WINPR_ATTR_NODISCARD
+#endif
 #else
 #define WINPR_ATTR_NODISCARD
 #endif
@@ -533,7 +543,9 @@ WINPR_PRAGMA_DIAG_POP
 #define WINPR_DEPRECATED_VAR(text, obj) obj
 #endif
 
-#if defined(WIN32) && !defined(__CYGWIN__)
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202202L)
+#define WINPR_NORETURN(obj) [[noreturn]] obj
+#elif defined(WIN32) && !defined(__CYGWIN__)
 #define WINPR_NORETURN(obj) __declspec(noreturn) obj
 #elif defined(__GNUC__)
 #define WINPR_NORETURN(obj) __attribute__((__noreturn__)) obj
@@ -582,7 +594,7 @@ WINPR_PRAGMA_DIAG_POP
 #if defined(__GNUC__) || defined(__clang__)
 #define WINPR_ATTR_FORMAT_ARG(pos, args) __attribute__((__format__(__printf__, pos, args)))
 #define WINPR_FORMAT_ARG /**/
-#else
+#elif defined(_MSC_VER)
 #define WINPR_ATTR_FORMAT_ARG(pos, args)
 #define WINPR_FORMAT_ARG _Printf_format_string_
 #endif
@@ -635,7 +647,7 @@ WINPR_PRAGMA_DIAG_POP
 
 #if defined(__cplusplus) && (__cplusplus >= 201703L)
 #define WINPR_ATTR_UNUSED [[maybe_unused]] /** @since version 3.12.0 */
-#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202000L)
+#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201904L)
 #define WINPR_ATTR_UNUSED [[maybe_unused]] /** @since version 3.12.0 */
 #elif defined(__GNUC__) || defined(__clang__)
 #define WINPR_ATTR_UNUSED __attribute__((unused)) /** @since version 3.12.0 */

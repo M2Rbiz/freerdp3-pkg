@@ -36,9 +36,11 @@
 
 #include <freerdp/version.h>
 #include <freerdp/settings.h>
+#include <freerdp/utils/string.h>
 #include <freerdp/utils/helpers.h>
 #include <freerdp/build-config.h>
 
+#include "../core/utils.h"
 #include "../crypto/certificate.h"
 #include "../crypto/privatekey.h"
 #include "capabilities.h"
@@ -52,8 +54,8 @@
 
 static const char client_dll[] = "C:\\Windows\\System32\\mstscax.dll";
 
-#define SERVER_KEY "Software\\" FREERDP_VENDOR_STRING "\\" FREERDP_PRODUCT_STRING "\\Server"
-#define CLIENT_KEY "Software\\" FREERDP_VENDOR_STRING "\\" FREERDP_PRODUCT_STRING "\\Client"
+#define SERVER_KEY "Software\\%s\\Server"
+#define CLIENT_KEY "Software\\%s\\Client"
 #define BITMAP_CACHE_KEY CLIENT_KEY "\\BitmapCacheV2"
 #define GLYPH_CACHE_KEY CLIENT_KEY "\\GlyphCache"
 #define POINTER_CACHE_KEY CLIENT_KEY "\\PointerCache"
@@ -186,119 +188,165 @@ static BOOL settings_reg_query_bool(rdpSettings* settings, FreeRDP_Settings_Keys
 
 static void settings_client_load_hkey_local_machine(rdpSettings* settings)
 {
-	HKEY hKey = NULL;
-	LONG status = 0;
-	status = RegOpenKeyExA(HKEY_LOCAL_MACHINE, CLIENT_KEY, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
-
-	if (status == ERROR_SUCCESS)
 	{
-		settings_reg_query_dword(settings, FreeRDP_DesktopWidth, hKey, _T("DesktopWidth"));
-		settings_reg_query_dword(settings, FreeRDP_DesktopHeight, hKey, _T("DesktopHeight"));
-		settings_reg_query_bool(settings, FreeRDP_Fullscreen, hKey, _T("Fullscreen"));
-		settings_reg_query_dword(settings, FreeRDP_ColorDepth, hKey, _T("ColorDepth"));
-		settings_reg_query_dword(settings, FreeRDP_KeyboardType, hKey, _T("KeyboardType"));
-		settings_reg_query_dword(settings, FreeRDP_KeyboardSubType, hKey, _T("KeyboardSubType"));
-		settings_reg_query_dword(settings, FreeRDP_KeyboardFunctionKey, hKey,
-		                         _T("KeyboardFunctionKeys"));
-		settings_reg_query_dword(settings, FreeRDP_KeyboardLayout, hKey, _T("KeyboardLayout"));
-		settings_reg_query_bool(settings, FreeRDP_ExtSecurity, hKey, _T("ExtSecurity"));
-		settings_reg_query_bool(settings, FreeRDP_NlaSecurity, hKey, _T("NlaSecurity"));
-		settings_reg_query_bool(settings, FreeRDP_TlsSecurity, hKey, _T("TlsSecurity"));
-		settings_reg_query_bool(settings, FreeRDP_RdpSecurity, hKey, _T("RdpSecurity"));
-		settings_reg_query_bool(settings, FreeRDP_MstscCookieMode, hKey, _T("MstscCookieMode"));
-		settings_reg_query_dword(settings, FreeRDP_CookieMaxLength, hKey, _T("CookieMaxLength"));
-		settings_reg_query_bool(settings, FreeRDP_BitmapCacheEnabled, hKey, _T("BitmapCache"));
-		settings_reg_query_dword(settings, FreeRDP_OffscreenSupportLevel, hKey,
-		                         _T("OffscreenBitmapCache"));
-		settings_reg_query_dword(settings, FreeRDP_OffscreenCacheSize, hKey,
-		                         _T("OffscreenBitmapCacheSize"));
-		settings_reg_query_dword(settings, FreeRDP_OffscreenCacheEntries, hKey,
-		                         _T("OffscreenBitmapCacheEntries"));
-		RegCloseKey(hKey);
-	}
-
-	status =
-	    RegOpenKeyExA(HKEY_LOCAL_MACHINE, BITMAP_CACHE_KEY, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
-
-	if (status == ERROR_SUCCESS)
-	{
-		settings_reg_query_dword(settings, FreeRDP_BitmapCacheV2NumCells, hKey, _T("NumCells"));
-		for (unsigned x = 0; x < 5; x++)
+		char* key = freerdp_getApplicatonDetailsRegKey(CLIENT_KEY);
+		if (key)
 		{
-			DWORD val = 0;
-			TCHAR numentries[64] = { 0 };
-			TCHAR persist[64] = { 0 };
-			BITMAP_CACHE_V2_CELL_INFO cache = { 0 };
-			(void)_sntprintf(numentries, ARRAYSIZE(numentries), _T("Cell%uNumEntries"), x);
-			(void)_sntprintf(persist, ARRAYSIZE(persist), _T("Cell%uPersistent"), x);
-			if (!settings_reg_query_dword_val(hKey, numentries, &val) ||
-			    !settings_reg_query_bool_val(hKey, persist, &cache.persistent) ||
-			    !freerdp_settings_set_pointer_array(settings, FreeRDP_BitmapCacheV2CellInfo, x,
-			                                        &cache))
-				WLog_WARN(TAG, "Failed to load registry keys to settings!");
-			cache.numEntries = val;
-		}
+			HKEY hKey = NULL;
+			const LONG status =
+			    RegOpenKeyExA(HKEY_LOCAL_MACHINE, key, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
+			free(key);
 
-		settings_reg_query_bool(settings, FreeRDP_AllowCacheWaitingList, hKey,
-		                        _T("AllowCacheWaitingList"));
-		RegCloseKey(hKey);
+			if (status == ERROR_SUCCESS)
+			{
+				settings_reg_query_dword(settings, FreeRDP_DesktopWidth, hKey, _T("DesktopWidth"));
+				settings_reg_query_dword(settings, FreeRDP_DesktopHeight, hKey,
+				                         _T("DesktopHeight"));
+				settings_reg_query_bool(settings, FreeRDP_Fullscreen, hKey, _T("Fullscreen"));
+				settings_reg_query_dword(settings, FreeRDP_ColorDepth, hKey, _T("ColorDepth"));
+				settings_reg_query_dword(settings, FreeRDP_KeyboardType, hKey, _T("KeyboardType"));
+				settings_reg_query_dword(settings, FreeRDP_KeyboardSubType, hKey,
+				                         _T("KeyboardSubType"));
+				settings_reg_query_dword(settings, FreeRDP_KeyboardFunctionKey, hKey,
+				                         _T("KeyboardFunctionKeys"));
+				settings_reg_query_dword(settings, FreeRDP_KeyboardLayout, hKey,
+				                         _T("KeyboardLayout"));
+				settings_reg_query_bool(settings, FreeRDP_ExtSecurity, hKey, _T("ExtSecurity"));
+				settings_reg_query_bool(settings, FreeRDP_NlaSecurity, hKey, _T("NlaSecurity"));
+				settings_reg_query_bool(settings, FreeRDP_TlsSecurity, hKey, _T("TlsSecurity"));
+				settings_reg_query_bool(settings, FreeRDP_RdpSecurity, hKey, _T("RdpSecurity"));
+				settings_reg_query_bool(settings, FreeRDP_MstscCookieMode, hKey,
+				                        _T("MstscCookieMode"));
+				settings_reg_query_dword(settings, FreeRDP_CookieMaxLength, hKey,
+				                         _T("CookieMaxLength"));
+				settings_reg_query_bool(settings, FreeRDP_BitmapCacheEnabled, hKey,
+				                        _T("BitmapCache"));
+				settings_reg_query_dword(settings, FreeRDP_OffscreenSupportLevel, hKey,
+				                         _T("OffscreenBitmapCache"));
+				settings_reg_query_dword(settings, FreeRDP_OffscreenCacheSize, hKey,
+				                         _T("OffscreenBitmapCacheSize"));
+				settings_reg_query_dword(settings, FreeRDP_OffscreenCacheEntries, hKey,
+				                         _T("OffscreenBitmapCacheEntries"));
+				RegCloseKey(hKey);
+			}
+		}
 	}
-
-	status =
-	    RegOpenKeyExA(HKEY_LOCAL_MACHINE, GLYPH_CACHE_KEY, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
-
-	if (status == ERROR_SUCCESS)
 	{
-		unsigned x = 0;
-		UINT32 GlyphSupportLevel = 0;
-		settings_reg_query_dword(settings, FreeRDP_GlyphSupportLevel, hKey, _T("SupportLevel"));
-		for (; x < 10; x++)
+		char* key = freerdp_getApplicatonDetailsRegKey(BITMAP_CACHE_KEY);
+		if (key)
 		{
-			GLYPH_CACHE_DEFINITION cache = { 0 };
-			TCHAR numentries[64] = { 0 };
-			TCHAR maxsize[64] = { 0 };
-			(void)_sntprintf(numentries, ARRAYSIZE(numentries), _T("Cache%uNumEntries"), x);
-			(void)_sntprintf(maxsize, ARRAYSIZE(maxsize), _T("Cache%uMaxCellSize"), x);
+			HKEY hKey = NULL;
+			const LONG status =
+			    RegOpenKeyExA(HKEY_LOCAL_MACHINE, key, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
+			free(key);
 
-			settings_reg_query_word_val(hKey, numentries, &cache.cacheEntries);
-			settings_reg_query_word_val(hKey, maxsize, &cache.cacheMaximumCellSize);
-			if (!freerdp_settings_set_pointer_array(settings, FreeRDP_GlyphCache, x, &cache))
-				WLog_WARN(TAG, "Failed to store GlyphCache %u", x);
+			if (status == ERROR_SUCCESS)
+			{
+				settings_reg_query_dword(settings, FreeRDP_BitmapCacheV2NumCells, hKey,
+				                         _T("NumCells"));
+				for (unsigned x = 0; x < 5; x++)
+				{
+					DWORD val = 0;
+					TCHAR numentries[64] = { 0 };
+					TCHAR persist[64] = { 0 };
+					BITMAP_CACHE_V2_CELL_INFO cache = { 0 };
+					(void)_sntprintf(numentries, ARRAYSIZE(numentries), _T("Cell%uNumEntries"), x);
+					(void)_sntprintf(persist, ARRAYSIZE(persist), _T("Cell%uPersistent"), x);
+					if (!settings_reg_query_dword_val(hKey, numentries, &val) ||
+					    !settings_reg_query_bool_val(hKey, persist, &cache.persistent) ||
+					    !freerdp_settings_set_pointer_array(settings, FreeRDP_BitmapCacheV2CellInfo,
+					                                        x, &cache))
+						WLog_WARN(TAG, "Failed to load registry keys to settings!");
+					cache.numEntries = val;
+				}
+
+				settings_reg_query_bool(settings, FreeRDP_AllowCacheWaitingList, hKey,
+				                        _T("AllowCacheWaitingList"));
+				RegCloseKey(hKey);
+			}
 		}
-		{
-			GLYPH_CACHE_DEFINITION cache = { 0 };
-			settings_reg_query_word_val(hKey, _T("FragCacheNumEntries"), &cache.cacheEntries);
-			settings_reg_query_word_val(hKey, _T("FragCacheMaxCellSize"),
-			                            &cache.cacheMaximumCellSize);
-			if (!freerdp_settings_set_pointer_array(settings, FreeRDP_FragCache, x, &cache))
-				WLog_WARN(TAG, "Failed to store FragCache");
-		}
-
-		RegCloseKey(hKey);
-
-		if (!freerdp_settings_set_uint32(settings, FreeRDP_GlyphSupportLevel, GlyphSupportLevel))
-			WLog_WARN(TAG, "Failed to load registry keys to settings!");
 	}
-
-	status =
-	    RegOpenKeyExA(HKEY_LOCAL_MACHINE, POINTER_CACHE_KEY, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
-
-	if (status == ERROR_SUCCESS)
 	{
-		settings_reg_query_dword(settings, FreeRDP_LargePointerFlag, hKey, _T("LargePointer"));
-		settings_reg_query_dword(settings, FreeRDP_PointerCacheSize, hKey, _T("PointerCacheSize"));
-		settings_reg_query_dword(settings, FreeRDP_ColorPointerCacheSize, hKey,
-		                         _T("ColorPointerCacheSize"));
-		RegCloseKey(hKey);
+		char* key = freerdp_getApplicatonDetailsRegKey(GLYPH_CACHE_KEY);
+		if (key)
+		{
+			HKEY hKey = NULL;
+			const LONG status =
+			    RegOpenKeyExA(HKEY_LOCAL_MACHINE, key, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
+			free(key);
+
+			if (status == ERROR_SUCCESS)
+			{
+				unsigned x = 0;
+				UINT32 GlyphSupportLevel = 0;
+				settings_reg_query_dword(settings, FreeRDP_GlyphSupportLevel, hKey,
+				                         _T("SupportLevel"));
+				for (; x < 10; x++)
+				{
+					GLYPH_CACHE_DEFINITION cache = { 0 };
+					TCHAR numentries[64] = { 0 };
+					TCHAR maxsize[64] = { 0 };
+					(void)_sntprintf(numentries, ARRAYSIZE(numentries), _T("Cache%uNumEntries"), x);
+					(void)_sntprintf(maxsize, ARRAYSIZE(maxsize), _T("Cache%uMaxCellSize"), x);
+
+					settings_reg_query_word_val(hKey, numentries, &cache.cacheEntries);
+					settings_reg_query_word_val(hKey, maxsize, &cache.cacheMaximumCellSize);
+					if (!freerdp_settings_set_pointer_array(settings, FreeRDP_GlyphCache, x,
+					                                        &cache))
+						WLog_WARN(TAG, "Failed to store GlyphCache %u", x);
+				}
+				{
+					GLYPH_CACHE_DEFINITION cache = { 0 };
+					settings_reg_query_word_val(hKey, _T("FragCacheNumEntries"),
+					                            &cache.cacheEntries);
+					settings_reg_query_word_val(hKey, _T("FragCacheMaxCellSize"),
+					                            &cache.cacheMaximumCellSize);
+					if (!freerdp_settings_set_pointer_array(settings, FreeRDP_FragCache, x, &cache))
+						WLog_WARN(TAG, "Failed to store FragCache");
+				}
+
+				RegCloseKey(hKey);
+
+				if (!freerdp_settings_set_uint32(settings, FreeRDP_GlyphSupportLevel,
+				                                 GlyphSupportLevel))
+					WLog_WARN(TAG, "Failed to load registry keys to settings!");
+			}
+		}
+	}
+	{
+		char* key = freerdp_getApplicatonDetailsRegKey(POINTER_CACHE_KEY);
+		if (key)
+		{
+			HKEY hKey = NULL;
+			const LONG status =
+			    RegOpenKeyExA(HKEY_LOCAL_MACHINE, key, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
+			free(key);
+
+			if (status == ERROR_SUCCESS)
+			{
+				settings_reg_query_dword(settings, FreeRDP_LargePointerFlag, hKey,
+				                         _T("LargePointer"));
+				settings_reg_query_dword(settings, FreeRDP_PointerCacheSize, hKey,
+				                         _T("PointerCacheSize"));
+				settings_reg_query_dword(settings, FreeRDP_ColorPointerCacheSize, hKey,
+				                         _T("ColorPointerCacheSize"));
+				RegCloseKey(hKey);
+			}
+		}
 	}
 }
 
 static void settings_server_load_hkey_local_machine(rdpSettings* settings)
 {
 	HKEY hKey = NULL;
-	LONG status = 0;
 
-	status = RegOpenKeyExA(HKEY_LOCAL_MACHINE, SERVER_KEY, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
+	char* key = freerdp_getApplicatonDetailsRegKey(SERVER_KEY);
+	if (!key)
+		return;
+
+	const LONG status =
+	    RegOpenKeyExA(HKEY_LOCAL_MACHINE, key, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
+	free(key);
 
 	if (status != ERROR_SUCCESS)
 		return;
@@ -567,10 +615,12 @@ static void log_monitor(UINT32 idx, const rdpMonitor* monitor, wLog* log, DWORD 
 
 	WLog_Print(log, level,
 	           "[%" PRIu32 "] [%s] {%dx%d-%dx%d} [%" PRIu32 "] {%" PRIu32 "x%" PRIu32
-	           ", orientation: %" PRIu32 ", desktopScale: %" PRIu32 ", deviceScale: %" PRIu32 "}",
+	           ", orientation: %s [%" PRIu32 "], desktopScale: %" PRIu32 ", deviceScale: %" PRIu32
+	           "}",
 	           idx, monitor->is_primary ? "primary" : "       ", monitor->x, monitor->y,
 	           monitor->width, monitor->height, monitor->orig_screen,
 	           monitor->attributes.physicalWidth, monitor->attributes.physicalHeight,
+	           freerdp_desktop_rotation_flags_to_string(monitor->attributes.orientation),
 	           monitor->attributes.orientation, monitor->attributes.desktopScaleFactor,
 	           monitor->attributes.deviceScaleFactor);
 }
@@ -762,7 +812,6 @@ char* freerdp_settings_get_config_path(void)
 
 rdpSettings* freerdp_settings_new(DWORD flags)
 {
-	char* issuers[] = { "FreeRDP", "FreeRDP-licenser" };
 	const BOOL server = (flags & FREERDP_SETTINGS_SERVER_MODE) != 0 ? TRUE : FALSE;
 	const BOOL remote = (flags & FREERDP_SETTINGS_REMOTE_MODE) != 0 ? TRUE : FALSE;
 	rdpSettings* settings = (rdpSettings*)calloc(1, sizeof(rdpSettings));
@@ -770,6 +819,32 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 	if (!settings)
 		return NULL;
 
+	{
+		const char* vendor = freerdp_getApplicationDetailsVendor();
+		const char* product = freerdp_getApplicationDetailsProduct();
+		const char* details = freerdp_getApplicationDetailsString();
+		char* issuer1 = NULL;
+		char* issuer2 = NULL;
+		char* issuer3 = NULL;
+		size_t len = 0;
+		(void)winpr_asprintf(&issuer1, &len, "%s-licenser", freerdp_getApplicationDetailsString());
+		(void)winpr_asprintf(&issuer2, &len, "%s-licenser", freerdp_getApplicationDetailsVendor());
+		(void)winpr_asprintf(&issuer3, &len, "%s-licenser", freerdp_getApplicationDetailsProduct());
+
+		char* issuers[] = { WINPR_CAST_CONST_PTR_AWAY(vendor, char*),
+			                WINPR_CAST_CONST_PTR_AWAY(product, char*),
+			                WINPR_CAST_CONST_PTR_AWAY(details, char*),
+			                issuer1,
+			                issuer2,
+			                issuer3 };
+
+		const BOOL res = freerdp_server_license_issuers_copy(settings, issuers, ARRAYSIZE(issuers));
+		free(issuer1);
+		free(issuer2);
+		free(issuer3);
+		if (!res)
+			goto out_fail;
+	}
 	if (!server && !remote)
 	{
 		if (!freerdp_settings_set_string(settings, FreeRDP_GatewayHttpUserAgent,
@@ -829,14 +904,26 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 	if (!freerdp_settings_set_uint32(settings, FreeRDP_ClipboardFeatureMask,
 	                                 CLIPRDR_FLAG_DEFAULT_MASK))
 		goto out_fail;
-	if (!freerdp_settings_set_string(settings, FreeRDP_ServerLicenseCompanyName, "FreeRDP"))
+	if (!freerdp_settings_set_string(settings, FreeRDP_ServerLicenseCompanyName,
+	                                 freerdp_getApplicationDetailsVendor()))
 		goto out_fail;
-	if (!freerdp_settings_set_string(settings, FreeRDP_ServerLicenseProductName,
-	                                 "FreeRDP-licensing-server"))
-		goto out_fail;
+
+	{
+		size_t len = 0;
+		char* val = NULL;
+		(void)winpr_asprintf(&val, &len, "%s-licensing-server",
+		                     freerdp_getApplicationDetailsProduct());
+		if (!val)
+			goto out_fail;
+
+		const BOOL rc =
+		    freerdp_settings_set_string(settings, FreeRDP_ServerLicenseProductName, val);
+		free(val);
+		if (!rc)
+			goto out_fail;
+	}
+
 	if (!freerdp_settings_set_uint32(settings, FreeRDP_ServerLicenseProductVersion, 1))
-		goto out_fail;
-	if (!freerdp_server_license_issuers_copy(settings, issuers, ARRAYSIZE(issuers)))
 		goto out_fail;
 
 	if (!freerdp_settings_set_uint16(settings, FreeRDP_SupportedColorDepths,
@@ -887,7 +974,7 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 	                                 DEFAULT_COOKIE_MAX_LENGTH) ||
 	    !freerdp_settings_set_uint32(settings, FreeRDP_ClientBuild,
 	                                 18363) || /* Windows 10, Version 1909 */
-	    !freerdp_settings_set_uint32(settings, FreeRDP_KeyboardType, 4) ||
+	    !freerdp_settings_set_uint32(settings, FreeRDP_KeyboardType, WINPR_KBD_TYPE_IBM_ENHANCED) ||
 	    !freerdp_settings_set_uint32(settings, FreeRDP_KeyboardSubType, 0) ||
 	    !freerdp_settings_set_uint32(settings, FreeRDP_KeyboardFunctionKey, 12) ||
 	    !freerdp_settings_set_uint32(settings, FreeRDP_KeyboardLayout, 0) ||

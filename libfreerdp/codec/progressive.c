@@ -760,7 +760,11 @@ static inline int progressive_rfx_dwt_2d_decode(PROGRESSIVE_CONTEXT* WINPR_RESTR
 	else if (!coeffDiff)
 		memcpy(current, buffer, bsize);
 	else
-		prims->add_16s_inplace(buffer, current, belements);
+	{
+		const pstatus_t rc = prims->add_16s_inplace(buffer, current, belements);
+		if (rc != PRIMITIVES_SUCCESS)
+			return -1;
+	}
 
 	INT16* temp = (INT16*)BufferPool_Take(progressive->bufferPool, -1); /* DWT buffer */
 
@@ -780,14 +784,14 @@ static inline int progressive_rfx_dwt_2d_decode(PROGRESSIVE_CONTEXT* WINPR_RESTR
 	return 1;
 }
 
-static inline void progressive_rfx_decode_block(const primitives_t* prims,
+static inline BOOL progressive_rfx_decode_block(const primitives_t* prims,
                                                 INT16* WINPR_RESTRICT buffer, UINT32 length,
                                                 UINT32 shift)
 {
-	if (!shift)
-		return;
+	if (shift == 0)
+		return TRUE;
 
-	prims->lShiftC_16s_inplace(buffer, shift, length);
+	return prims->lShiftC_16s_inplace(buffer, shift, length) == PRIMITIVES_SUCCESS;
 }
 
 static inline int
@@ -810,30 +814,50 @@ progressive_rfx_decode_component(PROGRESSIVE_CONTEXT* WINPR_RESTRICT progressive
 	if (!extrapolate)
 	{
 		rfx_differential_decode(buffer + 4032, 64);
-		progressive_rfx_decode_block(prims, &buffer[0], 1024, shift->HL1);    /* HL1 */
-		progressive_rfx_decode_block(prims, &buffer[1024], 1024, shift->LH1); /* LH1 */
-		progressive_rfx_decode_block(prims, &buffer[2048], 1024, shift->HH1); /* HH1 */
-		progressive_rfx_decode_block(prims, &buffer[3072], 256, shift->HL2);  /* HL2 */
-		progressive_rfx_decode_block(prims, &buffer[3328], 256, shift->LH2);  /* LH2 */
-		progressive_rfx_decode_block(prims, &buffer[3584], 256, shift->HH2);  /* HH2 */
-		progressive_rfx_decode_block(prims, &buffer[3840], 64, shift->HL3);   /* HL3 */
-		progressive_rfx_decode_block(prims, &buffer[3904], 64, shift->LH3);   /* LH3 */
-		progressive_rfx_decode_block(prims, &buffer[3968], 64, shift->HH3);   /* HH3 */
-		progressive_rfx_decode_block(prims, &buffer[4032], 64, shift->LL3);   /* LL3 */
+		if (!progressive_rfx_decode_block(prims, &buffer[0], 1024, shift->HL1)) /* HL1 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[1024], 1024, shift->LH1)) /* LH1 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[2048], 1024, shift->HH1)) /* HH1 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[3072], 256, shift->HL2)) /* HL2 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[3328], 256, shift->LH2)) /* LH2 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[3584], 256, shift->HH2)) /* HH2 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[3840], 64, shift->HL3)) /* HL3 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[3904], 64, shift->LH3)) /* LH3 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[3968], 64, shift->HH3)) /* HH3 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[4032], 64, shift->LL3)) /* LL3 */
+			return -1;
 	}
 	else
 	{
-		progressive_rfx_decode_block(prims, &buffer[0], 1023, shift->HL1);    /* HL1 */
-		progressive_rfx_decode_block(prims, &buffer[1023], 1023, shift->LH1); /* LH1 */
-		progressive_rfx_decode_block(prims, &buffer[2046], 961, shift->HH1);  /* HH1 */
-		progressive_rfx_decode_block(prims, &buffer[3007], 272, shift->HL2);  /* HL2 */
-		progressive_rfx_decode_block(prims, &buffer[3279], 272, shift->LH2);  /* LH2 */
-		progressive_rfx_decode_block(prims, &buffer[3551], 256, shift->HH2);  /* HH2 */
-		progressive_rfx_decode_block(prims, &buffer[3807], 72, shift->HL3);   /* HL3 */
-		progressive_rfx_decode_block(prims, &buffer[3879], 72, shift->LH3);   /* LH3 */
-		progressive_rfx_decode_block(prims, &buffer[3951], 64, shift->HH3);   /* HH3 */
+		if (!progressive_rfx_decode_block(prims, &buffer[0], 1023, shift->HL1)) /* HL1 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[1023], 1023, shift->LH1)) /* LH1 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[2046], 961, shift->HH1)) /* HH1 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[3007], 272, shift->HL2)) /* HL2 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[3279], 272, shift->LH2)) /* LH2 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[3551], 256, shift->HH2)) /* HH2 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[3807], 72, shift->HL3)) /* HL3 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[3879], 72, shift->LH3)) /* LH3 */
+			return -1;
+		if (!progressive_rfx_decode_block(prims, &buffer[3951], 64, shift->HH3)) /* HH3 */
+			return -1;
 		rfx_differential_decode(&buffer[4015], 81);                           /* LL3 */
-		progressive_rfx_decode_block(prims, &buffer[4015], 81, shift->LL3);   /* LL3 */
+		if (!progressive_rfx_decode_block(prims, &buffer[4015], 81, shift->LL3)) /* LL3 */
+			return -1;
 	}
 	return progressive_rfx_dwt_2d_decode(progressive, buffer, current, coeffDiff, extrapolate,
 	                                     FALSE);
@@ -1105,10 +1129,9 @@ static inline int16_t rawShift(wBitStream* raw, UINT32 numBits)
 	WINPR_ASSERT(numBits > 0);
 
 	raw->mask = ((1 << numBits) - 1);
+	const int16_t input = (int16_t)((raw->accumulator >> (32 - numBits)) & raw->mask);
 	BitStream_Shift(raw, numBits);
-	const unsigned input = ((raw->accumulator >> (32 - numBits)) & raw->mask);
-	int16_t val = (int16_t)input;
-	return val;
+	return input;
 }
 
 static inline int progressive_rfx_upgrade_block(RFX_PROGRESSIVE_UPGRADE_STATE* WINPR_RESTRICT state,
@@ -1149,19 +1172,16 @@ static inline int progressive_rfx_upgrade_block(RFX_PROGRESSIVE_UPGRADE_STATE* W
 		{
 			/* sign < 0, read from raw */
 			input = rawShift(raw, numBits);
+			input *= -1;
 		}
 		else
 		{
 			/* sign == 0, read from srl */
 			input = progressive_rfx_srl_read(state, numBits);
 			sign[index] = WINPR_ASSERTING_INT_CAST(int16_t, input);
-			if (sign[index] < 0)
-				input *= -1;
 		}
 
-		int32_t val = input << shift;
-		if (sign[index] < 0)
-			val *= -1;
+		const int32_t val = input << shift;
 		const int32_t ival = buffer[index] + val;
 		buffer[index] = WINPR_ASSERTING_INT_CAST(INT16, ival);
 	}
@@ -2269,7 +2289,11 @@ static inline BOOL update_tiles(PROGRESSIVE_CONTEXT* WINPR_RESTRICT progressive,
 		clippingRect.top = (UINT16)nYDst + rect->y;
 		clippingRect.right = clippingRect.left + rect->width;
 		clippingRect.bottom = clippingRect.top + rect->height;
-		region16_union_rect(&clippingRects, &clippingRects, &clippingRect);
+		if (!region16_union_rect(&clippingRects, &clippingRects, &clippingRect))
+		{
+			region16_uninit(&clippingRects);
+			return FALSE;
+		}
 	}
 
 	for (UINT32 i = 0; i < surface->numUpdatedTiles; i++)
@@ -2295,7 +2319,11 @@ static inline BOOL update_tiles(PROGRESSIVE_CONTEXT* WINPR_RESTRICT progressive,
 
 		REGION16 updateRegion = { 0 };
 		region16_init(&updateRegion);
-		region16_intersect_rect(&updateRegion, &clippingRects, &updateRect);
+		if (!region16_intersect_rect(&updateRegion, &clippingRects, &updateRect))
+		{
+			region16_uninit(&updateRegion);
+			goto fail;
+		}
 		updateRects = region16_rects(&updateRegion, &nbUpdateRects);
 
 		for (UINT32 j = 0; j < nbUpdateRects; j++)
@@ -2320,7 +2348,13 @@ static inline BOOL update_tiles(PROGRESSIVE_CONTEXT* WINPR_RESTRICT progressive,
 				break;
 
 			if (invalidRegion)
-				region16_union_rect(invalidRegion, invalidRegion, rect);
+			{
+				if (!region16_union_rect(invalidRegion, invalidRegion, rect))
+				{
+					region16_uninit(&updateRegion);
+					goto fail;
+				}
+			}
 		}
 
 		region16_uninit(&updateRegion);

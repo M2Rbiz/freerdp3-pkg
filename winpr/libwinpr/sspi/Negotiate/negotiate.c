@@ -35,11 +35,11 @@
 #include "../NTLM/ntlm_export.h"
 #include "../Kerberos/kerberos.h"
 #include "../sspi.h"
+#include "../../utils.h"
 #include "../../log.h"
 #define TAG WINPR_TAG("negotiate")
 
-static const char NEGO_REG_KEY[] =
-    "Software\\" WINPR_VENDOR_STRING "\\" WINPR_PRODUCT_STRING "\\SSPI\\Negotiate";
+#define NEGO_REG_KEY "Software\\%s\\SSPI\\Negotiate"
 
 static const char PACKAGE_NAME_DISABLE_ALL[] = "none";
 static const char PACKAGE_NAME_NTLM[] = "ntlm";
@@ -318,7 +318,6 @@ fail:
 static BOOL negotiate_get_config(void* pAuthData, BOOL* kerberos, BOOL* ntlm, BOOL* u2u)
 {
 	HKEY hKey = NULL;
-	LONG rc = 0;
 
 	WINPR_ASSERT(kerberos);
 	WINPR_ASSERT(ntlm);
@@ -342,16 +341,22 @@ static BOOL negotiate_get_config(void* pAuthData, BOOL* kerberos, BOOL* ntlm, BO
 		return TRUE; // use explicit authentication package list
 	}
 
-	rc = RegOpenKeyExA(HKEY_LOCAL_MACHINE, NEGO_REG_KEY, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
-	if (rc == ERROR_SUCCESS)
 	{
-		DWORD dwValue = 0;
+		char* key = winpr_getApplicatonDetailsRegKey(NEGO_REG_KEY);
+		if (key)
+		{
+			const LONG rc =
+			    RegOpenKeyExA(HKEY_LOCAL_MACHINE, key, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
+			free(key);
+			if (rc == ERROR_SUCCESS)
+			{
+				DWORD dwValue = 0;
 
-		if (negotiate_get_dword(hKey, PACKAGE_NAME_KERBEROS, &dwValue))
-			*kerberos = (dwValue != 0) ? TRUE : FALSE;
+				if (negotiate_get_dword(hKey, PACKAGE_NAME_KERBEROS, &dwValue))
+					*kerberos = (dwValue != 0) ? TRUE : FALSE;
 
-		if (negotiate_get_dword(hKey, PACKAGE_NAME_KERBEROS_U2U, &dwValue))
-			*u2u = (dwValue != 0) ? TRUE : FALSE;
+				if (negotiate_get_dword(hKey, PACKAGE_NAME_KERBEROS_U2U, &dwValue))
+					*u2u = (dwValue != 0) ? TRUE : FALSE;
 
 #if !defined(WITH_KRB5_NO_NTLM_FALLBACK)
 		if (negotiate_get_dword(hKey, PACKAGE_NAME_NTLM, &dwValue))
@@ -359,6 +364,8 @@ static BOOL negotiate_get_config(void* pAuthData, BOOL* kerberos, BOOL* ntlm, BO
 #endif
 
 		RegCloseKey(hKey);
+			}
+		}
 	}
 
 	return TRUE;
@@ -470,13 +477,13 @@ cleanup:
 
 static BOOL negotiate_read_neg_token(PSecBuffer input, NegToken* token)
 {
-	WinPrAsn1Decoder dec;
-	WinPrAsn1Decoder dec2;
-	WinPrAsn1_OID oid;
+	WinPrAsn1Decoder dec = { .encoding = WINPR_ASN1_BER, { 0 } };
+	WinPrAsn1Decoder dec2 = { .encoding = WINPR_ASN1_BER, { 0 } };
+	WinPrAsn1_OID oid = { 0 };
 	WinPrAsn1_tagId contextual = 0;
 	WinPrAsn1_tag tag = 0;
 	size_t len = 0;
-	WinPrAsn1_OctetString octet_string;
+	WinPrAsn1_OctetString octet_string = { 0 };
 	BOOL err = 0;
 
 	WINPR_ASSERT(input);
@@ -983,8 +990,8 @@ static SECURITY_STATUS SEC_ENTRY negotiate_InitializeSecurityContextA(
 
 static const Mech* guessMech(PSecBuffer input_buffer, BOOL* spNego, WinPrAsn1_OID* oid)
 {
-	WinPrAsn1Decoder decoder;
-	WinPrAsn1Decoder appDecoder;
+	WinPrAsn1Decoder decoder = { .encoding = WINPR_ASN1_BER, { 0 } };
+	WinPrAsn1Decoder appDecoder = { .encoding = WINPR_ASN1_BER, { 0 } };
 	WinPrAsn1_tagId tag = 0;
 	const char ssp[] = "NTLMSSP";
 
@@ -1032,8 +1039,8 @@ static SECURITY_STATUS SEC_ENTRY negotiate_AcceptSecurityContext(
 	SecBufferDesc mech_input = { SECBUFFER_VERSION, 1, &input_token.mechToken };
 	SecBufferDesc mech_output = { SECBUFFER_VERSION, 1, &output_token.mechToken };
 	SECURITY_STATUS status = SEC_E_INTERNAL_ERROR;
-	WinPrAsn1Decoder dec;
-	WinPrAsn1Decoder dec2;
+	WinPrAsn1Decoder dec = { .encoding = WINPR_ASN1_BER, { 0 } };
+	WinPrAsn1Decoder dec2 = { .encoding = WINPR_ASN1_BER, { 0 } };
 	WinPrAsn1_tagId tag = 0;
 	WinPrAsn1_OID oid = { 0 };
 	const Mech* first_mech = NULL;
@@ -1560,9 +1567,7 @@ static SECURITY_STATUS SEC_ENTRY negotiate_QueryCredentialsAttributesA(
 
 static SECURITY_STATUS SEC_ENTRY negotiate_FreeCredentialsHandle(PCredHandle phCredential)
 {
-	MechCred* creds = NULL;
-
-	creds = sspi_SecureHandleGetLowerPointer(phCredential);
+	MechCred* creds = sspi_SecureHandleGetLowerPointer(phCredential);
 	if (!creds)
 		return SEC_E_INVALID_HANDLE;
 

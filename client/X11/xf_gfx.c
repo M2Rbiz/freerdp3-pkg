@@ -30,6 +30,7 @@
 #include "xf_gfx.h"
 #include "xf_rail.h"
 #include "xf_utils.h"
+#include "xf_window.h"
 
 #include <X11/Xutil.h>
 
@@ -62,8 +63,9 @@ static UINT xf_OutputUpdate(xfContext* xfc, xfGfxSurface* surface)
 	LogDynAndXSetClipMask(xfc->log, xfc->display, xfc->gc, None);
 	LogDynAndXSetFunction(xfc->log, xfc->display, xfc->gc, GXcopy);
 	LogDynAndXSetFillStyle(xfc->log, xfc->display, xfc->gc, FillSolid);
-	region16_intersect_rect(&(surface->gdi.invalidRegion), &(surface->gdi.invalidRegion),
-	                        &surfaceRect);
+	if (!region16_intersect_rect(&(surface->gdi.invalidRegion), &(surface->gdi.invalidRegion),
+	                             &surfaceRect))
+		return ERROR_INTERNAL_ERROR;
 
 	WINPR_ASSERT(surface->gdi.mappedWidth);
 	WINPR_ASSERT(surface->gdi.mappedHeight);
@@ -161,7 +163,9 @@ static UINT xf_UpdateSurfaces(RdpgfxClientContext* context)
 
 	xfc = (xfContext*)gdi->context;
 	EnterCriticalSection(&context->mux);
-	context->GetSurfaceIds(context, &pSurfaceIds, &count);
+	status = context->GetSurfaceIds(context, &pSurfaceIds, &count);
+	if (status != CHANNEL_RC_OK)
+		goto fail;
 
 	for (UINT32 index = 0; index < count; index++)
 	{
@@ -186,6 +190,7 @@ static UINT xf_UpdateSurfaces(RdpgfxClientContext* context)
 			break;
 	}
 
+fail:
 	free(pSurfaceIds);
 	LeaveCriticalSection(&context->mux);
 	return status;
@@ -242,8 +247,14 @@ UINT xf_OutputExpose(xfContext* xfc, UINT32 x, UINT32 y, UINT32 width, UINT32 he
 			intersection.top -= surfaceRect.top;
 			intersection.right -= surfaceRect.left;
 			intersection.bottom -= surfaceRect.top;
-			region16_union_rect(&surface->gdi.invalidRegion, &surface->gdi.invalidRegion,
-			                    &intersection);
+			if (!region16_union_rect(&surface->gdi.invalidRegion, &surface->gdi.invalidRegion,
+			                         &intersection))
+			{
+				free(pSurfaceIds);
+				LeaveCriticalSection(&context->mux);
+
+				goto fail;
+			}
 		}
 	}
 
@@ -413,15 +424,21 @@ static UINT xf_DeleteSurface(RdpgfxClientContext* context,
                              const RDPGFX_DELETE_SURFACE_PDU* deleteSurface)
 {
 	rdpCodecs* codecs = NULL;
-	xfGfxSurface* surface = NULL;
+
 	UINT status = 0;
 	EnterCriticalSection(&context->mux);
-	surface = (xfGfxSurface*)context->GetSurfaceData(context, deleteSurface->surfaceId);
+	xfGfxSurface* surface =
+	    (xfGfxSurface*)context->GetSurfaceData(context, deleteSurface->surfaceId);
 
 	if (surface)
 	{
 		if (surface->gdi.windowMapped)
-			IFCALL(context->UnmapWindowForSurface, context, surface->gdi.windowId);
+		{
+			status = IFCALLRESULT(CHANNEL_RC_OK, context->UnmapWindowForSurface, context,
+			                      surface->gdi.windowId);
+			if (status != CHANNEL_RC_OK)
+				goto fail;
+		}
 
 #ifdef WITH_GFX_H264
 		h264_context_free(surface->gdi.h264);
@@ -440,8 +457,30 @@ static UINT xf_DeleteSurface(RdpgfxClientContext* context,
 	if (codecs && codecs->progressive)
 		progressive_delete_surface_context(codecs->progressive, deleteSurface->surfaceId);
 
+fail:
 	LeaveCriticalSection(&context->mux);
 	return status;
+}
+
+static UINT xf_UnmapWindowForSurface(RdpgfxClientContext* context, UINT64 windowID)
+{
+	WINPR_ASSERT(context);
+	rdpGdi* gdi = (rdpGdi*)context->custom;
+	WINPR_ASSERT(gdi);
+
+	xfContext* xfc = (xfContext*)gdi->context;
+	WINPR_ASSERT(gdi->context);
+
+	if (freerdp_settings_get_bool(gdi->context->settings, FreeRDP_RemoteApplicationMode))
+	{
+		xfAppWindow* appWindow = xf_rail_get_window(xfc, windowID);
+		if (appWindow)
+			xf_AppWindowDestroyImage(appWindow);
+		xf_rail_return_window(appWindow);
+	}
+
+	WLog_WARN(TAG, "function not implemented");
+	return CHANNEL_RC_OK;
 }
 
 static UINT xf_UpdateWindowFromSurface(RdpgfxClientContext* context, gdiGfxSurface* surface)
@@ -482,7 +521,9 @@ void xf_graphics_pipeline_init(xfContext* xfc, RdpgfxClientContext* gfx)
 		gfx->CreateSurface = xf_CreateSurface;
 		gfx->DeleteSurface = xf_DeleteSurface;
 	}
+
 	gfx->UpdateWindowFromSurface = xf_UpdateWindowFromSurface;
+	gfx->UnmapWindowForSurface = xf_UnmapWindowForSurface;
 }
 
 void xf_graphics_pipeline_uninit(xfContext* xfc, RdpgfxClientContext* gfx)

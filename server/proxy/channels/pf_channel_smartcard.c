@@ -44,8 +44,6 @@ typedef struct
 {
 	InterceptContextMapEntry base;
 	scard_call_context* callctx;
-	PTP_POOL ThreadPool;
-	TP_CALLBACK_ENVIRON ThreadPoolEnv;
 	wArrayList* workObjects;
 } pf_channel_client_context;
 
@@ -58,6 +56,7 @@ typedef struct
 	pf_scard_send_fkt_t send_fkt;
 } pf_channel_client_queue_element;
 
+WINPR_ATTR_NODISCARD
 static pf_channel_client_context* scard_get_client_context(pClientContext* pc)
 {
 	pf_channel_client_context* scard = NULL;
@@ -71,6 +70,7 @@ static pf_channel_client_context* scard_get_client_context(pClientContext* pc)
 	return scard;
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_channel_client_write_iostatus(wStream* out, const SMARTCARD_OPERATION* op,
                                              NTSTATUS ioStatus)
 {
@@ -111,6 +111,9 @@ struct thread_arg
 };
 
 static void queue_free(void* obj);
+
+WINPR_ATTR_MALLOC(queue_free, 1)
+WINPR_ATTR_NODISCARD
 static void* queue_copy(const void* obj);
 
 static VOID irp_thread(WINPR_ATTR_UNUSED PTP_CALLBACK_INSTANCE Instance, PVOID Context,
@@ -133,6 +136,7 @@ static VOID irp_thread(WINPR_ATTR_UNUSED PTP_CALLBACK_INSTANCE Instance, PVOID C
 	ArrayList_Remove(scard->workObjects, Work);
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL start_irp_thread(pf_channel_client_context* scard,
                              const pf_channel_client_queue_element* e)
 {
@@ -145,7 +149,7 @@ static BOOL start_irp_thread(pf_channel_client_context* scard,
 	if (!arg->e)
 		goto fail;
 
-	work = CreateThreadpoolWork(irp_thread, arg, &scard->ThreadPoolEnv);
+	work = CreateThreadpoolWork(irp_thread, arg, NULL);
 	if (!work)
 		goto fail;
 	ArrayList_Append(scard->workObjects, work);
@@ -291,8 +295,6 @@ static void pf_channel_scard_client_context_free(InterceptContextMapEntry* base)
 	 * available polling slot */
 	channel_stop_and_wait(entry, FALSE);
 	ArrayList_Free(entry->workObjects);
-	CloseThreadpool(entry->ThreadPool);
-	DestroyThreadpoolEnvironment(&entry->ThreadPoolEnv);
 
 	smartcard_call_context_free(entry->callctx);
 	free(entry);
@@ -308,6 +310,8 @@ static void queue_free(void* obj)
 	free(element);
 }
 
+WINPR_ATTR_MALLOC(queue_free, 1)
+WINPR_ATTR_NODISCARD
 static void* queue_copy(const void* obj)
 {
 	const pf_channel_client_queue_element* other = obj;
@@ -357,12 +361,6 @@ BOOL pf_channel_smartcard_client_new(pClientContext* pc)
 	obj = ArrayList_Object(scard->workObjects);
 	WINPR_ASSERT(obj);
 	obj->fnObjectFree = work_object_free;
-
-	scard->ThreadPool = CreateThreadpool(NULL);
-	if (!scard->ThreadPool)
-		goto fail;
-	InitializeThreadpoolEnvironment(&scard->ThreadPoolEnv);
-	SetThreadpoolCallbackPool(&scard->ThreadPoolEnv, scard->ThreadPool);
 
 	return HashTable_Insert(pc->interceptContextMap, SCARD_SVC_CHANNEL_NAME, scard);
 fail:

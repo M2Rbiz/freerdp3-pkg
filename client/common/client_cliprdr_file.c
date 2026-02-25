@@ -228,7 +228,7 @@ static CliprdrFuseFile* fuse_file_new(WINPR_FORMAT_ARG const char* fmt, ...)
 	WINPR_ASSERT(fmt);
 
 	{
-		va_list ap;
+		va_list ap = { 0 };
 		va_start(ap, fmt);
 		const int rc =
 		    winpr_vasprintf(&file->filename_with_root, &file->filename_with_root_len, fmt, ap);
@@ -268,8 +268,12 @@ static void clip_data_entry_free(void* data)
 		unlock_clipboard_data.common.msgType = CB_UNLOCK_CLIPDATA;
 		unlock_clipboard_data.clipDataId = clip_data_entry->clip_data_id;
 
-		file_context->context->ClientUnlockClipboardData(file_context->context,
-		                                                 &unlock_clipboard_data);
+		const UINT rc = file_context->context->ClientUnlockClipboardData(file_context->context,
+		                                                                 &unlock_clipboard_data);
+		if (rc != CHANNEL_RC_OK)
+			WLog_Print(file_context->log, WLOG_DEBUG,
+			           "ClientUnlockClipboardData failed with %" PRIu32, rc);
+
 		clip_data_entry->has_clip_data_id = FALSE;
 
 		WLog_Print(file_context->log, WLOG_DEBUG, "Destroyed ClipDataEntry with id %u",
@@ -1180,13 +1184,15 @@ static DWORD WINAPI cliprdr_file_fuse_thread(LPVOID arg)
 
 	if (file->fuse_sess != NULL)
 	{
-		freerdp_add_signal_cleanup_handler(file, fuse_abort);
-		if (0 == fuse_session_mount(file->fuse_sess, file->path))
+		if (freerdp_add_signal_cleanup_handler(file, fuse_abort))
 		{
-			fuse_session_loop(file->fuse_sess);
-			fuse_session_unmount(file->fuse_sess);
+			if (0 == fuse_session_mount(file->fuse_sess, file->path))
+			{
+				fuse_session_loop(file->fuse_sess);
+				fuse_session_unmount(file->fuse_sess);
+			}
+			freerdp_del_signal_cleanup_handler(file, fuse_abort);
 		}
-		freerdp_del_signal_cleanup_handler(file, fuse_abort);
 
 		WLog_Print(file->log, WLOG_DEBUG, "Waiting for FUSE stop sync");
 		if (WaitForSingleObject(file->fuse_stop_sync, INFINITE) == WAIT_FAILED)

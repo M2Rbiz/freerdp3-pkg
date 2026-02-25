@@ -47,13 +47,14 @@
 #include "rfx_quantization.h"
 #include "rfx_dwt.h"
 #include "rfx_rlgr.h"
+#include "../core/utils.h"
 
 #include "sse/rfx_sse2.h"
 #include "neon/rfx_neon.h"
 
 #define TAG FREERDP_TAG("codec")
 
-#define RFX_KEY "Software\\" FREERDP_VENDOR_STRING "\\" FREERDP_PRODUCT_STRING "\\RemoteFX"
+#define RFX_KEY "Software\\%s\\RemoteFX"
 
 /**
  * The quantization values control the compression rate and quality. The value
@@ -259,30 +260,32 @@ RFX_CONTEXT* rfx_context_new_ex(BOOL encoder, UINT32 ThreadingFlags)
 	if (!priv->BufferPool)
 		goto fail;
 
+	priv->UseThreads = FALSE;
 	if (!(ThreadingFlags & THREADING_FLAGS_DISABLE_THREADS))
-	{
-		HKEY hKey = NULL;
 		priv->UseThreads = TRUE;
 
-		const LONG status =
-		    RegOpenKeyExA(HKEY_LOCAL_MACHINE, RFX_KEY, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
-
-		if (status == ERROR_SUCCESS)
-		{
-			DWORD dwType = 0;
-			DWORD dwValue = 0;
-			DWORD dwSize = sizeof(dwValue);
-
-			if (RegQueryValueEx(hKey, _T("UseThreads"), NULL, &dwType, (BYTE*)&dwValue, &dwSize) ==
-			    ERROR_SUCCESS)
-				priv->UseThreads = dwValue ? 1 : 0;
-
-			RegCloseKey(hKey);
-		}
-	}
-	else
 	{
-		priv->UseThreads = FALSE;
+		char* key = freerdp_getApplicatonDetailsRegKey(RFX_KEY);
+		if (key)
+		{
+			HKEY hKey = NULL;
+			const LONG status =
+			    RegOpenKeyExA(HKEY_LOCAL_MACHINE, RFX_KEY, 0, KEY_READ | KEY_WOW64_64KEY, &hKey);
+			free(key);
+
+			if (status == ERROR_SUCCESS)
+			{
+				DWORD dwType = 0;
+				DWORD dwValue = 0;
+				DWORD dwSize = sizeof(dwValue);
+
+				if (RegQueryValueEx(hKey, _T("UseThreads"), NULL, &dwType, (BYTE*)&dwValue,
+				                    &dwSize) == ERROR_SUCCESS)
+					priv->UseThreads = dwValue ? 1 : 0;
+
+				RegCloseKey(hKey);
+			}
+		}
 	}
 
 	if (priv->UseThreads)
@@ -290,7 +293,8 @@ RFX_CONTEXT* rfx_context_new_ex(BOOL encoder, UINT32 ThreadingFlags)
 		/* Call primitives_get here in order to avoid race conditions when using primitives_get */
 		/* from multiple threads. This call will initialize all function pointers correctly     */
 		/* before any decoding threads are started */
-		primitives_get();
+		if (!primitives_get())
+			goto fail;
 	}
 
 	/* initialize the default pixel format */
@@ -1286,7 +1290,12 @@ BOOL rfx_process_message(RFX_CONTEXT* WINPR_RESTRICT context, const BYTE* WINPR_
 			const uint16_t bottom = WINPR_ASSERTING_INT_CAST(UINT16, MIN(rh, dstHeight));
 			clippingRect.right = right;
 			clippingRect.bottom = bottom;
-			region16_union_rect(&clippingRects, &clippingRects, &clippingRect);
+			if (!region16_union_rect(&clippingRects, &clippingRects, &clippingRect))
+			{
+				region16_uninit(&updateRegion);
+				region16_uninit(&clippingRects);
+				return FALSE;
+			}
 		}
 
 		for (UINT32 i = 0; i < message->numTiles; i++)
@@ -1302,7 +1311,12 @@ BOOL rfx_process_message(RFX_CONTEXT* WINPR_RESTRICT context, const BYTE* WINPR_
 			updateRect.right = updateRect.left + 64;
 			updateRect.bottom = updateRect.top + 64;
 			region16_init(&updateRegion);
-			region16_intersect_rect(&updateRegion, &clippingRects, &updateRect);
+			if (!region16_intersect_rect(&updateRegion, &clippingRects, &updateRect))
+			{
+				region16_uninit(&updateRegion);
+				region16_uninit(&clippingRects);
+				return FALSE;
+			}
 			updateRects = region16_rects(&updateRegion, &nbUpdateRects);
 
 			for (UINT32 j = 0; j < nbUpdateRects; j++)
@@ -1329,7 +1343,14 @@ BOOL rfx_process_message(RFX_CONTEXT* WINPR_RESTRICT context, const BYTE* WINPR_
 				}
 
 				if (invalidRegion)
-					region16_union_rect(invalidRegion, invalidRegion, cur);
+				{
+					if (!region16_union_rect(invalidRegion, invalidRegion, cur))
+					{
+						region16_uninit(&updateRegion);
+						region16_uninit(&clippingRects);
+						return FALSE;
+					}
+				}
 			}
 
 			region16_uninit(&updateRegion);

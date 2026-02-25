@@ -32,7 +32,7 @@ static inline void rdpecam_PrintWarning(wLog* log, const char* file, const char*
                                         WINPR_FORMAT_ARG const char* fmt, ...)
 {
 	const DWORD level = WLOG_WARN;
-	va_list ap;
+	va_list ap = { 0 };
 
 	va_start(ap, fmt);
 	if (WLog_IsLevelActive(log, level))
@@ -310,7 +310,7 @@ static inline bool rdpecam_valid_CamPropertySet_(UINT8 val, wLog* log, const cha
 static inline bool rdpecam_valid_CamPropertyCapabilities_(UINT32 val, wLog* log, const char* file,
                                                           const char* fkt, size_t line)
 {
-	if ((val & ~(CAM_PROPERTY_CAPABILITY_Manual | CAM_PROPERTY_CAPABILITY_Auto)) != 0)
+	if ((val & ~((UINT32)CAM_PROPERTY_CAPABILITY_Manual | CAM_PROPERTY_CAPABILITY_Auto)) != 0)
 	{
 		rdpecam_PrintWarning(log, file, fkt, line, "Invalid CAM_PROPERTY_CAPABILITIES %" PRIu8,
 		                     val);

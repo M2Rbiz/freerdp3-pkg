@@ -917,10 +917,10 @@ static UINT32 libusb_udev_control_query_device_text(IUDEVICE* idev, UINT32 TextT
 				 * So also check the string length returned as server side does
 				 * not honor strings with multi '\0' characters well.
 				 */
-				const size_t rchar = _wcsnlen((WCHAR*)&data[2], sizeof(data) / 2);
+				const size_t rchar = _wcsnlen((WCHAR*)&data[2], sizeof(data) / sizeof(WCHAR));
 				len = MIN((BYTE)ret - 2, slen);
 				len = MIN(len, inSize);
-				len = MIN(len, rchar * 2 + sizeof(WCHAR));
+				len = MIN(len, rchar * sizeof(WCHAR) + sizeof(WCHAR));
 				memcpy(Buffer, &data[2], len);
 
 				/* Just as above, the returned WCHAR string should be '\0'
@@ -1169,7 +1169,11 @@ static void libusb_udev_mark_channel_closed(IUDEVICE* idev)
 
 		pdev->status |= URBDRC_DEVICE_CHANNEL_CLOSED;
 		pdev->iface.cancel_all_transfer_request(&pdev->iface);
-		urbdrc->udevman->unregister_udevice(urbdrc->udevman, busNr, devNr);
+		if (!urbdrc->udevman->unregister_udevice(urbdrc->udevman, busNr, devNr))
+		{
+			WLog_Print(pdev->urbdrc->log, WLOG_WARN, "unregister_udevice failed for %d, %d", busNr,
+			           devNr);
+		}
 	}
 }
 
@@ -1192,9 +1196,15 @@ static void libusb_udev_channel_closed(IUDEVICE* idev)
 		pdev->status |= URBDRC_DEVICE_CHANNEL_CLOSED;
 
 		if (channel)
-			channel->Write(channel, 0, NULL, NULL);
+		{
+			const UINT rc = channel->Write(channel, 0, NULL, NULL);
+			if (rc != CHANNEL_RC_OK)
+				WLog_Print(urbdrc->log, WLOG_WARN, "channel->Write failed with %" PRIu32, rc);
+		}
 
-		urbdrc->udevman->unregister_udevice(urbdrc->udevman, busNr, devNr);
+		if (!urbdrc->udevman->unregister_udevice(urbdrc->udevman, busNr, devNr))
+			WLog_Print(urbdrc->log, WLOG_WARN, "unregister_udevice failed for %d, %d", busNr,
+			           devNr);
 	}
 }
 
@@ -1562,7 +1572,8 @@ static void udev_free(IUDEVICE* idev)
 	Sleep(100);
 
 	/* release all interface and  attach kernel driver */
-	udev->iface.attach_kernel_driver(idev);
+	if (!udev->iface.attach_kernel_driver(idev))
+		WLog_Print(udev->urbdrc->log, WLOG_WARN, "attach_kernel_driver failed for device");
 	ArrayList_Free(udev->request_queue);
 	/* free the config descriptor that send from windows */
 	msusb_msconfig_free(udev->MsConfig);

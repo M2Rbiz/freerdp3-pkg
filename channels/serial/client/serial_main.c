@@ -710,7 +710,9 @@ error_handle:
 		(void)CloseHandle(irpThread);
 	irp->IoStatus = STATUS_NO_MEMORY;
 	WINPR_ASSERT(irp->Complete);
-	irp->Complete(irp);
+	const UINT rc = irp->Complete(irp);
+	if (rc != CHANNEL_RC_OK)
+		WLog_Print(serial->log, WLOG_WARN, "irp->Complete failed with %" PRIu32, rc);
 	free(data);
 }
 
@@ -770,9 +772,6 @@ static UINT serial_irp_request(DEVICE* device, IRP* irp)
 	WINPR_ASSERT(irp != NULL);
 	WINPR_ASSERT(serial);
 
-	if (irp == NULL)
-		return CHANNEL_RC_OK;
-
 	/* NB: ENABLE_ASYNCIO is set, (MS-RDPEFS 2.2.2.7.2) this
 	 * allows the server to send multiple simultaneous read or
 	 * write requests.
@@ -781,6 +780,7 @@ static UINT serial_irp_request(DEVICE* device, IRP* irp)
 	if (!MessageQueue_Post(serial->MainIrpQueue, NULL, 0, (void*)irp, NULL))
 	{
 		WLog_Print(serial->log, WLOG_ERROR, "MessageQueue_Post failed!");
+		irp->Discard(irp);
 		return ERROR_INTERNAL_ERROR;
 	}
 

@@ -52,6 +52,8 @@
 #define TAG PROXY_TAG("client")
 
 static void channel_data_free(void* obj);
+
+WINPR_ATTR_NODISCARD
 static BOOL proxy_server_reactivate(rdpContext* ps, const rdpContext* pc)
 {
 	WINPR_ASSERT(ps);
@@ -90,7 +92,11 @@ static void pf_client_on_error_info(void* ctx, const ErrorInfoEventArgs* e)
 
 	/* forward error back to client */
 	freerdp_set_error_info(ps->context.rdp, e->code);
-	freerdp_send_error_info(ps->context.rdp);
+	if (!freerdp_send_error_info(ps->context.rdp))
+	{
+		PROXY_LOG_WARN(TAG, pc, "[fail] reply ErrorInfo PDU. code=0x%08" PRIu32 ", message: %s",
+		               e->code, freerdp_get_error_info_string(e->code));
+	}
 }
 
 static void pf_client_on_activated(void* ctx, WINPR_ATTR_UNUSED const ActivatedEventArgs* e)
@@ -116,6 +122,7 @@ static void pf_client_on_activated(void* ctx, WINPR_ATTR_UNUSED const ActivatedE
 	pf_server_register_update_callbacks(peer->context->update);
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_load_rdpsnd(pClientContext* pc)
 {
 	rdpContext* context = (rdpContext*)pc;
@@ -137,6 +144,7 @@ static BOOL pf_client_load_rdpsnd(pClientContext* pc)
 	return TRUE;
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_use_peer_load_balance_info(pClientContext* pc)
 {
 	pServerContext* ps = NULL;
@@ -159,6 +167,7 @@ static BOOL pf_client_use_peer_load_balance_info(pClientContext* pc)
 	                                        lb_info_len);
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL str_is_empty(const char* str)
 {
 	if (!str)
@@ -168,6 +177,7 @@ static BOOL str_is_empty(const char* str)
 	return FALSE;
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_use_proxy_smartcard_auth(const rdpSettings* settings)
 {
 	BOOL enable = freerdp_settings_get_bool(settings, FreeRDP_SmartcardLogon);
@@ -186,6 +196,7 @@ static BOOL pf_client_use_proxy_smartcard_auth(const rdpSettings* settings)
 	return TRUE;
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_pre_connect(freerdp* instance)
 {
 	pClientContext* pc = NULL;
@@ -297,6 +308,7 @@ typedef struct
 	UINT32 backId;
 } UpdateBackIdArgs;
 
+WINPR_ATTR_NODISCARD
 static BOOL updateBackIdFn(WINPR_ATTR_UNUSED const void* key, void* value, void* arg)
 {
 	pServerStaticChannelContext* current = (pServerStaticChannelContext*)value;
@@ -313,6 +325,7 @@ static BOOL updateBackIdFn(WINPR_ATTR_UNUSED const void* key, void* value, void*
 	return FALSE;
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_update_back_id(pServerContext* ps, const char* name, UINT32 backId)
 {
 	UpdateBackIdArgs res = { ps, name, backId };
@@ -320,6 +333,7 @@ static BOOL pf_client_update_back_id(pServerContext* ps, const char* name, UINT3
 	return HashTable_Foreach(ps->channelsByFrontId, updateBackIdFn, &res) == FALSE;
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_load_channels(freerdp* instance)
 {
 	pClientContext* pc = NULL;
@@ -415,6 +429,7 @@ static BOOL pf_client_load_channels(freerdp* instance)
 	return pf_modules_run_hook(pc->pdata->module, HOOK_TYPE_CLIENT_LOAD_CHANNELS, pc->pdata, pc);
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_receive_channel_data_hook(freerdp* instance, UINT16 channelId,
                                                 const BYTE* xdata, size_t xsize, UINT32 flags,
                                                 size_t totalSize)
@@ -463,6 +478,7 @@ static BOOL pf_client_receive_channel_data_hook(freerdp* instance, UINT16 channe
 	}
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_on_server_heartbeat(freerdp* instance, BYTE period, BYTE count1, BYTE count2)
 {
 	pClientContext* pc = NULL;
@@ -478,6 +494,7 @@ static BOOL pf_client_on_server_heartbeat(freerdp* instance, BYTE period, BYTE c
 	return freerdp_heartbeat_send_heartbeat_pdu(ps->context.peer, period, count1, count2);
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_send_channel_data(pClientContext* pc, const proxyChannelDataEventInfo* ev)
 {
 	WINPR_ASSERT(pc);
@@ -486,6 +503,7 @@ static BOOL pf_client_send_channel_data(pClientContext* pc, const proxyChannelDa
 	return Queue_Enqueue(pc->cached_server_channel_data, ev);
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL sendQueuedChannelData(pClientContext* pc)
 {
 	BOOL rc = TRUE;
@@ -531,6 +549,7 @@ static BOOL sendQueuedChannelData(pClientContext* pc)
  * If required, register pointer callbacks to change the local mouse cursor
  * when hovering over the RDP window
  */
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_post_connect(freerdp* instance)
 {
 	WINPR_ASSERT(instance);
@@ -563,7 +582,8 @@ static BOOL pf_client_post_connect(freerdp* instance)
 	pc->connected = TRUE;
 
 	/* Send cached channel data */
-	sendQueuedChannelData(pc);
+	if (!sendQueuedChannelData(pc))
+		return FALSE;
 
 	/*
 	 * after the connection fully established and settings were negotiated with target server,
@@ -599,7 +619,7 @@ static void pf_client_post_disconnect(freerdp* instance)
 	pf_channel_rdpdr_client_free(pc);
 
 	pc->connected = FALSE;
-	pf_modules_run_hook(pc->pdata->module, HOOK_TYPE_CLIENT_POST_DISCONNECT, pc->pdata, pc);
+	(void)pf_modules_run_hook(pc->pdata->module, HOOK_TYPE_CLIENT_POST_DISCONNECT, pc->pdata, pc);
 
 	PubSub_UnsubscribeErrorInfo(instance->context->pubSub, pf_client_on_error_info);
 	gdi_free(instance);
@@ -609,6 +629,7 @@ static void pf_client_post_disconnect(freerdp* instance)
 		proxy_data_abort_connect(pdata);
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_redirect(freerdp* instance)
 {
 	if (!instance)
@@ -634,6 +655,7 @@ static BOOL pf_client_redirect(freerdp* instance)
  * returns TRUE if in case of connection failure, the client should try again without NLA.
  * Otherwise, returns FALSE.
  */
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_should_retry_without_nla(pClientContext* pc)
 {
 	rdpSettings* settings = NULL;
@@ -653,6 +675,7 @@ static BOOL pf_client_should_retry_without_nla(pClientContext* pc)
 	return config->ClientTlsSecurity || config->ClientRdpSecurity;
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_set_security_settings(pClientContext* pc)
 {
 	WINPR_ASSERT(pc);
@@ -685,6 +708,7 @@ static BOOL pf_client_set_security_settings(pClientContext* pc)
 	return TRUE;
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_connect_without_nla(pClientContext* pc)
 {
 	freerdp* instance = NULL;
@@ -713,6 +737,7 @@ static BOOL pf_client_connect_without_nla(pClientContext* pc)
 	return freerdp_connect(instance);
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_connect(freerdp* instance)
 {
 	pClientContext* pc = NULL;
@@ -768,6 +793,7 @@ out:
  * Connects RDP, loops while running and handles event and dispatch, cleans up
  * after the connection ends.
  */
+WINPR_ATTR_NODISCARD
 static DWORD WINAPI pf_client_thread_proc(pClientContext* pc)
 {
 	freerdp* instance = NULL;
@@ -841,17 +867,19 @@ static DWORD WINAPI pf_client_thread_proc(pClientContext* pc)
 
 			break;
 		}
-		sendQueuedChannelData(pc);
+		if (!sendQueuedChannelData(pc))
+			break;
 	}
 
 	freerdp_disconnect(instance);
 
 end:
-	pf_modules_run_hook(pdata->module, HOOK_TYPE_CLIENT_UNINIT_CONNECT, pdata, pc);
+	(void)pf_modules_run_hook(pdata->module, HOOK_TYPE_CLIENT_UNINIT_CONNECT, pdata, pc);
 
 	return 0;
 }
 
+WINPR_ATTR_NODISCARD
 static int pf_logon_error_info(freerdp* instance, UINT32 data, UINT32 type)
 {
 	const char* str_data = freerdp_get_logon_error_info_data(data);
@@ -880,6 +908,7 @@ static void pf_client_context_free(freerdp* instance, rdpContext* context)
 	HashTable_Free(pc->interceptContextMap);
 }
 
+WINPR_ATTR_NODISCARD
 static int pf_client_verify_X509_certificate(freerdp* instance, const BYTE* data, size_t length,
                                              const char* hostname, UINT16 port, DWORD flags)
 {
@@ -933,6 +962,8 @@ void channel_data_free(void* obj)
 	}
 }
 
+WINPR_ATTR_MALLOC(channel_data_free, 1)
+WINPR_ATTR_NODISCARD
 static void* channel_data_copy(const void* obj)
 {
 	union
@@ -969,6 +1000,7 @@ fail:
 	return NULL;
 }
 
+WINPR_ATTR_NODISCARD
 static BOOL pf_client_client_new(freerdp* instance, rdpContext* context)
 {
 	wObject* obj = NULL;
@@ -1012,6 +1044,7 @@ static BOOL pf_client_client_new(freerdp* instance, rdpContext* context)
 	return TRUE;
 }
 
+WINPR_ATTR_NODISCARD
 static int pf_client_client_stop(rdpContext* context)
 {
 	pClientContext* pc = (pClientContext*)context;
