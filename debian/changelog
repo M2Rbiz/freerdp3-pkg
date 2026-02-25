@@ -131,6 +131,21 @@ freerdp3 (3.15.0+dfsg-2.1+deb13u1) UNRELEASED; urgency=medium
     so apt dependency solver does the right thing for users of these symbols.
     This virtual package (libfreerdp3-partial-api-3-21) exists in trixie only.
 
+  * additional 4 upstream patches fixing a range of issues in rdpecam
+    
+    winpr-wlog-Add-specialized-text-log-functions.patch -
+     preparational (two new log functions, libwinpr3-partial-api-3-17)
+    warnings-Fix-format-string-errors-partial.patch -
+     printf string fixes in existing code after the above patch
+     (partial, only hunks which applies cleanly are kept,
+     no attempt to back-port other hunks)
+    channels-rdpecam-add-value-range-checks.patch -
+     missing range checking in rdpecam code
+    channels-rdpecam-fix-PROPERTY_DESCRIPTION-parsing.patch -
+     additional fix for CVE-2026-24677 fix
+
+  * CVE-2025-4478.patch: add DEP-3 headers
+
  -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 30 Jan 2026 09:52:47 +0300
 
 freerdp3 (3.15.0+dfsg-2.1) unstable; urgency=medium
