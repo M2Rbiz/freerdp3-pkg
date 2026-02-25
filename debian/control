@@ -18,7 +18,7 @@ Build-Depends-Arch:
  libcairo2-dev,
  libjson-c-dev,
  libcups2-dev,
- libfuse3-dev,
+ libfuse3-dev [linux-any],
  libgsm1-dev,
  libicu-dev,
  libjpeg-dev,

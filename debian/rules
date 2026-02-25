@@ -89,6 +89,7 @@ else
 
     DEB_CMAKE_EXTRA_FLAGS += \
         -DWITH_ALSA=OFF \
+        -DWITH_FUSE=OFF \
         -DWITH_LIBSYSTEMD=OFF \
         -DWITH_WAYLAND=OFF \
         $(empty)
