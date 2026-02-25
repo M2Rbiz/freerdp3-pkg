@@ -48,6 +48,10 @@
 #include "../log.h"
 #define TAG WINPR_TAG("smartcard")
 
+#ifndef MIN
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+#endif
+
 #define WINSCARD_LOAD_PROC_EX(module, pcsc, _fname, _name)                   \
 	do                                                                       \
 	{                                                                        \
@@ -2506,13 +2510,95 @@ static LONG WINAPI PCSC_SCardGetAttrib_FriendlyName(SCARDHANDLE hCard, DWORD dwA
 	return status;
 }
 
+static LONG PCSC_ReadDeviceSystemNameGet(WINPR_ATTR_UNUSED SCARDCONTEXT hContext, SCARDHANDLE hCard,
+                                         DWORD dwAttrId, LPBYTE* pbAttr, LPDWORD pcbAttrLen)
+{
+	PCSC_DWORD cchReader = 0;
+	PCSC_DWORD cbAtr = 0;
+	PCSC_DWORD dwState = 0;
+	PCSC_DWORD dwProtocol = 0;
+
+	const PCSC_LONG rc =
+	    g_PCSC.pfnSCardStatus(hCard, NULL, &cchReader, &dwState, &dwProtocol, NULL, &cbAtr);
+	if (rc != SCARD_S_SUCCESS)
+		return (LONG)rc;
+
+	void* tmp = calloc(cchReader + 1, sizeof(CHAR));
+	if (!tmp)
+		return SCARD_E_NO_MEMORY;
+	const PCSC_LONG rc2 =
+	    g_PCSC.pfnSCardStatus(hCard, tmp, &cchReader, &dwState, &dwProtocol, NULL, &cbAtr);
+	if (rc2 != SCARD_S_SUCCESS)
+	{
+		free(tmp);
+		return (LONG)rc2;
+	}
+
+	if (dwAttrId == SCARD_ATTR_DEVICE_SYSTEM_NAME_W)
+	{
+		size_t len = 0;
+		void* data = ConvertMszUtf8NToWCharAlloc(tmp, cchReader, &len);
+		if (!data)
+		{
+			free(tmp);
+			return SCARD_E_NO_MEMORY;
+		}
+		len *= sizeof(WCHAR);
+
+		cchReader = WINPR_ASSERTING_INT_CAST(PCSC_DWORD, len);
+		free(tmp);
+		tmp = data;
+	}
+
+	*pbAttr = tmp;
+	*pcbAttrLen = WINPR_ASSERTING_INT_CAST(DWORD, cchReader);
+	return SCARD_S_SUCCESS;
+}
+
+static LONG PCSC_ReadDeviceSystemName(WINPR_ATTR_UNUSED SCARDCONTEXT hContext, SCARDHANDLE hCard,
+                                      DWORD dwAttrId, LPBYTE pbAttr, LPDWORD pcbAttrLen)
+{
+	BYTE* tmp = NULL;
+	DWORD cbAttrLen = 0;
+	const LONG rc = PCSC_ReadDeviceSystemNameGet(hContext, hCard, dwAttrId, &tmp, &cbAttrLen);
+	if (rc != SCARD_S_SUCCESS)
+		return rc;
+
+	if (*pcbAttrLen == SCARD_AUTOALLOCATE)
+	{
+		if (!PCSC_AddMemoryBlock(hContext, tmp))
+		{
+			free(tmp);
+			return SCARD_E_NO_MEMORY;
+		}
+
+		*pcbAttrLen = cbAttrLen;
+		*(BYTE**)pbAttr = tmp;
+		return SCARD_S_SUCCESS;
+	}
+
+	if (pbAttr)
+		memcpy(pbAttr, tmp, MIN(cbAttrLen, *pcbAttrLen));
+	free(tmp);
+
+	if (pbAttr)
+	{
+		if (cbAttrLen > *pcbAttrLen)
+			return SCARD_E_INSUFFICIENT_BUFFER;
+	}
+
+	*pcbAttrLen = cbAttrLen;
+
+	return SCARD_S_SUCCESS;
+}
+
 static LONG WINAPI PCSC_SCardGetAttrib(SCARDHANDLE hCard, DWORD dwAttrId, LPBYTE pbAttr,
                                        LPDWORD pcbAttrLen)
 {
 	DWORD cbAttrLen = 0;
 	SCARDCONTEXT hContext = 0;
 	BOOL pcbAttrLenAlloc = FALSE;
-	LONG status = SCARD_S_SUCCESS;
+	PCSC_LONG status = SCARD_S_SUCCESS;
 
 	if (NULL == pcbAttrLen)
 		return SCARD_E_INVALID_PARAMETER;
@@ -2589,8 +2675,8 @@ static LONG WINAPI PCSC_SCardGetAttrib(SCARDHANDLE hCard, DWORD dwAttrId, LPBYTE
 				PCSC_DWORD cbAtrLen = 0;
 				PCSC_DWORD dwProtocol = 0;
 				PCSC_DWORD cchReaderLen = 0;
-				status = (LONG)g_PCSC.pfnSCardStatus(hCard, NULL, &cchReaderLen, &dwState,
-				                                     &dwProtocol, NULL, &cbAtrLen);
+				status = g_PCSC.pfnSCardStatus(hCard, NULL, &cchReaderLen, &dwState, &dwProtocol,
+				                               NULL, &cbAtrLen);
 
 				if (status == SCARD_S_SUCCESS)
 				{
@@ -2642,6 +2728,11 @@ static LONG WINAPI PCSC_SCardGetAttrib(SCARDHANDLE hCard, DWORD dwAttrId, LPBYTE
 		}
 		else if (dwAttrId == SCARD_ATTR_DEVICE_SYSTEM_NAME_A)
 		{
+			status = PCSC_ReadDeviceSystemName(hContext, hCard, dwAttrId, pbAttr, pcbAttrLen);
+		}
+		else if (dwAttrId == SCARD_ATTR_DEVICE_SYSTEM_NAME_W)
+		{
+			status = PCSC_ReadDeviceSystemName(hContext, hCard, dwAttrId, pbAttr, pcbAttrLen);
 		}
 		else if (dwAttrId == SCARD_ATTR_DEVICE_UNIT)
 		{
@@ -2681,7 +2772,7 @@ static LONG WINAPI PCSC_SCardGetAttrib(SCARDHANDLE hCard, DWORD dwAttrId, LPBYTE
 		}
 	}
 
-	return status;
+	return WINPR_ASSERTING_INT_CAST(LONG, status);
 }
 
 static LONG WINAPI PCSC_SCardSetAttrib(SCARDHANDLE hCard, DWORD dwAttrId, LPCBYTE pbAttr,

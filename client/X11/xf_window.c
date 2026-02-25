@@ -232,7 +232,7 @@ static void xf_SetWindowTitleText(xfContext* xfc, Window window, const char* nam
 void xf_SendClientEvent(xfContext* xfc, Window window, Atom atom, unsigned int numArgs, ...)
 {
 	XEvent xevent = { 0 };
-	va_list argp;
+	va_list argp = { 0 };
 	va_start(argp, numArgs);
 
 	xevent.xclient.type = ClientMessage;
@@ -278,7 +278,7 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 	window->decorations = xfc->decorations;
 	/* show/hide decorations (e.g. title bar) as guided by xfc->decorations */
 	xf_SetWindowDecorations(xfc, window->handle, window->decorations);
-	DEBUG_X11(TAG, "X window decoration set to %d", (int)window->decorations);
+	DEBUG_X11("X window decoration set to %d", (int)window->decorations);
 	xf_floatbar_toggle_fullscreen(xfc->window->floatbar, fullscreen);
 
 	if (fullscreen)
@@ -435,7 +435,8 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 
 			width = xfc->vscreen.area.right - xfc->vscreen.area.left + 1;
 			height = xfc->vscreen.area.bottom - xfc->vscreen.area.top + 1;
-			DEBUG_X11("X window move and resize %dx%d@%dx%d", startX, startY, width, height);
+			DEBUG_X11("X window move and resize %dx%d@%" PRIu32 "x%" PRIu32 "", startX, startY,
+			          width, height);
 			xf_ResizeDesktopWindow(xfc, window, WINPR_ASSERTING_INT_CAST(int, width),
 			                       WINPR_ASSERTING_INT_CAST(int, height));
 			LogDynAndXMoveWindow(xfc->log, xfc->display, window->handle, startX, startY);
@@ -480,6 +481,8 @@ BOOL xf_GetWindowProperty(xfContext* xfc, Window window, Atom property, int leng
 	Atom actual_type = None;
 	int actual_format = 0;
 
+	WINPR_ASSERT(prop);
+
 	if (property == None)
 		return FALSE;
 
@@ -493,6 +496,9 @@ BOOL xf_GetWindowProperty(xfContext* xfc, Window window, Atom property, int leng
 	if (actual_type == None)
 	{
 		WLog_DBG(TAG, "Property %lu does not exist", (unsigned long)property);
+		if (*prop)
+			XFree(*prop);
+		*prop = NULL;
 		return FALSE;
 	}
 
@@ -513,16 +519,18 @@ static BOOL xf_GetNumberOfDesktops(xfContext* xfc, Window root, unsigned* pval)
 
 	long* prop = (long*)bprop;
 	*pval = 0;
-	if (!rc)
-		return FALSE;
 
 	BOOL res = FALSE;
-	if ((*prop >= 0) && (*prop <= UINT32_MAX))
+	if (rc)
 	{
-		*pval = (UINT32)*prop;
-		res = TRUE;
+		if ((*prop >= 0) && (*prop <= UINT32_MAX))
+		{
+			*pval = (UINT32)*prop;
+			res = TRUE;
+		}
 	}
-	XFree(prop);
+	if (prop)
+		XFree(prop);
 	return res;
 }
 
@@ -543,12 +551,11 @@ static BOOL xf_GetCurrentDesktop(xfContext* xfc, Window root)
 
 	long* prop = (long*)bprop;
 	xfc->current_desktop = 0;
-	if (!rc)
-		return FALSE;
-
-	xfc->current_desktop = (int)MIN(max - 1, *prop);
-	XFree(prop);
-	return TRUE;
+	if (rc)
+		xfc->current_desktop = (int)MIN(max - 1, *prop);
+	if (prop)
+		XFree(prop);
+	return rc;
 }
 
 static BOOL xf_GetWorkArea_NET_WORKAREA(xfContext* xfc, Window root)
@@ -1380,7 +1387,7 @@ void xf_UpdateWindowArea(xfContext* xfc, xfAppWindow* appWindow, int x, int y, i
 	xf_unlock_x11(xfc);
 }
 
-static void xf_AppWindowDestroyImage(xfAppWindow* appWindow)
+void xf_AppWindowDestroyImage(xfAppWindow* appWindow)
 {
 	WINPR_ASSERT(appWindow);
 	if (appWindow->image)
@@ -1436,6 +1443,7 @@ xfAppWindow* xf_AppWindowFromX11Window(xfContext* xfc, Window wnd)
 	if (!xfc->railWindows)
 		return NULL;
 
+	HashTable_Lock(xfc->railWindows);
 	size_t count = HashTable_GetKeys(xfc->railWindows, &pKeys);
 
 	for (size_t index = 0; index < count; index++)
@@ -1444,17 +1452,20 @@ xfAppWindow* xf_AppWindowFromX11Window(xfContext* xfc, Window wnd)
 
 		if (!appWindow)
 		{
+			HashTable_Unlock(xfc->railWindows);
 			free(pKeys);
 			return NULL;
 		}
 
 		if (appWindow->handle == wnd)
 		{
+			HashTable_Unlock(xfc->railWindows);
 			free(pKeys);
 			return appWindow;
 		}
 	}
 
+	HashTable_Unlock(xfc->railWindows);
 	free(pKeys);
 	return NULL;
 }
@@ -1535,6 +1546,7 @@ UINT xf_AppUpdateWindowFromSurface(xfContext* xfc, gdiGfxSurface* surface)
 
 	rc = CHANNEL_RC_OK;
 fail:
+	xf_rail_return_window(appWindow);
 	LogDynAndXFlush(xfc->log, xfc->display);
 	xf_unlock_x11(xfc);
 	return rc;
@@ -1571,4 +1583,5 @@ void xf_XSetTransientForHint(xfContext* xfc, xfAppWindow* window)
 		return;
 
 	(void)LogDynAndXSetTransientForHint(xfc->log, xfc->display, window->handle, parent->handle);
+	xf_rail_return_window(parent);
 }

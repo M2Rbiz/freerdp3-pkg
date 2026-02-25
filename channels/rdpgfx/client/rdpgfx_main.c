@@ -73,8 +73,10 @@ static void free_surfaces(RdpgfxClientContext* context, wHashTable* SurfaceTable
 	HashTable_Foreach(SurfaceTable, delete_surface, context);
 }
 
-static void evict_cache_slots(RdpgfxClientContext* context, UINT16 MaxCacheSlots, void** CacheSlots)
+static UINT evict_cache_slots(RdpgfxClientContext* context, UINT16 MaxCacheSlots, void** CacheSlots)
 {
+	UINT error = CHANNEL_RC_OK;
+
 	WINPR_ASSERT(CacheSlots);
 	for (UINT16 index = 0; index < MaxCacheSlots; index++)
 	{
@@ -85,12 +87,15 @@ static void evict_cache_slots(RdpgfxClientContext* context, UINT16 MaxCacheSlots
 
 			if (context && context->EvictCacheEntry)
 			{
-				context->EvictCacheEntry(context, &pdu);
+				const UINT rc = context->EvictCacheEntry(context, &pdu);
+				if (rc != CHANNEL_RC_OK)
+					error = rc;
 			}
 
 			CacheSlots[index] = NULL;
 		}
 	}
+	return error;
 }
 
 /**
@@ -677,7 +682,8 @@ static UINT rdpgfx_save_persistent_cache(RDPGFX_PLUGIN* gfx)
 			if (context->ExportCacheEntry(context, cacheSlot, &cacheEntry) != CHANNEL_RC_OK)
 				continue;
 
-			persistent_cache_write_entry(persistent, &cacheEntry);
+			if (persistent_cache_write_entry(persistent, &cacheEntry) < 0)
+				goto fail;
 		}
 	}
 
@@ -861,7 +867,6 @@ fail:
 static UINT rdpgfx_load_cache_import_reply(RDPGFX_PLUGIN* gfx,
                                            const RDPGFX_CACHE_IMPORT_REPLY_PDU* reply)
 {
-	int count = 0;
 	UINT error = CHANNEL_RC_OK;
 	rdpPersistentCache* persistent = NULL;
 	WINPR_ASSERT(gfx);
@@ -896,7 +901,7 @@ static UINT rdpgfx_load_cache_import_reply(RDPGFX_PLUGIN* gfx,
 		goto fail;
 	}
 
-	count = persistent_cache_get_count(persistent);
+	int count = persistent_cache_get_count(persistent);
 
 	count = (count < reply->importedEntriesCount) ? count : reply->importedEntriesCount;
 
@@ -913,7 +918,11 @@ static UINT rdpgfx_load_cache_import_reply(RDPGFX_PLUGIN* gfx,
 
 		const UINT16 cacheSlot = reply->cacheSlots[idx];
 		if (context && context->ImportCacheEntry)
-			context->ImportCacheEntry(context, cacheSlot, &entry);
+		{
+			error = context->ImportCacheEntry(context, cacheSlot, &entry);
+			if (error != CHANNEL_RC_OK)
+				break;
+		}
 	}
 
 	persistent_cache_free(persistent);
@@ -1011,7 +1020,10 @@ static UINT rdpgfx_recv_create_surface_pdu(GENERIC_CHANNEL_CALLBACK* callback, w
 		 * manually.
 		 */
 		RDPGFX_DELETE_SURFACE_PDU deletePdu = { pdu.surfaceId };
-		IFCALL(context->DeleteSurface, context, &deletePdu);
+		const UINT drc = IFCALLRESULT(CHANNEL_RC_OK, context->DeleteSurface, context, &deletePdu);
+		if (drc != CHANNEL_RC_OK)
+			WLog_Print(gfx->log, WLOG_WARN,
+			           "context->DeleteSurface failed with error %" PRIu32 ", ignoring", error);
 
 		IFCALLRET(context->CreateSurface, error, context, &pdu);
 
@@ -1306,7 +1318,8 @@ static UINT rdpgfx_recv_wire_to_surface_2_pdu(GENERIC_CHANNEL_CALLBACK* callback
 	Stream_Read_UINT8(s, pdu.pixelFormat);       /* pixelFormat (1 byte) */
 	Stream_Read_UINT32(s, pdu.bitmapDataLength); /* bitmapDataLength (4 bytes) */
 	pdu.bitmapData = Stream_Pointer(s);
-	Stream_Seek(s, pdu.bitmapDataLength);
+	if (!Stream_SafeSeek(s, pdu.bitmapDataLength))
+		return ERROR_INVALID_DATA;
 
 	DEBUG_RDPGFX(gfx->log,
 	             "RecvWireToSurface2Pdu: surfaceId: %" PRIu16 " codecId: %s (0x%04" PRIX16 ") "
@@ -2115,7 +2128,13 @@ static UINT rdpgfx_on_close(IWTSVirtualChannelCallback* pChannelCallback)
 		}
 
 		free_surfaces(context, gfx->SurfaceTable);
-		evict_cache_slots(context, gfx->MaxCacheSlots, gfx->CacheSlots);
+		error = evict_cache_slots(context, gfx->MaxCacheSlots, gfx->CacheSlots);
+		if (error)
+		{
+			// print error, but don't consider this a hard failure
+			WLog_Print(gfx->log, WLOG_ERROR, "evict_cache_slots failed with error %" PRIu32 "",
+			           error);
+		}
 
 		free(callback);
 		gfx->UnacknowledgedFrames = 0;
@@ -2123,7 +2142,13 @@ static UINT rdpgfx_on_close(IWTSVirtualChannelCallback* pChannelCallback)
 
 		if (context)
 		{
-			IFCALL(context->OnClose, context);
+			error = IFCALLRESULT(CHANNEL_RC_OK, context->OnClose, context);
+			if (error)
+			{
+				// print error, but don't consider this a hard failure
+				WLog_Print(gfx->log, WLOG_ERROR, "context->OnClose failed with error %" PRIu32 "",
+				           error);
+			}
 		}
 	}
 

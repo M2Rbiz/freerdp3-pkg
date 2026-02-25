@@ -732,7 +732,8 @@ static BOOL gdi_opaque_rect(rdpContext* context, const OPAQUE_RECT_ORDER* opaque
 	if (!gdi || !gdi->drawing)
 		return FALSE;
 
-	gdi_CRgnToRect(x, y, w, h, &rect);
+	if (!gdi_CRgnToRect(x, y, w, h, &rect))
+		return TRUE;
 
 	if (!gdi_decode_color(gdi, opaque_rect->color, &brush_color, NULL))
 		return FALSE;
@@ -775,7 +776,9 @@ static BOOL gdi_multi_opaque_rect(rdpContext* context,
 		const INT32 w = rectangle->width;
 		const INT32 h = rectangle->height;
 
-		gdi_CRgnToRect(x, y, w, h, &rect);
+		ret = FALSE;
+		if (!gdi_CRgnToRect(x, y, w, h, &rect))
+			break;
 		ret = gdi_FillRect(gdi->drawing->hdc, &rect, hBrush);
 
 		if (!ret)
@@ -1048,8 +1051,9 @@ static BOOL gdi_surface_frame_marker(rdpContext* context,
 		case SURFACECMD_FRAMEACTION_END:
 			if (freerdp_settings_get_uint32(context->settings, FreeRDP_FrameAcknowledge) > 0)
 			{
-				IFCALL(context->update->SurfaceFrameAcknowledge, context,
-				       surfaceFrameMarker->frameId);
+				if (!IFCALLRESULT(TRUE, context->update->SurfaceFrameAcknowledge, context,
+				                  surfaceFrameMarker->frameId))
+					return FALSE;
 			}
 
 			break;
@@ -1143,14 +1147,16 @@ static BOOL gdi_surface_bits(rdpContext* context, const SURFACE_BITS_COMMAND* cm
 			if (!nsc_process_message(
 			        context->codecs->nsc, cmd->bmp.bpp, cmd->bmp.width, cmd->bmp.height,
 			        cmd->bmp.bitmapData, cmd->bmp.bitmapDataLength, gdi->primary_buffer, format,
-			        gdi->stride, cmdRect.left, cmdRect.top, cmdRect.right - cmdRect.left,
-			        cmdRect.bottom - cmdRect.top, FREERDP_FLIP_VERTICAL))
+			        gdi->stride, cmdRect.left, cmdRect.top,
+			        WINPR_ASSERTING_INT_CAST(UINT32, gdi->width),
+			        WINPR_ASSERTING_INT_CAST(UINT32, gdi->height), FREERDP_FLIP_VERTICAL))
 			{
 				WLog_ERR(TAG, "Failed to process NSCodec message");
 				goto out;
 			}
 
-			region16_union_rect(&region, &region, &cmdRect);
+			if (!region16_union_rect(&region, &region, &cmdRect))
+				goto out;
 			break;
 
 		case RDP_CODEC_ID_NONE:
@@ -1172,7 +1178,8 @@ static BOOL gdi_surface_bits(rdpContext* context, const SURFACE_BITS_COMMAND* cm
 				goto out;
 			}
 
-			region16_union_rect(&region, &region, &cmdRect);
+			if (!region16_union_rect(&region, &region, &cmdRect))
+				goto out;
 			break;
 
 		default:

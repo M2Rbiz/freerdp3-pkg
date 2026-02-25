@@ -44,44 +44,37 @@
 BOOL Stream_EnsureCapacity(wStream* s, size_t size)
 {
 	WINPR_ASSERT(s);
-	if (s->capacity < size)
+	if (s->capacity >= size)
+		return TRUE;
+
+	const size_t increment = 128ull;
+	const size_t old_capacity = s->capacity;
+	const size_t new_capacity = size + increment - size % increment;
+	const size_t position = Stream_GetPosition(s);
+
+	BYTE* new_buf = NULL;
+	if (!s->isOwner)
 	{
-		size_t position = 0;
-		size_t old_capacity = 0;
-		size_t new_capacity = 0;
-		BYTE* new_buf = NULL;
-
-		old_capacity = s->capacity;
-		new_capacity = old_capacity;
-
-		do
-		{
-			new_capacity *= 2;
-		} while (new_capacity < size);
-
-		position = Stream_GetPosition(s);
-
-		if (!s->isOwner)
-		{
-			new_buf = (BYTE*)malloc(new_capacity);
-			CopyMemory(new_buf, s->buffer, s->capacity);
-			s->isOwner = TRUE;
-		}
-		else
-		{
-			new_buf = (BYTE*)realloc(s->buffer, new_capacity);
-		}
-
+		new_buf = (BYTE*)malloc(new_capacity);
 		if (!new_buf)
 			return FALSE;
-		s->buffer = new_buf;
-		s->capacity = new_capacity;
-		s->length = new_capacity;
-		ZeroMemory(&s->buffer[old_capacity], s->capacity - old_capacity);
 
-		Stream_SetPosition(s, position);
+		CopyMemory(new_buf, s->buffer, s->capacity);
+		s->isOwner = TRUE;
 	}
-	return TRUE;
+	else
+	{
+		new_buf = (BYTE*)realloc(s->buffer, new_capacity);
+		if (!new_buf)
+			return FALSE;
+	}
+
+	s->buffer = new_buf;
+	s->capacity = new_capacity;
+	s->length = new_capacity;
+	ZeroMemory(&s->buffer[old_capacity], s->capacity - old_capacity);
+
+	return Stream_SetPosition(s, position);
 }
 
 BOOL Stream_EnsureRemainingCapacity(wStream* s, size_t size)
@@ -319,7 +312,7 @@ BOOL Stream_CheckAndLogRequiredCapacityEx(const char* tag, DWORD level, wStream*
 
 	if (actual < nmemb)
 	{
-		va_list args;
+		va_list args = { 0 };
 
 		va_start(args, fmt);
 		Stream_CheckAndLogRequiredCapacityExVa(tag, level, s, nmemb, size, fmt, args);
@@ -377,7 +370,7 @@ BOOL Stream_CheckAndLogRequiredCapacityWLogEx(wLog* log, DWORD level, wStream* s
 
 	if (actual < nmemb)
 	{
-		va_list args;
+		va_list args = { 0 };
 
 		va_start(args, fmt);
 		Stream_CheckAndLogRequiredCapacityWLogExVa(log, level, s, nmemb, size, fmt, args);
@@ -397,7 +390,7 @@ BOOL Stream_CheckAndLogRequiredLengthEx(const char* tag, DWORD level, wStream* s
 
 	if (actual < nmemb)
 	{
-		va_list args;
+		va_list args = { 0 };
 
 		va_start(args, fmt);
 		Stream_CheckAndLogRequiredLengthExVa(tag, level, s, nmemb, size, fmt, args);
@@ -428,7 +421,7 @@ BOOL Stream_CheckAndLogRequiredLengthWLogEx(wLog* log, DWORD level, wStream* s, 
 
 	if (actual < nmemb)
 	{
-		va_list args;
+		va_list args = { 0 };
 
 		va_start(args, fmt);
 		Stream_CheckAndLogRequiredLengthWLogExVa(log, level, s, nmemb, size, fmt, args);

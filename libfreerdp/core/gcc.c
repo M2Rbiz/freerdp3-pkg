@@ -1791,8 +1791,8 @@ BOOL gcc_read_server_security_data(wStream* s, rdpMcs* mcs)
 	}
 	return TRUE;
 fail:
-	(void)freerdp_settings_set_pointer_len(settings, FreeRDP_ServerRandom, NULL, 0);
-	(void)freerdp_settings_set_pointer_len(settings, FreeRDP_ServerCertificate, NULL, 0);
+	freerdp_settings_set_pointer_len(settings, FreeRDP_ServerRandom, NULL, 0);
+	freerdp_settings_set_pointer_len(settings, FreeRDP_ServerCertificate, NULL, 0);
 	return FALSE;
 }
 
@@ -1999,7 +1999,8 @@ BOOL gcc_write_server_network_data(wStream* s, const rdpMcs* mcs)
 {
 	WINPR_ASSERT(s);
 	WINPR_ASSERT(mcs);
-	const size_t payloadLen = 8 + mcs->channelCount * 2 + (mcs->channelCount % 2 == 1 ? 2 : 0);
+	const size_t payloadLen =
+	    8ull + mcs->channelCount * 2ull + (mcs->channelCount % 2 == 1 ? 2ull : 0ull);
 
 	WINPR_ASSERT(payloadLen <= UINT16_MAX);
 	if (!gcc_write_user_data_header(s, SC_NET, (UINT16)payloadLen))

@@ -96,6 +96,9 @@ include(SetFreeRDPCMakeInstallDir)
 include(Doxygen)
 include(GetSysconfDir)
 
+# FreeRDP internal builds should always check results
+add_compile_definitions(WINPR_DEFINE_ATTR_NODISCARD)
+
 # Soname versioning
 set(BUILD_NUMBER 0)
 if($ENV{BUILD_NUMBER})
@@ -517,7 +520,7 @@ if(FREERDP_UNIFIED_BUILD)
   endif()
 
   if(WITH_SERVER)
-    option(WITH_RDTK "build rdtk toolkit" ON)
+    option(WITH_RDTK "build rdtk toolkit" OFF)
     if(WITH_RDTK)
       add_subdirectory(rdtk)
     endif()

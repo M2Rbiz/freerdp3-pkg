@@ -78,6 +78,7 @@ UINT32 shadow_encoder_create_frame_id(rdpShadowEncoder* encoder)
 	return frameId;
 }
 
+WINPR_ATTR_NODISCARD
 static int shadow_encoder_init_grid(rdpShadowEncoder* encoder)
 {
 	UINT32 tileSize = 0;
@@ -128,6 +129,7 @@ static int shadow_encoder_uninit_grid(rdpShadowEncoder* encoder)
 	return 0;
 }
 
+WINPR_ATTR_NODISCARD
 static int shadow_encoder_init_rfx(rdpShadowEncoder* encoder)
 {
 	if (!encoder->rfx)
@@ -143,7 +145,8 @@ static int shadow_encoder_init_rfx(rdpShadowEncoder* encoder)
 	{
 		const UINT32 mode =
 		    freerdp_settings_get_uint32(encoder->server->settings, FreeRDP_RemoteFxRlgrMode);
-		rfx_context_set_mode(encoder->rfx, WINPR_ASSERTING_INT_CAST(RLGR_MODE, mode));
+		if (!rfx_context_set_mode(encoder->rfx, WINPR_ASSERTING_INT_CAST(RLGR_MODE, mode)))
+			goto fail;
 	}
 	rfx_context_set_pixel_format(encoder->rfx, PIXEL_FORMAT_BGRX32);
 	encoder->codecs |= FREERDP_CODEC_REMOTEFX;
@@ -153,6 +156,7 @@ fail:
 	return -1;
 }
 
+WINPR_ATTR_NODISCARD
 static int shadow_encoder_init_nsc(rdpShadowEncoder* encoder)
 {
 	rdpContext* context = (rdpContext*)encoder->client;
@@ -188,6 +192,7 @@ fail:
 	return -1;
 }
 
+WINPR_ATTR_NODISCARD
 static int shadow_encoder_init_planar(rdpShadowEncoder* encoder)
 {
 	DWORD planarFlags = 0;
@@ -219,6 +224,7 @@ fail:
 	return -1;
 }
 
+WINPR_ATTR_NODISCARD
 static int shadow_encoder_init_interleaved(rdpShadowEncoder* encoder)
 {
 	if (!encoder->interleaved)
@@ -237,6 +243,7 @@ fail:
 	return -1;
 }
 
+WINPR_ATTR_NODISCARD
 static int shadow_encoder_init_h264(rdpShadowEncoder* encoder)
 {
 	if (!encoder->h264)
@@ -267,6 +274,7 @@ fail:
 	return -1;
 }
 
+WINPR_ATTR_NODISCARD
 static int shadow_encoder_init_progressive(rdpShadowEncoder* encoder)
 {
 	WINPR_ASSERT(encoder);
@@ -286,13 +294,15 @@ fail:
 	return -1;
 }
 
+WINPR_ATTR_NODISCARD
 static int shadow_encoder_init(rdpShadowEncoder* encoder)
 {
 	encoder->width = encoder->server->screen->width;
 	encoder->height = encoder->server->screen->height;
 	encoder->maxTileWidth = 64;
 	encoder->maxTileHeight = 64;
-	shadow_encoder_init_grid(encoder);
+	if (shadow_encoder_init_grid(encoder) < 0)
+		return -1;
 
 	if (!encoder->bs)
 		encoder->bs = Stream_New(NULL, 4ULL * encoder->maxTileWidth * encoder->maxTileHeight);

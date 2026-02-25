@@ -113,7 +113,8 @@ static int freerdp_connect_begin(freerdp* instance)
 	if (!freerdp_settings_set_default_order_support(settings))
 		return -1;
 
-	freerdp_add_signal_cleanup_handler(instance->context, sig_abort_connect);
+	if (!freerdp_add_signal_cleanup_handler(instance->context, sig_abort_connect))
+		return -1;
 
 	IFCALLRET(instance->PreConnect, status, instance);
 	instance->ConnectionCallbackState = CLIENT_STATE_PRECONNECT_PASSED;
@@ -806,7 +807,7 @@ static BOOL freerdp_common_context(rdpContext* context, AccessTokenType tokenTyp
 	if (!context->instance || !context->instance->GetAccessToken)
 		return TRUE;
 
-	va_list ap;
+	va_list ap = { 0 };
 	va_start(ap, count);
 	switch (tokenType)
 	{

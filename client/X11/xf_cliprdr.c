@@ -869,7 +869,11 @@ static void xf_clipboard_formats_free(xfClipboard* clipboard)
 {
 	WINPR_ASSERT(clipboard);
 
+	/* Synchronize RDP/X11 thread with channel thread */
+	xf_lock_x11(clipboard->xfc);
 	xf_cliprdr_free_formats(clipboard->lastSentFormats, clipboard->lastSentNumFormats);
+	xf_unlock_x11(clipboard->xfc);
+
 	clipboard->lastSentFormats = NULL;
 	clipboard->lastSentNumFormats = 0;
 }
@@ -1121,6 +1125,8 @@ static BOOL xf_cliprdr_get_requested_data(xfClipboard* clipboard, Atom target)
 	const int rc = LogDynAndXGetWindowProperty(
 	    xfc->log, xfc->display, xfc->drawable, clipboard->property_atom, 0, 0, False, target, &type,
 	    &format_property, &length, &total_bytes, &property_data);
+	if (property_data)
+		XFree(property_data);
 	if (rc != Success)
 	{
 		xf_cliprdr_send_data_response(clipboard, format, NULL, 0);
@@ -1572,12 +1578,16 @@ static BOOL xf_cliprdr_process_selection_request(xfClipboard* clipboard,
 			DEBUG_CLIPRDR("formatId: 0x%08" PRIx32 ", dstFormatId: 0x%08" PRIx32 "", formatId,
 			              dstFormatId);
 
+			wHashTable* table = clipboard->cachedData;
+			if (rawTransfer)
+				table = clipboard->cachedRawData;
+
+			HashTable_Lock(table);
+
 			if (!rawTransfer)
-				cached_data = HashTable_GetItemValue(clipboard->cachedData,
-				                                     format_to_cache_slot(dstFormatId));
+				cached_data = HashTable_GetItemValue(table, format_to_cache_slot(dstFormatId));
 			else
-				cached_data = HashTable_GetItemValue(clipboard->cachedRawData,
-				                                     format_to_cache_slot(formatId));
+				cached_data = HashTable_GetItemValue(table, format_to_cache_slot(formatId));
 
 			DEBUG_CLIPRDR("hasCachedData: %u, rawTransfer: %d", cached_data ? 1u : 0u, rawTransfer);
 
@@ -1631,6 +1641,7 @@ static BOOL xf_cliprdr_process_selection_request(xfClipboard* clipboard,
 				delayRespond = TRUE;
 				xf_cliprdr_send_data_request(clipboard, formatId, cformat);
 			}
+			HashTable_Unlock(table);
 		}
 	}
 
@@ -1867,24 +1878,23 @@ static UINT xf_cliprdr_send_client_format_list_response(xfClipboard* clipboard, 
 static UINT xf_cliprdr_monitor_ready(CliprdrClientContext* context,
                                      const CLIPRDR_MONITOR_READY* monitorReady)
 {
-	UINT ret = 0;
-	xfClipboard* clipboard = NULL;
-
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(monitorReady);
 
-	clipboard = cliprdr_file_context_get_context(context->custom);
+	xfClipboard* clipboard = cliprdr_file_context_get_context(context->custom);
 	WINPR_ASSERT(clipboard);
 
 	WINPR_UNUSED(monitorReady);
 
-	if ((ret = xf_cliprdr_send_client_capabilities(clipboard)) != CHANNEL_RC_OK)
+	const UINT ret = xf_cliprdr_send_client_capabilities(clipboard);
+	if (ret != CHANNEL_RC_OK)
 		return ret;
 
 	xf_clipboard_formats_free(clipboard);
 
-	if ((ret = xf_cliprdr_send_client_format_list(clipboard, TRUE)) != CHANNEL_RC_OK)
-		return ret;
+	const UINT ret2 = xf_cliprdr_send_client_format_list(clipboard, TRUE);
+	if (ret2 != CHANNEL_RC_OK)
+		return ret2;
 
 	clipboard->sync = TRUE;
 	return CHANNEL_RC_OK;
@@ -1898,20 +1908,17 @@ static UINT xf_cliprdr_monitor_ready(CliprdrClientContext* context,
 static UINT xf_cliprdr_server_capabilities(CliprdrClientContext* context,
                                            const CLIPRDR_CAPABILITIES* capabilities)
 {
-	const CLIPRDR_GENERAL_CAPABILITY_SET* generalCaps = NULL;
-	const BYTE* capsPtr = NULL;
-	xfClipboard* clipboard = NULL;
-
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(capabilities);
 
-	clipboard = cliprdr_file_context_get_context(context->custom);
+	xfClipboard* clipboard = cliprdr_file_context_get_context(context->custom);
 	WINPR_ASSERT(clipboard);
 
-	capsPtr = (const BYTE*)capabilities->capabilitySets;
+	const BYTE* capsPtr = (const BYTE*)capabilities->capabilitySets;
 	WINPR_ASSERT(capsPtr);
 
-	cliprdr_file_context_remote_set_flags(clipboard->file, 0);
+	if (!cliprdr_file_context_remote_set_flags(clipboard->file, 0))
+		return ERROR_INTERNAL_ERROR;
 
 	for (UINT32 i = 0; i < capabilities->cCapabilitiesSets; i++)
 	{
@@ -1919,9 +1926,11 @@ static UINT xf_cliprdr_server_capabilities(CliprdrClientContext* context,
 
 		if (caps->capabilitySetType == CB_CAPSTYPE_GENERAL)
 		{
-			generalCaps = (const CLIPRDR_GENERAL_CAPABILITY_SET*)caps;
+			const CLIPRDR_GENERAL_CAPABILITY_SET* generalCaps =
+			    (const CLIPRDR_GENERAL_CAPABILITY_SET*)caps;
 
-			cliprdr_file_context_remote_set_flags(clipboard->file, generalCaps->generalFlags);
+			if (!cliprdr_file_context_remote_set_flags(clipboard->file, generalCaps->generalFlags))
+				return ERROR_INTERNAL_ERROR;
 		}
 
 		capsPtr += caps->capabilitySetLength;
@@ -2556,7 +2565,8 @@ xfClipboard* xf_clipboard_new(xfContext* xfc, BOOL relieveFilenameRestriction)
 			const UINT32 uid = ClipboardGetFormatId(clipboard->system, mime_uri_list);
 			if (uid)
 			{
-				cliprdr_file_context_set_locally_available(clipboard->file, TRUE);
+				if (!cliprdr_file_context_set_locally_available(clipboard->file, TRUE))
+					goto fail;
 				clientFormat->atom =
 				    Logging_XInternAtom(xfc->log, xfc->display, mime_uri_list, False);
 				clientFormat->localFormat = uid;
@@ -2574,7 +2584,8 @@ xfClipboard* xf_clipboard_new(xfContext* xfc, BOOL relieveFilenameRestriction)
 			const UINT32 gid = ClipboardGetFormatId(clipboard->system, mime_gnome_copied_files);
 			if (gid != 0)
 			{
-				cliprdr_file_context_set_locally_available(clipboard->file, TRUE);
+				if (!cliprdr_file_context_set_locally_available(clipboard->file, TRUE))
+					goto fail;
 				clientFormat->atom =
 				    Logging_XInternAtom(xfc->log, xfc->display, mime_gnome_copied_files, False);
 				clientFormat->localFormat = gid;
@@ -2592,7 +2603,8 @@ xfClipboard* xf_clipboard_new(xfContext* xfc, BOOL relieveFilenameRestriction)
 			const UINT32 mid = ClipboardGetFormatId(clipboard->system, mime_mate_copied_files);
 			if (mid != 0)
 			{
-				cliprdr_file_context_set_locally_available(clipboard->file, TRUE);
+				if (!cliprdr_file_context_set_locally_available(clipboard->file, TRUE))
+					goto fail;
 				clientFormat->atom =
 				    Logging_XInternAtom(xfc->log, xfc->display, mime_mate_copied_files, False);
 				clientFormat->localFormat = mid;

@@ -37,6 +37,7 @@
 #include <freerdp/freerdp.h>
 #include <freerdp/codec/audio.h>
 #include <freerdp/client/audin.h>
+#include <freerdp/utils/helpers.h>
 
 #include "audin_main.h"
 
@@ -138,7 +139,7 @@ static UINT audin_pulse_connect(IAudinDevice* device)
 	if (!pulse->context)
 		return ERROR_INVALID_PARAMETER;
 
-	if (pa_context_connect(pulse->context, NULL, 0, NULL))
+	if (pa_context_connect(pulse->context, NULL, PA_CONTEXT_NOFLAGS, NULL))
 	{
 		WLog_Print(pulse->log, WLOG_ERROR, "pa_context_connect failed (%d)",
 		           pa_context_errno(pulse->context));
@@ -252,7 +253,6 @@ static BOOL audin_pulse_format_supported(IAudinDevice* device, const AUDIO_FORMA
 static UINT audin_pulse_set_format(IAudinDevice* device, const AUDIO_FORMAT* format,
                                    UINT32 FramesPerPacket)
 {
-	pa_sample_spec sample_spec = { 0 };
 	AudinPulseDevice* pulse = (AudinPulseDevice*)device;
 
 	if (!pulse || !format)
@@ -264,21 +264,18 @@ static UINT audin_pulse_set_format(IAudinDevice* device, const AUDIO_FORMAT* for
 	if (FramesPerPacket > 0)
 		pulse->frames_per_packet = FramesPerPacket;
 
-	sample_spec.rate = format->nSamplesPerSec;
-
-	sample_spec.channels = WINPR_ASSERTING_INT_CAST(uint8_t, format->nChannels);
-
+	pa_sample_format_t sformat = PA_SAMPLE_INVALID;
 	switch (format->wFormatTag)
 	{
 		case WAVE_FORMAT_PCM: /* PCM */
 			switch (format->wBitsPerSample)
 			{
 				case 8:
-					sample_spec.format = PA_SAMPLE_U8;
+					sformat = PA_SAMPLE_U8;
 					break;
 
 				case 16:
-					sample_spec.format = PA_SAMPLE_S16LE;
+					sformat = PA_SAMPLE_S16LE;
 					break;
 
 				default:
@@ -290,6 +287,12 @@ static UINT audin_pulse_set_format(IAudinDevice* device, const AUDIO_FORMAT* for
 		default:
 			return ERROR_INTERNAL_ERROR;
 	}
+
+	const pa_sample_spec sample_spec = {
+		.format = sformat,
+		.rate = format->nSamplesPerSec,
+		.channels = WINPR_ASSERTING_INT_CAST(uint8_t, format->nChannels),
+	};
 
 	pulse->sample_spec = sample_spec;
 	pulse->format = *format;
@@ -493,9 +496,9 @@ static UINT audin_pulse_parse_addin_args(AudinPulseDevice* pulse, const ADDIN_AR
 	} while ((arg = CommandLineFindNextArgumentA(arg)) != NULL);
 
 	if (!client_name)
-		client_name = "freerdp";
+		client_name = freerdp_getApplicationDetailsString();
 	if (!stream_name)
-		stream_name = "freerdp_audin";
+		stream_name = freerdp_getApplicationDetailsString();
 
 	pulse->client_name = _strdup(client_name);
 	pulse->stream_name = _strdup(stream_name);

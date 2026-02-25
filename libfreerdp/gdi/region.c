@@ -445,8 +445,10 @@ inline BOOL gdi_CopyOverlap(INT32 x, INT32 y, INT32 width, INT32 height, INT32 s
 {
 	GDI_RECT dst;
 	GDI_RECT src;
-	gdi_CRgnToRect(x, y, width, height, &dst);
-	gdi_CRgnToRect(srcx, srcy, width, height, &src);
+	if (!gdi_CRgnToRect(x, y, width, height, &dst))
+		return FALSE;
+	if (!gdi_CRgnToRect(srcx, srcy, width, height, &src))
+		return FALSE;
 
 	if (dst.right < src.left)
 		return FALSE;
@@ -647,9 +649,21 @@ inline BOOL gdi_InvalidateRegion(HGDI_DC hdc, INT32 x, INT32 y, INT32 w, INT32 h
 		cinvalid = new_rgn;
 	}
 
-	gdi_SetRgn(&cinvalid[hdc->hwnd->ninvalid++], x, y, w, h);
 	hdc->hwnd->cinvalid = cinvalid;
 	invalid = hdc->hwnd->invalid;
+
+	if (!gdi_SetRgn(&cinvalid[hdc->hwnd->ninvalid++], x, y, w, h))
+		return FALSE;
+
+	if (!gdi_CRgnToRect(x, y, w, h, &rgn))
+	{
+		invalid->x = 0;
+		invalid->y = 0;
+		invalid->w = 0;
+		invalid->h = 0;
+		invalid->null = TRUE;
+		return TRUE;
+	}
 
 	if (invalid->null)
 	{
@@ -661,8 +675,8 @@ inline BOOL gdi_InvalidateRegion(HGDI_DC hdc, INT32 x, INT32 y, INT32 w, INT32 h
 		return TRUE;
 	}
 
-	gdi_CRgnToRect(x, y, w, h, &rgn);
-	gdi_RgnToRect(invalid, &inv);
+	if (!gdi_RgnToRect(invalid, &inv))
+		return FALSE;
 
 	if (rgn.left < inv.left)
 		inv.left = rgn.left;
@@ -676,6 +690,5 @@ inline BOOL gdi_InvalidateRegion(HGDI_DC hdc, INT32 x, INT32 y, INT32 w, INT32 h
 	if (rgn.bottom > inv.bottom)
 		inv.bottom = rgn.bottom;
 
-	gdi_RectToRgn(&inv, invalid);
-	return TRUE;
+	return gdi_RectToRgn(&inv, invalid);
 }
