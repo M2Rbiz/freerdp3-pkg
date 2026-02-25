@@ -124,6 +124,53 @@ freerdp3 (3.15.0+dfsg-2.1+deb13u1) UNRELEASED; urgency=medium
       channel-rdpsnd-only-clean-up-thread-before-free-CVE-2026-24684.patch
       channels-rdpsnd-terminate-thread-before-free-CVE-2026-24684.patch
 
+  * security fixes for client from 3.23 (medium):
+
+    CVE-2026-25941 Out-of-bounds read in rdpgfx_recv_wire_to_surface_2_pdu
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-3546-x645-5cf8
+      channels-rdpgfx-check-available-stream-length-CVE-2026-25941.patch
+    CVE-2026-25942 Global-buffer-overflow in xf_rail_server_execute_result
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-78q6-67m7-wwf6
+      client-x11-stringfiy-functions-for-RAILS-CVE-2026-25942.patch
+    CVE-2026-25952 CVE-2026-25953 CVE-2026-25954
+      Heap-use-after-free in xf_SetWindowMinMaxInfo
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-cgqm-cwjg-7w9x
+      Heap-use-after-free in xf_AppUpdateWindowFromSurface (freed appWindow)
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-p6rq-rxpc-rh3p
+      Heap-use-after-free in xf_rail_server_local_move_size
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-cc88-4j37-mw6j
+      client-x11-lock-appWindow-CVE-2026-25952-CVE-2026-25953-CVE-2026-25954.patch
+    CVE-2026-25955 Heap-use-after-free in xf_AppUpdateWindowFromSurface
+      (stale XImage)
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-4g54-x8v7-559x
+      client-x11-destroy-XImage-on-window-unmap-CVE-2026-25955.patch
+      (also client-x11-fix-missing-includes.patch)
+    CVE-2026-25959 Heap-use-after-free in xf_cliprdr_provide_data_
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-78xg-v4p2-4w3c
+      client-x11-lock-cache-when-providing-data-CVE-2026-25959.patch
+    CVE-2026-25997 Heap-use-after-free in xf_clipboard_format_equal
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-q5j3-m6jf-3jq4
+      client-X11-fix-clipboard-update-CVE-2026-25997.patch
+    CVE-2026-26271 Buffer Overread in FreeRDP Icon Processing
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-hr4m-ph4g-48j6
+      codec-color-fix-input-length-checks-CVE-2026-26271.patch
+    CVE-2026-26986 Heap-use-after-free in rail_window_free
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-crqx-g6x5-rx47
+      client-x11-fix-xf_rail_window_common-cleanup-CVE-2026-26986.patch
+    CVE-2026-27015 Smartcard NDR Alignment Padding Triggers Reachable
+      WINPR_ASSERT Abort (Client DoS)
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-7g72-39pq-4725
+      utils-smartcard-check-stream-length-on-padding-CVE-2026-27015.patch
+    CVE-2026-26955 Heap Out-of-Bounds Write in ClearCodec Surface Command
+      Handler via Missing Bounds Validation
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-mr6w-ch7c-mqqj
+      codec-clear-fix-missing-destination-boundary-checks.patch
+      codec-clear-fix-destination-checks-CVE-2026-26955.patch
+    CVE-2026-26965 Heap Out-of-Bounds Write in Planar Bitmap RLE Decompression
+      via Destination Offset
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-5vgf-mw4f-r33h
+      codec-planar-fix-missing-destination-bounds-checks-CVE-2026-26965.patch
+
   * These fixes introduces symbols into libfreerdp3, which don't exist in
     versions before 3.21.0, - add them to this version with a virtual package
     libfreerdp3-partial-api-3-21, with an alternative Depends field:
