@@ -380,6 +380,11 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_extract_key_value@Base 3.9.0
  freerdp_focus_required@Base 3.0.0
  freerdp_free@Base 3.0.0
+ freerdp_getApplicationDetailsProduct@Base 3.23.0
+ freerdp_getApplicationDetailsString@Base 3.23.0
+ freerdp_getApplicationDetailsStringW@Base 3.23.0
+ freerdp_getApplicationDetailsVendor@Base 3.23.0
+ freerdp_getApplicationDetailsVersion@Base 3.23.0
  freerdp_get_build_config@Base 3.0.0
  freerdp_get_build_revision@Base 3.0.0
  freerdp_get_common_access_token@Base 3.16.0
@@ -519,6 +524,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_send_error_info@Base 3.0.0
  freerdp_server_license_issuers_copy@Base 3.0.0
  freerdp_server_license_issuers_free@Base 3.0.0
+ freerdp_setApplicationDetails@Base 3.23.0
  freerdp_set_common_access_token@Base 3.16.0
  freerdp_set_error_info@Base 3.0.0
  freerdp_set_focus@Base 3.0.0

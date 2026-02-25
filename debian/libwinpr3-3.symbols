@@ -238,6 +238,8 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  FreeEnvironmentStringsW@Base 3.0.0
  FreeLibrary@Base 3.0.0
  GetCombinedPath@Base 3.0.0
+ GetCombinedPathV@Base 3.23.0
+ GetCombinedPathVA@Base 3.23.0
  GetCommConfig@Base 3.0.0
  GetCommMask@Base 3.0.0
  GetCommModemStatus@Base 3.0.0
@@ -266,6 +268,8 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  GetEnvironmentStrings@Base 3.0.0
  GetEnvironmentStringsW@Base 3.0.0
  GetEnvironmentSubPath@Base 3.0.0
+ GetEnvironmentSubPathV@Base 3.23.0
+ GetEnvironmentSubPathVA@Base 3.23.0
  GetEnvironmentVariableA@Base 3.0.0
  GetEnvironmentVariableEBA@Base 3.0.0
  GetEnvironmentVariableW@Base 3.0.0
@@ -287,6 +291,8 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  GetKnownPath@Base 3.0.0
  GetKnownPathIdString@Base 3.0.0
  GetKnownSubPath@Base 3.0.0
+ GetKnownSubPathV@Base 3.23.0
+ GetKnownSubPathVA@Base 3.23.0
  GetLastError@Base 3.0.0
  GetLine@Base 3.0.0
  GetLocalTime@Base 3.0.0
@@ -465,6 +471,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  MessagePipe_Free@Base 3.0.0
  MessagePipe_New@Base 3.0.0
  MessagePipe_PostQuit@Base 3.0.0
+ MessageQueue_Capacity@Base 3.23.0
  MessageQueue_Clear@Base 3.0.0
  MessageQueue_Dispatch@Base 3.0.0
  MessageQueue_Event@Base 3.0.0
@@ -604,6 +611,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  QueryCommDevice@Base 3.0.0
  QueryDepthSList@Base 3.0.0
  QueueUserAPC@Base 3.0.0
+ Queue_Capacity@Base 3.23.0
  Queue_Clear@Base 3.0.0
  Queue_Contains@Base 3.0.0
  Queue_Count@Base 3.0.0
@@ -1359,6 +1367,8 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_FIPSMode@Base 3.0.0
  winpr_FreeLibraryWhenCallbackReturns@Base 3.0.0
  winpr_GetConfigFilePath@Base 3.9.0
+ winpr_GetConfigFilePathV@Base 3.23.0
+ winpr_GetConfigFilePathVA@Base 3.23.0
  winpr_GetTickCount64@Base 3.0.0
  winpr_GetTickCount64NS@Base 3.4.0
  winpr_GetUnixTimeNS@Base 3.4.0
@@ -1433,6 +1443,9 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_cipher_type_from_string@Base 3.10.2
  winpr_cipher_type_to_string@Base 3.10.2
  winpr_fopen@Base 3.0.0
+ winpr_getApplicationDetailsProduct@Base 3.23.0
+ winpr_getApplicationDetailsVendor@Base 3.23.0
+ winpr_getApplicationDetailsVersion@Base 3.23.0
  winpr_get_build_config@Base 3.0.0
  winpr_get_build_revision@Base 3.0.0
  winpr_get_version@Base 3.0.0
@@ -1453,6 +1466,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_log_backtrace_ex@Base 3.0.0
  winpr_md_type_from_string@Base 3.0.0
  winpr_md_type_to_string@Base 3.0.0
+ winpr_setApplicationDetails@Base 3.23.0
  winpr_str_append@Base 3.0.0
  winpr_str_url_decode@Base 3.0.0
  winpr_str_url_encode@Base 3.0.0
