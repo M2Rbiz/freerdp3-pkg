@@ -64,3 +64,17 @@ winpr-wlog-Add-specialized-text-log-functions.patch
 warnings-Fix-format-string-errors-partial.patch
 channels-rdpecam-add-value-range-checks.patch
 channels-rdpecam-fix-PROPERTY_DESCRIPTION-parsing.patch
+#
+channels-rdpgfx-check-available-stream-length-CVE-2026-25941.patch
+client-x11-fix-xf_rail_window_common-cleanup-CVE-2026-26986.patch
+client-x11-stringfiy-functions-for-RAILS-CVE-2026-25942.patch
+client-X11-fix-clipboard-update-CVE-2026-25997.patch
+client-x11-lock-appWindow-CVE-2026-25952-CVE-2026-25953-CVE-2026-25954.patch
+client-x11-fix-missing-includes.patch
+client-x11-destroy-XImage-on-window-unmap-CVE-2026-25955.patch
+client-x11-lock-cache-when-providing-data-CVE-2026-25959.patch
+codec-color-fix-input-length-checks-CVE-2026-26271.patch
+utils-smartcard-check-stream-length-on-padding-CVE-2026-27015.patch
+codec-clear-fix-missing-destination-boundary-checks-CVE-2026-26955.patch
+codec-clear-fix-destination-checks-CVE-2026-26955.patch
+codec-planar-fix-missing-destination-bounds-checks-CVE-2026-26965.patch

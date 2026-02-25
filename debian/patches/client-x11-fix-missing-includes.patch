@@ -1,0 +1,36 @@
+From: akallabeth <akallabeth@posteo.net>
+Date: Thu, 22 May 2025 16:17:50 +0200
+Subject: [client,x11] fix missing includes
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/479cea48ccc40c1e28b77043dc58d475367a80b5
+Forwarded: not-needed
+
+---
+ client/X11/xf_gfx.c   | 1 +
+ client/X11/xf_video.c | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/client/X11/xf_gfx.c b/client/X11/xf_gfx.c
+--- a/client/X11/xf_gfx.c
++++ b/client/X11/xf_gfx.c
+@@ -29,6 +29,7 @@
+ #include <freerdp/log.h>
+ #include "xf_gfx.h"
+ #include "xf_rail.h"
++#include "xf_utils.h"
+ 
+ #include <X11/Xutil.h>
+ 
+diff --git a/client/X11/xf_video.c b/client/X11/xf_video.c
+--- a/client/X11/xf_video.c
++++ b/client/X11/xf_video.c
+@@ -23,6 +23,7 @@
+ #include <freerdp/gdi/video.h>
+ 
+ #include "xf_video.h"
++#include "xf_utils.h"
+ 
+ #include <freerdp/log.h>
+ #define TAG CLIENT_TAG("video")
+-- 
+2.47.3
+
