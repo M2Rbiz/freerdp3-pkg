@@ -1,3 +1,33 @@
+freerdp3 (3.24.0+dfsg-1) unstable; urgency=medium
+
+  * new upstream release, with enhancements, bugfixes, and more security fixes:
+    CVE-2026-29774 Heap-buffer-overflow in avc420_yuv_to_rgb via OOB regionRects
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-5q35-hv9x-7794
+    CVE-2026-29775 Heap-buffer-overflow in bitmap_cache_put via OOB cacheId
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-h666-rfw3-jhvj
+    CVE-2026-29776 Integer Underflow in update_read_cache_bitmap_order
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-c747-x4wf-cqrr
+    CVE-2026-31806 (HIGH) Heap Buffer Overflow in nsc_process_message()
+      via Unchecked SURFACE_BITS_COMMAND Bitmap Dimensions
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-rrqm-46rj-cmx2
+    CVE-2026-31883 `size_t` underflow in ADPCM decoder leads to
+      heap-buffer-overflow write
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-85x9-4xxp-xhm5
+    CVE-2026-31884 Division-by-zero in ADPCM decoders when `nBlockAlign` is 0
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-jp7m-94ww-p56r
+    CVE-2026-31885 Out-of-bounds read in ADPCM decoders
+      due to missing predictor/step_index bounds checks
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-h23r-3988-3wf3
+    CVE-2026-31897 Out-of-bounds read in `freerdp_bitmap_decompress_planar` 
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-xgv6-r22m-7c9x
+  * d/libfreerdp3-3.symbols,d/libwinpr3-3.symbols: add new symbols
+  * d/libfreerdp-client3-3.symbols: REMOVE unused symbols
+     add_device del_device msusb_*
+    These are internal symbols which should not be used
+  * d/control, d/rules: libfuse is linux-only
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 13 Mar 2026 21:23:00 +0300
+
 freerdp3 (3.23.0+dfsg-1) unstable; urgency=medium
 
   * new upstream release, with enhancements and more security fixes:
