@@ -25,13 +25,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(WITH_INPUT_FORMAT_MJPG)
-#include <libavcodec/avcodec.h>
-#endif
-
-#include <libswscale/swscale.h>
-#include <libavutil/imgutils.h>
-
 #include <winpr/wlog.h>
 #include <winpr/wtypes.h>
 
@@ -42,6 +35,7 @@
 #include <freerdp/channels/log.h>
 #include <freerdp/channels/rdpecam.h>
 #include <freerdp/codecs.h>
+#include <freerdp/codec/video.h>
 #include <freerdp/primitives.h>
 
 #define ECAM_PROTO_VERSION 0x02
@@ -60,12 +54,6 @@
  * will fit in, even with highest resolution.
  */
 #define ECAM_SAMPLE_RESPONSE_BUFFER_SIZE (1024ULL * 4050ULL)
-
-/* Special format addition for CAM_MEDIA_FORMAT enum formats
- * used to support H264 stream muxed in MJPG container stream.
- * The value picked not to overlap with enum values
- */
-#define CAM_MEDIA_FORMAT_MJPG_H264 0x0401
 
 typedef struct s_ICamHal ICamHal;
 
@@ -107,30 +95,16 @@ typedef struct
 	volatile BOOL haveSample;
 	wStream* sampleRespBuffer;
 
-	H264_CONTEXT* h264;
-
-#if defined(WITH_INPUT_FORMAT_MJPG)
-	AVCodecContext* avContext;
-	AVPacket* avInputPkt;
-	AVFrame* avOutFrame;
-#endif
-
-#if defined(WITH_INPUT_FORMAT_H264)
-	size_t h264FrameMaxSize;
-	BYTE* h264Frame;
-#endif
-
-	/* sws_scale */
-	uint32_t swsWidth;
-	uint32_t swsHeight;
-	struct SwsContext* sws;
-
+	FREERDP_VIDEO_CONTEXT* video;
 } CameraDeviceStream;
 
+WINPR_ATTR_NODISCARD
 static inline CAM_MEDIA_FORMAT streamInputFormat(CameraDeviceStream* stream)
 {
 	return stream->formats.inputFormat;
 }
+
+WINPR_ATTR_NODISCARD
 static inline CAM_MEDIA_FORMAT streamOutputFormat(CameraDeviceStream* stream)
 {
 	return stream->formats.outputFormat;
@@ -258,25 +232,38 @@ typedef FREERDP_CAMERA_HAL_ENTRY_POINTS* PFREERDP_CAMERA_HAL_ENTRY_POINTS;
 typedef UINT(VCAPITYPE* PFREERDP_CAMERA_HAL_ENTRY)(PFREERDP_CAMERA_HAL_ENTRY_POINTS pEntryPoints);
 
 /* common functions */
-UINT ecam_channel_send_generic_msg(CameraPlugin* ecam, GENERIC_CHANNEL_CALLBACK* hchannel,
-                                   CAM_MSG_ID msg);
-UINT ecam_channel_send_error_response(CameraPlugin* ecam, GENERIC_CHANNEL_CALLBACK* hchannel,
-                                      CAM_ERROR_CODE code);
-UINT ecam_channel_write(CameraPlugin* ecam, GENERIC_CHANNEL_CALLBACK* hchannel, CAM_MSG_ID msg,
-                        wStream* out, BOOL freeStream);
+WINPR_ATTR_NODISCARD FREERDP_LOCAL UINT ecam_channel_send_generic_msg(
+    CameraPlugin* ecam, GENERIC_CHANNEL_CALLBACK* hchannel, CAM_MSG_ID msg);
+
+FREERDP_LOCAL UINT ecam_channel_send_error_response(CameraPlugin* ecam,
+                                                    GENERIC_CHANNEL_CALLBACK* hchannel,
+                                                    CAM_ERROR_CODE code);
+
+WINPR_ATTR_NODISCARD FREERDP_LOCAL UINT ecam_channel_write(CameraPlugin* ecam,
+                                                           GENERIC_CHANNEL_CALLBACK* hchannel,
+                                                           CAM_MSG_ID msg, wStream* out,
+                                                           BOOL freeStream);
 
 /* ecam device interface */
-void ecam_dev_destroy(CameraDevice* dev);
+FREERDP_LOCAL void ecam_dev_destroy(CameraDevice* dev);
 
 WINPR_ATTR_MALLOC(ecam_dev_destroy, 1)
 WINPR_ATTR_NODISCARD
-CameraDevice* ecam_dev_create(CameraPlugin* ecam, const char* deviceId, const char* deviceName);
+FREERDP_LOCAL CameraDevice* ecam_dev_create(CameraPlugin* ecam, const char* deviceId,
+                                            const char* deviceName);
 
 /* video encoding interface */
-BOOL ecam_encoder_context_init(CameraDeviceStream* stream);
-BOOL ecam_encoder_context_free(CameraDeviceStream* stream);
-BOOL ecam_encoder_compress(CameraDeviceStream* stream, const BYTE* srcData, size_t srcSize,
-                           BYTE** ppDstData, size_t* pDstSize);
-UINT32 h264_get_max_bitrate(UINT32 height);
+WINPR_ATTR_NODISCARD FREERDP_LOCAL BOOL ecam_encoder_context_init(CameraDeviceStream* stream);
+
+FREERDP_LOCAL BOOL ecam_encoder_context_free(CameraDeviceStream* stream);
+
+WINPR_ATTR_NODISCARD FREERDP_LOCAL BOOL ecam_encoder_compress(CameraDeviceStream* stream,
+                                                              const BYTE* srcData, size_t srcSize,
+                                                              wStream* output);
+
+WINPR_ATTR_NODISCARD FREERDP_LOCAL UINT32 h264_get_max_bitrate(UINT32 height);
+
+WINPR_ATTR_NODISCARD
+FREERDP_LOCAL FREERDP_VIDEO_FORMAT ecamToVideoFormat(CAM_MEDIA_FORMAT ecamFormat);
 
 #endif /* FREERDP_CLIENT_CAMERA_H */

@@ -59,9 +59,9 @@ static BOOL nsc_decode(NSC_CONTEXT* WINPR_RESTRICT context)
 
 	for (size_t y = 0; y < context->height; y++)
 	{
-		const BYTE* yplane = NULL;
-		const BYTE* coplane = NULL;
-		const BYTE* cgplane = NULL;
+		const BYTE* yplane = nullptr;
+		const BYTE* coplane = nullptr;
+		const BYTE* cgplane = nullptr;
 		const BYTE* aplane = context->priv->PlaneBuffers[3] + y * context->width; /* A */
 
 		if (context->ChromaSubsamplingLevel)
@@ -343,7 +343,7 @@ NSC_CONTEXT* nsc_context_new(void)
 	NSC_CONTEXT* context = (NSC_CONTEXT*)winpr_aligned_calloc(1, sizeof(NSC_CONTEXT), 32);
 
 	if (!context)
-		return NULL;
+		return nullptr;
 
 	context->priv = (NSC_CONTEXT_PRIV*)winpr_aligned_calloc(1, sizeof(NSC_CONTEXT_PRIV), 32);
 
@@ -351,8 +351,7 @@ NSC_CONTEXT* nsc_context_new(void)
 		goto error;
 
 	context->priv->log = WLog_Get("com.freerdp.codec.nsc");
-	WLog_OpenAppender(context->priv->log);
-	context->BitmapData = NULL;
+	context->BitmapData = nullptr;
 	context->decode = nsc_decode;
 	context->encode = nsc_encode;
 
@@ -372,7 +371,7 @@ error:
 	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	nsc_context_free(context);
 	WINPR_PRAGMA_DIAG_POP
-	return NULL;
+	return nullptr;
 }
 
 void nsc_context_free(NSC_CONTEXT* context)
@@ -438,7 +437,7 @@ BOOL nsc_process_message(NSC_CONTEXT* WINPR_RESTRICT context, UINT16 bpp, UINT32
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(context->priv);
 
-	wStream sbuffer = { 0 };
+	wStream sbuffer = WINPR_C_ARRAY_INIT;
 	BOOL ret = 0;
 	if (!data || !pDstData)
 	{
@@ -528,10 +527,15 @@ BOOL nsc_process_message(NSC_CONTEXT* WINPR_RESTRICT context, UINT16 bpp, UINT32
 			return FALSE;
 	}
 
-	if (!freerdp_image_copy_no_overlap(pDstData, DstFormat, nDstStride, nXDst, nYDst, width, height,
-	                                   context->BitmapData, PIXEL_FORMAT_BGRA32, 0, 0, 0, NULL,
-	                                   flip))
-		return FALSE;
+	uint32_t cwidth = width;
+	if (1ull * nXDst + width > nWidth)
+		cwidth = nWidth - nXDst;
 
-	return TRUE;
+	uint32_t cheight = height;
+	if (1ull * nYDst + height > nHeight)
+		cheight = nHeight - nYDst;
+
+	return (freerdp_image_copy_no_overlap(pDstData, DstFormat, nDstStride, nXDst, nYDst, cwidth,
+	                                      cheight, context->BitmapData, PIXEL_FORMAT_BGRA32, 0, 0,
+	                                      0, nullptr, flip));
 }

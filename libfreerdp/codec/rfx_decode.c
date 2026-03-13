@@ -40,12 +40,19 @@ static inline void rfx_decode_component(RFX_CONTEXT* WINPR_RESTRICT context,
                                         const BYTE* WINPR_RESTRICT data, size_t size,
                                         INT16* WINPR_RESTRICT buffer)
 {
-	INT16* dwt_buffer = NULL;
-	dwt_buffer = BufferPool_Take(context->priv->BufferPool, -1); /* dwt_buffer */
+	INT16* dwt_buffer = BufferPool_Take(context->priv->BufferPool, -1); /* dwt_buffer */
+	WINPR_ASSERT(dwt_buffer);
+
 	PROFILER_ENTER(context->priv->prof_rfx_decode_component)
 	PROFILER_ENTER(context->priv->prof_rfx_rlgr_decode)
 	WINPR_ASSERT(size <= UINT32_MAX);
-	context->rlgr_decode(context->mode, data, (UINT32)size, buffer, 4096);
+
+	{
+		const int rc = context->rlgr_decode(context->mode, data, (UINT32)size, buffer, 4096);
+		if (rc < 0)
+			WLog_Print(context->priv->log, WLOG_ERROR, "context->rlgr_decode failed: %d", rc);
+	}
+
 	PROFILER_EXIT(context->priv->prof_rfx_rlgr_decode)
 	PROFILER_ENTER(context->priv->prof_rfx_differential_decode)
 	rfx_differential_decode(buffer + 4032, 64);
@@ -72,11 +79,11 @@ BOOL rfx_decode_rgb(RFX_CONTEXT* WINPR_RESTRICT context, const RFX_TILE* WINPR_R
 		INT16** pv;
 	} cnv;
 	BOOL rc = TRUE;
-	BYTE* pBuffer = NULL;
+	BYTE* pBuffer = nullptr;
 	INT16* pSrcDst[3];
-	UINT32* y_quants = NULL;
-	UINT32* cb_quants = NULL;
-	UINT32* cr_quants = NULL;
+	UINT32* y_quants = nullptr;
+	UINT32* cb_quants = nullptr;
+	UINT32* cr_quants = nullptr;
 	static const prim_size_t roi_64x64 = { 64, 64 };
 	const primitives_t* prims = primitives_get();
 	PROFILER_ENTER(context->priv->prof_rfx_decode_rgb)

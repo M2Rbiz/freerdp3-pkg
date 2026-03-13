@@ -188,6 +188,7 @@ BOOL Queue_Contains(wQueue* queue, const void* obj)
 
 static BOOL Queue_EnsureCapacity(wQueue* queue, size_t count)
 {
+	BOOL res = TRUE;
 	const size_t blocksize = 32ull;
 	WINPR_ASSERT(queue);
 
@@ -239,8 +240,8 @@ static BOOL Queue_EnsureCapacity(wQueue* queue, size_t count)
 			{
 				const size_t remain = queue->tail - batch;
 				const size_t movesize = remain * sizeof(uintptr_t);
-				memmove_s(queue->array, queue->tail * sizeof(uintptr_t), &queue->array[batch],
-				          movesize);
+				res = memmove_s(queue->array, queue->tail * sizeof(uintptr_t), &queue->array[batch],
+				                movesize) >= 0;
 
 				const size_t zerooffset = remain;
 				const size_t zerosize = (queue->tail - remain) * sizeof(uintptr_t);
@@ -249,7 +250,7 @@ static BOOL Queue_EnsureCapacity(wQueue* queue, size_t count)
 			}
 		}
 	}
-	return TRUE;
+	return res;
 }
 
 /**
@@ -277,7 +278,10 @@ BOOL Queue_Enqueue(wQueue* queue, const void* obj)
 		queue->size++;
 
 		if (signalSet)
-			(void)SetEvent(queue->event);
+		{
+			if (!SetEvent(queue->event))
+				goto out;
+		}
 	}
 out:
 
@@ -292,7 +296,7 @@ out:
 
 void* Queue_Dequeue(wQueue* queue)
 {
-	void* obj = NULL;
+	void* obj = nullptr;
 
 	Queue_Lock(queue);
 
@@ -318,7 +322,7 @@ void* Queue_Dequeue(wQueue* queue)
 
 void* Queue_Peek(wQueue* queue)
 {
-	void* obj = NULL;
+	void* obj = nullptr;
 	Queue_Lock(queue);
 
 	if (queue->size > 0)
@@ -331,7 +335,7 @@ void* Queue_Peek(wQueue* queue)
 
 void Queue_Discard(wQueue* queue)
 {
-	void* obj = NULL;
+	void* obj = nullptr;
 
 	Queue_Lock(queue);
 	obj = Queue_Dequeue(queue);
@@ -355,7 +359,7 @@ wQueue* Queue_New(BOOL synchronized, SSIZE_T capacity, SSIZE_T growthFactor)
 	wQueue* queue = (wQueue*)calloc(1, sizeof(wQueue));
 
 	if (!queue)
-		return NULL;
+		return nullptr;
 
 	queue->synchronized = synchronized;
 
@@ -371,7 +375,7 @@ wQueue* Queue_New(BOOL synchronized, SSIZE_T capacity, SSIZE_T growthFactor)
 	if (!Queue_EnsureCapacity(queue, (size_t)capacity))
 		goto fail;
 
-	queue->event = CreateEvent(NULL, TRUE, FALSE, NULL);
+	queue->event = CreateEvent(nullptr, TRUE, FALSE, nullptr);
 
 	if (!queue->event)
 		goto fail;
@@ -386,7 +390,7 @@ fail:
 	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	Queue_Free(queue);
 	WINPR_PRAGMA_DIAG_POP
-	return NULL;
+	return nullptr;
 }
 
 void Queue_Free(wQueue* queue)

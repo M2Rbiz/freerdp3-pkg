@@ -290,6 +290,10 @@ struct xf_context
 	wHashTable* railWindows;
 	xfRailIconCache* railIconCache;
 
+#if defined(WITH_VERBOSE_WINPR_ASSERT)
+	BOOL isRailWindowsLocked;
+#endif
+
 	BOOL xkbAvailable;
 	BOOL xrenderAvailable;
 
@@ -319,6 +323,9 @@ struct xf_context
 	DWORD X11_KEYCODE_TO_VIRTUAL_SCANCODE[256];
 	bool isCursorHidden;
 	bool isActionScriptAllowed;
+	bool exposeRequested;
+	GDI_RGN exposedArea;
+	Window exposedWindow;
 };
 
 BOOL xf_create_window(xfContext* xfc);

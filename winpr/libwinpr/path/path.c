@@ -718,9 +718,7 @@ HRESULT PathCchStripPrefixA(PSTR pszPath, size_t cchPath)
 		return E_INVALIDARG;
 
 	hasPrefix = ((pszPath[0] == '\\') && (pszPath[1] == '\\') && (pszPath[2] == '?') &&
-	             (pszPath[3] == '\\'))
-	                ? TRUE
-	                : FALSE;
+	             (pszPath[3] == '\\'));
 
 	if (hasPrefix)
 	{
@@ -729,7 +727,9 @@ HRESULT PathCchStripPrefixA(PSTR pszPath, size_t cchPath)
 
 		if (IsCharAlpha(pszPath[4]) && (pszPath[5] == ':')) /* like C: */
 		{
-			memmove_s(pszPath, cchPath, &pszPath[4], cchPath - 4);
+			if (memmove_s(pszPath, cchPath, &pszPath[4], cchPath - 4) < 0)
+				return HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
+
 			/* since the passed pszPath must not necessarily be null terminated
 			 * and we always have enough space after the strip we can always
 			 * ensure the null termination of the stripped result
@@ -753,9 +753,7 @@ HRESULT PathCchStripPrefixW(PWSTR pszPath, size_t cchPath)
 		return E_INVALIDARG;
 
 	hasPrefix = ((pszPath[0] == '\\') && (pszPath[1] == '\\') && (pszPath[2] == '?') &&
-	             (pszPath[3] == '\\'))
-	                ? TRUE
-	                : FALSE;
+	             (pszPath[3] == '\\'));
 
 	if (hasPrefix)
 	{
@@ -768,7 +766,8 @@ HRESULT PathCchStripPrefixW(PWSTR pszPath, size_t cchPath)
 
 		if (IsCharAlphaW(pszPath[4]) && (pszPath[5] == L':')) /* like C: */
 		{
-			wmemmove_s(pszPath, cchPath, &pszPath[4], cchPath - 4);
+			if (wmemmove_s(pszPath, cchPath, &pszPath[4], cchPath - 4) < 0)
+				return HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
 			/* since the passed pszPath must not necessarily be null terminated
 			 * and we always have enough space after the strip we can always
 			 * ensure the null termination of the stripped result
@@ -1024,13 +1023,11 @@ PCSTR PathGetSharedLibraryExtensionA(unsigned long dwFlags)
 		return SharedLibraryExtensionSoA;
 #endif
 	}
-
-	return NULL;
 }
 
 PCWSTR PathGetSharedLibraryExtensionW(unsigned long dwFlags)
 {
-	static WCHAR buffer[6][16] = { 0 };
+	static WCHAR buffer[6][16] = WINPR_C_ARRAY_INIT;
 	const WCHAR* SharedLibraryExtensionDotDllW = InitializeConstWCharFromUtf8(
 	    SharedLibraryExtensionDotDllA, buffer[0], ARRAYSIZE(buffer[0]));
 	const WCHAR* SharedLibraryExtensionDotSoW =
@@ -1096,8 +1093,6 @@ PCWSTR PathGetSharedLibraryExtensionW(unsigned long dwFlags)
 		return SharedLibraryExtensionSoW;
 #endif
 	}
-
-	return NULL;
 }
 
 const char* GetKnownPathIdString(int id)
@@ -1128,7 +1123,7 @@ static char* concat(const char* path, size_t pathlen, const char* name, size_t n
 	const size_t strsize = pathlen + namelen + 2;
 	char* str = calloc(strsize, sizeof(char));
 	if (!str)
-		return NULL;
+		return nullptr;
 
 	winpr_str_append(path, str, strsize, "");
 	winpr_str_append(name, str, strsize, "");
@@ -1156,7 +1151,7 @@ BOOL winpr_RemoveDirectory_RecursiveA(LPCSTR lpPathName)
 		goto fail;
 
 	{
-		WIN32_FIND_DATAA findFileData = { 0 };
+		WIN32_FIND_DATAA findFileData = WINPR_C_ARRAY_INIT;
 		dir = FindFirstFileA(path_slash, &findFileData);
 
 		if (dir == INVALID_HANDLE_VALUE)
@@ -1212,7 +1207,7 @@ fail:
 
 BOOL winpr_RemoveDirectory_RecursiveW(LPCWSTR lpPathName)
 {
-	char* name = ConvertWCharToUtf8Alloc(lpPathName, NULL);
+	char* name = ConvertWCharToUtf8Alloc(lpPathName, nullptr);
 	if (!name)
 		return FALSE;
 	const BOOL rc = winpr_RemoveDirectory_RecursiveA(name);
@@ -1228,13 +1223,13 @@ char* winpr_GetConfigFilePathVA(BOOL system, WINPR_FORMAT_ARG const char* filena
 	const SSIZE_T version = winpr_getApplicationDetailsVersion();
 
 	if (!vendor || !product)
-		return NULL;
+		return nullptr;
 
 	char* config = GetKnownSubPathV(id, "%s", vendor);
 	if (!config)
-		return NULL;
+		return nullptr;
 
-	char* base = NULL;
+	char* base = nullptr;
 	if (version < 0)
 		base = GetCombinedPathV(config, "%s", product);
 	else
@@ -1242,7 +1237,7 @@ char* winpr_GetConfigFilePathVA(BOOL system, WINPR_FORMAT_ARG const char* filena
 	free(config);
 
 	if (!base)
-		return NULL;
+		return nullptr;
 	char* path = GetCombinedPathVA(base, filename, ap);
 	free(base);
 
@@ -1258,7 +1253,7 @@ char* winpr_GetConfigFilePath(BOOL system, const char* filename)
 
 char* winpr_GetConfigFilePathV(BOOL system, const char* filename, ...)
 {
-	va_list ap = { 0 };
+	va_list ap = WINPR_C_ARRAY_INIT;
 	va_start(ap, filename);
 	char* str = winpr_GetConfigFilePathVA(system, filename, ap);
 	va_end(ap);

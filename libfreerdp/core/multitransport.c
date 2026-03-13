@@ -65,7 +65,7 @@ state_run_t multitransport_recv_request(rdpMultitransport* multi, wStream* s)
 	UINT32 requestId = 0;
 	UINT16 requestedProto = 0;
 	UINT16 reserved = 0;
-	const BYTE* cookie = NULL;
+	const BYTE* cookie = nullptr;
 
 	Stream_Read_UINT32(s, requestId);      /* requestId (4 bytes) */
 	Stream_Read_UINT16(s, requestedProto); /* requestedProtocol (2 bytes) */
@@ -85,7 +85,8 @@ state_run_t multitransport_recv_request(rdpMultitransport* multi, wStream* s)
 		WLog_WARN(TAG,
 		          "reserved is %" PRIu16 " instead of 0, skipping %" PRIuz "bytes of unknown data",
 		          reserved, Stream_GetRemainingLength(s));
-		(void)Stream_SafeSeek(s, Stream_GetRemainingLength(s));
+		if (!Stream_SafeSeek(s, Stream_GetRemainingLength(s)))
+			return STATE_RUN_FAILED;
 	}
 
 	WINPR_ASSERT(multi->MtRequest);
@@ -125,7 +126,8 @@ state_run_t multitransport_server_request(rdpMultitransport* multi, UINT16 reqPr
 	if (reqProto == INITIATE_REQUEST_PROTOCOL_UDPFECR)
 	{
 		multi->reliableReqId = reqId++;
-		winpr_RAND(multi->reliableCookie, sizeof(multi->reliableCookie));
+		if (winpr_RAND(multi->reliableCookie, sizeof(multi->reliableCookie)) < 0)
+			return STATE_RUN_FAILED;
 
 		return multitransport_request_send(multi, multi->reliableReqId, reqProto,
 		                                   multi->reliableCookie)
@@ -218,7 +220,7 @@ rdpMultitransport* multitransport_new(rdpRdp* rdp, WINPR_ATTR_UNUSED UINT16 prot
 
 	rdpMultitransport* multi = calloc(1, sizeof(rdpMultitransport));
 	if (!multi)
-		return NULL;
+		return nullptr;
 
 	if (settings->ServerMode)
 	{

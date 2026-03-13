@@ -76,19 +76,19 @@ extern "C"
 
 	/**
 	 * @brief Free a rdpCodecs instance
-	 * @param codecs A pointer to a rdpCodecs instance or NULL
+	 * @param codecs A pointer to a rdpCodecs instance or nullptr
 	 *  @since version 3.6.0
 	 */
 	FREERDP_API void freerdp_client_codecs_free(rdpCodecs* codecs);
 
 	/**
 	 * @brief Allocate a rdpCodecs instance.
-	 * @return A newly allocated instance or \b NULL in case of failure.
+	 * @return A newly allocated instance or \b nullptr in case of failure.
 	 *  @since version 3.6.0
 	 */
 	WINPR_ATTR_MALLOC(freerdp_client_codecs_free, 1)
 	WINPR_ATTR_NODISCARD
-	FREERDP_API rdpCodecs* freerdp_client_codecs_new(UINT32 TheadingFlags);
+	FREERDP_API rdpCodecs* freerdp_client_codecs_new(UINT32 ThreadingFlags);
 
 #if !defined(WITHOUT_FREERDP_3x_DEPRECATED)
 	WINPR_DEPRECATED_VAR("[since 3.6.0] Use freerdp_client_codecs_free",

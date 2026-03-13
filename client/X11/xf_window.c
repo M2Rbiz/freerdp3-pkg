@@ -132,7 +132,7 @@ static const char* window_style_to_string(UINT32 style)
 		ENTRY(WS_VISIBLE);
 		ENTRY(WS_VSCROLL);
 		default:
-			return NULL;
+			return nullptr;
 	}
 }
 
@@ -142,7 +142,7 @@ const char* window_styles_to_string(UINT32 style, char* buffer, size_t length)
 	const char* sep = "";
 	for (size_t x = 0; x < 32; x++)
 	{
-		const UINT32 val = 1 << x;
+		const UINT32 val = 1u << x;
 		if ((style & val) != 0)
 		{
 			const char* str = window_style_to_string(val);
@@ -187,7 +187,7 @@ static const char* window_style_ex_to_string(UINT32 styleEx)
 		ENTRY(WS_EX_TRANSPARENT);
 		ENTRY(WS_EX_WINDOWEDGE);
 		default:
-			return NULL;
+			return nullptr;
 	}
 }
 
@@ -231,8 +231,8 @@ static void xf_SetWindowTitleText(xfContext* xfc, Window window, const char* nam
  */
 void xf_SendClientEvent(xfContext* xfc, Window window, Atom atom, unsigned int numArgs, ...)
 {
-	XEvent xevent = { 0 };
-	va_list argp = { 0 };
+	XEvent xevent = WINPR_C_ARRAY_INIT;
+	va_list argp = WINPR_C_ARRAY_INIT;
 	va_start(argp, numArgs);
 
 	xevent.xclient.type = ClientMessage;
@@ -248,7 +248,8 @@ void xf_SendClientEvent(xfContext* xfc, Window window, Atom atom, unsigned int n
 		xevent.xclient.data.l[i] = va_arg(argp, int);
 	}
 
-	DEBUG_X11("Send ClientMessage Event: wnd=0x%04lX", (unsigned long)xevent.xclient.window);
+	WLog_Print(xfc->log, WLOG_TRACE, "Send ClientMessage Event: wnd=0x%04lX",
+	           (unsigned long)xevent.xclient.window);
 	LogDynAndXSendEvent(xfc->log, xfc->display, RootWindowOfScreen(xfc->screen), False,
 	                    SubstructureRedirectMask | SubstructureNotifyMask, &xevent);
 	LogDynAndXSync(xfc->log, xfc->display, False);
@@ -262,7 +263,7 @@ void xf_SetWindowMinimized(xfContext* xfc, xfWindow* window)
 
 void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 {
-	const rdpSettings* settings = NULL;
+	const rdpSettings* settings = nullptr;
 	int startX = 0;
 	int startY = 0;
 	UINT32 width = WINPR_ASSERTING_INT_CAST(uint32_t, window->width);
@@ -278,7 +279,7 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 	window->decorations = xfc->decorations;
 	/* show/hide decorations (e.g. title bar) as guided by xfc->decorations */
 	xf_SetWindowDecorations(xfc, window->handle, window->decorations);
-	DEBUG_X11("X window decoration set to %d", (int)window->decorations);
+	WLog_Print(xfc->log, WLOG_TRACE, "X window decoration set to %d", (int)window->decorations);
 	xf_floatbar_toggle_fullscreen(xfc->window->floatbar, fullscreen);
 
 	if (fullscreen)
@@ -385,7 +386,7 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 			}
 			else
 			{
-				XSetWindowAttributes xswa = { 0 };
+				XSetWindowAttributes xswa = WINPR_C_ARRAY_INIT;
 				xswa.override_redirect = True;
 				LogDynAndXChangeWindowAttributes(xfc->log, xfc->display, window->handle,
 				                                 CWOverrideRedirect, &xswa);
@@ -401,7 +402,7 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 				BYTE state = 0;
 				unsigned long nitems = 0;
 				unsigned long bytes = 0;
-				BYTE* prop = NULL;
+				BYTE* prop = nullptr;
 
 				if (xf_GetWindowProperty(xfc, window->handle, xfc->NET_WM_STATE, 255, &nitems,
 				                         &bytes, &prop))
@@ -435,8 +436,9 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 
 			width = xfc->vscreen.area.right - xfc->vscreen.area.left + 1;
 			height = xfc->vscreen.area.bottom - xfc->vscreen.area.top + 1;
-			DEBUG_X11("X window move and resize %dx%d@%" PRIu32 "x%" PRIu32 "", startX, startY,
-			          width, height);
+			WLog_Print(xfc->log, WLOG_TRACE,
+			           "X window move and resize %dx%d@%" PRIu32 "x%" PRIu32 "", startX, startY,
+			           width, height);
 			xf_ResizeDesktopWindow(xfc, window, WINPR_ASSERTING_INT_CAST(int, width),
 			                       WINPR_ASSERTING_INT_CAST(int, height));
 			LogDynAndXMoveWindow(xfc->log, xfc->display, window->handle, startX, startY);
@@ -498,7 +500,7 @@ BOOL xf_GetWindowProperty(xfContext* xfc, Window window, Atom property, int leng
 		WLog_DBG(TAG, "Property %lu does not exist", (unsigned long)property);
 		if (*prop)
 			XFree(*prop);
-		*prop = NULL;
+		*prop = nullptr;
 		return FALSE;
 	}
 
@@ -509,7 +511,7 @@ static BOOL xf_GetNumberOfDesktops(xfContext* xfc, Window root, unsigned* pval)
 {
 	unsigned long nitems = 0;
 	unsigned long bytes = 0;
-	BYTE* bprop = NULL;
+	BYTE* bprop = nullptr;
 
 	WINPR_ASSERT(xfc);
 	WINPR_ASSERT(pval);
@@ -538,7 +540,7 @@ static BOOL xf_GetCurrentDesktop(xfContext* xfc, Window root)
 {
 	unsigned long nitems = 0;
 	unsigned long bytes = 0;
-	BYTE* bprop = NULL;
+	BYTE* bprop = nullptr;
 	unsigned max = 0;
 
 	if (!xf_GetNumberOfDesktops(xfc, root, &max))
@@ -563,7 +565,7 @@ static BOOL xf_GetWorkArea_NET_WORKAREA(xfContext* xfc, Window root)
 	BOOL rc = FALSE;
 	unsigned long nitems = 0;
 	unsigned long bytes = 0;
-	BYTE* bprop = NULL;
+	BYTE* bprop = nullptr;
 
 	const BOOL status =
 	    xf_GetWindowProperty(xfc, root, xfc->NET_WORKAREA, INT_MAX, &nitems, &bytes, &bprop);
@@ -654,13 +656,13 @@ void xf_DestroyDummyWindow(xfContext* xfc, Window window)
 
 xfWindow* xf_CreateDesktopWindow(xfContext* xfc, char* name, int width, int height)
 {
-	XEvent xevent = { 0 };
+	XEvent xevent = WINPR_C_ARRAY_INIT;
 	int input_mask = 0;
-	XClassHint* classHints = NULL;
+	XClassHint* classHints = nullptr;
 	xfWindow* window = (xfWindow*)calloc(1, sizeof(xfWindow));
 
 	if (!window)
-		return NULL;
+		return nullptr;
 
 	rdpSettings* settings = xfc->common.context.settings;
 	WINPR_ASSERT(settings);
@@ -683,27 +685,27 @@ xfWindow* xf_CreateDesktopWindow(xfContext* xfc, char* name, int width, int heig
 
 	if (window->shmid < 0)
 	{
-		DEBUG_X11("xf_CreateDesktopWindow: failed to get access to shared memory - shmget()\n");
+		WLog_Print(xfc->log, WLOG_TRACE,
+		           "xf_CreateDesktopWindow: failed to get access to shared memory - shmget()\n");
 	}
 	else
 	{
 		int rc = ftruncate(window->shmid, sizeof(window->handle));
 		if (rc != 0)
 		{
-#ifdef WITH_DEBUG_X11
-			char ebuffer[256] = { 0 };
-			DEBUG_X11("ftruncate failed with %s [%d]", winpr_strerror(rc, ebuffer, sizeof(ebuffer)),
-			          rc);
-#endif
+			char ebuffer[256] = WINPR_C_ARRAY_INIT;
+			WLog_Print(xfc->log, WLOG_TRACE, "ftruncate failed with %s [%d]",
+			           winpr_strerror(rc, ebuffer, sizeof(ebuffer)), rc);
 		}
 		else
 		{
-			void* mem = mmap(0, sizeof(window->handle), PROT_READ | PROT_WRITE, MAP_SHARED,
+			void* mem = mmap(nullptr, sizeof(window->handle), PROT_READ | PROT_WRITE, MAP_SHARED,
 			                 window->shmid, 0);
 
 			if (mem == MAP_FAILED)
 			{
-				DEBUG_X11(
+				WLog_Print(
+				    xfc->log, WLOG_TRACE,
 				    "xf_CreateDesktopWindow: failed to assign pointer to the memory address - "
 				    "shmat()\n");
 			}
@@ -721,7 +723,7 @@ xfWindow* xf_CreateDesktopWindow(xfContext* xfc, char* name, int width, int heig
 	{
 		classHints->res_name = "xfreerdp";
 
-		char* res_class = NULL;
+		char* res_class = nullptr;
 		const char* WmClass = freerdp_settings_get_string(settings, FreeRDP_WmClass);
 		if (WmClass)
 			res_class = _strdup(WmClass);
@@ -754,7 +756,11 @@ xfWindow* xf_CreateDesktopWindow(xfContext* xfc, char* name, int width, int heig
 	LogDynAndXClearWindow(xfc->log, xfc->display, window->handle);
 	xf_SetWindowTitleText(xfc, window->handle, name);
 	LogDynAndXMapWindow(xfc->log, xfc->display, window->handle);
-	xf_input_init(xfc, window->handle);
+	if (xf_input_init(xfc, window->handle) < 0)
+	{
+		xf_DestroyDesktopWindow(xfc, window);
+		return nullptr;
+	}
 
 	/*
 	 * NOTE: This must be done here to handle reparenting the window,
@@ -795,8 +801,8 @@ xfWindow* xf_CreateDesktopWindow(xfContext* xfc, char* name, int width, int heig
 
 void xf_ResizeDesktopWindow(xfContext* xfc, xfWindow* window, int width, int height)
 {
-	XSizeHints* size_hints = NULL;
-	rdpSettings* settings = NULL;
+	XSizeHints* size_hints = nullptr;
+	rdpSettings* settings = nullptr;
 
 	if (!xfc || !window)
 		return;
@@ -835,11 +841,20 @@ void xf_ResizeDesktopWindow(xfContext* xfc, xfWindow* window, int width, int hei
 
 void xf_DestroyDesktopWindow(xfContext* xfc, xfWindow* window)
 {
+	WINPR_ASSERT(xfc);
+
 	if (!window)
 		return;
 
 	if (xfc->window == window)
-		xfc->window = NULL;
+		xfc->window = nullptr;
+
+	/* Reset XI2 event flags so standard X11 events are processed for RAIL
+	 * windows. The per-window XI2 registrations were on the now-destroyed
+	 * desktop window and will no longer fire. */
+	xfc->xi_event = false;
+	xfc->xi_rawevent = false;
+	xf_ungrab(xfc);
 
 	xf_floatbar_free(window->floatbar);
 
@@ -853,7 +868,7 @@ void xf_DestroyDesktopWindow(xfContext* xfc, xfWindow* window)
 	}
 
 	if (window->xfwin)
-		munmap(0, sizeof(*window->xfwin));
+		munmap(window->xfwin, sizeof(*window->xfwin));
 
 	if (window->shmid >= 0)
 		close(window->shmid);
@@ -917,7 +932,7 @@ void xf_SetWindowStyle(xfContext* xfc, xfAppWindow* appWindow, UINT32 style, UIN
 		 * sees that as a focus out event from the window owning the
 		 * dropdown.
 		 */
-		XSetWindowAttributes attrs = { 0 };
+		XSetWindowAttributes attrs = WINPR_C_ARRAY_INIT;
 		attrs.override_redirect = redirect ? True : False;
 		LogDynAndXChangeWindowAttributes(xfc->log, xfc->display, appWindow->handle,
 		                                 CWOverrideRedirect, &attrs);
@@ -1031,11 +1046,11 @@ int xf_AppWindowInit(xfContext* xfc, xfAppWindow* appWindow)
 
 BOOL xf_AppWindowCreate(xfContext* xfc, xfAppWindow* appWindow)
 {
-	XGCValues gcv = { 0 };
+	XGCValues gcv = WINPR_C_ARRAY_INIT;
 	int input_mask = 0;
-	XWMHints* InputModeHint = NULL;
-	XClassHint* class_hints = NULL;
-	const rdpSettings* settings = NULL;
+	XWMHints* InputModeHint = nullptr;
+	XClassHint* class_hints = nullptr;
+	const rdpSettings* settings = nullptr;
 
 	WINPR_ASSERT(xfc);
 	WINPR_ASSERT(appWindow);
@@ -1077,7 +1092,7 @@ BOOL xf_AppWindowCreate(xfContext* xfc, xfAppWindow* appWindow)
 
 	if (class_hints)
 	{
-		char* strclass = NULL;
+		char* strclass = nullptr;
 
 		const char* WmClass = freerdp_settings_get_string(settings, FreeRDP_WmClass);
 		if (WmClass)
@@ -1120,7 +1135,7 @@ void xf_SetWindowMinMaxInfo(xfContext* xfc, xfAppWindow* appWindow, WINPR_ATTR_U
                             WINPR_ATTR_UNUSED int maxPosY, int minTrackWidth, int minTrackHeight,
                             int maxTrackWidth, int maxTrackHeight)
 {
-	XSizeHints* size_hints = NULL;
+	XSizeHints* size_hints = nullptr;
 	size_hints = XAllocSizeHints();
 
 	if (size_hints)
@@ -1296,7 +1311,7 @@ void xf_ShowWindow(xfContext* xfc, xfAppWindow* appWindow, BYTE state)
 
 void xf_SetWindowRects(xfContext* xfc, xfAppWindow* appWindow, RECTANGLE_16* rects, int nrects)
 {
-	XRectangle* xrects = NULL;
+	XRectangle* xrects = nullptr;
 
 	if (nrects < 1)
 		return;
@@ -1321,7 +1336,7 @@ void xf_SetWindowRects(xfContext* xfc, xfAppWindow* appWindow, RECTANGLE_16* rec
 void xf_SetWindowVisibilityRects(xfContext* xfc, xfAppWindow* appWindow, UINT32 rectsOffsetX,
                                  UINT32 rectsOffsetY, RECTANGLE_16* rects, int nrects)
 {
-	XRectangle* xrects = NULL;
+	XRectangle* xrects = nullptr;
 
 	if (nrects < 1)
 		return;
@@ -1349,14 +1364,14 @@ void xf_UpdateWindowArea(xfContext* xfc, xfAppWindow* appWindow, int x, int y, i
 {
 	int ax = 0;
 	int ay = 0;
-	const rdpSettings* settings = NULL;
+	const rdpSettings* settings = nullptr;
 
 	WINPR_ASSERT(xfc);
 
 	settings = xfc->common.context.settings;
 	WINPR_ASSERT(settings);
 
-	if (appWindow == NULL)
+	if (appWindow == nullptr)
 		return;
 
 	if (appWindow->surfaceId < UINT16_MAX)
@@ -1371,8 +1386,6 @@ void xf_UpdateWindowArea(xfContext* xfc, xfAppWindow* appWindow, int x, int y, i
 	if (ay + height > appWindow->windowOffsetY + appWindow->height)
 		height = (appWindow->windowOffsetY + appWindow->height - 1) - ay;
 
-	xf_lock_x11(xfc);
-
 	if (freerdp_settings_get_bool(settings, FreeRDP_SoftwareGdi))
 	{
 		LogDynAndXPutImage(xfc->log, xfc->display, appWindow->pixmap, appWindow->gc, xfc->image, ax,
@@ -1384,7 +1397,6 @@ void xf_UpdateWindowArea(xfContext* xfc, xfAppWindow* appWindow, int x, int y, i
 	                   x, y, WINPR_ASSERTING_INT_CAST(uint32_t, width),
 	                   WINPR_ASSERTING_INT_CAST(uint32_t, height), x, y);
 	LogDynAndXFlush(xfc->log, xfc->display);
-	xf_unlock_x11(xfc);
 }
 
 void xf_AppWindowDestroyImage(xfAppWindow* appWindow)
@@ -1392,9 +1404,9 @@ void xf_AppWindowDestroyImage(xfAppWindow* appWindow)
 	WINPR_ASSERT(appWindow);
 	if (appWindow->image)
 	{
-		appWindow->image->data = NULL;
+		appWindow->image->data = nullptr;
 		XDestroyImage(appWindow->image);
-		appWindow->image = NULL;
+		appWindow->image = nullptr;
 	}
 }
 
@@ -1404,7 +1416,7 @@ void xf_DestroyWindow(xfContext* xfc, xfAppWindow* appWindow)
 		return;
 
 	if (xfc->appWindow == appWindow)
-		xfc->appWindow = NULL;
+		xfc->appWindow = nullptr;
 
 	if (appWindow->gc)
 		LogDynAndXFreeGC(xfc->log, xfc->display, appWindow->gc);
@@ -1421,7 +1433,7 @@ void xf_DestroyWindow(xfContext* xfc, xfAppWindow* appWindow)
 	}
 
 	if (appWindow->xfwin)
-		munmap(0, sizeof(*appWindow->xfwin));
+		munmap(nullptr, sizeof(*appWindow->xfwin));
 
 	if (appWindow->shmid >= 0)
 		close(appWindow->shmid);
@@ -1435,50 +1447,76 @@ void xf_DestroyWindow(xfContext* xfc, xfAppWindow* appWindow)
 	free(appWindow);
 }
 
-xfAppWindow* xf_AppWindowFromX11Window(xfContext* xfc, Window wnd)
+static xfAppWindow* get_windowUnlocked(xfContext* xfc, UINT64 id)
 {
-	ULONG_PTR* pKeys = NULL;
+	WINPR_ASSERT(xfc);
+	return HashTable_GetItemValue(xfc->railWindows, &id);
+}
+
+xfAppWindow* xf_rail_get_windowFrom(xfContext* xfc, UINT64 id, BOOL alreadyLocked, const char* file,
+                                    const char* fkt, size_t line)
+{
+	if (!xfc)
+		return nullptr;
+
+	if (!xfc->railWindows)
+		return nullptr;
+
+	if (!alreadyLocked)
+		xfAppWindowsLockFrom(xfc, file, fkt, line);
+
+	xfAppWindow* window = get_windowUnlocked(xfc, id);
+
+	if (!window && !alreadyLocked)
+		xfAppWindowsUnlockFrom(xfc, file, fkt, line);
+
+	return window;
+}
+
+xfAppWindow* xf_AppWindowFromX11WindowFrom(xfContext* xfc, Window wnd, const char* file,
+                                           const char* fkt, size_t line)
+{
+	ULONG_PTR* pKeys = nullptr;
 
 	WINPR_ASSERT(xfc);
 	if (!xfc->railWindows)
-		return NULL;
+		return nullptr;
 
-	HashTable_Lock(xfc->railWindows);
+	xfAppWindowsLockFrom(xfc, file, fkt, line);
 	size_t count = HashTable_GetKeys(xfc->railWindows, &pKeys);
 
 	for (size_t index = 0; index < count; index++)
 	{
-		xfAppWindow* appWindow = xf_rail_get_window(xfc, *(UINT64*)pKeys[index]);
+		xfAppWindow* appWindow = get_windowUnlocked(xfc, *(UINT64*)pKeys[index]);
 
 		if (!appWindow)
 		{
-			HashTable_Unlock(xfc->railWindows);
+			xfAppWindowsUnlockFrom(xfc, file, fkt, line);
 			free(pKeys);
-			return NULL;
+			return nullptr;
 		}
 
 		if (appWindow->handle == wnd)
 		{
-			HashTable_Unlock(xfc->railWindows);
 			free(pKeys);
 			return appWindow;
 		}
 	}
 
-	HashTable_Unlock(xfc->railWindows);
+	xfAppWindowsUnlockFrom(xfc, file, fkt, line);
 	free(pKeys);
-	return NULL;
+	return nullptr;
 }
 
 UINT xf_AppUpdateWindowFromSurface(xfContext* xfc, gdiGfxSurface* surface)
 {
-	XImage* image = NULL;
+	XImage* image = nullptr;
 	UINT rc = ERROR_INTERNAL_ERROR;
 
 	WINPR_ASSERT(xfc);
 	WINPR_ASSERT(surface);
 
-	xfAppWindow* appWindow = xf_rail_get_window(xfc, surface->windowId);
+	xfAppWindow* appWindow = xf_rail_get_window(xfc, surface->windowId, FALSE);
 	if (!appWindow)
 	{
 		WLog_VRB(TAG, "Failed to find a window for id=0x%08" PRIx64, surface->windowId);
@@ -1489,7 +1527,6 @@ UINT xf_AppUpdateWindowFromSurface(xfContext* xfc, gdiGfxSurface* surface)
 	UINT32 nrects = 0;
 	const RECTANGLE_16* rects = region16_rects(&surface->invalidRegion, &nrects);
 
-	xf_lock_x11(xfc);
 	if (swGdi)
 	{
 		if (appWindow->surfaceId != surface->surfaceId)
@@ -1546,9 +1583,9 @@ UINT xf_AppUpdateWindowFromSurface(xfContext* xfc, gdiGfxSurface* surface)
 
 	rc = CHANNEL_RC_OK;
 fail:
-	xf_rail_return_window(appWindow);
+	xf_rail_return_window(appWindow, FALSE);
 	LogDynAndXFlush(xfc->log, xfc->display);
-	xf_unlock_x11(xfc);
+
 	return rc;
 }
 
@@ -1578,10 +1615,48 @@ void xf_XSetTransientForHint(xfContext* xfc, xfAppWindow* window)
 	if (window->ownerWindowId == 0)
 		return;
 
-	xfAppWindow* parent = xf_rail_get_window(xfc, window->ownerWindowId);
+	xfAppWindow* parent = xf_rail_get_window(xfc, window->ownerWindowId, TRUE);
 	if (!parent)
 		return;
 
 	(void)LogDynAndXSetTransientForHint(xfc->log, xfc->display, window->handle, parent->handle);
-	xf_rail_return_window(parent);
+	xf_rail_return_window(parent, TRUE);
+}
+
+void xfAppWindowsLockFrom(xfContext* xfc, WINPR_ATTR_UNUSED const char* file,
+                          WINPR_ATTR_UNUSED const char* fkt, WINPR_ATTR_UNUSED size_t line)
+{
+	WINPR_ASSERT(xfc);
+
+#if defined(WITH_VERBOSE_WINPR_ASSERT)
+	const DWORD level = WLOG_TRACE;
+	if (WLog_IsLevelActive(xfc->log, level))
+		WLog_PrintTextMessage(xfc->log, level, line, file, fkt, "[rails] locking [%s]", fkt);
+#endif
+
+	xf_lock_x11(xfc);
+	HashTable_Lock(xfc->railWindows);
+
+#if defined(WITH_VERBOSE_WINPR_ASSERT)
+	WINPR_ASSERT(!xfc->isRailWindowsLocked);
+	xfc->isRailWindowsLocked = TRUE;
+#endif
+}
+
+void xfAppWindowsUnlockFrom(xfContext* xfc, WINPR_ATTR_UNUSED const char* file,
+                            WINPR_ATTR_UNUSED const char* fkt, WINPR_ATTR_UNUSED size_t line)
+{
+	WINPR_ASSERT(xfc);
+
+#if defined(WITH_VERBOSE_WINPR_ASSERT)
+	const DWORD level = WLOG_TRACE;
+	if (WLog_IsLevelActive(xfc->log, level))
+		WLog_PrintTextMessage(xfc->log, level, line, file, fkt, "[rails] unocking [%s]", fkt);
+
+	WINPR_ASSERT(xfc->isRailWindowsLocked);
+	xfc->isRailWindowsLocked = FALSE;
+#endif
+
+	HashTable_Unlock(xfc->railWindows);
+	xf_unlock_x11(xfc);
 }

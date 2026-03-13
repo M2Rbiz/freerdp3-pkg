@@ -504,7 +504,7 @@ static void xf_keyboard_modifier_map_free(xfContext* xfc)
 	if (xfc->modifierMap)
 	{
 		XFreeModifiermap(xfc->modifierMap);
-		xfc->modifierMap = NULL;
+		xfc->modifierMap = nullptr;
 	}
 }
 
@@ -513,7 +513,7 @@ BOOL xf_keyboard_update_modifier_map(xfContext* xfc)
 	WINPR_ASSERT(xfc);
 	xf_keyboard_modifier_map_free(xfc);
 	xfc->modifierMap = XGetModifierMapping(xfc->display);
-	return xfc->modifierMap != NULL;
+	return xfc->modifierMap != nullptr;
 }
 
 static void xf_keyboard_send_key(xfContext* xfc, BOOL down, BOOL repeat, const XKeyEvent* ev);
@@ -551,7 +551,7 @@ static void xf_keyboard_action_script_free(xfContext* xfc)
 	if (xfc->keyCombinations)
 	{
 		ArrayList_Free(xfc->keyCombinations);
-		xfc->keyCombinations = NULL;
+		xfc->keyCombinations = nullptr;
 		xfc->actionScriptExists = FALSE;
 	}
 }
@@ -571,7 +571,7 @@ BOOL xf_keyboard_action_script_init(xfContext* xfc)
 	obj->fnObjectNew = winpr_ObjectStringClone;
 	obj->fnObjectFree = winpr_ObjectStringFree;
 
-	if (!run_action_script(xfc, "key", NULL, xf_action_script_append, NULL))
+	if (!run_action_script(xfc, "key", nullptr, xf_action_script_append, nullptr))
 		return FALSE;
 
 	return xf_event_action_script_init(xfc);
@@ -655,14 +655,14 @@ static int load_map_from_xkbfile(xfContext* xfc)
 	XkbDescPtr xkb = XkbGetMap(xfc->display, 0, XkbUseCoreKbd);
 	if (!xkb)
 	{
-		WLog_Print(xfc->log, WLOG_WARN, "XkbGetMap() == NULL");
+		WLog_Print(xfc->log, WLOG_WARN, "XkbGetMap() == nullptr");
 		return -3;
 	}
 
 	const int rc = XkbGetNames(xfc->display, XkbKeyNamesMask, xkb);
 	if (rc != Success)
 	{
-		char buffer[64] = { 0 };
+		char buffer[64] = WINPR_C_ARRAY_INIT;
 		WLog_Print(xfc->log, WLOG_WARN, "XkbGetNames() != Success: [%s]",
 		           x11_error_to_string(xfc, rc, buffer, sizeof(buffer)));
 	}
@@ -799,14 +799,14 @@ static BOOL compareKey(const struct x11_key_scancode_t* a, size_t counta,
 
 BOOL xf_keyboard_init(xfContext* xfc)
 {
-	rdpSettings* settings = NULL;
+	rdpSettings* settings = nullptr;
 
 	WINPR_ASSERT(xfc);
 
 /* When assertions are enabled assert the lists are sorted. */
 #if defined(WITH_VERBOSE_WINPR_ASSERT)
 	{
-		x11_keysym_scancode_t copy[ARRAYSIZE(KEYSYM_SCANCODE_TABLE)] = { 0 };
+		x11_keysym_scancode_t copy[ARRAYSIZE(KEYSYM_SCANCODE_TABLE)] = WINPR_C_ARRAY_INIT;
 		memcpy(copy, KEYSYM_SCANCODE_TABLE, sizeof(copy));
 		qsort(copy, ARRAYSIZE(copy), sizeof(x11_keysym_scancode_t), keysym_cmp);
 
@@ -815,7 +815,7 @@ BOOL xf_keyboard_init(xfContext* xfc)
 			return FALSE;
 	}
 	{
-		struct x11_key_scancode_t copy[ARRAYSIZE(XKB_KEY_NAME_SCANCODE_TABLE)] = { 0 };
+		struct x11_key_scancode_t copy[ARRAYSIZE(XKB_KEY_NAME_SCANCODE_TABLE)] = WINPR_C_ARRAY_INIT;
 		memcpy(copy, XKB_KEY_NAME_SCANCODE_TABLE, sizeof(copy));
 		qsort(copy, ARRAYSIZE(copy), sizeof(struct x11_key_scancode_t), xkb_cmp);
 
@@ -992,7 +992,7 @@ void xf_keyboard_send_key(xfContext* xfc, BOOL down, BOOL repeat, const XKeyEven
 	{
 		if (freerdp_settings_get_bool(xfc->common.context.settings, FreeRDP_UnicodeInput))
 		{
-			wchar_t buffer[32] = { 0 };
+			wchar_t buffer[32] = WINPR_C_ARRAY_INIT;
 			int xwc = -1;
 
 			switch (rdp_scancode)
@@ -1001,7 +1001,7 @@ void xf_keyboard_send_key(xfContext* xfc, BOOL down, BOOL repeat, const XKeyEven
 					break;
 				default:
 				{
-					XIM xim = XOpenIM(xfc->display, 0, 0, 0);
+					XIM xim = XOpenIM(xfc->display, nullptr, nullptr, nullptr);
 					if (!xim)
 					{
 						WLog_WARN(TAG, "Failed to XOpenIM");
@@ -1009,14 +1009,14 @@ void xf_keyboard_send_key(xfContext* xfc, BOOL down, BOOL repeat, const XKeyEven
 					else
 					{
 						XIC xic = XCreateIC(xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
-						                    NULL);
+						                    nullptr);
 						if (!xic)
 						{
 							WLog_WARN(TAG, "XCreateIC failed");
 						}
 						else
 						{
-							KeySym ignore = { 0 };
+							KeySym ignore = WINPR_C_ARRAY_INIT;
 							Status return_status = 0;
 							XKeyEvent ev = *event;
 							ev.type = KeyPress;
@@ -1039,11 +1039,11 @@ void xf_keyboard_send_key(xfContext* xfc, BOOL down, BOOL repeat, const XKeyEven
 			}
 			else
 			{
-				char str[3 * ARRAYSIZE(buffer)] = { 0 };
+				char str[3 * ARRAYSIZE(buffer)] = WINPR_C_ARRAY_INIT;
 				// NOLINTNEXTLINE(concurrency-mt-unsafe)
 				const size_t rc = wcstombs(str, buffer, ARRAYSIZE(buffer));
 
-				WCHAR wbuffer[ARRAYSIZE(buffer)] = { 0 };
+				WCHAR wbuffer[ARRAYSIZE(buffer)] = WINPR_C_ARRAY_INIT;
 				(void)ConvertUtf8ToWChar(str, wbuffer, rc);
 				freerdp_input_send_unicode_keyboard_event(input, down ? 0 : KBD_FLAGS_RELEASE,
 				                                          wbuffer[0]);
@@ -1108,7 +1108,7 @@ static BOOL xf_keyboard_get_key_state(xfContext* xfc, int state, KeySym keysym)
 	if (!keysymMask)
 		return FALSE;
 
-	return (state & keysymMask) ? TRUE : FALSE;
+	return (state & keysymMask) != 0;
 }
 
 static BOOL xf_keyboard_set_key_state(xfContext* xfc, BOOL on, KeySym keysym)
@@ -1247,8 +1247,8 @@ static int xf_keyboard_execute_action_script(xfContext* xfc, XF_MODIFIER_KEYS* m
 {
 	int status = 1;
 	BOOL match = FALSE;
-	char command[2048] = { 0 };
-	char combination[1024] = { 0 };
+	char command[2048] = WINPR_C_ARRAY_INIT;
+	char combination[1024] = WINPR_C_ARRAY_INIT;
 
 	if (!xfc->actionScriptExists)
 		return 1;
@@ -1261,7 +1261,7 @@ static int xf_keyboard_execute_action_script(xfContext* xfc, XF_MODIFIER_KEYS* m
 
 	const char* keyStr = XKeysymToString(keysym);
 
-	if (keyStr == 0)
+	if (keyStr == nullptr)
 	{
 		return 1;
 	}
@@ -1300,7 +1300,7 @@ static int xf_keyboard_execute_action_script(xfContext* xfc, XF_MODIFIER_KEYS* m
 		return 1;
 
 	(void)sprintf_s(command, sizeof(command), "key %s", combination);
-	if (!run_action_script(xfc, command, NULL, action_script_run, &status))
+	if (!run_action_script(xfc, command, nullptr, action_script_run, &status))
 		return -1;
 
 	return status;
@@ -1325,7 +1325,7 @@ static int xk_keyboard_get_modifier_keys(xfContext* xfc, XF_MODIFIER_KEYS* mod)
 
 BOOL xf_keyboard_handle_special_keys(xfContext* xfc, KeySym keysym)
 {
-	XF_MODIFIER_KEYS mod = { 0 };
+	XF_MODIFIER_KEYS mod = WINPR_C_ARRAY_INIT;
 	xk_keyboard_get_modifier_keys(xfc, &mod);
 
 	// remember state of RightCtrl to ungrab keyboard if next action is release of RightCtrl
@@ -1466,7 +1466,8 @@ BOOL xf_keyboard_handle_special_keys(xfContext* xfc, KeySym keysym)
 				EventArgsInit(&e, "xfreerdp");
 				e.dx = pdx;
 				e.dy = pdy;
-				PubSub_OnPanningChange(ctx->pubSub, xfc, &e);
+				if (PubSub_OnPanningChange(ctx->pubSub, xfc, &e)<0)
+                    return FALSE;
 				return TRUE;
 			}
 
@@ -1476,7 +1477,8 @@ BOOL xf_keyboard_handle_special_keys(xfContext* xfc, KeySym keysym)
 				EventArgsInit(&e, "xfreerdp");
 				e.dx = zdx;
 				e.dy = zdy;
-				PubSub_OnZoomingChange(ctx->pubSub, xfc, &e);
+				if (PubSub_OnZoomingChange(ctx->pubSub, xfc, &e)<0)
+                    return FALSE;
 				return TRUE;
 			}
 		}
@@ -1498,7 +1500,7 @@ void xf_keyboard_handle_special_keys_release(xfContext* xfc, KeySym keysym)
 		return;
 
 	// all requirements for ungrab are fulfilled, ungrabbing now
-	XF_MODIFIER_KEYS mod = { 0 };
+	XF_MODIFIER_KEYS mod = WINPR_C_ARRAY_INIT;
 	xk_keyboard_get_modifier_keys(xfc, &mod);
 
 	if (!mod.RightCtrl)

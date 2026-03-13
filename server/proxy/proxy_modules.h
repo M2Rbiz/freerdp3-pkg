@@ -77,12 +77,11 @@ extern "C"
 	void pf_modules_free(proxyModule* module);
 
 	WINPR_ATTR_MALLOC(pf_modules_free, 1)
-	WINPR_ATTR_NODISCARD
 	proxyModule* pf_modules_new(const char* root_dir, const char** modules, size_t count);
 
 	/**
 	 * @brief pf_modules_add Registers a new plugin
-	 * @param ep A module entry point function, must NOT be NULL
+	 * @param ep A module entry point function, must NOT be nullptr
 	 * @return TRUE for success, FALSE otherwise
 	 */
 	WINPR_ATTR_NODISCARD BOOL pf_modules_add(proxyModule* module, proxyModuleEntryPoint ep,
@@ -90,12 +89,11 @@ extern "C"
 
 	WINPR_ATTR_NODISCARD BOOL pf_modules_is_plugin_loaded(proxyModule* module,
 	                                                      const char* plugin_name);
-	void pf_modules_list_loaded_plugins(proxyModule* module);
+	WINPR_ATTR_NODISCARD BOOL pf_modules_list_loaded_plugins(proxyModule* module);
 
 	WINPR_ATTR_NODISCARD BOOL pf_modules_run_filter(proxyModule* module, PF_FILTER_TYPE type,
 	                                                proxyData* pdata, void* param);
 
-	WINPR_ATTR_NODISCARD
 	BOOL pf_modules_run_hook(proxyModule* module, PF_HOOK_TYPE type, proxyData* pdata,
 	                         void* custom);
 

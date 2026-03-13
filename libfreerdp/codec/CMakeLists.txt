@@ -45,6 +45,7 @@ set(CODEC_SRCS
     jpeg.c
     h264.c
     yuv.c
+    video.c
 )
 
 set(CODEC_SSE3_SRCS sse/rfx_sse2.c sse/rfx_sse2.h sse/nsc_sse2.c sse/nsc_sse2.h)
@@ -113,6 +114,14 @@ if(WITH_OPENH264)
     list(APPEND CODEC_LIBS ${OPENH264_LIBRARIES})
     freerdp_pc_add_requires_private("openh264")
   endif(NOT WITH_OPENH264_LOADING)
+endif()
+
+if(WITH_SWSCALE)
+  if(WITH_SWSCALE_LOADING)
+    set(CODEC_SRCS ${CODEC_SRCS} image_ffmpeg.c image_ffmpeg.h)
+  else()
+    include_directories(SYSTEM ${SWSCALE_INCLUDE_DIRS})
+  endif(WITH_SWSCALE_LOADING)
 endif()
 
 if(WITH_VIDEO_FFMPEG)
