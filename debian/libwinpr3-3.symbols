@@ -1235,6 +1235,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  WinPrAsn1EncToStream@Base 3.0.0
  WinPrAsn1EncUtcTime@Base 3.0.0
  WinPrAsn1Encoder_Free@Base 3.0.0
+ WinPrAsn1Encoder_FreeNoNull@Base 3.24.0
  WinPrAsn1Encoder_New@Base 3.0.0
  WinPrAsn1Encoder_Reset@Base 3.0.0
  WinPrAsn1FreeOID@Base 3.0.0
@@ -1433,6 +1434,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_aligned_realloc@Base 3.0.0
  winpr_aligned_recalloc@Base 3.0.0
  winpr_asprintf@Base 3.0.0
+ winpr_atexit@Base 3.24.0
  winpr_backtrace@Base 3.0.0
  winpr_backtrace_free@Base 3.0.0
  winpr_backtrace_symbols@Base 3.0.0
