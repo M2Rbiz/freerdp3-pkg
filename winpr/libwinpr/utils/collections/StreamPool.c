@@ -64,13 +64,13 @@ static void discard_entry(struct s_StreamPoolEntry* entry, BOOL discardStream)
 	if (discardStream && entry->s)
 		Stream_Free(entry->s, entry->s->isAllocatedStream);
 
-	const struct s_StreamPoolEntry empty = { 0 };
+	const struct s_StreamPoolEntry empty = WINPR_C_ARRAY_INIT;
 	*entry = empty;
 }
 
 static struct s_StreamPoolEntry add_entry(wStream* s)
 {
-	struct s_StreamPoolEntry entry = { 0 };
+	struct s_StreamPoolEntry entry = WINPR_C_ARRAY_INIT;
 
 #if defined(WITH_STREAMPOOL_DEBUG)
 	void* stack = winpr_backtrace(20);
@@ -123,7 +123,7 @@ static BOOL StreamPool_EnsureCapacity(wStreamPool* pool, size_t count, BOOL used
 
 	if (new_cap > 0)
 	{
-		struct s_StreamPoolEntry* new_arr = NULL;
+		struct s_StreamPoolEntry* new_arr = nullptr;
 
 		if (*cap < *size + count)
 			*cap += count;
@@ -218,7 +218,7 @@ wStream* StreamPool_Take(wStreamPool* pool, size_t size)
 {
 	BOOL found = FALSE;
 	size_t foundIndex = 0;
-	wStream* s = NULL;
+	wStream* s = nullptr;
 
 	StreamPool_Lock(pool);
 
@@ -240,14 +240,15 @@ wStream* StreamPool_Take(wStreamPool* pool, size_t size)
 
 	if (!found)
 	{
-		s = Stream_New(NULL, size);
+		s = Stream_New(nullptr, size);
 		if (!s)
 			goto out_fail;
 	}
 	else if (s)
 	{
-		Stream_SetPosition(s, 0);
-		Stream_SetLength(s, Stream_Capacity(s));
+		Stream_ResetPosition(s);
+		if (!Stream_SetLength(s, Stream_Capacity(s)))
+			goto out_fail;
 		StreamPool_ShiftAvailable(pool, foundIndex);
 	}
 
@@ -335,7 +336,7 @@ void Stream_Release(wStream* s)
 
 wStream* StreamPool_Find(wStreamPool* pool, const BYTE* ptr)
 {
-	wStream* s = NULL;
+	wStream* s = nullptr;
 
 	StreamPool_Lock(pool);
 
@@ -400,7 +401,7 @@ size_t StreamPool_UsedCount(wStreamPool* pool)
 
 wStreamPool* StreamPool_New(BOOL synchronized, size_t defaultSize)
 {
-	wStreamPool* pool = NULL;
+	wStreamPool* pool = nullptr;
 
 	pool = (wStreamPool*)calloc(1, sizeof(wStreamPool));
 
@@ -414,7 +415,8 @@ wStreamPool* StreamPool_New(BOOL synchronized, size_t defaultSize)
 		if (!StreamPool_EnsureCapacity(pool, 32, TRUE))
 			goto fail;
 
-		InitializeCriticalSectionAndSpinCount(&pool->lock, 4000);
+		if (!InitializeCriticalSectionAndSpinCount(&pool->lock, 4000))
+			goto fail;
 	}
 
 	return pool;
@@ -423,7 +425,7 @@ fail:
 	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	StreamPool_Free(pool);
 	WINPR_PRAGMA_DIAG_POP
-	return NULL;
+	return nullptr;
 }
 
 void StreamPool_Free(wStreamPool* pool)
@@ -446,7 +448,7 @@ char* StreamPool_GetStatistics(wStreamPool* pool, char* buffer, size_t size)
 	WINPR_ASSERT(pool);
 
 	if (!buffer || (size < 1))
-		return NULL;
+		return nullptr;
 
 	size_t used = 0;
 	int offset = _snprintf(buffer, size - 1,
@@ -480,7 +482,7 @@ char* StreamPool_GetStatistics(wStreamPool* pool, char* buffer, size_t size)
 	if ((offset > 0) && ((size_t)offset < size - used))
 		used += (size_t)offset;
 
-	struct s_StreamPoolEntry entry = { 0 };
+	struct s_StreamPoolEntry entry = WINPR_C_ARRAY_INIT;
 	void* stack = winpr_backtrace(20);
 	if (stack)
 		entry.msg = winpr_backtrace_symbols(stack, &entry.lines);
@@ -513,7 +515,7 @@ BOOL StreamPool_WaitForReturn(wStreamPool* pool, UINT32 timeoutMS)
 			return TRUE;
 		WLog_Print(log, WLOG_DEBUG, "%" PRIuz " streams still in use, sleeping...", used);
 
-		char buffer[4096] = { 0 };
+		char buffer[4096] = WINPR_C_ARRAY_INIT;
 		StreamPool_GetStatistics(pool, buffer, sizeof(buffer));
 		WLog_Print(log, WLOG_TRACE, "Pool statistics: %s", buffer);
 

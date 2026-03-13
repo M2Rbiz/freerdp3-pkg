@@ -209,7 +209,7 @@ class DynChannelState
 [[nodiscard]] static BOOL drdynvc_try_read_header(wStream* s, uint32_t& channelId, size_t& length)
 {
 	UINT8 value = 0;
-	Stream_SetPosition(s, 0);
+	Stream_ResetPosition(s);
 	if (Stream_GetRemainingLength(s) < 1)
 		return FALSE;
 	Stream_Read_UINT8(s, value);
@@ -319,7 +319,8 @@ class DynChannelState
 {
 	WINPR_ASSERT(data);
 
-	Stream_SetPosition(data->data, startPosition);
+	if (!Stream_SetPosition(data->data, startPosition))
+		return FALSE;
 	if (!drdynvc_write_header(data->data, channelId))
 		return FALSE;
 
@@ -384,7 +385,8 @@ class DynChannelState
 					default:
 						break;
 				}
-				Stream_SetPosition(data->data, pos);
+				if (!Stream_SetPosition(data->data, pos))
+					return FALSE;
 			}
 		}
 

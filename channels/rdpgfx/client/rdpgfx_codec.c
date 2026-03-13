@@ -40,11 +40,11 @@
 static UINT rdpgfx_read_h264_metablock(WINPR_ATTR_UNUSED RDPGFX_PLUGIN* gfx, wStream* s,
                                        RDPGFX_H264_METABLOCK* meta)
 {
-	RECTANGLE_16* regionRect = NULL;
-	RDPGFX_H264_QUANT_QUALITY* quantQualityVal = NULL;
+	RECTANGLE_16* regionRect = nullptr;
+	RDPGFX_H264_QUANT_QUALITY* quantQualityVal = nullptr;
 	UINT error = ERROR_INVALID_DATA;
-	meta->regionRects = NULL;
-	meta->quantQualityVals = NULL;
+	meta->regionRects = nullptr;
+	meta->quantQualityVals = nullptr;
 
 	if (!Stream_CheckAndLogRequiredLength(TAG, s, 4))
 		goto error_out;
@@ -126,7 +126,7 @@ error_out:
 static UINT rdpgfx_decode_AVC420(RDPGFX_PLUGIN* gfx, RDPGFX_SURFACE_COMMAND* cmd)
 {
 	UINT error = 0;
-	RDPGFX_AVC420_BITMAP_STREAM h264 = { 0 };
+	RDPGFX_AVC420_BITMAP_STREAM h264 = WINPR_C_ARRAY_INIT;
 	RdpgfxClientContext* context = gfx->context;
 	wStream* s = Stream_New(cmd->data, cmd->length);
 
@@ -157,7 +157,7 @@ static UINT rdpgfx_decode_AVC420(RDPGFX_PLUGIN* gfx, RDPGFX_SURFACE_COMMAND* cmd
 	}
 
 	free_h264_metablock(&h264.meta);
-	cmd->extra = NULL;
+	cmd->extra = nullptr;
 	return error;
 }
 
@@ -173,7 +173,7 @@ static UINT rdpgfx_decode_AVC444(RDPGFX_PLUGIN* gfx, RDPGFX_SURFACE_COMMAND* cmd
 	size_t pos1 = 0;
 	size_t pos2 = 0;
 
-	RDPGFX_AVC444_BITMAP_STREAM h264 = { 0 };
+	RDPGFX_AVC444_BITMAP_STREAM h264 = WINPR_C_ARRAY_INIT;
 	RdpgfxClientContext* context = gfx->context;
 	wStream* s = Stream_New(cmd->data, cmd->length);
 
@@ -258,7 +258,7 @@ fail:
 	Stream_Free(s, FALSE);
 	free_h264_metablock(&h264.bitstream[0].meta);
 	free_h264_metablock(&h264.bitstream[1].meta);
-	cmd->extra = NULL;
+	cmd->extra = nullptr;
 	return error;
 }
 

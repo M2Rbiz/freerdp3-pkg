@@ -214,10 +214,7 @@ FREERDP_API DWORD FreeRDPAreColorFormatsEqualNoAlpha(DWORD first, DWORD second);
 	{
 		UINT32 alpha = (((format) >> 12) & 0x0F);
 
-		if (alpha == 0)
-			return FALSE;
-
-		return TRUE;
+		return (alpha != 0);
 	}
 
 	/***
@@ -306,7 +303,7 @@ FREERDP_API DWORD FreeRDPAreColorFormatsEqualNoAlpha(DWORD first, DWORD second);
 	 * @param data      source buffer, must be (nWidth + 7) / 8 bytes long
 	 *
 	 * @return          A buffer allocated with winpr_aligned_malloc(width * height, 16)
-	 *                  if successful, NULL otherwise.
+	 *                  if successful, nullptr otherwise.
 	 */
 
 	WINPR_DEPRECATED_VAR("[since 3.21.0] use freerdp_glyph_convert_ex instead",
@@ -323,7 +320,7 @@ FREERDP_API DWORD FreeRDPAreColorFormatsEqualNoAlpha(DWORD first, DWORD second);
 	 * @param len      the length of \ref data in bytes
 	 *
 	 * @return          A buffer allocated with winpr_aligned_malloc(width * height, 16)
-	 *                  if successful, NULL otherwise.
+	 *                  if successful, nullptr otherwise.
 	 * @since version 3.21.0
 	 */
 	WINPR_ATTR_MALLOC(winpr_aligned_free, 1)

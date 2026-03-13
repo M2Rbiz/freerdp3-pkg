@@ -97,8 +97,8 @@ static BOOL color_equal(UINT32 colorA, UINT32 formatA, UINT32 colorB, UINT32 for
 	BYTE bg = 0;
 	BYTE bb = 0;
 	BYTE ba = 0;
-	FreeRDPSplitColor(colorA, formatA, &ar, &ag, &ab, &aa, NULL);
-	FreeRDPSplitColor(colorB, formatB, &br, &bg, &bb, &ba, NULL);
+	FreeRDPSplitColor(colorA, formatA, &ar, &ag, &ab, &aa, nullptr);
+	FreeRDPSplitColor(colorB, formatB, &br, &bg, &bb, &ba, nullptr);
 
 	if (ar != br)
 		return FALSE;
@@ -138,8 +138,8 @@ static BOOL color_equal_no_alpha(UINT32 colorA, UINT32 formatA, UINT32 colorB, U
 	BYTE br = 0;
 	BYTE bg = 0;
 	BYTE bb = 0;
-	FreeRDPSplitColor(colorA, formatA, &ar, &ag, &ab, NULL, NULL);
-	FreeRDPSplitColor(colorB, formatB, &br, &bg, &bb, NULL, NULL);
+	FreeRDPSplitColor(colorA, formatA, &ar, &ag, &ab, nullptr, nullptr);
+	FreeRDPSplitColor(colorB, formatB, &br, &bg, &bb, nullptr, nullptr);
 
 	if (ar != br)
 		return FALSE;
@@ -234,7 +234,7 @@ int shadow_capture_compare_with_format(const BYTE* WINPR_RESTRICT pData1, UINT32
 	UINT32 b = 0;
 	const size_t bppA = FreeRDPGetBytesPerPixel(format1);
 	const size_t bppB = FreeRDPGetBytesPerPixel(format2);
-	const RECTANGLE_16 empty = { 0 };
+	const RECTANGLE_16 empty = WINPR_C_ARRAY_INIT;
 	WINPR_ASSERT(rect);
 
 	*rect = empty;
@@ -323,7 +323,7 @@ rdpShadowCapture* shadow_capture_new(rdpShadowServer* server)
 	rdpShadowCapture* capture = (rdpShadowCapture*)calloc(1, sizeof(rdpShadowCapture));
 
 	if (!capture)
-		return NULL;
+		return nullptr;
 
 	capture->server = server;
 
@@ -333,7 +333,7 @@ rdpShadowCapture* shadow_capture_new(rdpShadowServer* server)
 		WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 		shadow_capture_free(capture);
 		WINPR_PRAGMA_DIAG_POP
-		return NULL;
+		return nullptr;
 	}
 
 	return capture;

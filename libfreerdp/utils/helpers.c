@@ -31,10 +31,10 @@
 #include "../core/utils.h"
 
 static INIT_ONCE s_freerdp_app_details_once = INIT_ONCE_STATIC_INIT;
-static char s_freerdp_vendor_string[MAX_PATH] = { 0 };
-static char s_freerdp_product_string[MAX_PATH] = { 0 };
-static char s_freerdp_details_string[3ull * MAX_PATH] = { 0 };
-static WCHAR s_freerdp_details_string_w[3ull * MAX_PATH] = { 0 };
+static char s_freerdp_vendor_string[MAX_PATH] = WINPR_C_ARRAY_INIT;
+static char s_freerdp_product_string[MAX_PATH] = WINPR_C_ARRAY_INIT;
+static char s_freerdp_details_string[3ull * MAX_PATH] = WINPR_C_ARRAY_INIT;
+static WCHAR s_freerdp_details_string_w[3ull * MAX_PATH] = WINPR_C_ARRAY_INIT;
 static SSIZE_T s_freerdp_version = -1;
 static BOOL s_freerdp_app_details_are_custom = FALSE;
 
@@ -91,8 +91,7 @@ static BOOL CALLBACK init_app_details(WINPR_ATTR_UNUSED PINIT_ONCE once,
 WINPR_ATTR_NODISCARD
 static BOOL initializeApplicationDetails(void)
 {
-	InitOnceExecuteOnce(&s_freerdp_app_details_once, init_app_details, NULL, NULL);
-	return TRUE;
+	return InitOnceExecuteOnce(&s_freerdp_app_details_once, init_app_details, nullptr, nullptr);
 }
 
 BOOL freerdp_setApplicationDetails(const char* vendor, const char* product, SSIZE_T version)
@@ -130,14 +129,14 @@ BOOL freerdp_setApplicationDetails(const char* vendor, const char* product, SSIZ
 const char* freerdp_getApplicationDetailsVendor(void)
 {
 	if (!initializeApplicationDetails())
-		return NULL;
+		return nullptr;
 	return s_freerdp_vendor_string;
 }
 
 const char* freerdp_getApplicationDetailsProduct(void)
 {
 	if (!initializeApplicationDetails())
-		return NULL;
+		return nullptr;
 	return s_freerdp_product_string;
 }
 
@@ -145,9 +144,9 @@ char* freerdp_getApplicatonDetailsRegKey(const char* fmt)
 {
 	char* val = freerdp_getApplicatonDetailsCombined('\\');
 	if (!val)
-		return NULL;
+		return nullptr;
 
-	char* str = NULL;
+	char* str = nullptr;
 	size_t slen = 0;
 	(void)winpr_asprintf(&str, &slen, fmt, val);
 	free(val);
@@ -161,7 +160,7 @@ char* freerdp_getApplicatonDetailsCombined(char separator)
 	const char* product = freerdp_getApplicationDetailsProduct();
 
 	size_t slen = 0;
-	char* str = NULL;
+	char* str = nullptr;
 	if (version < 0)
 	{
 		(void)winpr_asprintf(&str, &slen, "%s%c%s", vendor, separator, product);
@@ -201,7 +200,7 @@ WINPR_ATTR_MALLOC(free, 1)
 WINPR_ATTR_NODISCARD
 static char* freerdp_settings_get_legacy_config_path(const char* filename)
 {
-	char product[sizeof(FREERDP_PRODUCT_STRING)] = { 0 };
+	char product[sizeof(FREERDP_PRODUCT_STRING)] = WINPR_C_ARRAY_INIT;
 
 	for (size_t i = 0; i < sizeof(product); i++)
 		product[i] = (char)tolower(FREERDP_PRODUCT_STRING[i]);
@@ -209,7 +208,7 @@ static char* freerdp_settings_get_legacy_config_path(const char* filename)
 	char* path = GetKnownSubPath(KNOWN_PATH_XDG_CONFIG_HOME, product);
 
 	if (!path)
-		return NULL;
+		return nullptr;
 
 	char* filepath = GetCombinedPath(path, filename);
 	free(path);
@@ -227,13 +226,13 @@ WINPR_ATTR_MALLOC(free, 1) static char* getCustomConfigPath(BOOL system, const c
 	const SSIZE_T version = freerdp_getApplicationDetailsVersion();
 
 	if (!vendor || !product)
-		return NULL;
+		return nullptr;
 
 	char* config = GetKnownSubPathV(id, "%s", vendor);
 	if (!config)
-		return NULL;
+		return nullptr;
 
-	char* base = NULL;
+	char* base = nullptr;
 	if (version < 0)
 		base = GetCombinedPathV(config, "%s", product);
 	else
@@ -241,7 +240,7 @@ WINPR_ATTR_MALLOC(free, 1) static char* getCustomConfigPath(BOOL system, const c
 	free(config);
 
 	if (!base)
-		return NULL;
+		return nullptr;
 
 	if (!filename)
 		return base;
@@ -268,7 +267,7 @@ char* freerdp_GetConfigFilePath(BOOL system, const char* filename)
 	const SSIZE_T version = freerdp_getApplicationDetailsVersion();
 
 	if (!vendor || !product)
-		return NULL;
+		return nullptr;
 
 #if !defined(WITH_FULL_CONFIG_PATH)
 	if (!system && (_stricmp(vendor, product) == 0))
@@ -277,9 +276,9 @@ char* freerdp_GetConfigFilePath(BOOL system, const char* filename)
 
 	char* config = GetKnownPath(id);
 	if (!config)
-		return NULL;
+		return nullptr;
 
-	char* base = NULL;
+	char* base = nullptr;
 	if (version < 0)
 		base = GetCombinedPathV(config, "%s", product);
 	else
@@ -287,7 +286,7 @@ char* freerdp_GetConfigFilePath(BOOL system, const char* filename)
 	free(config);
 
 	if (!base)
-		return NULL;
+		return nullptr;
 
 	if (!filename)
 		return base;
@@ -301,7 +300,7 @@ WINPR_JSON* freerdp_GetJSONConfigFile(BOOL system, const char* filename)
 {
 	char* path = freerdp_GetConfigFilePath(system, filename);
 	if (!path)
-		return NULL;
+		return nullptr;
 
 	WINPR_JSON* json = WINPR_JSON_ParseFromFile(path);
 	free(path);

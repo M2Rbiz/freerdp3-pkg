@@ -49,11 +49,7 @@ SdlWindow::SdlWindow(SDL_DisplayID id, const std::string& title, const SDL_Rect&
 	_window = SDL_CreateWindowWithProperties(props);
 	SDL_DestroyProperties(props);
 
-	auto sc = scale();
-	const int iscale = static_cast<int>(sc * 100.0f);
-	auto w = 100 * rect.w / iscale;
-	auto h = 100 * rect.h / iscale;
-	std::ignore = resize({ w, h });
+	std::ignore = resizeToPixelSize({ rect.w, rect.h });
 	SDL_SetHint(SDL_HINT_APP_NAME, "");
 	std::ignore = SDL_SyncWindow(_window);
 
@@ -213,6 +209,15 @@ void SdlWindow::minimize()
 	std::ignore = SDL_SyncWindow(_window);
 }
 
+bool SdlWindow::resizeToPixelSize(const SDL_Point& size)
+{
+	auto sc = scale();
+	const int iscale = static_cast<int>(sc * 100.0f);
+	auto w = 100 * size.x / iscale;
+	auto h = 100 * size.y / iscale;
+	return resize({ w, h });
+}
+
 bool SdlWindow::resize(const SDL_Point& size)
 {
 	return SDL_SetWindowSize(_window, size.x, size.y);
@@ -346,6 +351,40 @@ SDL_Rect SdlWindow::rect(SDL_Window* window, bool forceAsPrimary)
 	if (!SDL_GetWindowSizeInPixels(window, &rect.w, &rect.h))
 		return {};
 
+	const auto flags = SDL_GetWindowFlags(window);
+	const auto mask = SDL_WINDOW_FULLSCREEN;
+	const auto fs = (flags & mask) == mask;
+	if (tryFallback(fs))
+	{
+		/* On wlroots compositors (Sway, river, etc.), windows that are hidden/unmapped
+		 * don't get their actual display dimensions. The dummy window returns its creation size
+		 * (64x64) instead of the display size. This causes validation errors since we require >=
+		 * 200px. Workaround: If we got dimensions that are too small, query the display directly.
+		 */
+
+		const auto displayID = SDL_GetDisplayForWindow(window);
+		SDL_Rect displayBounds = {};
+		if (SDL_GetDisplayBounds(displayID, &displayBounds))
+		{
+			if (forceAsPrimary)
+			{
+				rect.x = 0;
+				rect.y = 0;
+			}
+			rect.w = displayBounds.w;
+			rect.h = displayBounds.h;
+
+			const float contentScale = SDL_GetDisplayContentScale(displayID);
+			if (contentScale > 1.0f)
+			{
+				const auto fw = static_cast<float>(rect.w);
+				const auto fh = static_cast<float>(rect.h);
+				rect.w = static_cast<int>(std::roundf(fw * contentScale));
+				rect.h = static_cast<int>(std::roundf(fh * contentScale));
+			}
+		}
+	}
+
 	return rect;
 }
 
@@ -438,12 +477,23 @@ static SDL_Window* createDummy(SDL_DisplayID id)
 	SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, h);
 
 	SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_HIGH_PIXEL_DENSITY_BOOLEAN, true);
-	SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, true);
+	SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, false);
 	SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, true);
 	SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_HIDDEN_BOOLEAN, false);
 
 	auto window = SDL_CreateWindowWithProperties(props);
 	SDL_DestroyProperties(props);
+
+	/* Workaround: we need to properly position the window on the correct monitor
+	 * before going fullscreen. Otherwise we will get the primary monitor details.
+	 */
+	if (window)
+	{
+		SDL_Rect rect = {};
+		std::ignore = SDL_GetDisplayBounds(id, &rect);
+		std::ignore = SDL_SetWindowPosition(window, rect.x, rect.y);
+		std::ignore = SDL_SetWindowFullscreen(window, true);
+	}
 	return window;
 }
 
@@ -483,4 +533,57 @@ SDL_Rect SdlWindow::rect(SDL_DisplayID id, bool forceAsPrimary)
 		;
 
 	return rect(window.get(), forceAsPrimary);
+}
+
+bool SdlWindow::tryFallback(bool isFullscreen)
+{
+	/* If we define a custom env variable to use the wlroots hack
+	 * then enable/disable according to this setting only.
+	 */
+	const auto wlroots_hack = SDL_getenv("FREERDP_WLROOTS_HACK");
+	if (wlroots_hack != nullptr)
+	{
+		const auto enabled = strcmp(wlroots_hack, "0") != 0;
+		if (strcmp(wlroots_hack, "force") == 0)
+			isFullscreen = true;
+		return enabled && isFullscreen;
+	}
+
+	const auto platform = SDL_GetPlatform();
+	if ((platform == nullptr) || (strcmp(platform, "Linux") != 0))
+		return false;
+
+	const auto driver = SDL_GetCurrentVideoDriver();
+	if ((driver == nullptr) || (strcmp(driver, "wayland") != 0))
+		return false;
+
+	/* check XDG_SESSION_DESKTOP
+	 *
+	 * if set and the value is
+	 * - sway
+	 *
+	 * then we need the hack.
+	 */
+	const auto xdg_session = SDL_getenv("XDG_SESSION_DESKTOP");
+	if (xdg_session != nullptr)
+	{
+		if (strcmp(xdg_session, "sway") == 0)
+			return isFullscreen;
+	}
+
+	/* check XDG_CURRENT_DESKTOP
+	 *
+	 * if set and the value is
+	 * - sway:wlroots
+	 *
+	 * then we need the hack.
+	 */
+	const auto xdg_desktop = SDL_getenv("XDG_CURRENT_DESKTOP");
+	if (xdg_desktop != nullptr)
+	{
+		if (strcmp(xdg_desktop, "sway:wlroots") == 0)
+			return isFullscreen;
+	}
+
+	return false;
 }

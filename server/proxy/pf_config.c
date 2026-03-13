@@ -52,7 +52,7 @@
 #define CONFIG_PRINT_SECTION_KEY(section, key) WLog_INFO(TAG, "\t%s/%s:", section, key)
 #define CONFIG_PRINT_STR(config, key) WLog_INFO(TAG, "\t\t%s: %s", #key, (config)->key)
 #define CONFIG_PRINT_STR_CONTENT(config, key) \
-	WLog_INFO(TAG, "\t\t%s: %s", #key, (config)->key ? "set" : NULL)
+	WLog_INFO(TAG, "\t\t%s: %s", #key, (config)->key ? "set" : nullptr)
 #define CONFIG_PRINT_BOOL(config, key) WLog_INFO(TAG, "\t\t%s: %s", #key, boolstr((config)->key))
 #define CONFIG_PRINT_UINT16(config, key) WLog_INFO(TAG, "\t\t%s: %" PRIu16 "", #key, (config)->key)
 #define CONFIG_PRINT_UINT32(config, key) WLog_INFO(TAG, "\t\t%s: %" PRIu32 "", #key, (config)->key)
@@ -80,6 +80,10 @@ static const char* key_target_tls_seclevel = "TlsSecLevel";
 static const char* section_plugins = "Plugins";
 static const char* key_plugins_modules = "Modules";
 static const char* key_plugins_required = "Required";
+
+static const char* section_codecs = "Codecs";
+static const char* key_codecs_rfx = "RFX";
+static const char* key_codecs_nsc = "NSC";
 
 static const char* section_channels = "Channels";
 static const char* key_channels_gfx = "GFX";
@@ -120,12 +124,12 @@ WINPR_ATTR_NODISCARD
 static char** pf_config_parse_comma_separated_list(const char* list, size_t* count)
 {
 	if (!list || !count)
-		return NULL;
+		return nullptr;
 
 	if (strlen(list) == 0)
 	{
 		*count = 0;
-		return NULL;
+		return nullptr;
 	}
 
 	return CommandLineParseCommaSeparatedValues(list, count);
@@ -136,7 +140,7 @@ static BOOL pf_config_get_uint16(wIniFile* ini, const char* section, const char*
                                  UINT16* result, BOOL required)
 {
 	int val = 0;
-	const char* strval = NULL;
+	const char* strval = nullptr;
 
 	WINPR_ASSERT(result);
 
@@ -186,7 +190,7 @@ WINPR_ATTR_NODISCARD
 static BOOL pf_config_get_bool(wIniFile* ini, const char* section, const char* key, BOOL fallback)
 {
 	int num_value = 0;
-	const char* str_value = NULL;
+	const char* str_value = nullptr;
 
 	str_value = IniFile_GetKeyValueString(ini, section, key);
 	if (!str_value)
@@ -203,17 +207,14 @@ static BOOL pf_config_get_bool(wIniFile* ini, const char* section, const char* k
 
 	num_value = IniFile_GetKeyValueInt(ini, section, key);
 
-	if (num_value != 0)
-		return TRUE;
-
-	return FALSE;
+	return (num_value != 0);
 }
 
 WINPR_ATTR_NODISCARD
 static const char* pf_config_get_str(wIniFile* ini, const char* section, const char* key,
                                      BOOL required)
 {
-	const char* value = NULL;
+	const char* value = nullptr;
 
 	value = IniFile_GetKeyValueString(ini, section, key);
 
@@ -221,7 +222,7 @@ static const char* pf_config_get_str(wIniFile* ini, const char* section, const c
 	{
 		if (required)
 			WLog_ERR(TAG, "key '%s.%s' not found.", section, key);
-		return NULL;
+		return nullptr;
 	}
 
 	return value;
@@ -251,7 +252,7 @@ static BOOL pf_config_load_server(wIniFile* ini, proxyConfig* config)
 WINPR_ATTR_NODISCARD
 static BOOL pf_config_load_target(wIniFile* ini, proxyConfig* config)
 {
-	const char* target_value = NULL;
+	const char* target_value = nullptr;
 
 	WINPR_ASSERT(config);
 	config->FixedTarget = pf_config_get_bool(ini, section_target, key_target_fixed, FALSE);
@@ -303,6 +304,15 @@ static BOOL pf_config_load_target(wIniFile* ini, proxyConfig* config)
 			return FALSE;
 	}
 
+	return TRUE;
+}
+
+WINPR_ATTR_NODISCARD
+static BOOL pf_config_load_codecs(wIniFile* ini, proxyConfig* config)
+{
+	WINPR_ASSERT(config);
+	config->RFX = pf_config_get_bool(ini, section_codecs, key_codecs_rfx, TRUE);
+	config->NSC = pf_config_get_bool(ini, section_codecs, key_codecs_nsc, TRUE);
 	return TRUE;
 }
 
@@ -367,8 +377,8 @@ static BOOL pf_config_load_security(wIniFile* ini, proxyConfig* config)
 WINPR_ATTR_NODISCARD
 static BOOL pf_config_load_modules(wIniFile* ini, proxyConfig* config)
 {
-	const char* modules_to_load = NULL;
-	const char* required_modules = NULL;
+	const char* modules_to_load = nullptr;
+	const char* required_modules = nullptr;
 
 	modules_to_load = pf_config_get_str(ini, section_plugins, key_plugins_modules, FALSE);
 	required_modules = pf_config_get_str(ini, section_plugins, key_plugins_required, FALSE);
@@ -389,11 +399,11 @@ static char* pf_config_decode_base64(const char* data, const char* name, size_t*
 		                      "-----BEGIN RSA PRIVATE KEY-----" };
 
 	size_t decoded_length = 0;
-	char* decoded = NULL;
+	char* decoded = nullptr;
 	if (!data)
 	{
-		WLog_ERR(TAG, "Invalid base64 data [NULL] for %s", name);
-		return NULL;
+		WLog_ERR(TAG, "Invalid base64 data [nullptr] for %s", name);
+		return nullptr;
 	}
 
 	WINPR_ASSERT(name);
@@ -417,7 +427,7 @@ static char* pf_config_decode_base64(const char* data, const char* name, size_t*
 			/* Extract header for log message
 			 * expected format is '----- SOMETEXT -----'
 			 */
-			char hdr[128] = { 0 };
+			char hdr[128] = WINPR_C_ARRAY_INIT;
 			const char* end = strchr(&data[5], '-');
 			if (end)
 			{
@@ -445,7 +455,7 @@ static char* pf_config_decode_base64(const char* data, const char* name, size_t*
 	{
 		WLog_ERR(TAG, "Failed to decode base64 data of length %" PRIuz " for %s", length, name);
 		free(decoded);
-		return NULL;
+		return nullptr;
 	}
 
 	*pLength = strnlen(decoded, decoded_length) + 1;
@@ -455,8 +465,8 @@ static char* pf_config_decode_base64(const char* data, const char* name, size_t*
 WINPR_ATTR_NODISCARD
 static BOOL pf_config_load_certificates(wIniFile* ini, proxyConfig* config)
 {
-	const char* tmp1 = NULL;
-	const char* tmp2 = NULL;
+	const char* tmp1 = nullptr;
+	const char* tmp2 = nullptr;
 
 	WINPR_ASSERT(ini);
 	WINPR_ASSERT(config);
@@ -564,7 +574,7 @@ static BOOL pf_config_load_certificates(wIniFile* ini, proxyConfig* config)
 
 proxyConfig* server_config_load_ini(wIniFile* ini)
 {
-	proxyConfig* config = NULL;
+	proxyConfig* config = nullptr;
 
 	WINPR_ASSERT(ini);
 
@@ -579,6 +589,9 @@ proxyConfig* server_config_load_ini(wIniFile* ini)
 			goto out;
 
 		if (!pf_config_load_target(ini, config))
+			goto out;
+
+		if (!pf_config_load_codecs(ini, config))
 			goto out;
 
 		if (!pf_config_load_channels(ini, config))
@@ -606,7 +619,7 @@ out:
 	pf_server_config_free(config);
 	WINPR_PRAGMA_DIAG_POP
 
-	return NULL;
+	return nullptr;
 }
 
 BOOL pf_server_config_dump(const char* file)
@@ -630,6 +643,12 @@ BOOL pf_server_config_dump(const char* file)
 	if (IniFile_SetKeyValueString(ini, section_target, key_target_fixed, bool_str_true) < 0)
 		goto fail;
 	if (IniFile_SetKeyValueInt(ini, section_target, key_target_tls_seclevel, 1) < 0)
+		goto fail;
+
+	/* Codec configuration */
+	if (IniFile_SetKeyValueString(ini, section_codecs, key_codecs_rfx, bool_str_true) < 0)
+		goto fail;
+	if (IniFile_SetKeyValueString(ini, section_codecs, key_codecs_nsc, bool_str_true) < 0)
 		goto fail;
 
 	/* Channel configuration */
@@ -727,15 +746,15 @@ fail:
 
 proxyConfig* pf_server_config_load_buffer(const char* buffer)
 {
-	proxyConfig* config = NULL;
-	wIniFile* ini = NULL;
+	proxyConfig* config = nullptr;
+	wIniFile* ini = nullptr;
 
 	ini = IniFile_New();
 
 	if (!ini)
 	{
 		WLog_ERR(TAG, "IniFile_New() failed!");
-		return NULL;
+		return nullptr;
 	}
 
 	if (IniFile_ReadBuffer(ini, buffer) < 0)
@@ -752,13 +771,13 @@ out:
 
 proxyConfig* pf_server_config_load_file(const char* path)
 {
-	proxyConfig* config = NULL;
+	proxyConfig* config = nullptr;
 	wIniFile* ini = IniFile_New();
 
 	if (!ini)
 	{
 		WLog_ERR(TAG, "IniFile_New() failed!");
-		return NULL;
+		return nullptr;
 	}
 
 	if (IniFile_ReadFile(ini, path) < 0)
@@ -815,6 +834,10 @@ void pf_server_config_print(const proxyConfig* config)
 	CONFIG_PRINT_BOOL(config, ClientTlsSecurity);
 	CONFIG_PRINT_BOOL(config, ClientRdpSecurity);
 	CONFIG_PRINT_BOOL(config, ClientAllowFallbackToTls);
+
+	CONFIG_PRINT_SECTION(section_codecs);
+	CONFIG_PRINT_BOOL(config, RFX);
+	CONFIG_PRINT_BOOL(config, NSC);
 
 	CONFIG_PRINT_SECTION(section_channels);
 	CONFIG_PRINT_BOOL(config, GFX);
@@ -876,7 +899,7 @@ static void znfree(char* str, size_t len)
 
 void pf_server_config_free(proxyConfig* config)
 {
-	if (config == NULL)
+	if (config == nullptr)
 		return;
 
 	free(config->Host);
@@ -910,7 +933,7 @@ const char* pf_config_required_plugin(const proxyConfig* config, size_t index)
 {
 	WINPR_ASSERT(config);
 	if (index >= config->RequiredPluginsCount)
-		return NULL;
+		return nullptr;
 
 	return config->RequiredPlugins[index];
 }
@@ -938,7 +961,7 @@ const char** pf_config_modules(const proxyConfig* config)
 WINPR_ATTR_NODISCARD
 static BOOL pf_config_copy_string(char** dst, const char* src)
 {
-	*dst = NULL;
+	*dst = nullptr;
 	if (src)
 		*dst = _strdup(src);
 	return TRUE;
@@ -947,7 +970,7 @@ static BOOL pf_config_copy_string(char** dst, const char* src)
 WINPR_ATTR_NODISCARD
 static BOOL pf_config_copy_string_n(char** dst, const char* src, size_t size)
 {
-	*dst = NULL;
+	*dst = nullptr;
 
 	if (src && (size > 0))
 	{
@@ -968,7 +991,7 @@ static BOOL pf_config_copy_string_list(char*** dst, size_t* size, char** src, si
 	WINPR_ASSERT(size);
 	WINPR_ASSERT(src || (srcSize == 0));
 
-	*dst = NULL;
+	*dst = nullptr;
 	*size = 0;
 	if (srcSize > INT32_MAX)
 		return FALSE;
@@ -1066,7 +1089,7 @@ static BOOL config_plugin_unload(proxyPlugin* plugin)
 	if (plugin)
 	{
 		free(plugin->custom);
-		plugin->custom = NULL;
+		plugin->custom = nullptr;
 	}
 
 	return TRUE;
@@ -1077,8 +1100,8 @@ static BOOL config_plugin_keyboard_event(proxyPlugin* plugin, WINPR_ATTR_UNUSED 
                                          void* param)
 {
 	BOOL rc = 0;
-	const struct config_plugin_data* custom = NULL;
-	const proxyConfig* cfg = NULL;
+	const struct config_plugin_data* custom = nullptr;
+	const proxyConfig* cfg = nullptr;
 	const proxyKeyboardEventInfo* event_data = (const proxyKeyboardEventInfo*)(param);
 
 	WINPR_ASSERT(plugin);
@@ -1103,8 +1126,8 @@ static BOOL config_plugin_unicode_event(proxyPlugin* plugin, WINPR_ATTR_UNUSED p
                                         void* param)
 {
 	BOOL rc = 0;
-	const struct config_plugin_data* custom = NULL;
-	const proxyConfig* cfg = NULL;
+	const struct config_plugin_data* custom = nullptr;
+	const proxyConfig* cfg = nullptr;
 	const proxyUnicodeEventInfo* event_data = (const proxyUnicodeEventInfo*)(param);
 
 	WINPR_ASSERT(plugin);
@@ -1129,8 +1152,8 @@ static BOOL config_plugin_mouse_event(proxyPlugin* plugin, WINPR_ATTR_UNUSED pro
                                       void* param)
 {
 	BOOL rc = 0;
-	const struct config_plugin_data* custom = NULL;
-	const proxyConfig* cfg = NULL;
+	const struct config_plugin_data* custom = nullptr;
+	const proxyConfig* cfg = nullptr;
 	const proxyMouseEventInfo* event_data = (const proxyMouseEventInfo*)(param);
 
 	WINPR_ASSERT(plugin);
@@ -1154,8 +1177,8 @@ static BOOL config_plugin_mouse_ex_event(proxyPlugin* plugin, WINPR_ATTR_UNUSED 
                                          void* param)
 {
 	BOOL rc = 0;
-	const struct config_plugin_data* custom = NULL;
-	const proxyConfig* cfg = NULL;
+	const struct config_plugin_data* custom = nullptr;
+	const proxyConfig* cfg = nullptr;
 	const proxyMouseExEventInfo* event_data = (const proxyMouseExEventInfo*)(param);
 
 	WINPR_ASSERT(plugin);
@@ -1325,8 +1348,8 @@ static BOOL config_plugin_channel_create(proxyPlugin* plugin, WINPR_ATTR_UNUSED 
 
 BOOL pf_config_plugin(proxyPluginsManager* plugins_manager, void* userdata)
 {
-	struct config_plugin_data* custom = NULL;
-	proxyPlugin plugin = { 0 };
+	struct config_plugin_data* custom = nullptr;
+	proxyPlugin plugin = WINPR_C_ARRAY_INIT;
 
 	plugin.name = config_plugin_name;
 	plugin.description = config_plugin_desc;

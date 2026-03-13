@@ -40,12 +40,12 @@ BOOL utils_str_copy(const char* value, char** dst)
 	WINPR_ASSERT(dst);
 
 	free(*dst);
-	*dst = NULL;
+	*dst = nullptr;
 	if (!value)
 		return TRUE;
 
 	(*dst) = _strdup(value);
-	return (*dst) != NULL;
+	return (*dst) != nullptr;
 }
 
 static BOOL utils_copy_smartcard_settings(const rdpSettings* settings, rdpSettings* origSettings)
@@ -65,8 +65,8 @@ static BOOL utils_copy_smartcard_settings(const rdpSettings* settings, rdpSettin
 
 auth_status utils_authenticate_gateway(freerdp* instance, rdp_auth_reason reason)
 {
-	rdpSettings* settings = NULL;
-	rdpSettings* origSettings = NULL;
+	rdpSettings* settings = nullptr;
+	rdpSettings* origSettings = nullptr;
 	BOOL prompt = FALSE;
 	BOOL proceed = 0;
 
@@ -88,7 +88,11 @@ auth_status utils_authenticate_gateway(freerdp* instance, rdp_auth_reason reason
 		prompt = TRUE;
 
 	if (!prompt)
+	{
+		if (!utils_sync_credentials(settings, FALSE))
+			return AUTH_FAILED;
 		return AUTH_SKIP;
+	}
 
 	if (!instance->GatewayAuthenticate && !instance->AuthenticateEx)
 		return AUTH_NO_CREDENTIALS;
@@ -135,8 +139,8 @@ auth_status utils_authenticate_gateway(freerdp* instance, rdp_auth_reason reason
 
 auth_status utils_authenticate(freerdp* instance, rdp_auth_reason reason, BOOL override)
 {
-	rdpSettings* settings = NULL;
-	rdpSettings* origSettings = NULL;
+	rdpSettings* settings = nullptr;
+	rdpSettings* origSettings = nullptr;
 	BOOL prompt = !override;
 	BOOL proceed = 0;
 
@@ -157,7 +161,7 @@ auth_status utils_authenticate(freerdp* instance, rdp_auth_reason reason, BOOL o
 
 	/* Ask for auth data if no or an empty username was specified or no password was given */
 	if (utils_str_is_empty(freerdp_settings_get_string(settings, FreeRDP_Username)) ||
-	    (settings->Password == NULL && settings->RedirectionPassword == NULL))
+	    (settings->Password == nullptr && settings->RedirectionPassword == nullptr))
 		prompt = TRUE;
 
 	if (!prompt)
@@ -318,23 +322,26 @@ BOOL utils_abort_event_is_set(const rdpRdp* rdp)
 const char* utils_is_vsock(const char* hostname)
 {
 	if (!hostname)
-		return NULL;
+		return nullptr;
 
 	const char vsock[8] = { 'v', 's', 'o', 'c', 'k', ':', '/', '/' };
 	if (strncmp(hostname, vsock, sizeof(vsock)) == 0)
 		return &hostname[sizeof(vsock)];
-	return NULL;
+	return nullptr;
 }
 
 static BOOL remove_rdpdr_type(rdpSettings* settings, UINT32 type)
 {
 	BOOL rc = TRUE;
-	RDPDR_DEVICE* printer = NULL;
+	RDPDR_DEVICE* printer = nullptr;
 	do
 	{
 		printer = freerdp_device_collection_find_type(settings, type);
-		if (!freerdp_device_collection_del(settings, printer))
-			rc = FALSE;
+		if (printer)
+		{
+			if (!freerdp_device_collection_del(settings, printer))
+				rc = FALSE;
+		}
 		freerdp_device_free(printer);
 	} while (printer);
 	return rc;
@@ -403,7 +410,7 @@ BOOL utils_apply_gateway_policy(wLog* log, rdpContext* context, UINT32 flags, co
 	}
 	else if (freerdp_settings_get_bool(settings, FreeRDP_GatewayIgnoreRedirectionPolicy))
 	{
-		char buffer[128] = { 0 };
+		char buffer[128] = WINPR_C_ARRAY_INIT;
 		WLog_Print(log, WLOG_INFO, "[%s] policy ignored on user request %s", module,
 		           utils_redir_flags_to_string(flags, buffer, sizeof(buffer)));
 	}
@@ -482,7 +489,7 @@ char* utils_redir_flags_to_string(UINT32 flags, char* buffer, size_t size)
 	if (flags & HTTP_TUNNEL_REDIR_DISABLE_PNP)
 		winpr_str_append("DISABLE_PNP", buffer, size, "|");
 
-	char fbuffer[16] = { 0 };
+	char fbuffer[16] = WINPR_C_ARRAY_INIT;
 	(void)_snprintf(fbuffer, sizeof(fbuffer), "[0x%08" PRIx32 "]", flags);
 
 	winpr_str_append(fbuffer, buffer, size, " ");
@@ -494,11 +501,17 @@ BOOL utils_reload_channels(rdpContext* context)
 {
 	WINPR_ASSERT(context);
 
-	freerdp_channels_disconnect(context->channels, context->instance);
-	freerdp_channels_close(context->channels, context->instance);
-	freerdp_channels_free(context->channels);
+	if (context->channels)
+	{
+		freerdp_channels_disconnect(context->channels, context->instance);
+		freerdp_channels_close(context->channels, context->instance);
+		freerdp_channels_free(context->channels);
+	}
+
 	context->channels = freerdp_channels_new(context->instance);
-	WINPR_ASSERT(context->channels);
+	if (!context->channels)
+		return FALSE;
+
 	freerdp_channels_register_instance(context->channels, context->instance);
 
 	BOOL rc = TRUE;

@@ -155,9 +155,12 @@ BOOL SdlContext::preConnect(freerdp* instance)
 	 * callbacks or deactivate certain features. */
 	/* Register the channel listeners.
 	 * They are required to set up / tear down channels if they are loaded. */
-	PubSub_SubscribeChannelConnected(instance->context->pubSub, sdl_OnChannelConnectedEventHandler);
-	PubSub_SubscribeChannelDisconnected(instance->context->pubSub,
-	                                    sdl_OnChannelDisconnectedEventHandler);
+	if (PubSub_SubscribeChannelConnected(instance->context->pubSub,
+	                                     sdl_OnChannelConnectedEventHandler) < 0)
+		return FALSE;
+	if (PubSub_SubscribeChannelDisconnected(instance->context->pubSub,
+	                                        sdl_OnChannelDisconnectedEventHandler) < 0)
+		return FALSE;
 
 	if (!freerdp_settings_get_bool(settings, FreeRDP_AuthenticationOnly))
 	{
@@ -243,45 +246,6 @@ BOOL SdlContext::postConnect(freerdp* instance)
 	WINPR_ASSERT(context);
 
 	auto sdl = get_context(context);
-
-	if (freerdp_settings_get_bool(context->settings, FreeRDP_UseMultimon))
-	{
-		const auto driver = SDL_GetCurrentVideoDriver();
-		bool buggy = false;
-		if (driver)
-		{
-			if (strcmp(driver, "wayland") == 0)
-				buggy = true;
-			else if (strcmp(driver, "x11") == 0)
-			{
-				auto env = SDL_GetEnvironment();
-				auto xdg = SDL_GetEnvironmentVariable(env, "XDG_SESSION_TYPE");
-				auto qpa = SDL_GetEnvironmentVariable(env, "QT_QPA_PLATFORM");
-				if (xdg && (strcmp(xdg, "wayland") == 0))
-					buggy = true;
-				else if (qpa && (strcmp(qpa, "wayland") == 0))
-					buggy = true;
-			}
-		}
-
-		if (buggy)
-		{
-			const auto name = SDL_GetAppMetadataProperty(SDL_PROP_APP_METADATA_NAME_STRING);
-
-			WLog_Print(sdl->getWLog(), WLOG_WARN,
-			           "%s is affected by wayland bug "
-			           "https://gitlab.freedesktop.org/wayland/wayland-protocols/-/issues/179",
-			           name);
-			WLog_Print(
-			    sdl->getWLog(), WLOG_WARN,
-			    "you will not be able to properly use all monitors for FreeRDP unless this is "
-			    "resolved and the SDL library you are using supports this.");
-			WLog_Print(sdl->getWLog(), WLOG_WARN,
-			           "For the time being run %s from an X11 session or only use single monitor "
-			           "fullscreen /f",
-			           name);
-		}
-	}
 
 	// Retry was successful, discard dialog
 	sdl->getDialog().show(false);
@@ -912,7 +876,8 @@ bool SdlContext::drawToWindow(SdlWindow& window, const std::vector<SDL_Rect>& re
 
 	std::unique_lock lock(_critical);
 	auto surface = _primary.get();
-	if (freerdp_settings_get_bool(context()->settings, FreeRDP_SmartSizing))
+
+	if (useLocalScale())
 	{
 		window.setOffsetX(0);
 		window.setOffsetY(0);
@@ -1282,7 +1247,7 @@ bool SdlContext::eventToPixelCoordinates(SDL_WindowID id, SDL_Event& ev)
 
 SDL_FPoint SdlContext::applyLocalScaling(const SDL_FPoint& val) const
 {
-	if (!freerdp_settings_get_bool(context()->settings, FreeRDP_SmartSizing))
+	if (!useLocalScale())
 		return val;
 
 	auto rval = val;
@@ -1293,7 +1258,7 @@ SDL_FPoint SdlContext::applyLocalScaling(const SDL_FPoint& val) const
 
 void SdlContext::removeLocalScaling(float& x, float& y) const
 {
-	if (!freerdp_settings_get_bool(context()->settings, FreeRDP_SmartSizing))
+	if (!useLocalScale())
 		return;
 	x /= _localScale.x;
 	y /= _localScale.y;
@@ -1355,6 +1320,19 @@ bool SdlContext::handleEvent(const SDL_Event& ev)
 	}
 	switch (ev.type)
 	{
+		case SDL_EVENT_RENDER_TARGETS_RESET:
+		case SDL_EVENT_RENDER_DEVICE_RESET:
+		case SDL_EVENT_WILL_ENTER_FOREGROUND:
+			return redraw();
+		default:
+			break;
+	}
+
+	if (!isConnected())
+		return true;
+
+	switch (ev.type)
+	{
 		case SDL_EVENT_FINGER_DOWN:
 		case SDL_EVENT_FINGER_UP:
 		case SDL_EVENT_FINGER_MOTION:
@@ -1363,6 +1341,7 @@ bool SdlContext::handleEvent(const SDL_Event& ev)
 			return handleEvent(cev);
 		}
 		case SDL_EVENT_MOUSE_MOTION:
+
 		{
 			const auto& cev = ev.motion;
 			return handleEvent(cev);
@@ -1389,13 +1368,21 @@ bool SdlContext::handleEvent(const SDL_Event& ev)
 			const auto& cev = ev.key;
 			return getInputChannelContext().handleEvent(cev);
 		}
-		case SDL_EVENT_RENDER_TARGETS_RESET:
-		case SDL_EVENT_RENDER_DEVICE_RESET:
-		case SDL_EVENT_WILL_ENTER_FOREGROUND:
-			return redraw();
 		default:
 			return true;
 	}
+}
+
+bool SdlContext::useLocalScale() const
+{
+	const auto ssize = freerdp_settings_get_bool(context()->settings, FreeRDP_SmartSizing);
+	if (ssize)
+		return true;
+	const auto dynResize =
+	    freerdp_settings_get_bool(context()->settings, FreeRDP_DynamicResolutionUpdate);
+	const auto fs = freerdp_settings_get_bool(context()->settings, FreeRDP_Fullscreen);
+	const auto multimon = freerdp_settings_get_bool(context()->settings, FreeRDP_UseMultimon);
+	return !dynResize && !fs && !multimon;
 }
 
 bool SdlContext::drawToWindows(const std::vector<SDL_Rect>& rects)

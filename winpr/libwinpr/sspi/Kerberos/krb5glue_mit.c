@@ -36,10 +36,11 @@
 static char* create_temporary_file(void)
 {
 	BYTE buffer[32];
-	char* hex = NULL;
-	char* path = NULL;
+	char* hex = nullptr;
+	char* path = nullptr;
 
-	winpr_RAND(buffer, sizeof(buffer));
+	if (winpr_RAND(buffer, sizeof(buffer)) < 0)
+		return nullptr;
 	hex = winpr_BinToHexString(buffer, sizeof(buffer), FALSE);
 	path = GetKnownSubPath(KNOWN_PATH_TEMP, hex);
 	free(hex);
@@ -90,7 +91,7 @@ krb5_prompt_type krb5glue_get_prompt_type(krb5_context ctx, krb5_prompt prompts[
 
 krb5_error_code krb5glue_log_error(krb5_context ctx, krb5_data* msg, const char* tag)
 {
-	krb5_error* error = NULL;
+	krb5_error* error = nullptr;
 	krb5_error_code rv = 0;
 
 	WINPR_ASSERT(ctx);
@@ -124,10 +125,10 @@ krb5_error_code krb5glue_get_init_creds(krb5_context ctx, krb5_principal princ, 
 {
 	krb5_error_code rv = 0;
 	krb5_deltat start_time = 0;
-	krb5_get_init_creds_opt* gic_opt = NULL;
-	krb5_init_creds_context creds_ctx = NULL;
+	krb5_get_init_creds_opt* gic_opt = nullptr;
+	krb5_init_creds_context creds_ctx = nullptr;
 	char* tmp_profile_path = create_temporary_file();
-	profile_t profile = NULL;
+	profile_t profile = nullptr;
 	BOOL is_temp_ctx = FALSE;
 
 	WINPR_ASSERT(ctx);
@@ -176,9 +177,9 @@ krb5_error_code krb5glue_get_init_creds(krb5_context ctx, krb5_principal princ, 
 		}
 		if (krb_settings->kdcUrl && (strnlen(krb_settings->kdcUrl, 2) > 0))
 		{
-			const char* names[4] = { 0 };
-			char* realm = NULL;
-			char* kdc_url = NULL;
+			const char* names[4] = WINPR_C_ARRAY_INIT;
+			char* realm = nullptr;
+			char* kdc_url = nullptr;
 			size_t size = 0;
 
 			if ((rv = krb5_get_profile(ctx, &profile)))
@@ -218,7 +219,7 @@ krb5_error_code krb5glue_get_init_creds(krb5_context ctx, krb5_principal princ, 
 				goto cleanup;
 
 			profile_abandon(profile);
-			profile = NULL;
+			profile = nullptr;
 			lrv = profile_init_path(tmp_profile_path, &profile);
 			if (lrv)
 				goto cleanup;

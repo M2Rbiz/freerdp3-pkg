@@ -103,6 +103,7 @@ BOOL MessageQueue_Wait(wMessageQueue* queue)
 
 static BOOL MessageQueue_EnsureCapacity(wMessageQueue* queue, size_t count)
 {
+	BOOL res = TRUE;
 	const size_t increment = 128;
 	WINPR_ASSERT(queue);
 
@@ -147,8 +148,8 @@ static BOOL MessageQueue_EnsureCapacity(wMessageQueue* queue, size_t count)
 			{
 				const size_t remain = queue->tail - batch;
 				const size_t movesize = remain * sizeof(wMessage);
-				memmove_s(queue->array, queue->tail * sizeof(wMessage), &queue->array[batch],
-				          movesize);
+				res = memmove_s(queue->array, queue->tail * sizeof(wMessage), &queue->array[batch],
+				                movesize) >= 0;
 
 				const size_t zerooffset = remain;
 				const size_t zerosize = (queue->tail - remain) * sizeof(wMessage);
@@ -158,12 +159,12 @@ static BOOL MessageQueue_EnsureCapacity(wMessageQueue* queue, size_t count)
 		}
 	}
 
-	return TRUE;
+	return res;
 }
 
 BOOL MessageQueue_Dispatch(wMessageQueue* queue, const wMessage* message)
 {
-	wMessage* dst = NULL;
+	wMessage* dst = nullptr;
 	BOOL ret = FALSE;
 	WINPR_ASSERT(queue);
 
@@ -200,20 +201,20 @@ out:
 
 BOOL MessageQueue_Post(wMessageQueue* queue, void* context, UINT32 type, void* wParam, void* lParam)
 {
-	wMessage message = { 0 };
+	wMessage message = WINPR_C_ARRAY_INIT;
 
 	message.context = context;
 	message.id = type;
 	message.wParam = wParam;
 	message.lParam = lParam;
-	message.Free = NULL;
+	message.Free = nullptr;
 
 	return MessageQueue_Dispatch(queue, &message);
 }
 
 BOOL MessageQueue_PostQuit(wMessageQueue* queue, int nExitCode)
 {
-	return MessageQueue_Post(queue, NULL, WMQ_QUIT, (void*)(size_t)nExitCode, NULL);
+	return MessageQueue_Post(queue, nullptr, WMQ_QUIT, (void*)(size_t)nExitCode, nullptr);
 }
 
 int MessageQueue_Get(wMessageQueue* queue, wMessage* message)
@@ -262,7 +263,10 @@ int MessageQueue_Peek(wMessageQueue* queue, wMessage* message, BOOL remove)
 			queue->size--;
 
 			if (queue->size < 1)
-				(void)ResetEvent(queue->event);
+			{
+				if (!ResetEvent(queue->event))
+					status = -1;
+			}
 		}
 	}
 
@@ -277,11 +281,11 @@ int MessageQueue_Peek(wMessageQueue* queue, wMessage* message, BOOL remove)
 
 wMessageQueue* MessageQueue_New(const wObject* callback)
 {
-	wMessageQueue* queue = NULL;
+	wMessageQueue* queue = nullptr;
 
 	queue = (wMessageQueue*)calloc(1, sizeof(wMessageQueue));
 	if (!queue)
-		return NULL;
+		return nullptr;
 
 	if (!InitializeCriticalSectionAndSpinCount(&queue->lock, 4000))
 		goto fail;
@@ -289,7 +293,7 @@ wMessageQueue* MessageQueue_New(const wObject* callback)
 	if (!MessageQueue_EnsureCapacity(queue, 32))
 		goto fail;
 
-	queue->event = CreateEvent(NULL, TRUE, FALSE, NULL);
+	queue->event = CreateEvent(nullptr, TRUE, FALSE, nullptr);
 	if (!queue->event)
 		goto fail;
 
@@ -303,7 +307,7 @@ fail:
 	WINPR_PRAGMA_DIAG_IGNORED_MISMATCHED_DEALLOC
 	MessageQueue_Free(queue);
 	WINPR_PRAGMA_DIAG_POP
-	return NULL;
+	return nullptr;
 }
 
 void MessageQueue_Free(wMessageQueue* queue)
@@ -345,7 +349,8 @@ int MessageQueue_Clear(wMessageQueue* queue)
 		queue->head = (queue->head + 1) % queue->capacity;
 		queue->size--;
 	}
-	(void)ResetEvent(queue->event);
+	if (!ResetEvent(queue->event))
+		status = -1;
 	queue->closed = FALSE;
 
 	LeaveCriticalSection(&queue->lock);

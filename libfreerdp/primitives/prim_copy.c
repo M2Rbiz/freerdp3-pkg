@@ -26,7 +26,7 @@
 
 #include <freerdp/codec/color.h>
 
-static primitives_t* generic = NULL;
+static primitives_t* generic = nullptr;
 
 /* ------------------------------------------------------------------------- */
 /*static inline BOOL memory_regions_overlap_1d(*/
@@ -249,13 +249,15 @@ pstatus_t generic_image_copy_no_overlap_convert(
 		{
 			const UINT32 color = FreeRDPReadColor_int(&srcLine[(x + nXSrc) * srcByte], SrcFormat);
 			const UINT32 dstColor = FreeRDPConvertColor(color, SrcFormat, DstFormat, palette);
-			FreeRDPWriteColor_int(&dstLine[(x + nXDst) * dstByte], DstFormat, dstColor);
+			if (!FreeRDPWriteColor_int(&dstLine[(x + nXDst) * dstByte], DstFormat, dstColor))
+				return -1;
 		}
 		for (; x < nWidth; x++)
 		{
 			const UINT32 color = FreeRDPReadColor_int(&srcLine[(x + nXSrc) * srcByte], SrcFormat);
 			const UINT32 dstColor = FreeRDPConvertColor(color, SrcFormat, DstFormat, palette);
-			FreeRDPWriteColor_int(&dstLine[(x + nXDst) * dstByte], DstFormat, dstColor);
+			if (!FreeRDPWriteColor_int(&dstLine[(x + nXDst) * dstByte], DstFormat, dstColor))
+				return -1;
 		}
 	}
 	return PRIMITIVES_SUCCESS;
@@ -376,7 +378,7 @@ static pstatus_t generic_image_copy_no_overlap(BYTE* WINPR_RESTRICT pDstData, DW
                                                const gdiPalette* WINPR_RESTRICT palette,
                                                UINT32 flags)
 {
-	const BOOL vSrcVFlip = (flags & FREERDP_FLIP_VERTICAL) ? TRUE : FALSE;
+	const BOOL vSrcVFlip = (flags & FREERDP_FLIP_VERTICAL) != 0;
 	int64_t srcVOffset = 0;
 	int64_t srcVMultiplier = 1;
 	int64_t dstVOffset = 0;
