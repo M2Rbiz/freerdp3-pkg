@@ -1,3 +1,10 @@
+freerdp3 (3.24.0+dfsg-2) unstable; urgency=medium
+
+  * winpr-sam-fix-reading-SAM-entries.patch:
+    fix regression with gnome-remote-desktop testsuite
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 15 Mar 2026 00:04:01 +0300
+
 freerdp3 (3.24.0+dfsg-1) unstable; urgency=medium
 
   * new upstream release, with enhancements, bugfixes, and more security fixes:
