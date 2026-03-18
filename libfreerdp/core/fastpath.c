@@ -175,7 +175,8 @@ static BOOL fastpath_write_update_pdu_header(wStream* s,
 	if (fpUpdatePduHeader->secFlags)
 	{
 		WINPR_ASSERT(rdp->settings);
-		if (rdp->settings->EncryptionMethods == ENCRYPTION_METHOD_FIPS)
+		if (freerdp_settings_get_uint32(rdp->settings, FreeRDP_EncryptionMethods) ==
+		    ENCRYPTION_METHOD_FIPS)
 		{
 			if (!Stream_CheckAndLogRequiredCapacity(TAG, s, 4))
 				return FALSE;
@@ -205,7 +206,8 @@ static UINT32 fastpath_get_update_pdu_header_size(FASTPATH_UPDATE_PDU_HEADER* fp
 		size += 8; /* dataSignature */
 
 		WINPR_ASSERT(rdp->settings);
-		if (rdp->settings->EncryptionMethods == ENCRYPTION_METHOD_FIPS)
+		if (freerdp_settings_get_uint32(rdp->settings, FreeRDP_EncryptionMethods) ==
+		    ENCRYPTION_METHOD_FIPS)
 			size += 4; /* fipsInformation */
 	}
 
@@ -241,18 +243,15 @@ BOOL fastpath_read_header_rdp(rdpFastPath* fastpath, wStream* s, UINT16* length)
 	return TRUE;
 }
 
-static BOOL fastpath_recv_orders(rdpFastPath* fastpath, wStream* s)
+static BOOL fastpath_recv_orders(rdpUpdate* update, wStream* s)
 {
-	rdpUpdate* update = nullptr;
 	UINT16 numberOrders = 0;
 
-	if (!fastpath || !fastpath->rdp || !s)
+	if (!s)
 	{
 		WLog_ERR(TAG, "Invalid arguments");
 		return FALSE;
 	}
-
-	update = fastpath->rdp->update;
 
 	if (!update)
 	{
@@ -276,23 +275,19 @@ static BOOL fastpath_recv_orders(rdpFastPath* fastpath, wStream* s)
 	return TRUE;
 }
 
-static BOOL fastpath_recv_update_common(rdpFastPath* fastpath, wStream* s)
+static BOOL fastpath_recv_update_common(rdpUpdate* update, wStream* s)
 {
 	BOOL rc = FALSE;
 	UINT16 updateType = 0;
-	rdpUpdate* update = nullptr;
-	rdpContext* context = nullptr;
 	BOOL defaultReturn = 0;
 
-	if (!fastpath || !s || !fastpath->rdp)
+	if (!s)
 		return FALSE;
-
-	update = fastpath->rdp->update;
 
 	if (!update || !update->context)
 		return FALSE;
 
-	context = update->context;
+	rdpContext* context = update->context;
 
 	defaultReturn = freerdp_settings_get_bool(context->settings, FreeRDP_DeactivateClientDecoding);
 
@@ -345,6 +340,19 @@ static BOOL fastpath_recv_update_synchronize(WINPR_ATTR_UNUSED rdpFastPath* fast
 	return Stream_SafeSeek(s, skip); /* size (2 bytes), MUST be set to zero */
 }
 
+static BOOL fastpath_recv_update_paint_block(rdpUpdate* update, wStream* s,
+                                             BOOL (*fkt)(rdpUpdate*, wStream*))
+{
+	WINPR_ASSERT(fkt);
+	if (!update_begin_paint(update))
+		return FALSE;
+
+	BOOL res = fkt(update, s);
+	if (!update_end_paint(update))
+		return FALSE;
+	return res;
+}
+
 static int fastpath_recv_update(rdpFastPath* fastpath, BYTE updateCode, wStream* s)
 {
 	BOOL rc = FALSE;
@@ -377,12 +385,12 @@ static int fastpath_recv_update(rdpFastPath* fastpath, BYTE updateCode, wStream*
 	switch (updateCode)
 	{
 		case FASTPATH_UPDATETYPE_ORDERS:
-			rc = fastpath_recv_orders(fastpath, s);
+			rc = fastpath_recv_update_paint_block(update, s, fastpath_recv_orders);
 			break;
 
 		case FASTPATH_UPDATETYPE_BITMAP:
 		case FASTPATH_UPDATETYPE_PALETTE:
-			rc = fastpath_recv_update_common(fastpath, s);
+			rc = fastpath_recv_update_paint_block(update, s, fastpath_recv_update_common);
 			break;
 
 		case FASTPATH_UPDATETYPE_SYNCHRONIZE:
@@ -394,7 +402,7 @@ static int fastpath_recv_update(rdpFastPath* fastpath, BYTE updateCode, wStream*
 			break;
 
 		case FASTPATH_UPDATETYPE_SURFCMDS:
-			status = update_recv_surfcmds(update, s);
+			status = fastpath_recv_update_paint_block(update, s, update_recv_surfcmds);
 			rc = (status >= 0);
 			break;
 
@@ -588,7 +596,7 @@ static int fastpath_recv_update_data(rdpFastPath* fastpath, wStream* s)
 		{
 			if (fastpath->fragmentation != -1)
 			{
-				WLog_ERR(TAG, "fastpath_recv_update_data: Unexpected FASTPATH_FRAGMENT_FIRST");
+				WLog_ERR(TAG, "Unexpected FASTPATH_FRAGMENT_FIRST");
 				goto out_fail;
 			}
 
@@ -599,7 +607,7 @@ static int fastpath_recv_update_data(rdpFastPath* fastpath, wStream* s)
 			if ((fastpath->fragmentation != FASTPATH_FRAGMENT_FIRST) &&
 			    (fastpath->fragmentation != FASTPATH_FRAGMENT_NEXT))
 			{
-				WLog_ERR(TAG, "fastpath_recv_update_data: Unexpected FASTPATH_FRAGMENT_NEXT");
+				WLog_ERR(TAG, "Unexpected FASTPATH_FRAGMENT_NEXT");
 				goto out_fail;
 			}
 
@@ -610,7 +618,7 @@ static int fastpath_recv_update_data(rdpFastPath* fastpath, wStream* s)
 			if ((fastpath->fragmentation != FASTPATH_FRAGMENT_FIRST) &&
 			    (fastpath->fragmentation != FASTPATH_FRAGMENT_NEXT))
 			{
-				WLog_ERR(TAG, "fastpath_recv_update_data: Unexpected FASTPATH_FRAGMENT_LAST");
+				WLog_ERR(TAG, "Unexpected FASTPATH_FRAGMENT_LAST");
 				goto out_fail;
 			}
 
@@ -619,7 +627,7 @@ static int fastpath_recv_update_data(rdpFastPath* fastpath, wStream* s)
 
 			if (status < 0)
 			{
-				WLog_ERR(TAG, "fastpath_recv_update_data: fastpath_recv_update() - %i", status);
+				WLog_ERR(TAG, "fastpath_recv_update() - %i", status);
 				goto out_fail;
 			}
 		}
@@ -638,12 +646,6 @@ state_run_t fastpath_recv_updates(rdpFastPath* fastpath, wStream* s)
 	WINPR_ASSERT(fastpath);
 	WINPR_ASSERT(fastpath->rdp);
 
-	rdpUpdate* update = fastpath->rdp->update;
-	WINPR_ASSERT(update);
-
-	if (!update_begin_paint(update))
-		goto fail;
-
 	while (Stream_GetRemainingLength(s) >= 3)
 	{
 		if (fastpath_recv_update_data(fastpath, s) < 0)
@@ -656,9 +658,6 @@ state_run_t fastpath_recv_updates(rdpFastPath* fastpath, wStream* s)
 
 	rc = STATE_RUN_SUCCESS;
 fail:
-
-	if (!update_end_paint(update))
-		return STATE_RUN_FAILED;
 
 	return rc;
 }
@@ -966,7 +965,8 @@ static UINT32 fastpath_get_sec_bytes(rdpRdp* rdp)
 	{
 		sec_bytes = 8;
 
-		if (rdp->settings->EncryptionMethods == ENCRYPTION_METHOD_FIPS)
+		if (freerdp_settings_get_uint32(rdp->settings, FreeRDP_EncryptionMethods) ==
+		    ENCRYPTION_METHOD_FIPS)
 			sec_bytes += 4;
 	}
 
@@ -1084,7 +1084,8 @@ BOOL fastpath_send_multiple_input_pdu(rdpFastPath* fastpath, wStream* s, size_t 
 			const UINT16 fpInputEvents_length = (UINT16)(length - 3 - sec_bytes);
 
 			WINPR_ASSERT(rdp->settings);
-			if (rdp->settings->EncryptionMethods == ENCRYPTION_METHOD_FIPS)
+			if (freerdp_settings_get_uint32(rdp->settings, FreeRDP_EncryptionMethods) ==
+			    ENCRYPTION_METHOD_FIPS)
 			{
 				BYTE pad = 0;
 
@@ -1196,7 +1197,7 @@ BOOL fastpath_send_update_pdu(rdpFastPath* fastpath, BYTE updateCode, wStream* s
 
 	UINT16 maxLength = FASTPATH_MAX_PACKET_SIZE - 20;
 
-	if (settings->CompressionEnabled && !skipCompression)
+	if (freerdp_settings_get_bool(rdp->settings, FreeRDP_CompressionEnabled) && !skipCompression)
 	{
 		const UINT16 CompressionMaxSize = bulk_compression_max_size(rdp->bulk);
 		maxLength = (maxLength < CompressionMaxSize) ? maxLength : CompressionMaxSize;
@@ -1207,7 +1208,7 @@ BOOL fastpath_send_update_pdu(rdpFastPath* fastpath, BYTE updateCode, wStream* s
 	Stream_ResetPosition(s);
 
 	/* check if fast path output is possible */
-	if (!settings->FastPathOutput)
+	if (!freerdp_settings_get_bool(rdp->settings, FreeRDP_FastPathOutput))
 	{
 		WLog_ERR(TAG, "client does not support fast path output");
 		return FALSE;
@@ -1255,7 +1256,7 @@ BOOL fastpath_send_update_pdu(rdpFastPath* fastpath, BYTE updateCode, wStream* s
 		if (sec_flags & SEC_SECURE_CHECKSUM)
 			fpUpdatePduHeader.secFlags |= FASTPATH_OUTPUT_SECURE_CHECKSUM;
 
-		if (settings->CompressionEnabled && !skipCompression)
+		if (freerdp_settings_get_bool(settings, FreeRDP_CompressionEnabled) && !skipCompression)
 		{
 			if (bulk_compress(rdp->bulk, pSrcData, SrcSize, &pDstData, &DstSize,
 			                  &compressionFlags) >= 0)
@@ -1295,7 +1296,8 @@ BOOL fastpath_send_update_pdu(rdpFastPath* fastpath, BYTE updateCode, wStream* s
 		{
 			pSignature = Stream_Buffer(fs) + 3;
 
-			if (rdp->settings->EncryptionMethods == ENCRYPTION_METHOD_FIPS)
+			if (freerdp_settings_get_uint32(rdp->settings, FreeRDP_EncryptionMethods) ==
+			    ENCRYPTION_METHOD_FIPS)
 			{
 				pSignature += 4;
 
@@ -1336,7 +1338,8 @@ BOOL fastpath_send_update_pdu(rdpFastPath* fastpath, BYTE updateCode, wStream* s
 			UINT32 dataSize = fpUpdateHeaderSize + DstSize + pad;
 			BYTE* data = Stream_PointerAs(fs, BYTE) - dataSize;
 
-			if (rdp->settings->EncryptionMethods == ENCRYPTION_METHOD_FIPS)
+			if (freerdp_settings_get_uint32(rdp->settings, FreeRDP_EncryptionMethods) ==
+			    ENCRYPTION_METHOD_FIPS)
 			{
 				// TODO: Ensure stream capacity
 				if (!security_hmac_signature(data, dataSize - pad, pSignature, 8, rdp))

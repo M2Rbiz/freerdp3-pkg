@@ -339,7 +339,6 @@ static DWORD filter_device_by_name_w(wLinkedList* list, LPWSTR* mszReaders, DWOR
 		return 0;
 	}
 
-	free(*mszReaders);
 	*mszReaders = nullptr;
 	rc = filter_device_by_name_a(list, &readers, cchReaders);
 
@@ -377,13 +376,14 @@ static LONG smartcard_ListReadersA_Call(scard_call_context* smartcard, wStream* 
 		return smartcard_pack_list_readers_return(out, &ret, FALSE);
 	}
 
+	void* original = mszReaders;
 	cchReaders = filter_device_by_name_a(smartcard->names, &mszReaders, cchReaders);
 	ret.msz = (BYTE*)mszReaders;
 	ret.cBytes = cchReaders;
 
 	status = smartcard_pack_list_readers_return(out, &ret, FALSE);
-	if (mszReaders)
-		wrap(smartcard, SCardFreeMemory, operation->hContext, mszReaders);
+	if (original)
+		wrap(smartcard, SCardFreeMemory, operation->hContext, original);
 
 	if (status != SCARD_S_SUCCESS)
 		return scard_log_status_error_wlog(smartcard->log, "smartcard_pack_list_readers_return",
@@ -434,13 +434,14 @@ static LONG smartcard_ListReadersW_Call(scard_call_context* smartcard, wStream* 
 		return smartcard_pack_list_readers_return(out, &ret, TRUE);
 	}
 
+	void* original = mszReaders.pb;
 	cchReaders = filter_device_by_name_w(smartcard->names, &mszReaders.pw, cchReaders);
 	ret.msz = mszReaders.pb;
 	ret.cBytes = cchReaders * sizeof(WCHAR);
 	status = smartcard_pack_list_readers_return(out, &ret, TRUE);
 
-	if (mszReaders.pb)
-		wrap(smartcard, SCardFreeMemory, operation->hContext, mszReaders.pb);
+	if (original)
+		wrap(smartcard, SCardFreeMemory, operation->hContext, original);
 
 	if (status != SCARD_S_SUCCESS)
 		return status;
@@ -939,9 +940,7 @@ static BOOL smartcard_context_was_aborted(scard_call_context* smartcard)
 
 	HANDLE handles[] = { smartcard->stopEvent, freerdp_abort_event(smartcard->context) };
 	const DWORD rc = WaitForMultipleObjects(ARRAYSIZE(handles), handles, FALSE, 0);
-	if ((rc >= WAIT_OBJECT_0) && (rc <= WAIT_OBJECT_0 + ARRAYSIZE(handles)))
-		return TRUE;
-	return FALSE;
+	return (rc >= WAIT_OBJECT_0) && (rc <= WAIT_OBJECT_0 + ARRAYSIZE(handles));
 }
 
 static LONG smartcard_GetStatusChangeA_Call(scard_call_context* smartcard, wStream* out,

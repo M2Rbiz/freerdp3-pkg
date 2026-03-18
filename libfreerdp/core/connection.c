@@ -322,15 +322,11 @@ BOOL rdp_client_connect(rdpRdp* rdp)
 
 	rdp_log_build_warnings(rdp);
 
-	/* FIPS Mode forces the following and overrides the following(by happening later */
-	/* in the command line processing): */
-	/* 1. Disables NLA Security since NLA in freerdp uses NTLM(no Kerberos support yet) which uses
-	 * algorithms */
-	/*      not allowed in FIPS for sensitive data. So, we disallow NLA when FIPS is required. */
-	/* 2. Forces the only supported RDP encryption method to be FIPS. */
+	/* FIPS Mode forces the following and overrides the following(by happening later
+	 * in the command line processing):
+	 * 1. Forces the only supported RDP encryption method to be FIPS. */
 	if (settings->FIPSMode || winpr_FIPSMode())
 	{
-		settings->NlaSecurity = FALSE;
 		settings->EncryptionMethods = ENCRYPTION_METHOD_FIPS;
 	}
 
@@ -763,12 +759,12 @@ static BOOL rdp_client_establish_keys(rdpRdp* rdp)
 
 	if (crypto_rsa_public_encrypt(settings->ClientRandom, settings->ClientRandomLength, info,
 	                              crypt_client_random, info->ModulusLength) < 0)
-		return FALSE;
+		goto end;
 	/* send crypt client random to server */
 	const size_t length = RDP_PACKET_HEADER_MAX_LENGTH + RDP_SECURITY_HEADER_LENGTH + 4ULL +
 	                      info->ModulusLength + 8ULL;
 	if (length > UINT16_MAX)
-		return FALSE;
+		goto end;
 
 	s = Stream_New(nullptr, length);
 
