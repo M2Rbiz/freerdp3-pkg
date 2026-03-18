@@ -256,7 +256,7 @@ static void clearHandles(void)
 }
 
 WINPR_ATTR_NODISCARD
-static wListDictionary* setupWithValueObjectFree(void)
+static wListDictionary* setupWithValueObjectFree(BOOL key)
 {
 	wListDictionary* list = ListDictionary_New(TRUE);
 	if (!list)
@@ -264,6 +264,8 @@ static wListDictionary* setupWithValueObjectFree(void)
 
 	{
 		wObject* obj = ListDictionary_ValueObject(list);
+		if (key)
+			obj = ListDictionary_KeyObject(list);
 		WINPR_ASSERT(obj);
 		obj->fnObjectFree = free;
 	}
@@ -291,7 +293,7 @@ static BOOL initializeHandles(WINPR_ATTR_UNUSED PINIT_ONCE InitOnce,
                               WINPR_ATTR_UNUSED PVOID Parameter, WINPR_ATTR_UNUSED PVOID* Context)
 {
 	(void)atexit(clearHandles);
-	g_CardHandles = setupWithValueObjectFree();
+	g_CardHandles = setupWithValueObjectFree(FALSE);
 	if (!g_CardHandles)
 		return FALSE;
 	g_CardContexts = ListDictionary_New(TRUE);
@@ -304,7 +306,7 @@ static BOOL initializeHandles(WINPR_ATTR_UNUSED PINIT_ONCE InitOnce,
 		obj->fnObjectFree = cardContextFreeVoid;
 	}
 
-	g_MemoryBlocks = setupWithValueObjectFree();
+	g_MemoryBlocks = setupWithValueObjectFree(TRUE);
 	return g_MemoryBlocks != nullptr;
 }
 
@@ -984,8 +986,8 @@ WINPR_ATTR_NODISCARD
 static LONG WINAPI PCSC_SCardListReadersA(SCARDCONTEXT hContext, LPCSTR mszGroups, LPSTR mszReaders,
                                           LPDWORD pcchReaders)
 {
-	BOOL nullCardContext = FALSE;
 	LONG status = SCARD_S_SUCCESS;
+	BOOL nullCardContext = FALSE;
 
 	if (!g_PCSC.pfnSCardListReaders)
 		return PCSC_SCard_LogError("g_PCSC.pfnSCardListReaders");
@@ -995,21 +997,30 @@ static LONG WINAPI PCSC_SCardListReadersA(SCARDCONTEXT hContext, LPCSTR mszGroup
 		status = PCSC_SCardEstablishContext(SCARD_SCOPE_SYSTEM, nullptr, nullptr, &hContext);
 
 		if (status != SCARD_S_SUCCESS)
+
 			return status;
 
 		nullCardContext = TRUE;
 	}
 
 	if (!PCSC_LockCardContext(hContext))
-		return SCARD_E_INVALID_HANDLE;
+	{
+		status = SCARD_E_INVALID_HANDLE;
+		goto release;
+	}
 
 	status = PCSC_SCardListReaders_Internal(hContext, mszGroups, mszReaders, pcchReaders);
 
-	if (nullCardContext)
-		status = PCSC_SCardReleaseContext(hContext);
-
 	if (!PCSC_UnlockCardContext(hContext))
-		return SCARD_E_INVALID_HANDLE;
+		status = SCARD_E_INVALID_HANDLE;
+
+release:
+	if (nullCardContext)
+	{
+		const LONG rc = PCSC_SCardReleaseContext(hContext);
+		if (rc != SCARD_S_SUCCESS)
+			status = rc;
+	}
 
 	return status;
 }
@@ -1038,7 +1049,10 @@ static LONG WINAPI PCSC_SCardListReadersW(SCARDCONTEXT hContext, LPCWSTR mszGrou
 	}
 
 	if (!PCSC_LockCardContext(hContext))
-		return SCARD_E_INVALID_HANDLE;
+	{
+		status = SCARD_E_INVALID_HANDLE;
+		goto release;
+	}
 
 	if (mszGroups)
 	{
@@ -1067,6 +1081,7 @@ static LONG WINAPI PCSC_SCardListReadersW(SCARDCONTEXT hContext, LPCWSTR mszGrou
 		if (!str || (size > UINT32_MAX))
 		{
 			status = SCARD_E_NO_MEMORY;
+			free(str);
 			goto fail;
 		}
 
@@ -1075,12 +1090,17 @@ static LONG WINAPI PCSC_SCardListReadersW(SCARDCONTEXT hContext, LPCWSTR mszGrou
 		PCSC_AddMemoryBlock(hContext, str);
 	}
 
-	if (nullCardContext)
-		status = PCSC_SCardReleaseContext(hContext);
-
 fail:
 	if (!PCSC_UnlockCardContext(hContext))
-		return SCARD_E_INVALID_HANDLE;
+		status = SCARD_E_INVALID_HANDLE;
+
+release:
+	if (nullCardContext)
+	{
+		const LONG rc = PCSC_SCardReleaseContext(hContext);
+		if (rc != SCARD_S_SUCCESS)
+			status = rc;
+	}
 
 	return status;
 }
@@ -1484,10 +1504,7 @@ static LONG WINAPI PCSC_SCardFreeMemory_Internal(SCARDCONTEXT hContext, LPVOID p
 	PCSC_LONG status = SCARD_S_SUCCESS;
 
 	if (PCSC_RemoveMemoryBlock(hContext, pvMem))
-	{
-		free((void*)pvMem);
 		status = SCARD_S_SUCCESS;
-	}
 	else
 	{
 		if (g_PCSC.pfnSCardFreeMemory)
