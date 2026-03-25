@@ -1,3 +1,33 @@
+freerdp3 (3.24.2+dfsg-1) unstable; urgency=medium
+
+  * new upstream bugfix/security release:
+    CVE-2026-31883 `size_t` underflow in ADPCM decoder leads
+      to heap-buffer-overflow write
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-85x9-4xxp-xhm5
+    CVE-2026-31897 Out-of-bounds read in `freerdp_bitmap_decompress_planar`
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-xgv6-r22m-7c9x
+    CVE-2026-33952 DoS via WINPR_ASSERT in rts_read_auth_verifier_no_checks
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-4v4p-9v5x-hc93
+    CVE-2026-33977 DoS via WINPR_ASSERT in IMA ADPCM audio decoder (dsp.c:331)
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-8f2g-3q27-6xm5
+    CVE-2026-33995 double free in kerberos_AcceptSecurityContext
+      and kerberos_IntitalizeSecurityContextA
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-mv25-f4p2-5mxx
+    CVE-2026-33984 ClearCodec resize_vbar_entry() Heap OOB Write
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-8469-2xcx-frf6
+    CVE-2026-33983 Progressive Codec Quant BYTE Underflow - UB + CPU DoS
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-4gfm-4p52-h478
+    CVE-2026-33985 ClearCodec Glyph Cache Count Desync - Heap OOB Read
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-x6gr-8p7h-5h85
+    CVE-2026-33986 H.264 YUV Buffer Dimension Desync - Heap OOB Write
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-h6qw-wxvm-hf97
+    CVE-2026-33987 Persistent Cache bmpSize Desync - Heap OOB Write
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-ff8h-p5vc-wcwc
+    CVE-2026-33982 Persistent Cache Allocator Mismatch - Heap OOB Read
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-8jm9-2925-g4v2
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 25 Mar 2026 20:00:40 +0300
+
 freerdp3 (3.24.1+dfsg-1) unstable; urgency=medium
 
   * new upstream bugfix release
