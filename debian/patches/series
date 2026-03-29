@@ -78,3 +78,12 @@ utils-smartcard-check-stream-length-on-padding-CVE-2026-27015.patch
 codec-clear-fix-missing-destination-boundary-checks-CVE-2026-26955.patch
 codec-clear-fix-destination-checks-CVE-2026-26955.patch
 codec-planar-fix-missing-destination-bounds-checks-CVE-2026-26965.patch
+# 3.24.0:
+codec-h264-validate-rectangles-before-use-CVE-2026-29774.patch
+cache-bitmap-overallocate-bitmap-cache-CVE-2026-29775.patch
+core-order-fix-const-correctness.patch
+core-orders-improve-input-validation-CVE-2026-29776.patch
+codec-nsc-limit-copy-area-in-nsc_process_message-CVE-2026-31806.patch
+codec-dsp-fix-array-bounds-checks-CVE-2026-31883-CVE-2026-31885.patch
+codec-dsp-add-format-checks-CVE-2026-31884.patch
+codec-planar-add-early-length-check-to-avoid-oob-rea-CVE-2026-31897.patch
