@@ -1,0 +1,33 @@
+From: Armin Novak <armin.novak@thincast.com>
+Date: Wed, 23 Apr 2025 10:08:58 +0200
+Subject: [core,order] fix const correctness
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/b8f5b9c719c269010caf6dbd5929cef684e154b4
+Forwarded: not-needed
+Comment: preparation for CVE-2026-29776 fix
+
+
+diff --git a/libfreerdp/core/orders.c b/libfreerdp/core/orders.c
+index 3085765ec..c27b474ae 100644
+--- a/libfreerdp/core/orders.c
++++ b/libfreerdp/core/orders.c
+@@ -268,7 +268,7 @@ static BYTE get_bpp_bmf(UINT32 bpp, BOOL* pValid)
+ 	}
+ }
+ 
+-static BOOL check_order_activated(wLog* log, rdpSettings* settings, const char* orderName,
++static BOOL check_order_activated(wLog* log, const rdpSettings* settings, const char* orderName,
+                                   BOOL condition, const char* extendedMessage)
+ {
+ 	if (!condition)
+@@ -407,7 +407,7 @@ static BOOL check_secondary_order_supported(wLog* log, rdpSettings* settings, BY
+ 	return check_order_activated(log, settings, orderName, condition, extendedMessage);
+ }
+ 
+-static BOOL check_primary_order_supported(wLog* log, rdpSettings* settings, UINT32 orderType,
++static BOOL check_primary_order_supported(wLog* log, const rdpSettings* settings, UINT32 orderType,
+                                           const char* orderName)
+ {
+ 	const char* extendedMessage = NULL;
+-- 
+2.47.3
+

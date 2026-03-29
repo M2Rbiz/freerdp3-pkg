@@ -1,0 +1,93 @@
+From: Armin Novak <armin.novak@thincast.com>
+Date: Tue, 17 Feb 2026 08:38:04 +0100
+Subject: [codec,nsc] fix use of nsc_process_message
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/169971607cece48384cb94632b829bd57336af0f
+Forwarded: not-needed
+Comment: preparation for CVE-2026-31806 fix
+
+the second width/height argument should reflect the destination buffer
+pixel size
+---
+ libfreerdp/codec/clear.c | 10 ++++++----
+ libfreerdp/codec/nsc.c   | 12 +++++++-----
+ libfreerdp/gdi/gdi.c     |  5 +++--
+ 3 files changed, 16 insertions(+), 11 deletions(-)
+
+diff --git a/libfreerdp/codec/clear.c b/libfreerdp/codec/clear.c
+--- a/libfreerdp/codec/clear.c
++++ b/libfreerdp/codec/clear.c
+@@ -133,7 +133,8 @@ static BOOL convert_color(BYTE* WINPR_RESTRICT dst, UINT32 nDstStep, UINT32 DstF
+ static BOOL clear_decompress_nscodec(NSC_CONTEXT* WINPR_RESTRICT nsc, UINT32 width, UINT32 height,
+                                      wStream* WINPR_RESTRICT s, UINT32 bitmapDataByteCount,
+                                      BYTE* WINPR_RESTRICT pDstData, UINT32 DstFormat,
+-                                     UINT32 nDstStep, UINT32 nXDstRel, UINT32 nYDstRel)
++                                     UINT32 nDstStep, UINT32 nXDstRel, UINT32 nYDstRel,
++                                     UINT32 nDstWidth, UINT32 nDstHeight)
+ {
+ 	BOOL rc = 0;
+ 
+@@ -141,8 +142,8 @@ static BOOL clear_decompress_nscodec(NSC_CONTEXT* WINPR_RESTRICT nsc, UINT32 wid
+ 		return FALSE;
+ 
+ 	rc = nsc_process_message(nsc, 32, width, height, Stream_Pointer(s), bitmapDataByteCount,
+-	                         pDstData, DstFormat, nDstStep, nXDstRel, nYDstRel, width, height,
+-	                         FREERDP_FLIP_NONE);
++	                         pDstData, DstFormat, nDstStep, nXDstRel, nYDstRel, nDstWidth,
++	                         nDstHeight, FREERDP_FLIP_NONE);
+ 	Stream_Seek(s, bitmapDataByteCount);
+ 	return rc;
+ }
+@@ -532,7 +533,8 @@ static BOOL clear_decompress_subcodecs_data(CLEAR_CONTEXT* WINPR_RESTRICT clear,
+ 
+ 			case 1: /* NSCodec */
+ 				if (!clear_decompress_nscodec(clear->nsc, width, height, s, bitmapDataByteCount,
+-				                              pDstData, DstFormat, nDstStep, nXDstRel, nYDstRel))
++				                              pDstData, DstFormat, nDstStep, nXDstRel, nYDstRel,
++				                              nDstWidth, nDstHeight))
+ 					return FALSE;
+ 
+ 				break;
+diff --git a/libfreerdp/codec/nsc.c b/libfreerdp/codec/nsc.c
+--- a/libfreerdp/codec/nsc.c
++++ b/libfreerdp/codec/nsc.c
+@@ -433,15 +433,17 @@ BOOL nsc_context_set_parameters(NSC_CONTEXT* WINPR_RESTRICT context, NSC_PARAMET
+ BOOL nsc_process_message(NSC_CONTEXT* WINPR_RESTRICT context, UINT16 bpp, UINT32 width,
+                          UINT32 height, const BYTE* data, UINT32 length,
+                          BYTE* WINPR_RESTRICT pDstData, UINT32 DstFormat, UINT32 nDstStride,
+-                         UINT32 nXDst, UINT32 nYDst, UINT32 nWidth,
+-                         WINPR_ATTR_UNUSED UINT32 nHeight, UINT32 flip)
++                         UINT32 nXDst, UINT32 nYDst, UINT32 nWidth, UINT32 nHeight, UINT32 flip)
+ {
++	WINPR_ASSERT(context);
++	WINPR_ASSERT(context->priv);
++
+ 	wStream sbuffer = { 0 };
+ 	BOOL ret = 0;
+-	if (!context || !data || !pDstData)
++	if (!data || !pDstData)
+ 	{
+-		WLog_ERR(TAG, "Invalid argument: context=%p, data=%p, pDstData=%p", (void*)context,
+-		         (const void*)data, (void*)pDstData);
++		WLog_Print(context->priv->log, WLOG_ERROR, "Invalid argument: data=%p, pDstData=%p",
++		           (const void*)data, (void*)pDstData);
+ 		return FALSE;
+ 	}
+ 
+diff --git a/libfreerdp/gdi/gdi.c b/libfreerdp/gdi/gdi.c
+--- a/libfreerdp/gdi/gdi.c
++++ b/libfreerdp/gdi/gdi.c
+@@ -1144,8 +1144,9 @@ static BOOL gdi_surface_bits(rdpContext* context, const SURFACE_BITS_COMMAND* cm
+ 			if (!nsc_process_message(
+ 			        context->codecs->nsc, cmd->bmp.bpp, cmd->bmp.width, cmd->bmp.height,
+ 			        cmd->bmp.bitmapData, cmd->bmp.bitmapDataLength, gdi->primary_buffer, format,
+-			        gdi->stride, cmdRect.left, cmdRect.top, cmdRect.right - cmdRect.left,
+-			        cmdRect.bottom - cmdRect.top, FREERDP_FLIP_VERTICAL))
++			        gdi->stride, cmdRect.left, cmdRect.top,
++			        WINPR_ASSERTING_INT_CAST(UINT32, gdi->width),
++			        WINPR_ASSERTING_INT_CAST(UINT32, gdi->height), FREERDP_FLIP_VERTICAL))
+ 			{
+ 				WLog_ERR(TAG, "Failed to process NSCodec message");
+ 				goto out;
+-- 
+2.47.3
+
