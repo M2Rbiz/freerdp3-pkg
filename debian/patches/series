@@ -90,3 +90,13 @@ codec-nsc-limit-copy-area-in-nsc_process_message-CVE-2026-31806.patch
 codec-dsp-fix-array-bounds-checks-CVE-2026-31883-CVE-2026-31885.patch
 codec-dsp-add-format-checks-CVE-2026-31884.patch
 codec-planar-add-early-length-check-to-avoid-oob-rea-CVE-2026-31897.patch
+# 3.24.2:
+core-gateway-Check-rpcconn_common_hdr_t-auth_length--CVE-2026-33952.patch
+codec-dsp-fix-IMA-ADPCM-sample-clamping-CVE-2026-33977.patch
+winpr-sspi-Fix-context-nullptr-handling-CVE-2026-33995.patch
+codec-clear-update-CLEAR_VBAR_ENTRY-size-after-alloc-CVE-2026-33984.patch
+codec-progressive-Fail-progressive_rfx_quant_sub-on--CVE-2026-33983.patch
+codec-clear-Update-CLEAR_GLYPH_ENTRY-count-after-all-CVE-2026-33985.patch
+codec-h264-update-H264_CONTEXT-width-height-after-al-CVE-2026-33986.patch
+cache-persistent-update-PERSISTENT_CACHE_ENTRY-size--CVE-2026-33987.patch
+cache-persist-use-winpr_aligned_calloc-CVE-2026-33982.patch
