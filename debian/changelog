@@ -1,11 +1,6 @@
 freerdp3 (3.24.2+dfsg-1) unstable; urgency=medium
 
   * new upstream bugfix/security release:
-    CVE-2026-31883 `size_t` underflow in ADPCM decoder leads
-      to heap-buffer-overflow write
-      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-85x9-4xxp-xhm5
-    CVE-2026-31897 Out-of-bounds read in `freerdp_bitmap_decompress_planar`
-      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-xgv6-r22m-7c9x
     CVE-2026-33952 DoS via WINPR_ASSERT in rts_read_auth_verifier_no_checks
       https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-4v4p-9v5x-hc93
     CVE-2026-33977 DoS via WINPR_ASSERT in IMA ADPCM audio decoder (dsp.c:331)
