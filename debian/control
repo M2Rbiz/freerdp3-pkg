@@ -35,6 +35,7 @@ Build-Depends-Arch:
  libsdl3-image-dev <!pkg.freerdp3.sdl2>,
  libsdl3-ttf-dev <!pkg.freerdp3.sdl2>,
  libssl-dev,
+ libsso-mib-dev [linux-any],
  libv4l-dev [linux-any],
  libswresample-dev,
  libsystemd-dev [linux-any],
