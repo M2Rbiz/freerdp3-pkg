@@ -1069,6 +1069,8 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  WLog_AddStringLogFilters@Base 3.0.0
  WLog_CloseAppender@Base 3.0.0
  WLog_ConfigureAppender@Base 3.0.0
+ WLog_Create@Base 3.25.0
+ WLog_Discard@Base 3.25.0
  WLog_Get@Base 3.0.0
  WLog_GetLogAppender@Base 3.0.0
  WLog_GetLogLayout@Base 3.0.0
@@ -1082,6 +1084,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  WLog_PrintTextMessage@Base 3.17.0
  WLog_PrintTextMessageVA@Base 3.17.0
  WLog_SetContext@Base 3.0.0
+ WLog_SetGlobalContext@Base 3.25.0
  WLog_SetLogAppenderType@Base 3.0.0
  WLog_SetLogLevel@Base 3.0.0
  WLog_SetStringLogLevel@Base 3.0.0
