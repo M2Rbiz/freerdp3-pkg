@@ -77,12 +77,16 @@ struct s_wLog
 	CRITICAL_SECTION lock;
 	WINPR_ATTR_NODISCARD const char* (*custom)(void*);
 	void* context;
+	BOOL independent;
 };
 
 WINPR_LOCAL extern const char* WLOG_LEVELS[7];
 WINPR_LOCAL BOOL WLog_Layout_GetMessagePrefix(wLog* log, wLogLayout* layout,
                                               const wLogMessage* message, char* prefix,
                                               size_t prefixlen);
+
+WINPR_ATTR_NODISCARD
+WINPR_LOCAL const char* WLog_GetGlobalPrefix(void);
 
 #include "Layout.h"
 #include "Appender.h"

@@ -76,6 +76,8 @@ if(WITH_CLANG_FORMAT)
   include(ClangFormat)
 endif()
 
+include(WarnExperimental)
+include(WarnUnmaintained)
 include(CompilerFlags)
 include(CheckIncludeFiles)
 include(CheckLibraryExists)
@@ -355,6 +357,14 @@ set(SOXR_FEATURE_TYPE "OPTIONAL")
 set(SOXR_FEATURE_PURPOSE "codec")
 set(SOXR_FEATURE_DESCRIPTION "SOX audio resample library")
 
+set(AOM_FEATURE_TYPE "OPTIONAL")
+set(AOM_FEATURE_PURPOSE "codec")
+set(AOM_FEATURE_DESCRIPTION "AOM AV1 encoder/decoder library")
+
+set(YUV_FEATURE_TYPE "OPTIONAL")
+set(YUV_FEATURE_PURPOSE "codec")
+set(YUV_FEATURE_DESCRIPTION "YUV encoder/decoder library")
+
 if(WIN32)
   set(WAYLAND_FEATURE_TYPE "DISABLED")
   set(PCSC_FEATURE_TYPE "DISABLED")
@@ -378,6 +388,7 @@ endif()
 
 option(WITH_LIBRESSL "[experimental] build with LibreSSL" OFF)
 if(WITH_LIBRESSL)
+  warn_experimental("LibReSSL" "-DWITH_LIBRESSL=OFF")
   message(WARNING "-DWITH_LIBRESSL=ON: LibreSSL enabled. Expect incompatibilities.")
   message(WARNING "Only OpenSSL is tested on each release, other implementations depend on external contributions")
 
@@ -407,6 +418,8 @@ find_feature(LAME ${LAME_FEATURE_TYPE} ${LAME_FEATURE_PURPOSE} ${LAME_FEATURE_DE
 find_feature(FAAD2 ${FAAD2_FEATURE_TYPE} ${FAAD2_FEATURE_PURPOSE} ${FAAD2_FEATURE_DESCRIPTION})
 find_feature(FAAC ${FAAC_FEATURE_TYPE} ${FAAC_FEATURE_PURPOSE} ${FAAC_FEATURE_DESCRIPTION})
 find_feature(soxr ${SOXR_FEATURE_TYPE} ${SOXR_FEATURE_PURPOSE} ${SOXR_FEATURE_DESCRIPTION})
+find_feature(aom ${AOM_FEATURE_TYPE} ${AOM_FEATURE_PURPOSE} ${AOM_FEATURE_DESCRIPTION})
+find_feature(yuv ${YUV_FEATURE_TYPE} ${YUV_FEATURE_PURPOSE} ${YUV_FEATURE_DESCRIPTION})
 
 option(WITH_OPENCL "[experimental] enable OpenCL support for primitives" OFF)
 if(WITH_OPENCL)
@@ -445,6 +458,8 @@ if(OPENSSL_FOUND)
 endif()
 
 if(MBEDTLS_FOUND)
+  warn_experimental("Mbed-TLS" "-DWITH_MBEDTLS=OFF")
+
   message(WARNING "-DWITH_MBEDTLS=ON: Mbed-TLS enabled. Expect incompatibilities")
   message(WARNING "Only OpenSSL is tested on each release, other implementations depend on external contributions")
   add_compile_definitions("WITH_MBEDTLS")
@@ -605,3 +620,6 @@ message(STATUS "Intrinsic path configuration:")
 #ShowCMakeVars("^CMAKE_INSTALL_LIBDIR")
 showcmakevars("^FREERDP_INSTALL_PREFIX|^FREERDP_LIBRARY_PATH|^FREERDP_PLUGIN_PATH")
 showcmakevars("^FREERDP_ADDIN_PATH|^FREERDP_EXTENSION_PATH|^FREERDP_PROXY_PLUGINDIR")
+
+warn_experimental_print()
+warn_unmaintained_print()

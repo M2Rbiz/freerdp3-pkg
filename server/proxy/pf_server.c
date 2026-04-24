@@ -179,6 +179,30 @@ static BOOL pf_server_get_target_info(rdpContext* context, rdpSettings* settings
 					return FALSE;
 			}
 
+			if (!freerdp_settings_set_bool(settings, FreeRDP_SmartcardLogon,
+			                               config->TargetSmartcardAuth))
+				return FALSE;
+
+			if (config->TargetSmartcardCert)
+			{
+				if (!freerdp_settings_set_bool(settings, FreeRDP_SmartcardEmulation, TRUE))
+					return FALSE;
+				if (!freerdp_settings_set_string_len(settings, FreeRDP_SmartcardCertificate,
+				                                     config->TargetSmartcardCert,
+				                                     config->TargetSmartcardCertLength))
+					return FALSE;
+			}
+
+			if (config->TargetSmartcardKey)
+			{
+				if (!freerdp_settings_set_bool(settings, FreeRDP_SmartcardEmulation, TRUE))
+					return FALSE;
+				if (!freerdp_settings_set_string_len(settings, FreeRDP_SmartcardPrivateKey,
+				                                     config->TargetSmartcardKey,
+				                                     config->TargetSmartcardKeyLength))
+					return FALSE;
+			}
+
 			return TRUE;
 		}
 		case PROXY_FETCH_TARGET_USE_CUSTOM_ADDR:
@@ -342,7 +366,8 @@ static BOOL pf_server_post_connect(freerdp_peer* peer)
 		return FALSE;
 
 	/* Start a proxy's client in it's own thread */
-	if (!(pdata->client_thread = CreateThread(nullptr, 0, pf_client_start, pc, 0, nullptr)))
+	pdata->client_thread = CreateThread(nullptr, 0, pf_client_start, pc, 0, nullptr);
+	if (!pdata->client_thread)
 	{
 		PROXY_LOG_ERR(TAG, ps, "failed to create client thread");
 		return FALSE;
@@ -470,9 +495,10 @@ original_cb:
 }
 
 WINPR_ATTR_NODISCARD
-static BOOL pf_server_initialize_peer_connection(freerdp_peer* peer)
+static BOOL pf_server_initialize_peer_connection(freerdp_peer* peer, proxyData* pdata)
 {
 	WINPR_ASSERT(peer);
+	WINPR_ASSERT(pdata);
 
 	pServerContext* ps = (pServerContext*)peer->context;
 	if (!ps)
@@ -481,9 +507,6 @@ static BOOL pf_server_initialize_peer_connection(freerdp_peer* peer)
 	rdpSettings* settings = peer->context->settings;
 	WINPR_ASSERT(settings);
 
-	proxyData* pdata = proxy_data_new();
-	if (!pdata)
-		return FALSE;
 	proxyServer* server = (proxyServer*)peer->ContextExtra;
 	WINPR_ASSERT(server);
 	proxy_data_set_server_context(pdata, ps);
@@ -504,6 +527,12 @@ static BOOL pf_server_initialize_peer_connection(freerdp_peer* peer)
 
 	if (!freerdp_settings_set_pointer_len(settings, FreeRDP_RdpServerCertificate, cert, 1))
 		return FALSE;
+
+	if (config->SamFile)
+	{
+		if (!freerdp_settings_set_string(settings, FreeRDP_NtlmSamFile, config->SamFile))
+			return FALSE;
+	}
 
 	/* currently not supporting GDI orders */
 	{
@@ -594,7 +623,6 @@ static DWORD WINAPI pf_server_handle_peer(LPVOID arg)
 {
 	HANDLE eventHandles[MAXIMUM_WAIT_OBJECTS] = WINPR_C_ARRAY_INIT;
 	pServerContext* ps = nullptr;
-	proxyData* pdata = nullptr;
 	peer_thread_args* args = arg;
 
 	WINPR_ASSERT(args);
@@ -609,18 +637,19 @@ static DWORD WINAPI pf_server_handle_peer(LPVOID arg)
 	size_t count = ArrayList_Count(server->peer_list);
 	ArrayList_Unlock(server->peer_list);
 
+	proxyData* pdata = proxy_data_new();
+	if (!pdata)
+		goto out_free_peer;
+
 	if (!pf_context_init_server_context(client))
 		goto out_free_peer;
 
-	if (!pf_server_initialize_peer_connection(client))
+	if (!pf_server_initialize_peer_connection(client, pdata))
 		goto out_free_peer;
 
 	ps = (pServerContext*)client->context;
 	WINPR_ASSERT(ps);
 	PROXY_LOG_DBG(TAG, ps, "Added peer, %" PRIuz " connected", count);
-
-	pdata = ps->pdata;
-	WINPR_ASSERT(pdata);
 
 	if (!pf_modules_run_hook(pdata->module, HOOK_TYPE_SERVER_SESSION_INITIALIZE, pdata, client))
 		goto out_free_peer;
@@ -747,8 +776,17 @@ out_free_peer:
 
 	if (pdata && pdata->client_thread)
 	{
+		PROXY_LOG_INFO(TAG, ps, "stopping proxy RDP client thread");
 		proxy_data_abort_connect(pdata);
 		(void)WaitForSingleObject(pdata->client_thread, INFINITE);
+	}
+	else if (pdata)
+	{
+		PROXY_LOG_INFO(TAG, ps, "ignore proxy RDP client thread, not started");
+	}
+	else
+	{
+		PROXY_LOG_INFO(TAG, ps, "ignore proxy RDP client thread, not proxyData not created");
 	}
 
 	{

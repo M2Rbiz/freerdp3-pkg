@@ -1221,6 +1221,8 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 	    !freerdp_settings_set_bool(settings, FreeRDP_GfxPlanar, TRUE) ||
 	    !freerdp_settings_set_bool(settings, FreeRDP_GfxH264, FALSE) ||
 	    !freerdp_settings_set_bool(settings, FreeRDP_GfxAVC444, FALSE) ||
+	    !freerdp_settings_set_bool(settings, FreeRDP_GfxCodecAV1, TRUE) ||
+	    !freerdp_settings_set_uint32(settings, FreeRDP_GfxCodecAV1Profile, 1) ||
 	    !freerdp_settings_set_bool(settings, FreeRDP_GfxSendQoeAck, FALSE) ||
 	    !freerdp_settings_set_bool(settings, FreeRDP_SupportDisplayControl, TRUE))
 		goto out_fail;
@@ -1692,7 +1694,7 @@ BOOL identity_set_from_smartcard_hash(SEC_WINNT_AUTH_IDENTITY_W* identity,
                                       WINPR_ATTR_UNUSED size_t sha1len)
 {
 #ifdef _WIN32
-	CERT_CREDENTIAL_INFO certInfo = { sizeof(CERT_CREDENTIAL_INFO), { 0 } };
+	CERT_CREDENTIAL_INFO certInfo = { sizeof(CERT_CREDENTIAL_INFO), WINPR_C_ARRAY_INIT };
 	LPWSTR marshalledCredentials = nullptr;
 
 	memcpy(certInfo.rgbHashOfCert, certSha1, MIN(sha1len, sizeof(certInfo.rgbHashOfCert)));

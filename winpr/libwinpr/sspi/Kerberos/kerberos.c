@@ -20,6 +20,7 @@
  * limitations under the License.
  */
 #include <winpr/config.h>
+#include <winpr/library.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -153,18 +154,39 @@ krb5_error_code kerberos_log_msg(krb5_context ctx, krb5_error_code code, const c
 
 void krb_log_context_encryption(krb5_context ctx, krb5_principal princ)
 {
-	krb5_get_init_creds_opt opt = WINPR_C_ARRAY_INIT;
-	krb5_enctype enctype = 0;
-	krb5_data salt = WINPR_C_ARRAY_INIT;
-	krb5_data s2kparam = WINPR_C_ARRAY_INIT;
-	char buffer[128] = WINPR_C_ARRAY_INIT;
+#if !defined(WITH_KRB5_HEIMDAL)
+	typedef krb5_error_code KRB5_CALLCONV (*krb5_get_etype_info_fn)(
+	    krb5_context context, krb5_principal principal, krb5_get_init_creds_opt* opt,
+	    krb5_enctype* enctype_out, krb5_data* salt_out, krb5_data* s2kparams_out);
 
-	krb5_error_code rv =
-	    krb_log_exec(krb5_get_etype_info, ctx, princ, &opt, &enctype, &salt, &s2kparam);
-	krb5_enctype_to_string(enctype, buffer, sizeof(buffer));
-	const char* msg = krb5_get_error_message(ctx, rv);
-	WLog_DBG(TAG, "[%s] enctype=%s, salt[%u]=%s, s2kparam[%u]=%s", msg, buffer, salt.length,
-	         salt.data, s2kparam.length, s2kparam.data);
+	krb5_get_etype_info_fn fn =
+	    GetProcAddressAs(nullptr, "krb5_get_etype_info", krb5_get_etype_info_fn);
+
+	if (fn)
+	{
+		krb5_get_init_creds_opt opt = WINPR_C_ARRAY_INIT;
+		krb5_enctype enctype = 0;
+		krb5_data salt = WINPR_C_ARRAY_INIT;
+		krb5_data s2kparam = WINPR_C_ARRAY_INIT;
+		char buffer[128] = WINPR_C_ARRAY_INIT;
+		krb5_error_code rv = krb_log_exec(fn, ctx, princ, &opt, &enctype, &salt, &s2kparam);
+		krb5_enctype_to_string(enctype, buffer, sizeof(buffer));
+		const char* msg = krb5_get_error_message(ctx, rv);
+
+		WLog_DBG(TAG, "[%s] enctype=%s, salt[%u]=%s, s2kparam[%u]=%s", msg, buffer, salt.length,
+		         salt.data, s2kparam.length, s2kparam.data);
+
+		krb5_free_data_contents(ctx, &salt);
+		krb5_free_data_contents(ctx, &s2kparam);
+		krb5_free_error_message(ctx, msg);
+	}
+	else
+#endif
+	{
+		WLog_WARN(TAG,
+		          "kerberos implementation does not support 'krb5_get_etype_info', not displaying "
+		          "encryption information");
+	}
 }
 
 static void credentials_unref(KRB_CREDENTIALS* credentials);
@@ -2062,11 +2084,11 @@ static SECURITY_STATUS SEC_ENTRY kerberos_EncryptMessage(WINPR_ATTR_UNUSED PCtxt
 	BYTE flags = 0;
 	krb5glue_key key = nullptr;
 	krb5_keyusage usage = 0;
-	krb5_crypto_iov encrypt_iov[] = { { KRB5_CRYPTO_TYPE_HEADER, { 0 } },
-		                              { KRB5_CRYPTO_TYPE_DATA, { 0 } },
-		                              { KRB5_CRYPTO_TYPE_DATA, { 0 } },
-		                              { KRB5_CRYPTO_TYPE_PADDING, { 0 } },
-		                              { KRB5_CRYPTO_TYPE_TRAILER, { 0 } } };
+	krb5_crypto_iov encrypt_iov[] = { { KRB5_CRYPTO_TYPE_HEADER, WINPR_C_ARRAY_INIT },
+		                              { KRB5_CRYPTO_TYPE_DATA, WINPR_C_ARRAY_INIT },
+		                              { KRB5_CRYPTO_TYPE_DATA, WINPR_C_ARRAY_INIT },
+		                              { KRB5_CRYPTO_TYPE_PADDING, WINPR_C_ARRAY_INIT },
+		                              { KRB5_CRYPTO_TYPE_TRAILER, WINPR_C_ARRAY_INIT } };
 
 	if (!context)
 		return SEC_E_INVALID_HANDLE;
@@ -2156,11 +2178,11 @@ static SECURITY_STATUS SEC_ENTRY kerberos_DecryptMessage(WINPR_ATTR_UNUSED PCtxt
 	uint16_t ec = 0;
 	uint16_t rrc = 0;
 	uint64_t seq_no = 0;
-	krb5_crypto_iov iov[] = { { KRB5_CRYPTO_TYPE_HEADER, { 0 } },
-		                      { KRB5_CRYPTO_TYPE_DATA, { 0 } },
-		                      { KRB5_CRYPTO_TYPE_DATA, { 0 } },
-		                      { KRB5_CRYPTO_TYPE_PADDING, { 0 } },
-		                      { KRB5_CRYPTO_TYPE_TRAILER, { 0 } } };
+	krb5_crypto_iov iov[] = { { KRB5_CRYPTO_TYPE_HEADER, WINPR_C_ARRAY_INIT },
+		                      { KRB5_CRYPTO_TYPE_DATA, WINPR_C_ARRAY_INIT },
+		                      { KRB5_CRYPTO_TYPE_DATA, WINPR_C_ARRAY_INIT },
+		                      { KRB5_CRYPTO_TYPE_PADDING, WINPR_C_ARRAY_INIT },
+		                      { KRB5_CRYPTO_TYPE_TRAILER, WINPR_C_ARRAY_INIT } };
 
 	if (!context)
 		return SEC_E_INVALID_HANDLE;
@@ -2259,9 +2281,9 @@ static SECURITY_STATUS SEC_ENTRY kerberos_MakeSignature(WINPR_ATTR_UNUSED PCtxtH
 	krb5glue_key key = nullptr;
 	krb5_keyusage usage = 0;
 	BYTE flags = 0;
-	krb5_crypto_iov iov[] = { { KRB5_CRYPTO_TYPE_DATA, { 0 } },
-		                      { KRB5_CRYPTO_TYPE_DATA, { 0 } },
-		                      { KRB5_CRYPTO_TYPE_CHECKSUM, { 0 } } };
+	krb5_crypto_iov iov[] = { { KRB5_CRYPTO_TYPE_DATA, WINPR_C_ARRAY_INIT },
+		                      { KRB5_CRYPTO_TYPE_DATA, WINPR_C_ARRAY_INIT },
+		                      { KRB5_CRYPTO_TYPE_CHECKSUM, WINPR_C_ARRAY_INIT } };
 
 	if (!context)
 		return SEC_E_INVALID_HANDLE;
@@ -2333,9 +2355,9 @@ static SECURITY_STATUS SEC_ENTRY kerberos_VerifySignature(WINPR_ATTR_UNUSED PCtx
 	uint16_t tok_id = 0;
 	uint64_t seq_no = 0;
 	krb5_boolean is_valid = 0;
-	krb5_crypto_iov iov[] = { { KRB5_CRYPTO_TYPE_DATA, { 0 } },
-		                      { KRB5_CRYPTO_TYPE_DATA, { 0 } },
-		                      { KRB5_CRYPTO_TYPE_CHECKSUM, { 0 } } };
+	krb5_crypto_iov iov[] = { { KRB5_CRYPTO_TYPE_DATA, WINPR_C_ARRAY_INIT },
+		                      { KRB5_CRYPTO_TYPE_DATA, WINPR_C_ARRAY_INIT },
+		                      { KRB5_CRYPTO_TYPE_CHECKSUM, WINPR_C_ARRAY_INIT } };
 	BYTE cmp_filler[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
 	KRB_CONTEXT* context = get_context(phContext);

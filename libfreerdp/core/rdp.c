@@ -1107,22 +1107,40 @@ static BOOL rdp_recv_server_status_info_pdu(rdpRdp* rdp, wStream* s)
 	return TRUE;
 }
 
+static void log_monitor(size_t idx, const MONITOR_DEF* monitor, wLog* log, DWORD level)
+{
+	WINPR_ASSERT(monitor);
+
+	WLog_Print(log, level, "[%" PRIuz "] {%dx%d-%dx%d} [0x%08" PRIx32 "]", idx, monitor->left,
+	           monitor->top, monitor->right, monitor->bottom, monitor->flags);
+}
+
+static void log_monitor_configuration(wLog* log, const MONITOR_DEF* monitors, size_t count)
+{
+	const DWORD level = WLOG_DEBUG;
+	WLog_Print(log, level, "[BEGIN] RemoteMonitors[%" PRIuz "]", count);
+	for (size_t x = 0; x < count; x++)
+	{
+		const MONITOR_DEF* monitor = &monitors[x];
+		log_monitor(x, monitor, log, level);
+	}
+	WLog_Print(log, level, "[END] RemoteMonitors[%" PRIuz "]", count);
+}
+
 static BOOL rdp_recv_monitor_layout_pdu(rdpRdp* rdp, wStream* s)
 {
-	UINT32 monitorCount = 0;
-	MONITOR_DEF* monitorDefArray = nullptr;
 	BOOL ret = TRUE;
 
 	WINPR_ASSERT(rdp);
 	if (!Stream_CheckAndLogRequiredLengthWLog(rdp->log, s, 4))
 		return FALSE;
 
-	Stream_Read_UINT32(s, monitorCount); /* monitorCount (4 bytes) */
+	const UINT32 monitorCount = Stream_Get_UINT32(s); /* monitorCount (4 bytes) */
 
 	if (!Stream_CheckAndLogRequiredLengthOfSizeWLog(rdp->log, s, monitorCount, 20ull))
 		return FALSE;
 
-	monitorDefArray = (MONITOR_DEF*)calloc(monitorCount, sizeof(MONITOR_DEF));
+	MONITOR_DEF* monitorDefArray = (MONITOR_DEF*)calloc(monitorCount, sizeof(MONITOR_DEF));
 
 	if (!monitorDefArray)
 		return FALSE;
@@ -1137,6 +1155,7 @@ static BOOL rdp_recv_monitor_layout_pdu(rdpRdp* rdp, wStream* s)
 		Stream_Read_UINT32(s, monitor->flags); /* flags (4 bytes) */
 	}
 
+	log_monitor_configuration(rdp->log, monitorDefArray, monitorCount);
 	IFCALLRET(rdp->update->RemoteMonitors, ret, rdp->context, monitorCount, monitorDefArray);
 	free(monitorDefArray);
 	if (!ret)
@@ -2367,11 +2386,13 @@ rdpRdp* rdp_new(rdpContext* context)
 	if (!rdp)
 		return nullptr;
 
-	rdp->log = WLog_Get(RDP_TAG);
-	WINPR_ASSERT(rdp->log);
+	rdp->log = WLog_Create(RDP_TAG, WLog_GetRoot());
+	if (!rdp->log)
+		goto fail;
 
 	(void)_snprintf(rdp->log_context, sizeof(rdp->log_context), "%p", (void*)context);
-	WLog_SetContext(rdp->log, nullptr, rdp->log_context);
+	if (!WLog_SetContext(rdp->log, nullptr, rdp->log_context))
+		goto fail;
 
 	InitializeCriticalSection(&rdp->critical);
 	rdp->context = context;
@@ -2578,6 +2599,7 @@ void rdp_free(rdpRdp* rdp)
 		aad_free(rdp->aad);
 		WINPR_JSON_Delete(rdp->wellknown);
 		DeleteCriticalSection(&rdp->critical);
+		WLog_Discard(rdp->log);
 		free(rdp);
 	}
 }
@@ -2863,7 +2885,12 @@ static BOOL option_is_runtime_checks(WINPR_ATTR_UNUSED wLog* log, const char* to
 
 static BOOL option_is_experimental(WINPR_ATTR_UNUSED wLog* log, const char* tok)
 {
-	const char* experimental[] = { STR(WITH_DSP_EXPERIMENTAL), STR(WITH_VAAPI) };
+	const char* experimental[] = { STR(WITH_DSP_EXPERIMENTAL), STR(WITH_VAAPI),
+		                           STR(WITH_GFX_AV1),          STR(WITH_VAAPI_H264_ENCODING),
+		                           STR(WITH_MEDIACODEC),       STR(WITH_CLIENT_SDL2),
+		                           STR(WITH_OPENCL),           STR(WITH_LIBRESSL),
+		                           STR(WITH_MBEDTLS),          STR(WITH_MEDIA_FOUNDATION),
+		                           STR(WITH_KRB5_HEIMDAL) };
 	for (size_t x = 0; x < ARRAYSIZE(experimental); x++)
 	{
 		const char* opt = experimental[x];
@@ -2878,20 +2905,40 @@ static BOOL option_is_experimental(WINPR_ATTR_UNUSED wLog* log, const char* tok)
 static BOOL option_is_debug(wLog* log, const char* tok)
 {
 	WINPR_ASSERT(log);
-	const char* debug[] = {
-		STR(WITH_DEBUG_ALL),        STR(WITH_DEBUG_CERTIFICATE),    STR(WITH_DEBUG_CAPABILITIES),
-		STR(WITH_DEBUG_CHANNELS),   STR(WITH_DEBUG_CLIPRDR),        STR(WITH_DEBUG_CODECS),
-		STR(WITH_DEBUG_DVC),        STR(WITH_DEBUG_TSMF),           STR(WITH_DEBUG_KBD),
-		STR(WITH_DEBUG_LICENSE),    STR(WITH_DEBUG_NEGO),           STR(WITH_DEBUG_NLA),
-		STR(WITH_DEBUG_TSG),        STR(WITH_DEBUG_RAIL),           STR(WITH_DEBUG_RDP),
-		STR(WITH_DEBUG_RDPEI),      STR(WITH_DEBUG_REDIR),          STR(WITH_DEBUG_RDPDR),
-		STR(WITH_DEBUG_RFX),        STR(WITH_DEBUG_SCARD),          STR(WITH_DEBUG_SND),
-		STR(WITH_DEBUG_SVC),        STR(WITH_DEBUG_TRANSPORT),      STR(WITH_DEBUG_TIMEZONE),
-		STR(WITH_DEBUG_WND),        STR(WITH_DEBUG_RINGBUFFER),     STR(WITH_DEBUG_SYMBOLS),
-		STR(WITH_DEBUG_EVENTS),     STR(WITH_DEBUG_MUTEX),          STR(WITH_DEBUG_NTLM),
-		STR(WITH_DEBUG_SDL_EVENTS), STR(WITH_DEBUG_SDL_KBD_EVENTS), STR(WITH_DEBUG_THREADS),
-		STR(WITH_DEBUG_URBDRC)
-	};
+	const char* debug[] = { STR(WITH_DEBUG_ALL),
+		                    STR(WITH_DEBUG_CERTIFICATE),
+		                    STR(WITH_DEBUG_CAPABILITIES),
+		                    STR(WITH_DEBUG_CHANNELS),
+		                    STR(WITH_DEBUG_CLIPRDR),
+		                    STR(WITH_DEBUG_CODECS),
+		                    STR(WITH_DEBUG_DVC),
+		                    STR(WITH_DEBUG_TSMF),
+		                    STR(WITH_DEBUG_KBD),
+		                    STR(WITH_DEBUG_LICENSE),
+		                    STR(WITH_DEBUG_NEGO),
+		                    STR(WITH_DEBUG_NLA),
+		                    STR(WITH_DEBUG_TSG),
+		                    STR(WITH_DEBUG_RAIL),
+		                    STR(WITH_DEBUG_RDP),
+		                    STR(WITH_DEBUG_RDPEI),
+		                    STR(WITH_DEBUG_REDIR),
+		                    STR(WITH_DEBUG_RDPDR),
+		                    STR(WITH_DEBUG_RFX),
+		                    STR(WITH_DEBUG_SCARD),
+		                    STR(WITH_DEBUG_SND),
+		                    STR(WITH_DEBUG_SVC),
+		                    STR(WITH_DEBUG_TRANSPORT),
+		                    STR(WITH_DEBUG_TIMEZONE),
+		                    STR(WITH_DEBUG_WND),
+		                    STR(WITH_DEBUG_RINGBUFFER),
+		                    STR(WITH_DEBUG_SYMBOLS),
+		                    STR(WITH_DEBUG_EVENTS),
+		                    STR(WITH_DEBUG_MUTEX),
+		                    STR(WITH_DEBUG_NTLM),
+		                    STR(WITH_DEBUG_SDL_KBD_EVENTS),
+		                    STR(WITH_DEBUG_SDL_KBD_EVENTS),
+		                    STR(WITH_DEBUG_THREADS),
+		                    STR(WITH_DEBUG_URBDRC) };
 
 	for (size_t x = 0; x < ARRAYSIZE(debug); x++)
 	{

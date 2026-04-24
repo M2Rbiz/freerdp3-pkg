@@ -63,8 +63,8 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	  "Asynchronous channels (experimental)" },
 	{ "async-update", COMMAND_LINE_VALUE_BOOL, nullptr, BoolValueFalse, nullptr, -1, nullptr,
 	  "Asynchronous update" },
-	{ "audio-mode", COMMAND_LINE_VALUE_REQUIRED, "<mode>", nullptr, nullptr, -1, nullptr,
-	  "Audio output mode" },
+	{ "audio-mode", COMMAND_LINE_VALUE_REQUIRED, "[[none|0]|[redirect|1]|[server|2]]", nullptr,
+	  nullptr, -1, nullptr, "Audio output mode" },
 	{ "auth-only", COMMAND_LINE_VALUE_BOOL, nullptr, BoolValueFalse, nullptr, -1, nullptr,
 	  "Authenticate only" },
 	{ "auth-pkg-list", COMMAND_LINE_VALUE_REQUIRED, "[[none],]<!ntlm,kerberos,!u2u>", nullptr,
@@ -211,7 +211,11 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	{ "gfx", COMMAND_LINE_VALUE_OPTIONAL,
 	  "[[progressive[:on|off]|RFX[:on|off]|AVC420[:on|off]AVC444[:on|off]],mask:<value>,small-"
 	  "cache[:on|off],thin-client[:on|off],progressive[:on|"
-	  "off],frame-ack[:on|off]]",
+	  "off],frame-ack[:on|off]"
+#if defined(WITH_GFX_AV1)
+	  ",AV1[:on|off|i444|i420]]"
+#endif
+	  ,
 	  nullptr, nullptr, -1, nullptr, "RDP8 graphics pipeline" },
 #if defined(WITH_FREERDP_DEPRECATED_COMMANDLINE)
 	{ "gfx-h264", COMMAND_LINE_VALUE_OPTIONAL, "[[AVC420|AVC444],mask:<value>]", nullptr, nullptr,
@@ -335,7 +339,7 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	  nullptr, "[DEPRECATED, use /list:monitor] List detected monitors" },
 #endif
 	{ "monitors", COMMAND_LINE_VALUE_REQUIRED, "<id>[,<id>[,...]]", nullptr, nullptr, -1, nullptr,
-	  "Select monitors to use (only effective in fullscreen or multimonitor mode)" },
+	  "[experimental] Select monitors to use (only effective in fullscreen or multimonitor mode)" },
 	{ "mouse-motion", COMMAND_LINE_VALUE_BOOL, nullptr, BoolValueTrue, nullptr, -1, nullptr,
 	  "Send mouse motion events" },
 	{ "mouse-relative", COMMAND_LINE_VALUE_BOOL, nullptr, BoolValueFalse, nullptr, -1, nullptr,

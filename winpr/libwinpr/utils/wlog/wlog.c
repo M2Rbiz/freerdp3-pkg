@@ -38,6 +38,7 @@
 #endif
 
 #include "wlog.h"
+#include "../log.h"
 
 #define WLOG_MAX_STRING_SIZE 16384
 
@@ -66,6 +67,7 @@ static INIT_ONCE g_WLogInitialized = INIT_ONCE_STATIC_INIT;
 static DWORD g_FilterCount = 0;
 static wLogFilter* g_Filters = nullptr;
 static wLog* g_RootLog = nullptr;
+static char* g_GlobalPrefix = nullptr;
 
 static wLog* WLog_New(LPCSTR name, wLog* rootLogger);
 static void WLog_Free(wLog* log);
@@ -91,6 +93,8 @@ static void WLog_Uninit_(void)
 
 	WLog_Free(root);
 	g_RootLog = nullptr;
+	free(g_GlobalPrefix);
+	g_GlobalPrefix = nullptr;
 }
 
 static void WLog_Lock(wLog* log)
@@ -869,14 +873,7 @@ wLog* WLog_New(LPCSTR name, wLog* rootLogger)
 		goto out_fail;
 
 	log->Parent = rootLogger;
-	log->ChildrenCount = 0;
-	log->ChildrenSize = 16;
 	log->FilterLevel = WLOG_FILTER_NOT_INITIALIZED;
-
-	if (!(log->Children = (wLog**)calloc(log->ChildrenSize, sizeof(wLog*))))
-		goto out_fail;
-
-	log->Appender = nullptr;
 
 	if (rootLogger)
 	{
@@ -969,17 +966,17 @@ static BOOL WLog_AddChild(wLog* parent, wLog* child)
 
 	if (parent->ChildrenCount >= parent->ChildrenSize)
 	{
-		wLog** tmp = nullptr;
-		parent->ChildrenSize *= 2;
+		parent->ChildrenSize = parent->ChildrenCount + 4;
 
-		if (!parent->ChildrenSize)
+		if (parent->ChildrenSize == 0)
 		{
 			free((void*)parent->Children);
 			parent->Children = nullptr;
 		}
 		else
 		{
-			tmp = (wLog**)realloc((void*)parent->Children, sizeof(wLog*) * parent->ChildrenSize);
+			wLog** tmp =
+			    (wLog**)realloc((void*)parent->Children, sizeof(wLog*) * parent->ChildrenSize);
 
 			if (!tmp)
 			{
@@ -1008,7 +1005,6 @@ exit:
 static wLog* WLog_FindChild(wLog* root, LPCSTR name)
 {
 	wLog* child = nullptr;
-	BOOL found = FALSE;
 
 	if (!root)
 		return nullptr;
@@ -1017,18 +1013,18 @@ static wLog* WLog_FindChild(wLog* root, LPCSTR name)
 
 	for (DWORD index = 0; index < root->ChildrenCount; index++)
 	{
-		child = root->Children[index];
+		wLog* cchild = root->Children[index];
 
-		if (strcmp(child->Name, name) == 0)
+		if (strcmp(cchild->Name, name) == 0)
 		{
-			found = TRUE;
+			child = cchild;
 			break;
 		}
 	}
 
 	WLog_Unlock(root);
 
-	return (found) ? child : nullptr;
+	return child;
 }
 
 static wLog* WLog_Get_int(wLog* root, LPCSTR name)
@@ -1096,4 +1092,45 @@ BOOL WLog_SetContext(wLog* log, const char* (*fkt)(void*), void* context)
 	log->custom = fkt;
 	log->context = context;
 	return TRUE;
+}
+
+BOOL WLog_SetGlobalContext(const char* globalprefix)
+{
+	free(g_GlobalPrefix);
+	g_GlobalPrefix = nullptr;
+
+	if (globalprefix)
+	{
+		g_GlobalPrefix = _strdup(globalprefix);
+		return g_GlobalPrefix != nullptr;
+	}
+	return TRUE;
+}
+
+const char* WLog_GetGlobalPrefix(void)
+{
+	return g_GlobalPrefix;
+}
+
+wLog* WLog_Create(LPCSTR name, wLog* root)
+{
+	wLog* log = WLog_New(name, root);
+	if (!log)
+		return nullptr;
+	log->independent = TRUE;
+	return log;
+}
+
+void WLog_Discard(wLog* log)
+{
+	if (!log)
+		return;
+	if (!log->independent)
+	{
+		const char tag[] = WINPR_TAG("wlog");
+		WLog_ERR(tag, "Passed invalid wLog* instance");
+		winpr_log_backtrace(tag, WLOG_ERROR, 20);
+		return;
+	}
+	WLog_Free(log);
 }

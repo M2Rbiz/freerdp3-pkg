@@ -43,6 +43,7 @@
 #include <freerdp/channels/cliprdr.h>
 #include <freerdp/channels/encomsp.h>
 #include <freerdp/channels/rdpear.h>
+#include <freerdp/channels/rdpewa.h>
 #include <freerdp/channels/rdp2tcp.h>
 #include <freerdp/channels/remdesk.h>
 #include <freerdp/channels/rdpsnd.h>
@@ -1048,9 +1049,17 @@ static int fail_at_(const COMMAND_LINE_ARGUMENT_A* arg, int rc, const char* file
 	const DWORD level = WLOG_ERROR;
 	wLog* log = WLog_Get(TAG);
 	if (WLog_IsLevelActive(log, level))
+	{
+		const char* val = arg->Value;
+		if ((arg->Flags & COMMAND_LINE_VALUE_FLAG) != 0)
+			val = arg->Value == nullptr ? "Disable" : "Enable";
+		if ((arg->Flags & COMMAND_LINE_VALUE_BOOL) != 0)
+			val = arg->Value == nullptr ? "Disable" : "Enable";
+
 		WLog_PrintTextMessage(log, level, line, file, fkt,
-		                      "Command line parsing failed at '%s' value '%s' [%d]", arg->Name,
-		                      arg->Value, rc);
+		                      "Command line parsing failed at '%s' value '%s' [%d]", arg->Name, val,
+		                      rc);
+	}
 	return rc;
 }
 
@@ -2438,6 +2447,40 @@ static int parse_gfx_options(rdpSettings* settings, const COMMAND_LINE_ARGUMENT_
 					                                    bval == PARSE_OFF))
 						rc = COMMAND_LINE_ERROR;
 				}
+#if defined(WITH_GFX_AV1)
+				else if (option_starts_with("AV1", val))
+				{
+					uint32_t profile = 1;
+					BOOL enabled = FALSE;
+					const PARSE_ON_OFF_RESULT bval = parse_on_off_option(val);
+					if (bval == PARSE_FAIL)
+					{
+						if (_stricmp("av1:i420", val) == 0)
+						{
+							enabled = TRUE;
+							profile = 0;
+						}
+						else if (_stricmp("av1:i444", val) == 0)
+						{
+							enabled = TRUE;
+							profile = 1;
+						}
+						else
+							rc = COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
+					}
+					else
+						enabled = bval == PARSE_ON;
+
+					if (enabled || (bval != PARSE_FAIL))
+					{
+						if (!freerdp_settings_set_bool(settings, FreeRDP_GfxCodecAV1, enabled))
+							rc = COMMAND_LINE_ERROR;
+						else if (!freerdp_settings_set_uint32(settings, FreeRDP_GfxCodecAV1Profile,
+						                                      profile))
+							rc = COMMAND_LINE_ERROR;
+					}
+				}
+#endif
 				else
 					rc = COMMAND_LINE_ERROR;
 			}
@@ -3255,8 +3298,16 @@ static int parse_audio_mode_options(rdpSettings* settings, const COMMAND_LINE_AR
 	WINPR_ASSERT(arg);
 
 	LONGLONG val = 0;
+	if (!arg->Value)
+		return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
 
-	if (!value_to_int(arg->Value, &val, 0, UINT32_MAX))
+	if (strcmp(arg->Value, "none") == 0)
+		val = AUDIO_MODE_NONE;
+	else if (strcmp(arg->Value, "redirect") == 0)
+		val = AUDIO_MODE_REDIRECT;
+	else if (strcmp(arg->Value, "server") == 0)
+		val = AUDIO_MODE_PLAY_ON_SERVER;
+	else if (!value_to_int(arg->Value, &val, 0, UINT32_MAX))
 		return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
 
 	switch (val)
@@ -6088,6 +6139,9 @@ BOOL freerdp_client_load_addins(rdpChannels* channels, rdpSettings* settings)
 #endif
 #ifdef CHANNEL_RDPEAR_CLIENT
 		{ FreeRDP_RemoteCredentialGuard, RDPEAR_CHANNEL_NAME, nullptr },
+#endif
+#ifdef CHANNEL_RDPEWA_CLIENT
+		{ FreeRDP_RedirectWebAuthN, RDPEWA_CHANNEL_NAME, nullptr },
 #endif
 	};
 

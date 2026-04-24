@@ -140,6 +140,7 @@ extern "C"
 		UINT32 resizeWidth;
 		UINT32 resizeHeight;
 		BOOL areGfxCapsReady; /** @since version 3.3.0 */
+		RDPGFX_CAPSET confirmedCaps; /** @since version 3.25.0 */
 	};
 
 	struct rdp_shadow_server
@@ -180,6 +181,12 @@ extern "C"
 		size_t maxClientsConnected;
 		BOOL SupportMultiRectBitmapUpdates; /** @since version 3.13.0 */
 		BOOL ShowMouseCursor;               /** @since version 3.15.0 */
+#if defined(WITH_GFX_AV1)
+		FREERDP_AV1_RATECONTROL AV1RateControlMode; /** @since version 3.15.0 */
+		UINT32 AV1BitRate;                          /** @since version 3.15.0 */
+#else
+	    UINT32 reservedAV1[2];
+#endif
 	};
 
 	struct rdp_shadow_surface

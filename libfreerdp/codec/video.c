@@ -29,9 +29,6 @@
 
 #define VTAG FREERDP_TAG("codec.video")
 
-WINPR_ATTR_NODISCARD
-static const char* freerdp_video_format_string(UINT32 format);
-
 #if defined(WITH_SWSCALE)
 
 /* Forward declarations for static functions */

@@ -74,6 +74,9 @@
 #include "sdl_monitor.hpp"
 #include "sdl_pointer.hpp"
 #include "sdl_prefs.hpp"
+#if defined(_WIN32)
+#include "sdl_win32_console.hpp"
+#endif
 #include "sdl_utils.hpp"
 
 #if defined(_WIN32)
@@ -178,10 +181,8 @@ static void sdl_term_handler([[maybe_unused]] int signum, [[maybe_unused]] const
 						continue;
 				}
 
-#if defined(WITH_DEBUG_SDL_EVENTS)
-				SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "got event %s [0x%08" PRIx32 "]",
-				             sdl::utils::toString(windowEvent.type).c_str(), windowEvent.type);
-#endif
+				WLog_Print(sdl->getWLog(), WLOG_TRACE, "got event %s [0x%08" PRIx32 "]",
+				           sdl::utils::toString(windowEvent.type).c_str(), windowEvent.type);
 				if (sdl->shallAbort(true))
 					continue;
 
@@ -589,6 +590,10 @@ static void SDLCALL rdp_file_cb(void* userdata, const char* const* filelist,
 
 int main(int argc, char* argv[])
 {
+#if defined(_WIN32)
+	sdl::win32::release_transient_console();
+#endif
+
 	int rc = -1;
 	RDP_CLIENT_ENTRY_POINTS clientEntryPoints = {};
 
@@ -620,12 +625,14 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	auto status = freerdp_client_settings_parse_command_line(
-	    settings, WINPR_ASSERTING_INT_CAST(int, args.size()), args.data(), FALSE);
+	auto status = freerdp_client_settings_parse_command_line_ex(
+	    settings, WINPR_ASSERTING_INT_CAST(int, args.size()), args.data(), FALSE, sdl->args(),
+	    sdl->argsCount(), &SdlContext::argumentHandler, sdl);
 	sdl_rdp->sdl->setMetadata();
 	if (status)
 	{
-		rc = freerdp_client_settings_command_line_status_print(settings, status, argc, argv);
+		rc = freerdp_client_settings_command_line_status_print_ex(settings, status, argc, argv,
+		                                                          sdl->args());
 		if (freerdp_settings_get_bool(settings, FreeRDP_ListMonitors))
 		{
 			if (!sdl_list_monitors(sdl))
@@ -649,16 +656,28 @@ int main(int argc, char* argv[])
 		return rc;
 	}
 
+	if (!SDL_SetHint(SDL_HINT_ALLOW_ALT_TAB_WHILE_GRABBED, "0"))
+		return -1;
+	if (!SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0"))
+		return -1;
+	if (!SDL_SetHint(SDL_HINT_PEN_MOUSE_EVENTS, "0"))
+		return -1;
+	if (!SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0"))
+		return -1;
+	if (!SDL_SetHint(SDL_HINT_PEN_TOUCH_EVENTS, "1"))
+		return -1;
+	if (!SDL_SetHint(SDL_HINT_TRACKPAD_IS_TOUCH_ONLY, "1"))
+		return -1;
+	if (!SDL_SetHint(SDL_HINT_SCREENSAVER_INHIBIT_ACTIVITY_NAME, "RDP session running"))
+		return -1;
+#if SDL_VERSION_ATLEAST(3, 4, 0)
+	if (!SDL_SetHint(SDL_HINT_MOUSE_DPI_SCALE_CURSORS, "1"))
+		return -1;
+#endif
+
 	/* Basic SDL initialization */
 	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
 		return -1;
-
-	SDL_SetHint(SDL_HINT_ALLOW_ALT_TAB_WHILE_GRABBED, "0");
-	SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
-	SDL_SetHint(SDL_HINT_PEN_MOUSE_EVENTS, "0");
-	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
-	SDL_SetHint(SDL_HINT_PEN_TOUCH_EVENTS, "1");
-	SDL_SetHint(SDL_HINT_TRACKPAD_IS_TOUCH_ONLY, "1");
 
 	/* Redirect SDL log messages to wLog */
 	SDL_SetLogOutputFunction(winpr_LogOutputFunction, sdl);

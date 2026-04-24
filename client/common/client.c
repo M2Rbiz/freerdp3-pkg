@@ -37,6 +37,7 @@
 #include <freerdp/utils/passphrase.h>
 #include <freerdp/client/cmdline.h>
 #include <freerdp/client/channels.h>
+#include <freerdp/event.h>
 #include <freerdp/utils/smartcardlogon.h>
 
 #if defined(CHANNEL_AINPUT_CLIENT)
@@ -89,6 +90,16 @@ static void set_default_callbacks(freerdp* instance)
 	instance->RetryDialog = client_common_retry_dialog;
 }
 
+static void client_cli_user_notification(void* context, const UserNotificationEventArgs* e)
+{
+	WINPR_UNUSED(context);
+	WINPR_ASSERT(e);
+	if (!e->message || e->message[0] == '\0')
+		return;
+	(void)fprintf(stderr, "[%s] Touch the security key\n", e->e.Sender);
+	(void)fflush(stderr);
+}
+
 static BOOL freerdp_client_common_new(freerdp* instance, rdpContext* context)
 {
 	RDP_CLIENT_ENTRY_POINTS* pEntryPoints = nullptr;
@@ -101,6 +112,7 @@ static BOOL freerdp_client_common_new(freerdp* instance, rdpContext* context)
 
 	pEntryPoints = instance->pClientEntryPoints;
 	WINPR_ASSERT(pEntryPoints);
+
 	return IFCALLRESULT(TRUE, pEntryPoints->ClientNew, instance, context);
 }
 
@@ -194,7 +206,16 @@ int freerdp_client_start(rdpContext* context)
 		return ERROR_BAD_ARGUMENTS;
 
 	if (freerdp_settings_get_bool(context->settings, FreeRDP_UseCommonStdioCallbacks))
+	{
 		set_default_callbacks(context->instance);
+		if (context->pubSub)
+		{
+			const int rc =
+			    PubSub_SubscribeUserNotification(context->pubSub, client_cli_user_notification);
+			if (rc < 0)
+				return FALSE;
+		}
+	}
 
 #ifdef WITH_SSO_MIB
 	rdpClientContext* client_context = (rdpClientContext*)context;
@@ -216,6 +237,9 @@ int freerdp_client_stop(rdpContext* context)
 
 	pEntryPoints = context->instance->pClientEntryPoints;
 	const int rc = IFCALLRESULT(CHANNEL_RC_OK, pEntryPoints->ClientStop, context);
+
+	if (freerdp_settings_get_bool(context->settings, FreeRDP_UseCommonStdioCallbacks))
+		PubSub_UnsubscribeUserNotification(context->pubSub, client_cli_user_notification);
 
 #ifdef WITH_SSO_MIB
 	rdpClientContext* client_context = (rdpClientContext*)context;
@@ -291,8 +315,6 @@ static BOOL freerdp_client_settings_post_process(rdpSettings* settings)
 	/* deal with the smartcard / smartcard logon stuff */
 	if (freerdp_settings_get_bool(settings, FreeRDP_SmartcardLogon))
 	{
-		if (!freerdp_settings_set_bool(settings, FreeRDP_TlsSecurity, TRUE))
-			goto out_error;
 		if (!freerdp_settings_set_bool(settings, FreeRDP_RedirectSmartCards, TRUE))
 			goto out_error;
 		if (!freerdp_settings_set_bool(settings, FreeRDP_DeviceRedirection, TRUE))
@@ -521,6 +543,10 @@ static BOOL client_cli_authenticate_raw(freerdp* instance, rdp_auth_reason reaso
 			pwdAuth = "Smartcard-Pin:   ";
 			pinOnly = TRUE;
 			break;
+		case AUTH_FIDO_PIN:
+			pwdAuth = "FIDO2 PIN:       ";
+			pinOnly = TRUE;
+			break;
 		case AUTH_RDSTLS:
 			queryAll = TRUE;
 			break;
@@ -612,6 +638,7 @@ BOOL client_cli_authenticate_ex(freerdp* instance, char** username, char** passw
 		case AUTH_TLS:
 		case AUTH_RDP:
 		case AUTH_SMARTCARD_PIN: /* in this case password is pin code */
+		case AUTH_FIDO_PIN:
 			if ((*username) && (*password))
 				return TRUE;
 			break;

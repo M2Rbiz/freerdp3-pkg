@@ -443,6 +443,9 @@ static UINT xf_DeleteSurface(RdpgfxClientContext* context,
 #ifdef WITH_GFX_H264
 		h264_context_free(surface->gdi.h264);
 #endif
+#if defined(WITH_GFX_AV1)
+		freerdp_av1_context_free(surface->gdi.av1);
+#endif
 		surface->image->data = nullptr;
 		XDestroyImage(surface->image);
 		winpr_aligned_free(surface->gdi.data);
@@ -528,10 +531,8 @@ void xf_graphics_pipeline_init(xfContext* xfc, RdpgfxClientContext* gfx)
 
 void xf_graphics_pipeline_uninit(xfContext* xfc, RdpgfxClientContext* gfx)
 {
-	rdpGdi* gdi = nullptr;
-
 	WINPR_ASSERT(xfc);
 
-	gdi = xfc->common.context.gdi;
+	rdpGdi* gdi = xfc->common.context.gdi;
 	gdi_graphics_pipeline_uninit(gdi, gfx);
 }

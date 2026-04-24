@@ -337,9 +337,10 @@ static BOOL ntlm_read_message_fields_buffer(wStream* s, NTLM_MESSAGE_FIELDS* fie
 	WINPR_ASSERT(s);
 	WINPR_ASSERT(fields);
 
+	ntlm_free_message_fields_buffer(fields);
 	if (fields->Len > 0)
 	{
-		const UINT32 offset = fields->BufferOffset + fields->Len;
+		const size_t offset = 1ull * fields->BufferOffset + fields->Len;
 
 		if (fields->BufferOffset > UINT32_MAX - fields->Len)
 		{
@@ -353,7 +354,7 @@ static BOOL ntlm_read_message_fields_buffer(wStream* s, NTLM_MESSAGE_FIELDS* fie
 		if (offset > Stream_Length(s))
 		{
 			WLog_ERR(TAG,
-			         "NTLM_MESSAGE_FIELDS::Buffer offset %" PRIu32 " beyond received data %" PRIuz,
+			         "NTLM_MESSAGE_FIELDS::Buffer offset %" PRIuz " beyond received data %" PRIuz,
 			         offset, Stream_Length(s));
 			return FALSE;
 		}
@@ -368,7 +369,10 @@ static BOOL ntlm_read_message_fields_buffer(wStream* s, NTLM_MESSAGE_FIELDS* fie
 		}
 
 		if (!Stream_SetPosition(s, fields->BufferOffset))
+		{
+			ntlm_free_message_fields_buffer(fields);
 			return FALSE;
+		}
 		Stream_Read(s, fields->Buffer, fields->Len);
 	}
 
@@ -740,7 +744,7 @@ SECURITY_STATUS ntlm_read_ChallengeMessage(NTLM_CONTEXT* context, PSecBuffer buf
 		{
 			PBYTE ptr = ntlm_av_pair_get_value_pointer(AvTimestamp);
 
-			if (!ptr)
+			if (!ptr || (AvTimestamp->AvLen < 8))
 				goto fail;
 
 			if (context->NTLMv2)
@@ -1056,7 +1060,12 @@ SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer 
 		                     context->NTLMv2Response.Challenge.cbAvPairs, MsvAvFlags, &cbAvFlags);
 
 		if (AvFlags)
-			flags = winpr_Data_Get_UINT32(ntlm_av_pair_get_value_pointer(AvFlags));
+		{
+			const BYTE* ptr = ntlm_av_pair_get_value_pointer(AvFlags);
+			if (!ptr || (AvFlags->AvLen < 4))
+				goto fail;
+			flags = winpr_Data_Get_UINT32(ptr);
+		}
 	}
 
 	if (!ntlm_read_message_fields_buffer(
@@ -1125,24 +1134,30 @@ SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer 
 	{
 		const SECURITY_STATUS rc = ntlm_compute_lm_v2_response(context); /* LmChallengeResponse */
 		if (rc != SEC_E_OK)
-			return rc;
+		{
+			status = rc;
+			goto fail;
+		}
 	}
 
 	{
 		const SECURITY_STATUS rc = ntlm_compute_ntlm_v2_response(context); /* NtChallengeResponse */
 		if (rc != SEC_E_OK)
-			return rc;
+		{
+			status = rc;
+			goto fail;
+		}
 	}
 
 	/* KeyExchangeKey */
 	if (!ntlm_generate_key_exchange_key(context))
-		return SEC_E_INTERNAL_ERROR;
+		goto fail;
 	/* EncryptedRandomSessionKey */
 	if (!ntlm_decrypt_random_session_key(context))
-		return SEC_E_INTERNAL_ERROR;
+		goto fail;
 	/* ExportedSessionKey */
 	if (!ntlm_generate_exported_session_key(context))
-		return SEC_E_INTERNAL_ERROR;
+		goto fail;
 
 	if (flags & MSV_AV_FLAGS_MESSAGE_INTEGRITY_CHECK)
 	{
@@ -1150,7 +1165,7 @@ SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer 
 
 		if (!ntlm_compute_message_integrity_check(context, messageIntegrityCheck,
 		                                          sizeof(messageIntegrityCheck)))
-			return SEC_E_INTERNAL_ERROR;
+			goto fail;
 		CopyMemory(
 		    &((PBYTE)context->AuthenticateMessage.pvBuffer)[context->MessageIntegrityCheckOffset],
 		    message->MessageIntegrityCheck, sizeof(message->MessageIntegrityCheck));
@@ -1166,7 +1181,8 @@ SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer 
 			winpr_HexDump(TAG, WLOG_ERROR, message->MessageIntegrityCheck,
 			              sizeof(message->MessageIntegrityCheck));
 #endif
-			return SEC_E_MESSAGE_ALTERED;
+			status = SEC_E_MESSAGE_ALTERED;
+			goto fail;
 		}
 	}
 	else
@@ -1195,36 +1211,42 @@ SECURITY_STATUS ntlm_read_AuthenticateMessage(NTLM_CONTEXT* context, PSecBuffer 
 			winpr_HexDump(TAG, WLOG_ERROR, context->NTLMv2Response.Response,
 			              sizeof(context->NTLMv2Response));
 #endif
-			return SEC_E_LOGON_DENIED;
+			status = SEC_E_LOGON_DENIED;
+			goto fail;
 		}
 	}
 
 	/* Generate signing keys */
 	if (!ntlm_generate_client_signing_key(context))
-		return SEC_E_INTERNAL_ERROR;
+		goto fail;
 	if (!ntlm_generate_server_signing_key(context))
-		return SEC_E_INTERNAL_ERROR;
+		goto fail;
 	/* Generate sealing keys */
 	if (!ntlm_generate_client_sealing_key(context))
-		return SEC_E_INTERNAL_ERROR;
+		goto fail;
 	if (!ntlm_generate_server_sealing_key(context))
-		return SEC_E_INTERNAL_ERROR;
+		goto fail;
 	/* Initialize RC4 seal state */
 	if (!ntlm_init_rc4_seal_states(context))
-		return SEC_E_INTERNAL_ERROR;
+		goto fail;
 #if defined(WITH_DEBUG_NTLM)
 	ntlm_print_authentication_complete(context);
 #endif
 	ntlm_change_state(context, NTLM_STATE_FINAL);
+	status = SEC_E_OK;
+
+fail:
 	ntlm_free_message_fields_buffer(&(message->DomainName));
 	ntlm_free_message_fields_buffer(&(message->UserName));
 	ntlm_free_message_fields_buffer(&(message->Workstation));
 	ntlm_free_message_fields_buffer(&(message->LmChallengeResponse));
-	ntlm_free_message_fields_buffer(&(message->NtChallengeResponse));
+	/* NtChallengeResponse.Buffer is aliased to context->NtChallengeResponse.pvBuffer at
+	 * L1048 until ntlm_compute_ntlm_v2_response() reallocates the context buffer. Only
+	 * free message->NtChallengeResponse when the alias does not hold, otherwise
+	 * ntlm_ContextFree() frees the same pointer via context->NtChallengeResponse. */
+	if (context->NtChallengeResponse.pvBuffer != message->NtChallengeResponse.Buffer)
+		ntlm_free_message_fields_buffer(&(message->NtChallengeResponse));
 	ntlm_free_message_fields_buffer(&(message->EncryptedRandomSessionKey));
-	return SEC_E_OK;
-
-fail:
 	return status;
 }
 
