@@ -139,11 +139,18 @@ class SdlContext
 	[[nodiscard]] SDL_FPoint screenToPixel(SDL_WindowID id, const SDL_FPoint& pos);
 
 	[[nodiscard]] SDL_FPoint pixelToScreen(SDL_WindowID id, const SDL_FPoint& pos);
-	[[nodiscard]] SDL_FRect pixelToScreen(SDL_WindowID id, const SDL_FRect& pos);
+	[[nodiscard]] SDL_FRect pixelToScreen(SDL_WindowID id, const SDL_FRect& pos,
+	                                      bool round = false);
 
 	[[nodiscard]] bool handleEvent(const SDL_Event& ev);
 
+	[[nodiscard]] COMMAND_LINE_ARGUMENT_A* args();
+	[[nodiscard]] size_t argsCount() const;
+
+	[[nodiscard]] static int argumentHandler(const COMMAND_LINE_ARGUMENT_A* arg, void* custom);
+
   private:
+	[[nodiscard]] bool resizeToScale(SdlWindow* window);
 	[[nodiscard]] bool useLocalScale() const;
 
 	[[nodiscard]] static BOOL preConnect(freerdp* instance);
@@ -228,4 +235,5 @@ class SdlContext
 	uint32_t _windowHeigth = 0;
 	WinPREvent _windowsCreatedEvent;
 	std::thread _thread;
+	std::vector<COMMAND_LINE_ARGUMENT_A> _args;
 };

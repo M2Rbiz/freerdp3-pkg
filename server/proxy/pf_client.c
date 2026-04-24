@@ -96,21 +96,9 @@ static void pf_client_on_error_info(void* ctx, const ErrorInfoEventArgs* e)
 	}
 }
 
-static void pf_client_on_activated(void* ctx, WINPR_ATTR_UNUSED const ActivatedEventArgs* e)
+static void pf_client_on_activated(WINPR_ATTR_UNUSED void* ctx,
+                                   WINPR_ATTR_UNUSED const ActivatedEventArgs* e)
 {
-	pClientContext* pc = (pClientContext*)ctx;
-	pServerContext* ps = nullptr;
-	freerdp_peer* peer = nullptr;
-
-	WINPR_ASSERT(pc);
-	WINPR_ASSERT(pc->pdata);
-	WINPR_ASSERT(e);
-
-	ps = pc->pdata->ps;
-	WINPR_ASSERT(ps);
-	peer = ps->context.peer;
-	WINPR_ASSERT(peer);
-	WINPR_ASSERT(peer->context);
 }
 
 WINPR_ATTR_NODISCARD
@@ -744,16 +732,15 @@ static BOOL pf_client_connect(freerdp* instance)
 	settings = instance->context->settings;
 	WINPR_ASSERT(settings);
 
-	PROXY_LOG_INFO(TAG, pc, "connecting using client info: Username: %s, Domain: %s",
-	               freerdp_settings_get_string(settings, FreeRDP_Username),
-	               freerdp_settings_get_string(settings, FreeRDP_Domain));
-
 	if (!pf_client_set_security_settings(pc))
 		return FALSE;
 
 	if (pf_client_should_retry_without_nla(pc))
 		retry = pc->allow_next_conn_failure = TRUE;
 
+	PROXY_LOG_INFO(TAG, pc, "connecting using client info: Username: %s, Domain: %s",
+	               freerdp_settings_get_string(settings, FreeRDP_Username),
+	               freerdp_settings_get_string(settings, FreeRDP_Domain));
 	PROXY_LOG_INFO(TAG, pc, "connecting using security settings: rdp=%d, tls=%d, nla=%d",
 	               freerdp_settings_get_bool(settings, FreeRDP_RdpSecurity),
 	               freerdp_settings_get_bool(settings, FreeRDP_TlsSecurity),

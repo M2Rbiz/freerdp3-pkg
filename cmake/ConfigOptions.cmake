@@ -53,7 +53,7 @@ option(WITH_SAMPLE "Build sample code" ON)
 
 option(WITH_CLIENT_COMMON "Build client common library" ON)
 cmake_dependent_option(WITH_CLIENT "Build client binaries" ON "WITH_CLIENT_COMMON" OFF)
-cmake_dependent_option(WITH_CLIENT_SDL "[experimental] Build SDL client " ON "WITH_CLIENT" OFF)
+cmake_dependent_option(WITH_CLIENT_SDL "Build SDL client " ON "WITH_CLIENT" OFF)
 
 option(WITH_SERVER "Build server binaries" ON)
 
@@ -140,6 +140,7 @@ option(WITH_CLANG_FORMAT "Detect clang-format. run 'cmake --build . --target cla
 
 option(WITH_DSP_EXPERIMENTAL "Enable experimental sound encoder/decoder formats" OFF)
 
+option(WITH_GFX_AV1 "[experimental,unstable ABI/API] Enable AV1 support for GFX channel encoding/decoding" OFF)
 option(WITH_FFMPEG "Enable FFMPEG for audio/video encoding/decoding" ON)
 cmake_dependent_option(WITH_DSP_FFMPEG "Use FFMPEG for audio encoding/decoding" ON "WITH_FFMPEG" OFF)
 cmake_dependent_option(WITH_VIDEO_FFMPEG "Use FFMPEG for video encoding/decoding" ON "WITH_FFMPEG" OFF)
@@ -148,6 +149,9 @@ cmake_dependent_option(
   WITH_VAAPI_H264_ENCODING "[experimental] Use FFMPEG VAAPI hardware H264 encoding" ON "WITH_VIDEO_FFMPEG" OFF
 )
 if(WITH_VAAPI_H264_ENCODING)
+  include(WarnExperimental)
+  warn_experimental("VAAPI H264 encoding" "-DWITH_VAAPI_H264_ENCODING=OFF")
+
   add_definitions("-DWITH_VAAPI_H264_ENCODING")
 endif()
 

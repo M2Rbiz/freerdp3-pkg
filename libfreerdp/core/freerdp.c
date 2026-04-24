@@ -790,7 +790,7 @@ static wEventType FreeRDP_Events[] = {
 	DEFINE_EVENT_ENTRY(ConnectionResult),    DEFINE_EVENT_ENTRY(ChannelConnected),
 	DEFINE_EVENT_ENTRY(ChannelDisconnected), DEFINE_EVENT_ENTRY(MouseEvent),
 	DEFINE_EVENT_ENTRY(Activated),           DEFINE_EVENT_ENTRY(Timer),
-	DEFINE_EVENT_ENTRY(GraphicsReset)
+	DEFINE_EVENT_ENTRY(GraphicsReset),       DEFINE_EVENT_ENTRY(UserNotification)
 };
 
 /** Allocator function for a rdp context.
@@ -1321,7 +1321,9 @@ UINT32 freerdp_get_nla_sspi_error(const rdpContext* context)
 	WINPR_ASSERT(context->rdp);
 	WINPR_ASSERT(context->rdp->transport);
 
-	rdpNla* nla = transport_get_nla(context->rdp->transport);
+	rdpNla* nla = context->rdp->nla;
+	if (!nla)
+		nla = transport_get_nla(context->rdp->transport);
 	return (UINT32)nla_get_sspi_error(nla);
 }
 

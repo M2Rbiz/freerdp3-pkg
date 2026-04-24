@@ -48,6 +48,12 @@ set(CODEC_SRCS
     video.c
 )
 
+if(WITH_GFX_AV1)
+  include(WarnExperimental)
+  warn_experimental("AV1 codec support for GFX channel" "-DWITH_GFX_AV1=OFF")
+  list(APPEND CODEC_SRCS av1.c)
+endif()
+
 set(CODEC_SSE3_SRCS sse/rfx_sse2.c sse/rfx_sse2.h sse/nsc_sse2.c sse/nsc_sse2.h)
 
 set(CODEC_NEON_SRCS neon/rfx_neon.c neon/rfx_neon.h neon/nsc_neon.c neon/nsc_neon.h)
@@ -107,6 +113,20 @@ if(FAAC_FOUND)
   freerdp_pc_add_requires_private("faac")
 endif()
 
+if(WITH_AOM AND AOM_FOUND)
+  add_compile_definitions(WITH_LIBAOM)
+  list(APPEND CODEC_LIBS ${AOM_LIBRARIES})
+  include_directories(SYSTEM ${AOM_INCLUDE_DIRS})
+  freerdp_pc_add_requires_private("aom")
+endif()
+
+if(WITH_YUV AND YUV_FOUND)
+  add_compile_definitions(WITH_LIBYUV)
+  list(APPEND CODEC_LIBS ${YUV_LIBRARIES})
+  include_directories(SYSTEM ${YUV_INCLUDE_DIRS})
+  freerdp_pc_add_requires_private("yuv")
+endif()
+
 if(WITH_OPENH264)
   set(CODEC_SRCS ${CODEC_SRCS} h264_openh264.c)
   include_directories(SYSTEM ${OPENH264_INCLUDE_DIR})
@@ -124,7 +144,17 @@ if(WITH_SWSCALE)
   endif(WITH_SWSCALE_LOADING)
 endif()
 
+if(WITH_DSP_EXPERIMENTAL)
+  include(WarnExperimental)
+  warn_experimental("Experimental encoders/decoders for audio channels" "-DWITH_DSP_EXPERIMENTAL=OFF")
+endif()
+
 if(WITH_VIDEO_FFMPEG)
+  if(WITH_VAAPI)
+    include(WarnExperimental)
+    warn_experimental("VAAPI encoder/decoder support for FFMPEG" "-DWITH_VAAPI=OFF")
+  endif()
+
   set(CODEC_SRCS ${CODEC_SRCS} h264_ffmpeg.c)
   include_directories(SYSTEM ${FFMPEG_INCLUDE_DIRS})
   list(APPEND CODEC_LIBS ${FFMPEG_LIBRARIES})
@@ -132,10 +162,14 @@ if(WITH_VIDEO_FFMPEG)
 endif()
 
 if(WIN32 AND WITH_MEDIA_FOUNDATION)
+  include(WarnExperimental)
+  warn_experimental("Experimental encoders/decoders for H264" "-DWITH_MEDIA_FOUNDATION=OFF")
   set(CODEC_SRCS ${CODEC_SRCS} h264_mf.c)
 endif()
 
 if(ANDROID AND WITH_MEDIACODEC)
+  include(WarnExperimental)
+  warn_experimental("Experimental encoders/decoders for H264" "-DWITH_MEDIACODEC=OFF")
   list(APPEND CODEC_SRCS h264_mediacodec.c)
 
   find_library(MEDIACODEC mediandk REQUIRED)
