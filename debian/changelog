@@ -1,3 +1,12 @@
+freerdp3 (3.25.0+dfsg-1) unstable; urgency=medium
+
+  * new upstream release, with the following fixes:
+    CVE-2026-40254 drive channel path traversal via terminal ..
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-3xpj-m4hx-8vmx
+  * update .symbols files (add new symbols, and drop +dfsg-1 from existing)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 24 Apr 2026 21:30:05 +0300
+
 freerdp3 (3.24.2+dfsg-1) unstable; urgency=medium
 
   * new upstream bugfix/security release:
