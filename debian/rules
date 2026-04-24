@@ -80,6 +80,8 @@ ifneq (,$(filter linux,$(DEB_HOST_ARCH_OS)))
         -DWITH_VAAPI_H264_ENCODING=ON \
         -DCHANNEL_RDPECAM=ON \
         -DCHANNEL_RDPECAM_CLIENT=ON \
+        -DCHANNEL_RDPEWA=ON \
+        -DCHANNEL_RDPEWA_CLIENT=ON \
         -DWITH_SSO_MIB=ON \
         $(empty)
 else
