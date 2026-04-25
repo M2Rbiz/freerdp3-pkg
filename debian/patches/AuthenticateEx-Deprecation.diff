@@ -1,0 +1,31 @@
+Subject: AuthenticateEx Deprecation
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Sat, 25 Apr 2026 19:04:15 +0300
+Forwarded: yes
+
+3.25 introduced deprecation of rdp_freerdp->Authenticate field in
+favour of AuthenticateEx, but used the wrong condition, causing build
+regression of other apps (gnome-remote-desktop for one).
+
+diff --git a/include/freerdp/freerdp.h b/include/freerdp/freerdp.h
+index 5c40d7e05..62f7402c8 100644
+--- a/include/freerdp/freerdp.h
++++ b/include/freerdp/freerdp.h
+@@ -504,7 +504,7 @@ owned by rdpRdp */
+ 		              Can be set before calling freerdp_connect() to have it executed after the
+ 		              actual connection has succeeded. Must be set to nullptr if not needed. */
+ 
+-#if defined(WITH_FREERDP_DEPRECATED)
++#if defined(WITH_FREERDP_3x_DEPRECATED)
+ 		WINPR_DEPRECATED_VAR("[since 3.25.0] Use AuthenticateEx instead",
+ 		                     WINPR_ATTR_NODISCARD ALIGN64 pAuthenticate
+ 		                         Authenticate); /**< (offset 50)
+@@ -537,7 +537,7 @@ owned by rdpRdp */
+ 		                       This will be called before disconnecting and cleaning up the
+ 		                       channels.
+  */
+-#if defined(WITH_FREERDP_DEPRECATED)
++#if defined(WITH_FREERDP_3x_DEPRECATED)
+ 		WINPR_DEPRECATED_VAR("[since 3.25.0] Use AuthenticateEx instead",
+ 		                     WINPR_ATTR_NODISCARD ALIGN64 pAuthenticate
+ 		                         GatewayAuthenticate); /**< (offset 56)
