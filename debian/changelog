@@ -1,3 +1,9 @@
+freerdp3 (3.25.0+dfsg-2) unstable; urgency=medium
+
+  * AuthenticateEx-Deprecation.diff: fix wrong deprecation condition
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 25 Apr 2026 19:06:48 +0300
+
 freerdp3 (3.25.0+dfsg-1) unstable; urgency=medium
 
   * new upstream release, with the following fixes:
