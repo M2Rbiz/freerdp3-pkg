@@ -1,3 +1,10 @@
+freerdp3 (3.25.0+dfsg-3) unstable; urgency=medium
+
+  [ Luca Boccassi ]
+  * Enable FIDO2/WebAuthN passthrough
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 25 Apr 2026 19:30:01 +0300
+
 freerdp3 (3.25.0+dfsg-2) unstable; urgency=medium
 
   * AuthenticateEx-Deprecation.diff: fix wrong deprecation condition
