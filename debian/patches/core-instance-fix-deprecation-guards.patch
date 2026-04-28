@@ -1,0 +1,78 @@
+From: Armin Novak <armin.novak@thincast.com>
+Date: Sun, 26 Apr 2026 18:10:17 +0200
+Subject: [core,instance] fix deprecation guards
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/pull/12677/changes/8b9c63163b88a2f93ef30f9d57c5f07ee44bcec5
+Forwarded: not-needed
+
+Call deprecated callbacks if WITHOUT_FREERDP_3x_DEPRECATED is not
+defined.
+---
+ libfreerdp/core/utils.c | 8 ++++----
+ libfreerdp/crypto/tls.c | 4 ++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/libfreerdp/core/utils.c b/libfreerdp/core/utils.c
+index 2ad92b428..0d189b1af 100644
+--- a/libfreerdp/core/utils.c
++++ b/libfreerdp/core/utils.c
+@@ -94,7 +94,7 @@ auth_status utils_authenticate_gateway(freerdp* instance, rdp_auth_reason reason
+ 		return AUTH_SKIP;
+ 	}
+ 
+-#if !defined(WITH_FREERDP_DEPRECATED)
++#if defined(WITHOUT_FREERDP_3x_DEPRECATED)
+ 	if (!instance->AuthenticateEx)
+ 		return AUTH_NO_CREDENTIALS;
+ #else
+@@ -110,7 +110,7 @@ auth_status utils_authenticate_gateway(freerdp* instance, rdp_auth_reason reason
+ 		if (!proceed)
+ 			return AUTH_CANCELLED;
+ 	}
+-#if defined(WITH_FREERDP_DEPRECATED)
++#if !defined(WITHOUT_FREERDP_3x_DEPRECATED)
+ 	else
+ 	{
+ 		proceed =
+@@ -198,7 +198,7 @@ auth_status utils_authenticate(freerdp* instance, rdp_auth_reason reason, BOOL o
+ 	}
+ 
+ 	/* If no callback is specified still continue connection */
+-#if !defined(WITH_FREERDP_DEPRECATED)
++#if defined(WITHOUT_FREERDP_3x_DEPRECATED)
+ 	if (!instance->AuthenticateEx)
+ 		return AUTH_NO_CREDENTIALS;
+ #else
+@@ -212,7 +212,7 @@ auth_status utils_authenticate(freerdp* instance, rdp_auth_reason reason, BOOL o
+ 		if (!proceed)
+ 			return AUTH_CANCELLED;
+ 	}
+-#if defined(WITH_FREERDP_DEPRECATED)
++#if !defined(WITHOUT_FREERDP_3x_DEPRECATED)
+ 	else
+ 	{
+ 		proceed = instance->Authenticate(instance, &settings->Username, &settings->Password,
+diff --git a/libfreerdp/crypto/tls.c b/libfreerdp/crypto/tls.c
+index 685e9d683..33a8faade 100644
+--- a/libfreerdp/crypto/tls.c
++++ b/libfreerdp/crypto/tls.c
+@@ -1864,7 +1864,7 @@ int tls_verify_certificate(rdpTls* tls, const rdpCertificate* cert, const char*
+ 					if (!use_pem)
+ 						free(fp);
+ 				}
+-#if defined(WITH_FREERDP_DEPRECATED)
++#if !defined(WITHOUT_FREERDP_3x_DEPRECATED)
+ 				else if (instance->VerifyCertificate)
+ 				{
+ 					char* fp = freerdp_certificate_get_fingerprint(cert);
+@@ -1939,7 +1939,7 @@ int tls_verify_certificate(rdpTls* tls, const rdpCertificate* cert, const char*
+ 					if (fpIsAllocated)
+ 						free(fp);
+ 				}
+-#if defined(WITH_FREERDP_DEPRECATED)
++#if !defined(WITHOUT_FREERDP_3x_DEPRECATED)
+ 				else if (instance->VerifyChangedCertificate)
+ 				{
+ 					char* fp = freerdp_certificate_get_fingerprint(cert);
+-- 
+2.47.3
+

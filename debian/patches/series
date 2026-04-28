@@ -1,1 +1,2 @@
 AuthenticateEx-Deprecation.diff
+core-instance-fix-deprecation-guards.patch
