@@ -210,7 +210,7 @@ Depends:
  libfreerdp3-3 (= ${binary:Version}),
  libwinpr3-dev (= ${binary:Version}),
  libwinpr3-3 (= ${binary:Version}),
- libfuse3-dev,
+ libfuse3-dev [linux-any],
  winpr-utils (= ${binary:Version}),
  ${misc:Depends},
 Description: Free Remote Desktop Protocol library (development files)
