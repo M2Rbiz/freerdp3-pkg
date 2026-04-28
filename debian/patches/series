@@ -1,2 +1,4 @@
 AuthenticateEx-Deprecation.diff
 core-instance-fix-deprecation-guards.patch
+cmake-deps-use-alias-target-for-sso-mib.patch
+client-common-link-helper-libraries-private.patch
