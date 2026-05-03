@@ -100,3 +100,6 @@ codec-clear-Update-CLEAR_GLYPH_ENTRY-count-after-all-CVE-2026-33985.patch
 codec-h264-update-H264_CONTEXT-width-height-after-al-CVE-2026-33986.patch
 cache-persistent-update-PERSISTENT_CACHE_ENTRY-size--CVE-2026-33987.patch
 cache-persist-use-winpr_aligned_calloc-CVE-2026-33982.patch
+# 3.25.0:
+clang-warnings-fix-Wjump-misses-init.patch
+channels-drive-refine-bounds-checks-CVE-2026-40254.patch
