@@ -1,3 +1,15 @@
+freerdp3 (3.26.0+dfsg-1) unstable; urgency=medium
+
+  * new upstream release, with 3 High ranking CVE (no numbers assigned yet)
+  * d/copyright: remove Files-Excluded: scripts/android-*
+  * d/patches/: remove
+  * d/control,d/rules: drop sdl2 support (pkg.freerdp3.sdl2 build profile)
+  * d/rules: -DWITH_INTERNAL_MD4=ON (enable internal md4),
+    due to libssl/libcrypto does not provide it (anymore?)
+  * d/libfreerdp-client3-3.symbols: add new symbol
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 06 May 2026 12:32:12 +0300
+
 freerdp3 (3.25.0+dfsg-5) unstable; urgency=medium
 
   * core-instance-fix-deprecation-guards.patch: another fix
