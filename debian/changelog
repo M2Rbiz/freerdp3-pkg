@@ -1,3 +1,15 @@
+freerdp3 (3.15.0+dfsg-2.1+deb13u3) trixie; urgency=medium
+
+  * security fix from 3.25.0:
+
+    CVE-2026-40254 off-by-one in the path traversal filter in
+      channels/drive/client/drive_file.c:contains_dotdot()
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-3xpj-m4hx-8vmx
+      clang-warnings-fix-Wjump-misses-init.patch
+      channels-drive-refine-bounds-checks-CVE-2026-40254.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 06 May 2026 11:13:18 +0300
+
 freerdp3 (3.15.0+dfsg-2.1+deb13u2) trixie; urgency=medium
 
   * security fixes for client from 3.24.0 (medium):
