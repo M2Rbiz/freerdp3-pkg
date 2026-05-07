@@ -32,7 +32,7 @@ Build-Depends-Arch:
  libpulse-dev,
  libsdl3-dev, libsdl3-image-dev, libsdl3-ttf-dev,
  libssl-dev,
- libsso-mib-dev [linux-any],
+ libsso-mib-dev [!i386 !hurd-any],
  libv4l-dev [linux-any],
  libswresample-dev,
  libsystemd-dev [linux-any],
