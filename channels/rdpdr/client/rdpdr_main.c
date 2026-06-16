@@ -1474,7 +1474,7 @@ static UINT rdpdr_send_device_list_announce_request(rdpdrPlugin* rdpdr, BOOL use
 	Stream_Seek_UINT32(s); /* deviceCount */
 
 	arg.rdpdr = rdpdr;
-	arg.userLoggedOn = userLoggedOn;
+	arg.userLoggedOn = userLoggedOn || rdpdr->userLoggedOn;
 	arg.s = s;
 	if (!device_foreach(rdpdr, TRUE, device_announce, &arg))
 		return ERROR_INVALID_DATA;
@@ -1643,7 +1643,16 @@ static UINT rdpdr_process_init(rdpdrPlugin* rdpdr)
 	WINPR_ASSERT(rdpdr->devman);
 
 	rdpdr->userLoggedOn = FALSE; /* reset possible received state */
-	if (!device_foreach(rdpdr, TRUE, device_init, rdpdr->log))
+
+	/* windows servers tend to trail off if pending IRP are completed after a
+	 * PAKID_CORE_SERVER_ANNOUNCE message was received.
+	 * So, set rdpdr->clearing and discard all response messages triggered by
+	 * cancelling the pending requests.
+	 */
+	rdpdr->clearing = TRUE;
+	BOOL rc = device_foreach(rdpdr, TRUE, device_init, rdpdr->log);
+	rdpdr->clearing = FALSE;
+	if (!rc)
 		return ERROR_INTERNAL_ERROR;
 	return CHANNEL_RC_OK;
 }
@@ -1743,17 +1752,20 @@ static BOOL rdpdr_check_channel_state(rdpdrPlugin* rdpdr, UINT16 packetid)
 	}
 }
 
-static BOOL tryAdvance(rdpdrPlugin* rdpdr)
+static BOOL tryAdvance(rdpdrPlugin* rdpdr, BOOL announce)
 {
 	if (rdpdr->haveClientId && rdpdr->haveServerCaps)
 	{
-		const UINT error = rdpdr_send_device_list_announce_request(rdpdr, FALSE);
-		if (error)
+		if (announce)
 		{
-			WLog_Print(rdpdr->log, WLOG_ERROR,
-			           "rdpdr_send_device_list_announce_request failed with error %" PRIu32 "",
-			           error);
-			return FALSE;
+			const UINT error = rdpdr_send_device_list_announce_request(rdpdr, FALSE);
+			if (error)
+			{
+				WLog_Print(rdpdr->log, WLOG_ERROR,
+				           "rdpdr_send_device_list_announce_request failed with error %" PRIu32 "",
+				           error);
+				return FALSE;
+			}
 		}
 		if (!rdpdr_state_advance(rdpdr, RDPDR_CHANNEL_STATE_READY))
 			return FALSE;
@@ -1829,7 +1841,7 @@ static UINT rdpdr_process_receive(rdpdrPlugin* rdpdr, wStream* s)
 					else
 					{
 						rdpdr->haveServerCaps = TRUE;
-						if (!tryAdvance(rdpdr))
+						if (!tryAdvance(rdpdr, TRUE))
 							error = ERROR_INTERNAL_ERROR;
 					}
 
@@ -1842,7 +1854,7 @@ static UINT rdpdr_process_receive(rdpdrPlugin* rdpdr, wStream* s)
 					else
 					{
 						rdpdr->haveClientId = TRUE;
-						if (!tryAdvance(rdpdr))
+						if (!tryAdvance(rdpdr, TRUE))
 							error = ERROR_INTERNAL_ERROR;
 					}
 					break;
@@ -1863,7 +1875,7 @@ static UINT rdpdr_process_receive(rdpdrPlugin* rdpdr, wStream* s)
 						    "rdpdr_send_device_list_announce_request failed with error %" PRIu32 "",
 						    error);
 					}
-					else if (!tryAdvance(rdpdr))
+					else if (!tryAdvance(rdpdr, FALSE))
 					{
 						error = ERROR_INTERNAL_ERROR;
 					}
@@ -1940,6 +1952,11 @@ UINT rdpdr_send(rdpdrPlugin* rdpdr, wStream* s)
 {
 	rdpdrPlugin* plugin = rdpdr;
 
+	if (rdpdr->clearing)
+	{
+		WLog_ERR(TAG, "trying to send message while reinitializing channel, aborting");
+		return ERROR_INTERNAL_ERROR;
+	}
 	if (!s)
 	{
 		Stream_Release(s);

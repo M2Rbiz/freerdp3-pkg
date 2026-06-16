@@ -155,6 +155,7 @@ HttpContext* http_context_new(void)
 
 		key->fnObjectFree = winpr_ObjectStringFree;
 		key->fnObjectNew = winpr_ObjectStringClone;
+		key->fnObjectEquals = strings_equals_nocase;
 		value->fnObjectFree = winpr_ObjectStringFree;
 		value->fnObjectNew = winpr_ObjectStringClone;
 	}
@@ -319,22 +320,6 @@ BOOL http_context_append_pragma(HttpContext* context, const char* Pragma, ...)
 	va_list ap = WINPR_C_ARRAY_INIT;
 	va_start(ap, Pragma);
 	return list_append(context, Pragma, ap);
-}
-
-static char* guid2str(const GUID* guid, char* buffer, size_t len)
-{
-	if (!guid)
-		return nullptr;
-	RPC_CSTR strguid = nullptr;
-
-	RPC_STATUS rpcStatus = UuidToStringA(guid, &strguid);
-
-	if (rpcStatus != RPC_S_OK)
-		return nullptr;
-
-	(void)sprintf_s(buffer, len, "{%s}", strguid);
-	RpcStringFreeA(&strguid);
-	return buffer;
 }
 
 BOOL http_context_set_rdg_connection_id(HttpContext* context, const GUID* RdgConnectionId)
@@ -594,12 +579,10 @@ static BOOL write_headers(const void* pkey, void* pvalue, void* arg)
 
 wStream* http_request_write(HttpContext* context, HttpRequest* request)
 {
-	wStream* s = nullptr;
-
 	if (!context || !request)
 		return nullptr;
 
-	s = Stream_New(nullptr, 1024);
+	wStream* s = Stream_New(nullptr, 1024);
 
 	if (!s)
 		return nullptr;
