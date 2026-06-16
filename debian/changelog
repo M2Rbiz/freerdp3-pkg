@@ -1,6 +1,20 @@
 freerdp3 (3.26.0+dfsg-1) unstable; urgency=medium
 
-  * new upstream release, with 3 High ranking CVE (no numbers assigned yet)
+  * new upstream release, with 3 High ranking vulnerability fixes:
+    CVE-2026-44420 FreeRDP cliprdr server heap-buffer-overflow
+      via undersized capabilitySetLength in CB_CLIP_CAPS
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-mvpx-xj7r-3p3r
+    FreeRDP RDPGFX CacheToSurface heap-buffer-overflow via
+      clamped-rectangle validation bypass
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-p6r2-4hgm-m6ff
+    CVE-2026-45700 Heap-buffer-overflow write in planar bitmap decoder
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-mpxh-8fq3-x8mh
+    Use After Free and Concurrent Execution using Shared Resource with
+      Improper Synchronization ('Race Condition') in FreeRDP
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-3mv2-5q57-2v8h
+    FreeRDP RDPEAR NDR ref-id aliasing causes client-side UAF/double-free
+      and type confusion
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-j9q5-7g8m-jc9v
   * d/copyright: remove Files-Excluded: scripts/android-*
   * d/patches/: remove
   * d/control,d/rules: drop sdl2 support (pkg.freerdp3.sdl2 build profile)
@@ -106,7 +120,7 @@ freerdp3 (3.24.0+dfsg-1) unstable; urgency=medium
     CVE-2026-31885 Out-of-bounds read in ADPCM decoders
       due to missing predictor/step_index bounds checks
       https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-h23r-3988-3wf3
-    CVE-2026-31897 Out-of-bounds read in `freerdp_bitmap_decompress_planar` 
+    CVE-2026-31897 Out-of-bounds read in `freerdp_bitmap_decompress_planar`
       https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-xgv6-r22m-7c9x
   * d/libfreerdp3-3.symbols,d/libwinpr3-3.symbols: add new symbols
   * d/libfreerdp-client3-3.symbols: REMOVE unused symbols
