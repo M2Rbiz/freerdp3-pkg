@@ -288,6 +288,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  GetFileSize@Base 3.0.0
  GetHandleInformation@Base 3.0.0
  GetKeycodeFromVirtualKeyCode@Base 3.0.0
+ GetKeycodesFromVirtualKeyCode@Base 3.27.0
  GetKnownPath@Base 3.0.0
  GetKnownPathIdString@Base 3.0.0
  GetKnownSubPath@Base 3.0.0
@@ -344,6 +345,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  GetVirtualKeyCodeFromXkbKeyName@Base 3.0.0
  GetVirtualKeyName@Base 3.0.0
  GetVirtualScanCodeFromVirtualKeyCode@Base 3.0.0
+ GetVirtualScanCodesFromVirtualKeyCode@Base 3.27.0
  HashTable_Clear@Base 3.0.0
  HashTable_Contains@Base 3.0.0
  HashTable_ContainsKey@Base 3.0.0

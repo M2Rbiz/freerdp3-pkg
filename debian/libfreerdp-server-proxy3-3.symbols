@@ -27,6 +27,8 @@ libfreerdp-server-proxy3.so.3 libfreerdp-server-proxy3-3 #MINVER#
  pf_server_stop@Base 3.0.0
  proxy_data_abort_connect@Base 3.0.0
  proxy_data_free@Base 3.0.0
+ proxy_data_get_client_context@Base 3.27.0
+ proxy_data_get_server_context@Base 3.27.0
  proxy_data_new@Base 3.0.0
  proxy_data_set_client_context@Base 3.0.0
  proxy_data_set_server_context@Base 3.0.0

@@ -358,6 +358,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_device_collection_free@Base 3.0.0
  freerdp_device_equal@Base 3.0.0
  freerdp_device_free@Base 3.0.0
+ freerdp_device_get_args@Base 3.27.0
  freerdp_device_new@Base 3.0.0
  freerdp_disconnect@Base 3.0.0
  freerdp_disconnect_before_reconnect@Base 3.0.0
@@ -773,6 +774,9 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  rail_read_unicode_string@Base 3.0.0
  rdp_cluster_info_flags_to_string@Base 3.0.0
  rdp_redirection_flags_to_string@Base 3.0.0
+ rdp_stats_max_index@Base 3.27.0
+ rdp_stats_name_for_index@Base 3.27.0
+ rdp_stats_value_for_index@Base 3.27.0
  rdp_update_lock@Base 3.0.0
  rdp_update_unlock@Base 3.0.0
  rdpdr_cap_type_string@Base 3.0.0
@@ -787,6 +791,8 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  rdpdr_read_capset_header@Base 3.0.0
  rdpdr_write_capset_header@Base 3.0.0
  rdpdr_write_iocompletion_header@Base 3.0.0
+ rdpgfx_caps_flag_str@Base 3.27.0
+ rdpgfx_caps_flags_str@Base 3.27.0
  rdpgfx_caps_version_str@Base 3.9.0
  rdpgfx_get_cmd_id_string@Base 3.0.0
  rdpgfx_get_codec_id_string@Base 3.0.0
