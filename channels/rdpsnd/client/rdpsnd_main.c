@@ -456,7 +456,7 @@ static UINT rdpsnd_recv_wave_info_pdu(rdpsndPlugin* rdpsnd, wStream* s, UINT16 B
 	WINPR_ASSERT(rdpsnd);
 	WINPR_ASSERT(s);
 
-	if (!Stream_CheckAndLogRequiredLength(TAG, s, 12))
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 12) || (BodySize < 8))
 		return ERROR_BAD_LENGTH;
 
 	rdpsnd->wArrivalTime = GetTickCount64();
@@ -700,7 +700,7 @@ static UINT rdpsnd_recv_wave2_pdu(rdpsndPlugin* rdpsnd, wStream* s, UINT16 BodyS
 	AUDIO_FORMAT* format = nullptr;
 	UINT32 dwAudioTimeStamp = 0;
 
-	if (!Stream_CheckAndLogRequiredLength(TAG, s, 12))
+	if (!Stream_CheckAndLogRequiredLength(TAG, s, 12) || (BodySize < 12))
 		return ERROR_BAD_LENGTH;
 
 	Stream_Read_UINT16(s, rdpsnd->wTimeStamp);
@@ -870,10 +870,11 @@ static UINT rdpsnd_load_device_plugin(rdpsndPlugin* rdpsnd, const char* name,
 
 	error = entry(&entryPoints);
 	if (error)
-		WLog_ERR(TAG, "%s %s entry returns error %" PRIu32 "", rdpsnd_is_dyn_str(rdpsnd->dynamic),
-		         name, error);
+		WLog_WARN(TAG, "%s %s entry returns error %" PRIu32 "", rdpsnd_is_dyn_str(rdpsnd->dynamic),
+		          name, error);
+	else
+		WLog_INFO(TAG, "%s Loaded %s backend for rdpsnd", rdpsnd_is_dyn_str(rdpsnd->dynamic), name);
 
-	WLog_INFO(TAG, "%s Loaded %s backend for rdpsnd", rdpsnd_is_dyn_str(rdpsnd->dynamic), name);
 	return error;
 }
 
@@ -1084,10 +1085,10 @@ static UINT rdpsnd_process_connect(rdpsndPlugin* rdpsnd)
 			const char* device_name = backends[x].device;
 
 			if ((status = rdpsnd_load_device_plugin(rdpsnd, subsystem_name, args)))
-				WLog_ERR(TAG,
-				         "%s Unable to load sound playback subsystem %s because of error %" PRIu32
-				         "",
-				         rdpsnd_is_dyn_str(rdpsnd->dynamic), subsystem_name, status);
+				WLog_WARN(TAG,
+				          "%s Unable to load sound playback subsystem %s because of error %" PRIu32
+				          "",
+				          rdpsnd_is_dyn_str(rdpsnd->dynamic), subsystem_name, status);
 
 			if (!rdpsnd->device)
 				continue;

@@ -324,10 +324,32 @@ BOOL rdp_client_connect(rdpRdp* rdp)
 
 	/* FIPS Mode forces the following and overrides the following(by happening later
 	 * in the command line processing):
-	 * 1. Forces the only supported RDP encryption method to be FIPS. */
+	 * 1. Forces the only supported RDP encryption method to be FIPS.
+	 * 2. Disables NTLM authentication (not FIPS compliant due to MD4/RC4).
+	 * 3. Disables RDP Security if 3DES is not available in the crypto provider. */
 	if (settings->FIPSMode || winpr_FIPSMode())
 	{
+
 		settings->EncryptionMethods = ENCRYPTION_METHOD_FIPS;
+
+		if (!settings->AuthenticationPackageList)
+		{
+			if (!freerdp_settings_set_string(settings, FreeRDP_AuthenticationPackageList, "!ntlm"))
+				return FALSE;
+		}
+
+		const BYTE key[WINPR_CIPHER_MAX_KEY_LENGTH] = WINPR_C_ARRAY_INIT;
+		const BYTE iv[WINPR_CIPHER_MAX_IV_LENGTH] = WINPR_C_ARRAY_INIT;
+		WINPR_CIPHER_CTX* ctx = winpr_Cipher_NewEx(WINPR_CIPHER_DES_EDE3_CBC, WINPR_ENCRYPT, key,
+		                                           sizeof(key), iv, sizeof(iv));
+		if (ctx)
+		{
+			winpr_Cipher_Free(ctx);
+		}
+		else
+		{
+			settings->RdpSecurity = FALSE;
+		}
 	}
 
 	UINT32 TcpConnectTimeout = freerdp_settings_get_uint32(settings, FreeRDP_TcpConnectTimeout);
@@ -2105,6 +2127,21 @@ CONNECTION_STATE rdp_get_state(const rdpRdp* rdp)
 BOOL rdp_set_state(rdpRdp* rdp, CONNECTION_STATE state)
 {
 	WINPR_ASSERT(rdp);
+
+	rdpContext* context = rdp->context;
+	WINPR_ASSERT(context);
+
+	if (context->pubSub)
+	{
+		StateChangedEventArgs e = WINPR_C_ARRAY_INIT;
+		EventArgsInit(&e, "freerdp");
+		e.oldState = rdp->state;
+		e.newState = state;
+
+		const int rc = PubSub_OnStateChanged(context->pubSub, context, &e);
+		if (rc < 0)
+			WLog_WARN(TAG, "PubSub_OnStateChanged() failed");
+	}
 	rdp->state = state;
 	return TRUE;
 }
@@ -2181,6 +2218,8 @@ state_run_t rdp_client_connect_confirm_active(rdpRdp* rdp, WINPR_ATTR_UNUSED wSt
 		WLog_DBG(TAG, "new size %" PRIu32 "x%" PRIu32, rdp->settings->DesktopWidth,
 		         rdp->settings->DesktopHeight);
 
+		rdp_update_internal* up = update_cast(rdp->update);
+		up->stats.base[RDP_STATS_RESIZE]++;
 		IFCALLRET(rdp->update->DesktopResize, status, rdp->update->context);
 
 		if (!status)

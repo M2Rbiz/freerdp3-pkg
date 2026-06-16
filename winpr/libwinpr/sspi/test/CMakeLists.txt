@@ -12,7 +12,8 @@ set(${MODULE_PREFIX}_TESTS
     TestAcquireCredentialsHandle.c
     TestCredSSP.c
     #TestSchannel.c
-    TestNTLM.c
+    TestSspiNTLM.c
+    TestSspiPasswordHash.c
     TestCredentialZeroing.c
 )
 

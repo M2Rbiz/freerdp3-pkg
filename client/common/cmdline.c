@@ -1903,62 +1903,61 @@ static int evaluate_result(int argc, char* argv[], int rc, rdpSettings* settings
 		}
 	}
 #if defined(WITH_FREERDP_DEPRECATED_COMMANDLINE)
-		arg = CommandLineFindArgumentA(largs, "tune-list");
-		WINPR_ASSERT(arg);
+	arg = CommandLineFindArgumentA(largs, "tune-list");
+	WINPR_ASSERT(arg);
 
-		if (arg->Flags & COMMAND_LINE_ARGUMENT_PRESENT)
-		{
-			WLog_WARN(TAG, "Option /tune-list is deprecated, use /list:tune instead");
-			freerdp_client_print_tune_list(settings);
-		}
+	if (arg->Flags & COMMAND_LINE_ARGUMENT_PRESENT)
+	{
+		WLog_WARN(TAG, "Option /tune-list is deprecated, use /list:tune instead");
+		freerdp_client_print_tune_list(settings);
+	}
 
-		arg = CommandLineFindArgumentA(largs, "kbd-lang-list");
-		WINPR_ASSERT(arg);
+	arg = CommandLineFindArgumentA(largs, "kbd-lang-list");
+	WINPR_ASSERT(arg);
 
-		if (arg->Flags & COMMAND_LINE_ARGUMENT_PRESENT)
-		{
-			WLog_WARN(TAG, "Option /kbd-lang-list is deprecated, use /list:kbd-lang instead");
-			freerdp_client_print_codepages(arg->Value);
-		}
+	if (arg->Flags & COMMAND_LINE_ARGUMENT_PRESENT)
+	{
+		WLog_WARN(TAG, "Option /kbd-lang-list is deprecated, use /list:kbd-lang instead");
+		freerdp_client_print_codepages(arg->Value);
+	}
 
-		arg = CommandLineFindArgumentA(largs, "kbd-list");
-		WINPR_ASSERT(arg);
+	arg = CommandLineFindArgumentA(largs, "kbd-list");
+	WINPR_ASSERT(arg);
 
-		if (arg->Flags & COMMAND_LINE_VALUE_PRESENT)
-		{
-			WLog_WARN(TAG, "Option /kbd-list is deprecated, use /list:kbd instead");
-			freerdp_client_print_keyboard_list();
-		}
+	if (arg->Flags & COMMAND_LINE_VALUE_PRESENT)
+	{
+		WLog_WARN(TAG, "Option /kbd-list is deprecated, use /list:kbd instead");
+		freerdp_client_print_keyboard_list();
+	}
 
-		arg = CommandLineFindArgumentA(largs, "monitor-list");
-		WINPR_ASSERT(arg);
+	arg = CommandLineFindArgumentA(largs, "monitor-list");
+	WINPR_ASSERT(arg);
 
-		if (arg->Flags & COMMAND_LINE_VALUE_PRESENT)
-		{
-			WLog_WARN(TAG, "Option /monitor-list is deprecated, use /list:monitor instead");
-			if (!freerdp_settings_set_bool(settings, FreeRDP_ListMonitors, TRUE))
-				return COMMAND_LINE_ERROR;
-		}
+	if (arg->Flags & COMMAND_LINE_VALUE_PRESENT)
+	{
+		WLog_WARN(TAG, "Option /monitor-list is deprecated, use /list:monitor instead");
+		if (!freerdp_settings_set_bool(settings, FreeRDP_ListMonitors, TRUE))
+			return COMMAND_LINE_ERROR;
+	}
 
-		arg = CommandLineFindArgumentA(largs, "smartcard-list");
-		WINPR_ASSERT(arg);
+	arg = CommandLineFindArgumentA(largs, "smartcard-list");
+	WINPR_ASSERT(arg);
 
-		if (arg->Flags & COMMAND_LINE_VALUE_PRESENT)
-		{
-			WLog_WARN(TAG, "Option /smartcard-list is deprecated, use /list:smartcard instead");
-			freerdp_smartcard_list(settings);
-		}
+	if (arg->Flags & COMMAND_LINE_VALUE_PRESENT)
+	{
+		WLog_WARN(TAG, "Option /smartcard-list is deprecated, use /list:smartcard instead");
+		freerdp_smartcard_list(settings);
+	}
 
-		arg = CommandLineFindArgumentA(largs, "kbd-scancode-list");
-		WINPR_ASSERT(arg);
+	arg = CommandLineFindArgumentA(largs, "kbd-scancode-list");
+	WINPR_ASSERT(arg);
 
-		if (arg->Flags & COMMAND_LINE_VALUE_PRESENT)
-		{
-			WLog_WARN(TAG,
-			          "Option /kbd-scancode-list is deprecated, use /list:kbd-scancode instead");
-			freerdp_client_print_scancodes();
-		    return COMMAND_LINE_STATUS_PRINT;
-	    }
+	if (arg->Flags & COMMAND_LINE_VALUE_PRESENT)
+	{
+		WLog_WARN(TAG, "Option /kbd-scancode-list is deprecated, use /list:kbd-scancode instead");
+		freerdp_client_print_scancodes();
+		return COMMAND_LINE_STATUS_PRINT;
+	}
 #endif
 	    return COMMAND_LINE_STATUS_PRINT;
 }
@@ -2257,9 +2256,18 @@ static int parse_tls_enforce(rdpSettings* settings, const char* Value)
 			}
 		}
 
-		if (!found)
-			return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
-		version = found->version;
+		if (found)
+			version = found->version;
+		else
+		{
+			errno = 0;
+			const long v = strtol(Value, nullptr, 0);
+
+			if ((v < -1) || ((v == LONG_MAX) && (errno != 0)) || (v > UINT16_MAX))
+				return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
+			else
+				version = WINPR_ASSERTING_INT_CAST(UINT16, v);
+		}
 	}
 
 	if (!(freerdp_settings_set_uint16(settings, FreeRDP_TLSMinVersion, version) &&
@@ -2675,8 +2683,6 @@ static int parse_redirect_prefer_options(rdpSettings* settings, const COMMAND_LI
 	char* cur = arg->Value;
 	if (!arg->Value)
 		return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
-	if (!freerdp_settings_set_uint32(settings, FreeRDP_RedirectionPreferType, 0))
-		return COMMAND_LINE_ERROR;
 
 	UINT32 value = 0;
 	do
@@ -2705,11 +2711,12 @@ static int parse_redirect_prefer_options(rdpSettings* settings, const COMMAND_LI
 		count++;
 	} while (cur != nullptr);
 
+	if (count > 3)
+		return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
+
 	if (!freerdp_settings_set_uint32(settings, FreeRDP_RedirectionPreferType, value))
 		return COMMAND_LINE_ERROR;
 
-	if (count > 3)
-		return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
 	return 0;
 }
 
@@ -2866,7 +2873,7 @@ static int parse_monitors_options(rdpSettings* settings, const COMMAND_LINE_ARGU
 		if (!freerdp_settings_set_pointer_len(settings, FreeRDP_MonitorIds, nullptr, count))
 		{
 			CommandLineParserFree(ptr);
-			return FALSE;
+			return COMMAND_LINE_ERROR;
 		}
 
 		MonitorIds = freerdp_settings_get_pointer_array_writable(settings, FreeRDP_MonitorIds, 0);
@@ -4201,6 +4208,7 @@ static BOOL parse_gateway_usage_option(rdpSettings* settings, const char* value)
 
 		if (!value_to_int(value, &val, TSC_PROXY_MODE_NONE_DIRECT, TSC_PROXY_MODE_NONE_DETECT))
 			return FALSE;
+		type = WINPR_ASSERTING_INT_CAST(UINT32, val);
 	}
 
 	return freerdp_set_gateway_usage_method(settings, type);
@@ -5663,8 +5671,7 @@ static void warn_credential_args(const COMMAND_LINE_ARGUMENT_A* args)
 static int freerdp_client_settings_parse_command_line_arguments_int(
     rdpSettings* settings, int argc, char* argv[], BOOL allowUnknown,
     COMMAND_LINE_ARGUMENT_A* largs, WINPR_ATTR_UNUSED size_t count,
-    freerdp_command_line_handle_option_t handle_option, void* handle_userdata,
-    FREERDP_SETTINGS_CMD_PARSE_FLAGS cmdflags)
+    freerdp_command_line_handle_option_t handle_option, void* handle_userdata, UINT32 cmdflags)
 {
 	char* user = nullptr;
 	int status = 0;

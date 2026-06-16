@@ -952,7 +952,10 @@ rdpgfx_send_surface_frame_command(RdpgfxServerContext* context, const RDPGFX_SUR
 
 		if (!rdpgfx_write_start_frame_pdu(s, startFrame) ||
 		    !rdpgfx_server_packet_complete_header(s, position))
+		{
+			error = ERROR_INTERNAL_ERROR;
 			goto error;
+		}
 	}
 
 	/* Write RDPGFX_CMDID_WIRETOSURFACE_1 or RDPGFX_CMDID_WIRETOSURFACE_2 */
@@ -977,7 +980,10 @@ rdpgfx_send_surface_frame_command(RdpgfxServerContext* context, const RDPGFX_SUR
 		}
 
 		if (!rdpgfx_server_packet_complete_header(s, pos))
+		{
+			error = ERROR_INTERNAL_ERROR;
 			goto error;
+		}
 	}
 
 	/* Write end frame if exists */
@@ -995,7 +1001,10 @@ rdpgfx_send_surface_frame_command(RdpgfxServerContext* context, const RDPGFX_SUR
 
 		if (!rdpgfx_write_end_frame_pdu(s, endFrame) ||
 		    !rdpgfx_server_packet_complete_header(s, position))
+		{
+			error = ERROR_INTERNAL_ERROR;
 			goto error;
+		}
 	}
 
 	return rdpgfx_server_packet_send(context, s);
@@ -1549,7 +1558,7 @@ WINPR_ATTR_NODISCARD static UINT rdpgfx_server_receive_pdu(RdpgfxServerContext* 
 	WINPR_ASSERT(context);
 	WINPR_ASSERT(context->priv);
 
-	if ((error = rdpgfx_read_header(context->priv->log, s, &header)))
+	if ((error = rdpgfx_read_header(context->priv->log, s, &header, nullptr)))
 	{
 		WLog_Print(context->priv->log, WLOG_ERROR,
 		           "rdpgfx_read_header failed with error %" PRIu32 "!", error);

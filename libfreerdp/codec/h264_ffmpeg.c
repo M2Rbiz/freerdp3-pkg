@@ -76,7 +76,22 @@ static inline char* error_string(char* errbuf, size_t errbuf_size, int errnum)
 #endif
 
 #if defined(WITH_VAAPI) || defined(WITH_VAAPI_H264_ENCODING)
-#define VAAPI_DEVICE "/dev/dri/renderD128"
+static const char* get_vaapi_device(void)
+{
+	static char device[MAX_PATH] = WINPR_C_ARRAY_INIT;
+	static bool initialized = false;
+	if (!initialized)
+	{
+		initialized = true;
+		// NOLINTNEXTLINE(concurrency-mt-unsafe)
+		const char* env = getenv("FREERDP_VAAPI_DEVICE");
+		if (env)
+			(void)_snprintf(device, sizeof(device), "%s", env);
+		else
+			(void)_snprintf(device, sizeof(device), "/dev/dri/renderD128");
+	}
+	return device;
+}
 #endif
 
 typedef struct
@@ -316,7 +331,8 @@ static int libavcodec_decompress(H264_CONTEXT* WINPR_RESTRICT h264,
 		goto fail;
 	}
 
-	gotFrame = (status == 0);
+	if (status == 0)
+		gotFrame = 1;
 #else
 #if defined(WITH_VAAPI) || defined(WITH_VIDEOTOOLBOX)
 	status =
@@ -346,15 +362,14 @@ static int libavcodec_decompress(H264_CONTEXT* WINPR_RESTRICT h264,
 		{
 			status = av_frame_copy(sys->videoFrame, sys->hwVideoFrame);
 		}
-	}
+		gotFrame = (status == 0);
 
-	gotFrame = (status == 0);
-
-	if (status < 0)
-	{
-		WLog_Print(h264->log, WLOG_ERROR, "Failed to transfer video frame (status=%d) (%s)", status,
-		           av_err2str(status));
-		goto fail;
+		if (status < 0)
+		{
+			WLog_Print(h264->log, WLOG_ERROR, "Failed to transfer video frame (status=%d) (%s)",
+			           status, av_err2str(status));
+			goto fail;
+		}
 	}
 
 #endif
@@ -369,6 +384,11 @@ static int libavcodec_decompress(H264_CONTEXT* WINPR_RESTRICT h264,
 		iStride[0] = (UINT32)MAX(0, sys->videoFrame->linesize[0]);
 		iStride[1] = (UINT32)MAX(0, sys->videoFrame->linesize[1]);
 		iStride[2] = (UINT32)MAX(0, sys->videoFrame->linesize[2]);
+
+		if (sys->videoFrame->width < WINPR_ASSERTING_INT_CAST(int64_t, h264->width))
+			goto fail;
+		if (sys->videoFrame->height < WINPR_ASSERTING_INT_CAST(int64_t, h264->height))
+			goto fail;
 		rc = 1;
 	}
 	else
@@ -676,10 +696,9 @@ static enum AVPixelFormat libavcodec_get_format(struct AVCodecContext* ctx,
 
 static BOOL libavcodec_init(H264_CONTEXT* h264)
 {
-	H264_CONTEXT_LIBAVCODEC* sys = nullptr;
-
 	WINPR_ASSERT(h264);
-	sys = (H264_CONTEXT_LIBAVCODEC*)calloc(1, sizeof(H264_CONTEXT_LIBAVCODEC));
+	H264_CONTEXT_LIBAVCODEC* sys =
+	    (H264_CONTEXT_LIBAVCODEC*)calloc(1, sizeof(H264_CONTEXT_LIBAVCODEC));
 
 	if (!sys)
 	{
@@ -721,8 +740,8 @@ static BOOL libavcodec_init(H264_CONTEXT* h264)
 
 		if (!sys->hwctx)
 		{
-			int ret = av_hwdevice_ctx_create(&sys->hwctx, AV_HWDEVICE_TYPE_VAAPI, VAAPI_DEVICE,
-			                                 nullptr, 0);
+			int ret = av_hwdevice_ctx_create(&sys->hwctx, AV_HWDEVICE_TYPE_VAAPI,
+			                                 get_vaapi_device(), nullptr, 0);
 
 			if (ret < 0)
 			{
@@ -794,7 +813,7 @@ static BOOL libavcodec_init(H264_CONTEXT* h264)
 			{
 				WLog_Print(h264->log, WLOG_ERROR, "H264 VAAPI encoder not found");
 			}
-			else if (av_hwdevice_ctx_create(&sys->hwctx, AV_HWDEVICE_TYPE_VAAPI, VAAPI_DEVICE,
+			else if (av_hwdevice_ctx_create(&sys->hwctx, AV_HWDEVICE_TYPE_VAAPI, get_vaapi_device(),
 			                                nullptr, 0) < 0)
 			{
 				WLog_Print(h264->log, WLOG_ERROR, "av_hwdevice_ctx_create failed");
