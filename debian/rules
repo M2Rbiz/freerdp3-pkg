@@ -98,6 +98,13 @@ else
         $(empty)
 endif
 
+# Ubuntu doesn't build sso-mib on i386 & it's unnecessary there anyway
+ifneq (,$(filter i386,$(DEB_HOST_ARCH)))
+    DEB_CMAKE_EXTRA_FLAGS += \
+        -DWITH_SSO_MIB=OFF \
+        $(empty)
+endif
+
 # Ubuntu can't have ffmpeg in main
 # Ubuntu doesn't yet have cjson or pkcs11-helper
 # or sso-mib or uriparser in main
