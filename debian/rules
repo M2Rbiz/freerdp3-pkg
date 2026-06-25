@@ -99,14 +99,13 @@ else
 endif
 
 # Ubuntu can't have ffmpeg in main
-# Ubuntu doesn't yet have cjson or pkcs11-helper
+# Ubuntu doesn't yet have cjson
 # or sso-mib or uriparser in main
 ifeq ($(shell dpkg-vendor --is Ubuntu && echo yes),yes)
     DEB_CMAKE_EXTRA_FLAGS += \
         -DWITH_FFMPEG=OFF \
         -DWITH_GSM=OFF \
         -DWITH_CAIRO=ON \
-        -DWITH_PKCS11=OFF \
         -DWITH_SSO_MIB=OFF \
         -DWITH_SWSCALE=OFF \
         -DWITH_URIPARSER=OFF \
