@@ -1,3 +1,19 @@
+freerdp3 (3.27.1+dfsg-1) unstable; urgency=medium
+
+  [ Jeremy Bícha ]
+  * Don't build sso-mib feature on i386
+
+  [ Grayson Wolf ]
+  * fix test failures by enforcing TLS security
+
+  [ Michael Tokarev ]
+  * Revert "Don't build sso-mib feature on i386"
+  * stop disabling PKCS11 on ubuntu (Closes: #1140689)
+  * new upstream bugfix release 3.27.1
+    Hopefully closes: #1138658 (xrdp debci failure)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 30 Jun 2026 09:34:23 +0300
+
 freerdp3 (3.27.0+dfsg-1) unstable; urgency=medium
 
   * a major feature/bugfix/cleanup upstream release, including:
