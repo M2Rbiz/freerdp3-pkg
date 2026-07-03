@@ -1,0 +1,56 @@
+From: Fabio Fantoni <fabio.fantoni@m2r.biz>
+Date: Fri, 3 Jul 2026 14:37:17 +0200
+Subject: [channels,rdpecam] fix DeviceAdded notification for non-ASCII device
+ names
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+The DeviceName length passed to Stream_Write_UTF16_String_From_UTF8 was
+computed with strlen(), i.e. in UTF-8 bytes, but the function expects it
+in UTF-16 code units. For device names containing multi-byte UTF-8
+characters (e.g. "Microsoft® LifeCam HD-5000") this wrote spurious extra
+NUL WCHARs after the string terminator.
+Per MS-RDPECAM the VirtualChannelName field immediately follows the
+null-terminated DeviceName, so the extra padding made the server parse
+an empty channel name: the camera showed up in the remote session but
+the server never opened its device channel and any application trying to
+use it failed with a generic error.
+Compute the length with ConvertUtf8ToWChar() instead, so that exactly
+one terminating NUL is written.
+
+Fixes camera redirection for all cameras whose name contains non-ASCII
+characters, such as the various "Microsoft® LifeCam" models (see also
+FreeRDP#12678).
+
+Assisted-by: Claude Code:claude-fable-5
+---
+ channels/rdpecam/client/camera_device_enum_main.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/channels/rdpecam/client/camera_device_enum_main.c b/channels/rdpecam/client/camera_device_enum_main.c
+index 8cfc027..8d2797d 100644
+--- a/channels/rdpecam/client/camera_device_enum_main.c
++++ b/channels/rdpecam/client/camera_device_enum_main.c
+@@ -19,6 +19,7 @@
+ 
+ #include <winpr/assert.h>
+ #include <winpr/cast.h>
++#include <winpr/string.h>
+ 
+ #include "camera.h"
+ 
+@@ -123,8 +124,11 @@ static UINT ecam_send_device_added_notification(CameraPlugin* ecam,
+ 	Stream_Write_UINT8(s, WINPR_ASSERTING_INT_CAST(uint8_t, ecam->version));
+ 	Stream_Write_UINT8(s, WINPR_ASSERTING_INT_CAST(uint8_t, msg));
+ 
+-	size_t devNameLen = strlen(deviceName);
+-	if (Stream_Write_UTF16_String_From_UTF8(s, devNameLen + 1, deviceName, devNameLen, TRUE) < 0)
++	const size_t devNameLen = strlen(deviceName);
++	const SSIZE_T devNameWLen = ConvertUtf8ToWChar(deviceName, nullptr, 0);
++	if ((devNameWLen < 0) ||
++	    Stream_Write_UTF16_String_From_UTF8(s, (size_t)devNameWLen + 1, deviceName, devNameLen,
++	                                        TRUE) < 0)
+ 	{
+ 		Stream_Free(s, TRUE);
+ 		return ERROR_INTERNAL_ERROR;
