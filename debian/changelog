@@ -1,3 +1,10 @@
+freerdp3 (3.26.0+dfsg-1~bpo13+1.1) trixie-backports; urgency=medium
+
+  * Unofficial backports
+  * d/patches: add a rdpecam fix non-ASCII device name
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Fri, 03 Jul 2026 15:51:26 +0200
+
 freerdp3 (3.26.0+dfsg-1~bpo13+1) trixie-backports; urgency=medium
 
   * Rebuild for trixie-backports (no changes).
