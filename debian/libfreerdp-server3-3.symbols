@@ -34,6 +34,7 @@ libfreerdp-server3.so.3 libfreerdp-server3-3 #MINVER#
  rail_server_set_handshake_ex_flags@Base 3.0.0
  rdpdr_server_context_free@Base 3.0.0
  rdpdr_server_context_new@Base 3.0.0
+ rdpdr_server_discard_request@Base 3.28.0
  rdpei_server_context_free@Base 3.0.0
  rdpei_server_context_new@Base 3.0.0
  rdpei_server_context_reset@Base 3.0.0

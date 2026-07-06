@@ -3,6 +3,9 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  Bitmap_Alloc@Base 3.0.0
  Bitmap_SetDimensions@Base 3.0.0
  Bitmap_SetRectangle@Base 3.0.0
+ ChannelPduTracker_free@Base 3.28.0
+ ChannelPduTracker_new@Base 3.28.0
+ ChannelPduTracker_poll@Base 3.28.0
  Emulate_Free@Base 3.0.0
  Emulate_GetOpenCardNameA@Base 3.0.0
  Emulate_GetOpenCardNameW@Base 3.0.0
@@ -318,10 +321,12 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_certificate_store_remove_data@Base 3.0.0
  freerdp_certificate_store_save_data@Base 3.0.0
  freerdp_certificate_verify@Base 3.0.0
+ freerdp_channel_client_stats_free@Base 3.28.0
  freerdp_channels_attach@Base 3.0.0
  freerdp_channels_check_fds@Base 3.0.0
  freerdp_channels_client_load@Base 3.0.0
  freerdp_channels_client_load_ex@Base 3.0.0
+ freerdp_channels_client_stats@Base 3.28.0
  freerdp_channels_data@Base 3.0.0
  freerdp_channels_detach@Base 3.0.0
  freerdp_channels_from_mcs@Base 3.0.0
@@ -503,7 +508,9 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_nla_impersonate@Base 3.0.0
  freerdp_nla_revert_to_self@Base 3.0.0
  freerdp_order_support_flags_string@Base 3.22.0
+ freerdp_passphrase_from_env@Base 3.28.0
  freerdp_passphrase_read@Base 3.0.0
+ freerdp_passphrase_read_tty@Base 3.28.0
  freerdp_peer_context_free@Base 3.0.0
  freerdp_peer_context_new@Base 3.0.0
  freerdp_peer_context_new_ex@Base 3.0.0
@@ -614,6 +621,9 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_video_conversion_supported@Base 3.24.0
  freerdp_video_format_string@Base 3.25.0
  freerdp_video_sample_convert@Base 3.24.0
+ freerdp_warn_deprecated@Base 3.28.0
+ freerdp_warn_experimental@Base 3.28.0
+ freerdp_warn_unmaintained@Base 3.28.0
  freerdp_write_four_byte_float@Base 3.4.0
  freerdp_write_four_byte_signed_integer@Base 3.4.0
  gdi_BitBlt@Base 3.0.0
@@ -876,24 +886,42 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  smartcard_getCert@Base 3.0.0
  smartcard_irp_device_control_call@Base 3.0.0
  smartcard_irp_device_control_decode@Base 3.0.0
+ smartcard_irp_device_control_decode_request@Base 3.28.0
+ smartcard_irp_device_control_decode_response@Base 3.28.0
+ smartcard_irp_device_control_encode_request@Base 3.28.0
  smartcard_operation_free@Base 3.0.0
  smartcard_pack_common_type_header@Base 3.0.0
+ smartcard_pack_connect_a_call@Base 3.28.0
  smartcard_pack_connect_return@Base 3.0.0
+ smartcard_pack_connect_w_call@Base 3.28.0
+ smartcard_pack_context_call@Base 3.28.0
+ smartcard_pack_control_call@Base 3.28.0
  smartcard_pack_control_return@Base 3.0.0
  smartcard_pack_device_type_id_return@Base 3.0.0
+ smartcard_pack_establish_context_call@Base 3.28.0
  smartcard_pack_establish_context_return@Base 3.0.0
+ smartcard_pack_get_attrib_call@Base 3.28.0
  smartcard_pack_get_attrib_return@Base 3.0.0
  smartcard_pack_get_reader_icon_return@Base 3.0.0
+ smartcard_pack_get_status_change_a_call@Base 3.28.0
  smartcard_pack_get_status_change_return@Base 3.0.0
+ smartcard_pack_get_status_change_w_call@Base 3.28.0
  smartcard_pack_get_transmit_count_return@Base 3.0.0
+ smartcard_pack_hcard_and_disposition_call@Base 3.28.0
+ smartcard_pack_list_reader_groups_call@Base 3.28.0
  smartcard_pack_list_reader_groups_return@Base 3.0.0
+ smartcard_pack_list_readers_call@Base 3.28.0
  smartcard_pack_list_readers_return@Base 3.0.0
  smartcard_pack_locate_cards_return@Base 3.0.0
  smartcard_pack_private_type_header@Base 3.0.0
  smartcard_pack_read_cache_return@Base 3.0.0
+ smartcard_pack_reconnect_call@Base 3.28.0
  smartcard_pack_reconnect_return@Base 3.0.0
+ smartcard_pack_set_attrib_call@Base 3.28.0
  smartcard_pack_state_return@Base 3.0.0
+ smartcard_pack_status_call@Base 3.28.0
  smartcard_pack_status_return@Base 3.0.0
+ smartcard_pack_transmit_call@Base 3.28.0
  smartcard_pack_transmit_return@Base 3.0.0
  smartcard_pack_write_size_align@Base 3.0.0
  smartcard_scard_context_native_from_redir@Base 3.0.0
@@ -903,6 +931,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  smartcard_trace_long_return@Base 3.0.0
  smartcard_unpack_common_type_header@Base 3.0.0
  smartcard_unpack_connect_a_call@Base 3.0.0
+ smartcard_unpack_connect_return@Base 3.28.0
  smartcard_unpack_connect_w_call@Base 3.0.0
  smartcard_unpack_context_and_string_a_call@Base 3.0.0
  smartcard_unpack_context_and_string_w_call@Base 3.0.0
@@ -910,16 +939,22 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  smartcard_unpack_context_and_two_strings_w_call@Base 3.0.0
  smartcard_unpack_context_call@Base 3.0.0
  smartcard_unpack_control_call@Base 3.0.0
+ smartcard_unpack_control_return@Base 3.28.0
  smartcard_unpack_establish_context_call@Base 3.0.0
+ smartcard_unpack_establish_context_return@Base 3.28.0
  smartcard_unpack_get_attrib_call@Base 3.0.0
+ smartcard_unpack_get_attrib_return@Base 3.28.0
  smartcard_unpack_get_device_type_id_call@Base 3.0.0
  smartcard_unpack_get_reader_icon_call@Base 3.0.0
  smartcard_unpack_get_status_change_a_call@Base 3.0.0
+ smartcard_unpack_get_status_change_return@Base 3.28.0
  smartcard_unpack_get_status_change_w_call@Base 3.0.0
  smartcard_unpack_get_transmit_count_call@Base 3.0.0
  smartcard_unpack_hcard_and_disposition_call@Base 3.0.0
  smartcard_unpack_list_reader_groups_call@Base 3.0.0
+ smartcard_unpack_list_reader_groups_return@Base 3.28.0
  smartcard_unpack_list_readers_call@Base 3.0.0
+ smartcard_unpack_list_readers_return@Base 3.28.0
  smartcard_unpack_locate_cards_a_call@Base 3.0.0
  smartcard_unpack_locate_cards_by_atr_a_call@Base 3.0.0
  smartcard_unpack_locate_cards_by_atr_w_call@Base 3.0.0
@@ -929,10 +964,13 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  smartcard_unpack_read_cache_w_call@Base 3.0.0
  smartcard_unpack_read_size_align@Base 3.0.0
  smartcard_unpack_reconnect_call@Base 3.0.0
+ smartcard_unpack_reconnect_return@Base 3.28.0
  smartcard_unpack_set_attrib_call@Base 3.0.0
  smartcard_unpack_state_call@Base 3.0.0
  smartcard_unpack_status_call@Base 3.0.0
+ smartcard_unpack_status_return@Base 3.28.0
  smartcard_unpack_transmit_call@Base 3.0.0
+ smartcard_unpack_transmit_return@Base 3.28.0
  smartcard_unpack_write_cache_a_call@Base 3.0.0
  smartcard_unpack_write_cache_w_call@Base 3.0.0
  stopwatch_create@Base 3.0.0

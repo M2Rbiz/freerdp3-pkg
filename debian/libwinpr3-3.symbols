@@ -1074,6 +1074,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  WLog_Create@Base 3.25.0
  WLog_Discard@Base 3.25.0
  WLog_Get@Base 3.0.0
+ WLog_GetAppenderContext@Base 3.28.0
  WLog_GetLogAppender@Base 3.0.0
  WLog_GetLogLayout@Base 3.0.0
  WLog_GetLogLevel@Base 3.0.0
@@ -1085,6 +1086,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  WLog_PrintMessageVA@Base 3.0.0
  WLog_PrintTextMessage@Base 3.17.0
  WLog_PrintTextMessageVA@Base 3.17.0
+ WLog_SetAppenderContext@Base 3.28.0
  WLog_SetContext@Base 3.0.0
  WLog_SetGlobalContext@Base 3.25.0
  WLog_SetLogAppenderType@Base 3.0.0
@@ -1478,5 +1480,6 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_str_url_decode@Base 3.0.0
  winpr_str_url_encode@Base 3.0.0
  winpr_strerror@Base 3.0.0
+ winpr_strnstr@Base 3.28.0
  winpr_vasprintf@Base 3.0.0
  wmemmove_s@Base 3.0.0
