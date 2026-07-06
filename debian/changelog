@@ -1,3 +1,11 @@
+freerdp3 (3.28.0+dfsg-1) unstable; urgency=medium
+
+  * new upstream release, fixing a number of (security) issues
+  * d/copyright: remove stale entry from Files-Excluded
+  * d/*.symbols: add new symbols
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 06 Jul 2026 11:06:13 +0300
+
 freerdp3 (3.27.1+dfsg-1) unstable; urgency=medium
 
   [ Jeremy Bícha ]
