@@ -181,6 +181,14 @@ static UINT rdpsnd_server_recv_quality_mode(RdpsndServerContext* context, wStrea
 	return CHANNEL_RC_OK;
 }
 
+static void rdpsnd_server_client_format_free(RdpsndServerContext* context)
+{
+	WINPR_ASSERT(context);
+	free(context->client_formats);
+	context->client_formats = nullptr;
+	context->num_client_formats = 0;
+}
+
 /**
  * Read Client Audio Formats and Version PDU (2.2.2.2)
  *
@@ -253,6 +261,35 @@ static UINT rdpsnd_server_recv_formats(RdpsndServerContext* context, wStream* s)
 			goto out_free;
 		}
 
+		/* Some wave formats have stricter requirements */
+		switch (format->wFormatTag)
+		{
+			case WAVE_FORMAT_DVI_ADPCM:
+				if (format->nBlockAlign < 4)
+				{
+					WLog_ERR(TAG,
+					         "invalid client audio format %s: nBlockAlign is %" PRIu32
+					         ", must be >= 4",
+					         audio_format_get_tag_string(format->wFormatTag), format->nBlockAlign);
+					error = ERROR_INVALID_DATA;
+					goto out_free;
+				}
+				break;
+			case WAVE_FORMAT_ADPCM:
+				if (format->nBlockAlign < 8)
+				{
+					WLog_ERR(TAG,
+					         "invalid client audio format %s: nBlockAlign is %" PRIu32
+					         ", must be >= 8",
+					         audio_format_get_tag_string(format->wFormatTag), format->nBlockAlign);
+					error = ERROR_INVALID_DATA;
+					goto out_free;
+				}
+				break;
+			default:
+				break;
+		}
+
 		if (format->cbSize > 0)
 		{
 			if (!Stream_SafeSeek(s, format->cbSize))
@@ -272,7 +309,7 @@ static UINT rdpsnd_server_recv_formats(RdpsndServerContext* context, wStream* s)
 
 	return CHANNEL_RC_OK;
 out_free:
-	free(context->client_formats);
+	rdpsnd_server_client_format_free(context);
 	return error;
 }
 
@@ -350,7 +387,6 @@ static UINT rdpsnd_server_initialize(RdpsndServerContext* context, BOOL ownThrea
  */
 static UINT rdpsnd_server_select_format(RdpsndServerContext* context, UINT16 client_format_index)
 {
-	size_t bs = 0;
 	size_t out_buffer_size = 0;
 	AUDIO_FORMAT* format = nullptr;
 	UINT error = CHANNEL_RC_OK;
@@ -389,22 +425,33 @@ static UINT rdpsnd_server_select_format(RdpsndServerContext* context, UINT16 cli
 	switch (format->wFormatTag)
 	{
 		case WAVE_FORMAT_DVI_ADPCM:
-			bs = 4ULL * (format->nBlockAlign - 4ULL * format->nChannels);
+		{
+			WINPR_ASSERT(format->nBlockAlign >= 4);
+			WINPR_ASSERT(format->nChannels > 0);
+			const UINT64 bs = 4ULL * (format->nBlockAlign - 4ULL * format->nChannels);
+			WINPR_ASSERT(bs > 0);
+
 			context->priv->out_frames -= context->priv->out_frames % bs;
 
 			if (context->priv->out_frames < bs)
 				context->priv->out_frames = bs;
-
-			break;
+		}
+		break;
 
 		case WAVE_FORMAT_ADPCM:
-			bs = (format->nBlockAlign - 7 * format->nChannels) * 2 / format->nChannels + 2;
+		{
+			WINPR_ASSERT(format->nBlockAlign >= 8);
+			WINPR_ASSERT(format->nChannels > 0);
+
+			const UINT64 bs =
+			    (format->nBlockAlign - 7 * format->nChannels) * 2 / format->nChannels + 2;
+			WINPR_ASSERT(bs > 0);
 			context->priv->out_frames -= context->priv->out_frames % bs;
 
 			if (context->priv->out_frames < bs)
 				context->priv->out_frames = bs;
-
-			break;
+		}
+		break;
 		default:
 			break;
 	}
@@ -1152,7 +1199,7 @@ void rdpsnd_server_context_free(RdpsndServerContext* context)
 	}
 
 	free(context->server_formats);
-	free(context->client_formats);
+	rdpsnd_server_client_format_free(context);
 	free(context->priv);
 	free(context);
 }

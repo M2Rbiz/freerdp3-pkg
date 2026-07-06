@@ -406,8 +406,10 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	  "Pass the hash (restricted admin mode)" },
 	{ "pwidth", COMMAND_LINE_VALUE_REQUIRED, "<width>", nullptr, nullptr, -1, nullptr,
 	  "Physical width of display (in millimeters)" },
+#if !defined(WITHOUT_FREERDP_3x_DEPRECATED)
 	{ "rdp2tcp", COMMAND_LINE_VALUE_REQUIRED, "<executable path[:arg...]>", nullptr, nullptr, -1,
 	  nullptr, "TCP redirection" },
+#endif
 	{ "reconnect-cookie", COMMAND_LINE_VALUE_REQUIRED, "<base64-cookie>", nullptr, nullptr, -1,
 	  nullptr, "Pass base64 reconnect cookie to the connection" },
 	{ "redirect-prefer", COMMAND_LINE_VALUE_REQUIRED, "<FQDN|IP|NETBIOS>,[...]", nullptr, nullptr,
@@ -463,8 +465,10 @@ static const COMMAND_LINE_ARGUMENT_A global_cmd_args[] = {
 	{ "smartcard", COMMAND_LINE_VALUE_OPTIONAL, "<str>[,<str>...]", nullptr, nullptr, -1, nullptr,
 	  "Redirect the smartcard devices containing any of the <str> in their names." },
 	{ "smartcard-logon", COMMAND_LINE_VALUE_OPTIONAL,
-	  "[cert:<path>,key:<key>,pin:<pin>,csp:<csp name>,reader:<reader>,card:<card>]", nullptr,
-	  nullptr, -1, nullptr, "Activates Smartcard (optional certificate) Logon authentication." },
+	  "[[cert:<path>|cert:<base64(PEM)>],[key:<path>|key:<base64(PEM)>],pin:<pin>,csp:<csp "
+	  "name>,reader:<reader>,card:<card>]",
+	  nullptr, nullptr, -1, nullptr,
+	  "Activates Smartcard (optional certificate) Logon authentication." },
 	{ "sound", COMMAND_LINE_VALUE_OPTIONAL,
 	  "[sys:<sys>,][dev:<dev>,][format:<format>,][rate:<rate>,][channel:<channel>,][latency:<"
 	  "latency>,][quality:<quality>]",

@@ -528,18 +528,17 @@ fail:
 static UINT rail_recv_server_sysparam_order(railPlugin* rail, wStream* s)
 {
 	RailClientContext* context = rail_get_client_interface(rail);
-	RAIL_SYSPARAM_ORDER sysparam;
-	UINT error = 0;
-	BOOL extendedSpiSupported = 0;
 
 	if (!context || !s)
 		return ERROR_INVALID_PARAMETER;
 
-	extendedSpiSupported = rail_is_extended_spi_supported(rail->channelFlags);
-	if ((error = rail_read_sysparam_order(s, &sysparam, extendedSpiSupported)))
+	const BOOL extendedSpiSupported = rail_is_extended_spi_supported(rail->channelFlags);
+	RAIL_SYSPARAM_ORDER sysparam = WINPR_C_ARRAY_INIT;
+	UINT error = rail_read_sysparam_order(s, &sysparam, extendedSpiSupported);
+	if (error)
 	{
 		WLog_ERR(TAG, "rail_read_sysparam_order failed with error %" PRIu32 "!", error);
-		return error;
+		goto fail;
 	}
 
 	if (context->custom)
@@ -549,6 +548,8 @@ static UINT rail_recv_server_sysparam_order(railPlugin* rail, wStream* s)
 		if (error)
 			WLog_ERR(TAG, "context.ServerSystemParam failed with error %" PRIu32 "", error);
 	}
+fail:
+	free(sysparam.highContrast.colorScheme.string);
 
 	return error;
 }
@@ -1000,12 +1001,16 @@ UINT rail_order_recv(LPVOID userdata, wStream* s)
 	UINT error = CHANNEL_RC_OK;
 
 	if (!rail || !s)
-		return ERROR_INVALID_PARAMETER;
+	{
+		error = ERROR_INVALID_PARAMETER;
+		goto fail;
+	}
 
 	if ((error = rail_read_pdu_header(s, &orderType, &orderLength)))
 	{
 		WLog_ERR(TAG, "rail_read_pdu_header failed with error %" PRIu32 "!", error);
-		return error;
+		error = ERROR_INVALID_DATA;
+		goto fail;
 	}
 
 	WLog_Print(rail->log, WLOG_DEBUG, "Received %s PDU, length:%" PRIu16 "",
@@ -1091,6 +1096,7 @@ UINT rail_order_recv(LPVOID userdata, wStream* s)
 		           orderLength);
 	}
 
+fail:
 	Stream_Free(s, TRUE);
 	return error;
 }
