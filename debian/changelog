@@ -1,3 +1,10 @@
+freerdp3 (3.28.0+dfsg-2) unstable; urgency=medium
+
+  * d/tests/connect: stop enforcing TLS security
+    apparently xrdp does not work with TLS at all, see #1138658.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 12 Jul 2026 00:44:33 +0300
+
 freerdp3 (3.28.0+dfsg-1) unstable; urgency=medium
 
   * new upstream release, fixing a number of (security) issues
