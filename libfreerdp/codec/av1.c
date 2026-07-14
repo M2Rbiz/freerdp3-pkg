@@ -21,6 +21,7 @@
 #include <freerdp/codec/av1.h>
 #include <freerdp/primitives.h>
 #include <freerdp/log.h>
+#include <freerdp/codec/region.h>
 
 #define TAG FREERDP_TAG("codec.av1")
 
@@ -308,6 +309,43 @@ INT32 freerdp_av1_compress(FREERDP_AV1_CONTEXT* av1, const BYTE* pSrcData, DWORD
 	return allocate_h264_metablock(10, rect, meta, 1);
 }
 
+static BOOL isRectValid(UINT32 width, UINT32 height, const RECTANGLE_16* rect)
+{
+	WINPR_ASSERT(rect);
+	if (rect->left > width)
+		return FALSE;
+	if (rect->right > width)
+		return FALSE;
+	if (rect->left >= rect->right)
+		return FALSE;
+	if (rect->top > height)
+		return FALSE;
+	if (rect->bottom > height)
+		return FALSE;
+	if (rect->top >= rect->bottom)
+		return FALSE;
+	return TRUE;
+}
+
+static BOOL areRectsValid(wLog* log, UINT32 width, UINT32 height, const RECTANGLE_16* rects,
+                          UINT32 count)
+{
+	WINPR_ASSERT(rects || (count == 0));
+	for (size_t x = 0; x < count; x++)
+	{
+		const RECTANGLE_16* rect = &rects[x];
+		if (!isRectValid(width, height, rect))
+		{
+			char buffer[64] = WINPR_C_ARRAY_INIT;
+			WLog_Print(log, WLOG_WARN,
+			           "Rectangle %" PRIuz " %s outside of bounding frame %" PRIu32 "x%" PRIu32, x,
+			           rectangle_to_string(rect, buffer, sizeof(buffer)), width, height);
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
 INT32 freerdp_av1_decompress(FREERDP_AV1_CONTEXT* av1, const BYTE* pSrcData, UINT32 SrcSize,
                              BYTE* pDstData, DWORD DstFormat, UINT32 nDstStep, UINT32 nDstWidth,
                              UINT32 nDstHeight, const RECTANGLE_16* regionRects,
@@ -320,6 +358,9 @@ INT32 freerdp_av1_decompress(FREERDP_AV1_CONTEXT* av1, const BYTE* pSrcData, UIN
 		return -1;
 	}
 
+	if (!areRectsValid(av1->log, nDstWidth, nDstHeight, regionRects, numRegionRect))
+		return -2;
+
 	const aom_codec_err_t rc = aom_codec_decode(&av1->ctx, pSrcData, SrcSize, nullptr);
 	if (rc != AOM_CODEC_OK)
 	{
@@ -331,7 +372,15 @@ INT32 freerdp_av1_decompress(FREERDP_AV1_CONTEXT* av1, const BYTE* pSrcData, UIN
 	aom_codec_iter_t iter = nullptr;
 	while ((img = aom_codec_get_frame(&av1->ctx, &iter)) != nullptr)
 	{
-		const prim_size_t roi = { .width = nDstWidth, .height = nDstHeight };
+		/* The decoded frame may be smaller than the destination surface, so
+		 * bound the converted region to it. Otherwise the colour conversion
+		 * reads past the decoded image planes. */
+		const UINT32 nWidth = (img->d_w < nDstWidth) ? img->d_w : nDstWidth;
+		const UINT32 nHeight = (img->d_h < nDstHeight) ? img->d_h : nDstHeight;
+		const prim_size_t roi = { .width = nWidth, .height = nHeight };
+
+		if (!areRectsValid(av1->log, roi.width, roi.height, regionRects, numRegionRect))
+			return -2;
 
 #if defined(WITH_LIBYUV)
 		int rec = -1;
@@ -339,14 +388,14 @@ INT32 freerdp_av1_decompress(FREERDP_AV1_CONTEXT* av1, const BYTE* pSrcData, UIN
 		switch (img->fmt)
 		{
 			case AOM_IMG_FMT_I420:
-				rec = J420ToARGB(img->planes[0], img->stride[0], img->planes[1], img->stride[1],
-				                 img->planes[2], img->stride[2], pDstData, nDstStep, nDstWidth,
-				                 nDstHeight);
+				rec =
+				    J420ToARGB(img->planes[0], img->stride[0], img->planes[1], img->stride[1],
+				               img->planes[2], img->stride[2], pDstData, nDstStep, nWidth, nHeight);
 				break;
 			case AOM_IMG_FMT_I444:
-				rec = J444ToARGB(img->planes[0], img->stride[0], img->planes[1], img->stride[1],
-				                 img->planes[2], img->stride[2], pDstData, nDstStep, nDstWidth,
-				                 nDstHeight);
+				rec =
+				    J444ToARGB(img->planes[0], img->stride[0], img->planes[1], img->stride[1],
+				               img->planes[2], img->stride[2], pDstData, nDstStep, nWidth, nHeight);
 				break;
 			default:
 				WLog_Print(av1->log, WLOG_ERROR, "img->fmt %d not supported", img->fmt);

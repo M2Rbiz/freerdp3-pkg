@@ -516,7 +516,7 @@ static UINT rail_recv_exec_result_order(railPlugin* rail, wStream* s)
 	}
 
 fail:
-	free(execResult.exeOrFile.string);
+	rail_unicode_string_free(&execResult.exeOrFile);
 	return error;
 }
 
@@ -549,7 +549,7 @@ static UINT rail_recv_server_sysparam_order(railPlugin* rail, wStream* s)
 			WLog_ERR(TAG, "context.ServerSystemParam failed with error %" PRIu32 "", error);
 	}
 fail:
-	free(sysparam.highContrast.colorScheme.string);
+	rail_unicode_string_free(&sysparam.highContrast.colorScheme);
 
 	return error;
 }
@@ -883,7 +883,7 @@ static UINT rail_read_get_application_id_extended_response_order(wStream* s,
 	if (!Stream_Read_UTF16_String(s, id->processImageName, ARRAYSIZE(id->processImageName)))
 		return ERROR_INVALID_DATA;
 
-	if (_wcsnlen(id->applicationID, ARRAYSIZE(id->processImageName)) >=
+	if (_wcsnlen(id->processImageName, ARRAYSIZE(id->processImageName)) >=
 	    ARRAYSIZE(id->processImageName))
 		return ERROR_INVALID_DATA;
 
