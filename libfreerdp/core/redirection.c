@@ -707,6 +707,8 @@ static state_run_t rdp_recv_server_redirection_pdu(rdpRdp* rdp, wStream* s)
 	{
 		if (!rdp_redirection_read_unicode_string(s, &(redirection->TargetNetAddress), 80))
 			return STATE_RUN_FAILED;
+		if (!utils_is_valid_ip(redirection->TargetNetAddress))
+			return STATE_RUN_FAILED;
 	}
 
 	if (redirection->flags & LB_LOAD_BALANCE_INFO)
@@ -726,7 +728,8 @@ static state_run_t rdp_recv_server_redirection_pdu(rdpRdp* rdp, wStream* s)
 	{
 		if (!rdp_redirection_read_unicode_string(s, &(redirection->Username), 512))
 			return STATE_RUN_FAILED;
-
+		if (winpr_str_has_newlines(redirection->Username))
+			return STATE_RUN_FAILED;
 		WLog_DBG(TAG, "Username: %s", redirection->Username);
 	}
 
@@ -734,7 +737,8 @@ static state_run_t rdp_recv_server_redirection_pdu(rdpRdp* rdp, wStream* s)
 	{
 		if (!rdp_redirection_read_unicode_string(s, &(redirection->Domain), 52))
 			return STATE_RUN_FAILED;
-
+		if (winpr_str_has_newlines(redirection->Domain))
+			return STATE_RUN_FAILED;
 		WLog_DBG(TAG, "Domain: %s", redirection->Domain);
 	}
 
@@ -792,7 +796,8 @@ static state_run_t rdp_recv_server_redirection_pdu(rdpRdp* rdp, wStream* s)
 	{
 		if (!rdp_redirection_read_unicode_string(s, &(redirection->TargetFQDN), 512))
 			return STATE_RUN_FAILED;
-
+		if (!winpr_str_is_valid_url(redirection->TargetFQDN))
+			return STATE_RUN_FAILED;
 		WLog_DBG(TAG, "TargetFQDN: %s", redirection->TargetFQDN);
 	}
 
@@ -800,7 +805,8 @@ static state_run_t rdp_recv_server_redirection_pdu(rdpRdp* rdp, wStream* s)
 	{
 		if (!rdp_redirection_read_unicode_string(s, &(redirection->TargetNetBiosName), 32))
 			return STATE_RUN_FAILED;
-
+		if (!winpr_str_is_valid_url(redirection->TargetNetBiosName))
+			return STATE_RUN_FAILED;
 		WLog_DBG(TAG, "TargetNetBiosName: %s", redirection->TargetNetBiosName);
 	}
 
@@ -870,7 +876,8 @@ static state_run_t rdp_recv_server_redirection_pdu(rdpRdp* rdp, wStream* s)
 		{
 			if (!rdp_redirection_read_unicode_string(s, &(redirection->TargetNetAddresses[i]), 80))
 				return STATE_RUN_FAILED;
-
+			if (!utils_is_valid_ip(redirection->TargetNetAddresses[i]))
+				return STATE_RUN_FAILED;
 			WLog_DBG(TAG, "TargetNetAddresses[%" PRIu32 "]: %s", i,
 			         redirection->TargetNetAddresses[i]);
 		}
@@ -898,7 +905,10 @@ state_run_t rdp_recv_enhanced_security_redirection_packet(rdpRdp* rdp, wStream* 
 	status = rdp_recv_server_redirection_pdu(rdp, s);
 
 	if (state_run_failed(status))
+	{
+		WLog_Print(rdp->log, WLOG_ERROR, "redirection packet invalid, aborting");
 		return status;
+	}
 
 	if (Stream_GetRemainingLength(s) >= 1)
 	{
