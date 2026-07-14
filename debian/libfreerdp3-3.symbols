@@ -782,6 +782,10 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  progressive_rfx_write_message_progressive_simple@Base 3.0.0
  proxy_parse_uri@Base 3.0.0
  rail_read_unicode_string@Base 3.0.0
+ rail_string_to_utf8_string@Base 3.29.0
+ rail_unicode_string_free@Base 3.29.0
+ rail_write_unicode_string@Base 3.29.0
+ rail_write_unicode_string_value@Base 3.29.0
  rdp_cluster_info_flags_to_string@Base 3.0.0
  rdp_redirection_flags_to_string@Base 3.0.0
  rdp_stats_max_index@Base 3.27.0
@@ -807,6 +811,8 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  rdpgfx_get_cmd_id_string@Base 3.0.0
  rdpgfx_get_codec_id_string@Base 3.0.0
  rectangle_is_empty@Base 3.0.0
+ rectangle_to_string@Base 3.29.0
+ rectangles_clone@Base 3.29.0
  rectangles_equal@Base 3.0.0
  rectangles_intersection@Base 3.0.0
  rectangles_intersects@Base 3.0.0
@@ -828,6 +834,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  region16_n_rects@Base 3.0.0
  region16_print@Base 3.0.0
  region16_rects@Base 3.0.0
+ region16_to_string@Base 3.29.0
  region16_uninit@Base 3.0.0
  region16_union_rect@Base 3.0.0
  rfx_compose_message@Base 3.0.0

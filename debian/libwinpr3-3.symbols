@@ -1477,6 +1477,9 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_md_type_to_string@Base 3.0.0
  winpr_setApplicationDetails@Base 3.23.0
  winpr_str_append@Base 3.0.0
+ winpr_str_has_newlines@Base 3.29.0
+ winpr_str_is_valid_url@Base 3.29.0
+ winpr_str_is_valid_urlN@Base 3.29.0
  winpr_str_url_decode@Base 3.0.0
  winpr_str_url_encode@Base 3.0.0
  winpr_strerror@Base 3.0.0
