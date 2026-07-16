@@ -1,3 +1,13 @@
+freerdp3 (3.30.0+dfsg-1) unstable; urgency=medium
+
+  * new upstream release, with security fixes:
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-m37j-jcr2-8gcc
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-vv64-95pc-vj9v
+      https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-rqgv-grx4-xm6x
+  * libfreerdp3-3.symbols: add new symbol
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 16 Jul 2026 11:40:14 +0300
+
 freerdp3 (3.29.0+dfsg-1) unstable; urgency=medium
 
   * new upstream release, fixing the following security issues:
