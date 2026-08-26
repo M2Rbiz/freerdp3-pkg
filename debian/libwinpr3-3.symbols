@@ -204,6 +204,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  DeleteCriticalSection@Base 3.0.0
  DeleteFileA@Base 3.0.0
  DeleteFileW@Base 3.0.0
+ DeleteProcThreadAttributeList@Base 3.31.0
  DeleteTimerQueue@Base 3.0.0
  DeleteTimerQueueEx@Base 3.0.0
  DeleteTimerQueueTimer@Base 3.0.0
@@ -392,6 +393,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  InitializeCriticalSectionAndSpinCount@Base 3.0.0
  InitializeCriticalSectionEx@Base 3.0.0
  InitializeListHead@Base 3.0.0
+ InitializeProcThreadAttributeList@Base 3.31.0
  InitializeSListHead@Base 3.0.0
  InitializeSecurityDescriptor@Base 3.0.0
  InsertHeadList@Base 3.0.0
@@ -978,6 +980,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  Stream_Read_UTF16_String_As_UTF8_Buffer@Base 3.0.0
  Stream_Release@Base 3.0.0
  Stream_SafeSeekEx@Base 3.0.0
+ Stream_SafeZeroEx@Base 3.31.0
  Stream_SealLength@Base 3.0.0
  Stream_SetLength@Base 3.0.0
  Stream_SetPosition@Base 3.0.0
@@ -1013,6 +1016,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  UnlockFile@Base 3.0.0
  UnlockFileEx@Base 3.0.0
  UnmapViewOfFile@Base 3.0.0
+ UpdateProcThreadAttribute@Base 3.31.0
  UuidCompare@Base 3.0.0
  UuidCreate@Base 3.0.0
  UuidCreateNil@Base 3.0.0
@@ -1305,11 +1309,16 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  g_rgSCardT0Pci@Base 3.0.0
  g_rgSCardT1Pci@Base 3.0.0
  memmove_s@Base 3.0.0
+ sspi_AllocSecKerberosSettings@Base 3.31.0
+ sspi_AllocSecNtlmSettings@Base 3.31.0
+ sspi_CloneSecSettingsString@Base 3.31.0
  sspi_CopyAuthIdentity@Base 3.0.0
  sspi_CopyAuthIdentityFieldsA@Base 3.0.0
  sspi_CopyAuthIdentityFieldsW@Base 3.0.0
  sspi_CopyAuthPackageListA@Base 3.0.0
  sspi_FreeAuthIdentity@Base 3.0.0
+ sspi_FreeSecKerberosSettings@Base 3.31.0
+ sspi_FreeSecNtlmSettings@Base 3.31.0
  sspi_GetAuthIdentityFlags@Base 3.0.0
  sspi_GetAuthIdentityPasswordA@Base 3.0.0
  sspi_GetAuthIdentityPasswordW@Base 3.0.0

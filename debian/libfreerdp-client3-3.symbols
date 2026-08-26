@@ -12,6 +12,7 @@ libfreerdp-client3.so.3 libfreerdp-client3-3 #MINVER#
  client_cli_verify_changed_certificate_ex@Base 3.0.0
  client_common_get_access_token@Base 3.0.0
  client_common_retry_dialog@Base 3.0.0
+ client_common_save_session_info@Base 3.31.0
  client_rail_server_start_cmd@Base 3.0.0
  cliprdr_file_context_clear@Base 3.0.0
  cliprdr_file_context_current_flags@Base 3.0.0

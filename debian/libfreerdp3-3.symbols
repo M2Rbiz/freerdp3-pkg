@@ -535,6 +535,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_send_error_info@Base 3.0.0
  freerdp_server_license_issuers_copy@Base 3.0.0
  freerdp_server_license_issuers_free@Base 3.0.0
+ freerdp_session_logon_type_data_str@Base 3.31.0
  freerdp_session_logon_type_str@Base 3.30.0
  freerdp_setApplicationDetails@Base 3.23.0
  freerdp_set_common_access_token@Base 3.16.0
