@@ -48,6 +48,9 @@ BOOL Stream_EnsureCapacity(wStream* s, size_t size)
 		return TRUE;
 
 	const size_t increment = 128ull;
+	if (size > SIZE_MAX - increment)
+		return FALSE;
+
 	const size_t old_capacity = s->capacity;
 	const size_t new_capacity = size + increment - size % increment;
 	const size_t position = Stream_GetPosition(s);
@@ -79,7 +82,10 @@ BOOL Stream_EnsureCapacity(wStream* s, size_t size)
 
 BOOL Stream_EnsureRemainingCapacity(wStream* s, size_t size)
 {
-	if (Stream_GetPosition(s) + size > Stream_Capacity(s))
+	const size_t pos = Stream_GetPosition(s);
+	if (pos > SIZE_MAX - size)
+		return FALSE;
+	if (pos + size > Stream_Capacity(s))
 		return Stream_EnsureCapacity(s, Stream_Capacity(s) + size);
 	return TRUE;
 }
@@ -98,7 +104,7 @@ wStream* Stream_New(BYTE* buffer, size_t size)
 	if (buffer)
 		s->buffer = buffer;
 	else
-		s->buffer = (BYTE*)malloc(size);
+		s->buffer = (BYTE*)calloc(size, sizeof(BYTE));
 
 	if (!s->buffer)
 	{
@@ -512,5 +518,15 @@ BOOL Stream_SafeSeekEx(wStream* s, size_t size, const char* file, size_t line, c
 		return FALSE;
 
 	Stream_Seek(s, size);
+	return TRUE;
+}
+
+BOOL Stream_SafeZeroEx(wStream* s, size_t size, const char* file, size_t line, const char* fkt)
+{
+	if (!Stream_CheckAndLogRequiredCapacityEx(STREAM_TAG, WLOG_WARN, s, size, 1,
+	                                          "%s(%s:%" PRIuz ")", fkt, file, line))
+		return FALSE;
+
+	Stream_Zero(s, size);
 	return TRUE;
 }

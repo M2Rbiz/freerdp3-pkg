@@ -1001,7 +1001,7 @@ static BOOL xf_restore_input_flags(xfClipboard* clipboard)
 
 	if (clipboard->event_mask != 0)
 	{
-		XSelectInput(xfc->display, xfc->drawable, clipboard->event_mask);
+		LogDynAndXSelectInput(xfc->log, xfc->display, xfc->drawable, clipboard->event_mask);
 		clipboard->event_mask = 0;
 	}
 	return TRUE;
@@ -2456,7 +2456,7 @@ xf_cliprdr_server_format_data_response(CliprdrClientContext* context,
 		const xfCliprdrFormat* cformat =
 		    xf_cliprdr_get_client_format_by_atom(clipboard, next->expectedResponse->target);
 
-		size_t index = 1;
+		size_t index = 0;
 		while ((next = ArrayList_GetItem(clipboard->queued_responses, index)) != nullptr)
 		{
 			if (next->requestedFormat->formatToRequest == nextFormatId)
@@ -2555,7 +2555,7 @@ xfClipboard* xf_clipboard_new(xfContext* xfc, BOOL relieveFilenameRestriction)
 	clipboard->raw_format_list_atom =
 	    Logging_XInternAtom(xfc->log, xfc->display, "_FREERDP_CLIPRDR_FORMATS", FALSE);
 	xf_cliprdr_set_raw_transfer_enabled(clipboard, TRUE);
-	XSelectInput(xfc->display, clipboard->root_window, PropertyChangeMask);
+	LogDynAndXSelectInput(xfc->log, xfc->display, clipboard->root_window, PropertyChangeMask);
 #ifdef WITH_XFIXES
 
 	if (XFixesQueryExtension(xfc->display, &clipboard->xfixes_event_base,

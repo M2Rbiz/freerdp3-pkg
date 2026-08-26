@@ -41,6 +41,7 @@
 #include <freerdp/error.h>
 #include <freerdp/listener.h>
 
+#include "../cache/cache.h"
 #include "../cache/pointer.h"
 #include "../crypto/crypto.h"
 #include "../crypto/privatekey.h"
@@ -574,6 +575,9 @@ static BOOL rdp_client_reconnect_channels(rdpRdp* rdp, BOOL redirect)
 			return TRUE;
 
 		pointer_cache_register_callbacks(context->update);
+
+		if (!cache_resize(context))
+			return FALSE;
 
 		if (!IFCALLRESULT(FALSE, context->instance->PostConnect, context->instance))
 			return FALSE;
@@ -1556,6 +1560,12 @@ BOOL rdp_server_accept_nego(rdpRdp* rdp, wStream* s)
 	if (!nego_send_negotiation_response(nego))
 		return FALSE;
 
+	if ((SelectedProtocol & PROTOCOL_FAILED_NEGO) != 0)
+	{
+		WLog_ERR(TAG, "Protocol security negotiation failed, disconnecting.");
+		return FALSE;
+	}
+
 	SelectedProtocol = nego_get_selected_protocol(nego);
 	status = FALSE;
 
@@ -2232,6 +2242,9 @@ state_run_t rdp_client_connect_confirm_active(rdpRdp* rdp, WINPR_ATTR_UNUSED wSt
 	WINPR_ASSERT(rdp->context);
 	if (freerdp_shall_disconnect_context(rdp->context))
 		return STATE_RUN_SUCCESS;
+
+	if (!cache_resize(rdp->context))
+		return STATE_RUN_FAILED;
 
 	state_run_t status = STATE_RUN_SUCCESS;
 	if (!rdp->settings->SupportMonitorLayoutPdu)
