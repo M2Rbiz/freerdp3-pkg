@@ -739,8 +739,14 @@ ADDIN_ARGV* freerdp_addin_argv_new(size_t argc, const char* const argv[])
 
 	if (argv)
 	{
+		/* first argument must not be NULL, others might be */
+		if (!argv[0])
+			goto fail;
+
 		for (size_t x = 0; x < argc; x++)
 		{
+			if (!argv[x])
+				continue;
 			args->argv[x] = _strdup(argv[x]);
 			if (!args->argv[x])
 				goto fail;

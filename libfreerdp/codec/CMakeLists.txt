@@ -1,6 +1,9 @@
 # codec
 
 option(WITH_CURSOR_DUMP "Dump mouse cursor data to binary directory" OFF)
+set(YUV_TILE_SIZE "512" CACHE STRING "YUV decoder per thread tile width/height")
+add_compile_definitions(YUV_TILE_SIZE=${YUV_TILE_SIZE})
+
 if(WITH_CURSOR_DUMP)
   add_compile_definitions(WITH_CURSOR_DUMP)
   add_compile_definitions(CURSOR_DUMP_DIR="${CMAKE_CURRENT_BINARY_DIR}")
@@ -115,15 +118,29 @@ endif()
 
 if(WITH_AOM AND AOM_FOUND)
   add_compile_definitions(WITH_LIBAOM)
-  list(APPEND CODEC_LIBS ${AOM_LIBRARIES})
-  include_directories(SYSTEM ${AOM_INCLUDE_DIRS})
+  list(APPEND CODEC_LIBS aom)
   freerdp_pc_add_requires_private("aom")
+endif()
+
+if(WITH_DAV1D AND DAV1D_FOUND)
+  add_compile_definitions(WITH_DAV1D)
+  list(APPEND CODEC_LIBS dav1d)
+  freerdp_pc_add_requires_private("dav1d")
+endif()
+
+if(WITH_GFX_AV1)
+  if(WITH_DAV1D AND DAV1D_FOUND)
+    message(STATUS "AV1 decoder: dav1d")
+  elseif(WITH_AOM AND AOM_FOUND)
+    message(STATUS "AV1 decoder: libaom")
+  else()
+    message(STATUS "AV1 decoder: none (need -DWITH_DAV1D=ON or -DWITH_AOM=ON)")
+  endif()
 endif()
 
 if(WITH_YUV AND YUV_FOUND)
   add_compile_definitions(WITH_LIBYUV)
-  list(APPEND CODEC_LIBS ${YUV_LIBRARIES})
-  include_directories(SYSTEM ${YUV_INCLUDE_DIRS})
+  list(APPEND CODEC_LIBS yuv)
   freerdp_pc_add_requires_private("yuv")
 endif()
 

@@ -842,7 +842,6 @@ static UINT handle_platform_mounts_bsd(wLog* log, hotplug_dev* dev_array, size_t
 	{
 		handle_mountpoint(dev_array, size, mntbuf[idx].f_mntonname);
 	}
-	free(mntbuf);
 	return ERROR_SUCCESS;
 }
 #endif
@@ -1861,11 +1860,15 @@ static UINT rdpdr_process_receive(rdpdrPlugin* rdpdr, wStream* s)
 				case PAKID_CORE_USER_LOGGEDON:
 					if (!rdpdr->haveServerCaps)
 					{
-						WLog_Print(rdpdr->log, WLOG_ERROR,
-						           "Wrong state %s for %s. [serverCaps=%d, clientId=%d]",
-						           rdpdr_state_str(rdpdr->state), rdpdr_packetid_string(packetId),
+						/* Windows re-announces the channel after logon and may send
+						 * USER_LOGGEDON before the new SERVER_CAPABILITY arrives.
+						 * Not fatal: skip the device announce here, tryAdvance()
+						 * sends it once the capability exchange completes. */
+						WLog_Print(rdpdr->log, WLOG_WARN,
+						           "%s in state %s, ignoring. [serverCaps=%d, clientId=%d]",
+						           rdpdr_packetid_string(packetId), rdpdr_state_str(rdpdr->state),
 						           rdpdr->haveServerCaps, rdpdr->haveClientId);
-						error = ERROR_INTERNAL_ERROR;
+						error = CHANNEL_RC_OK;
 					}
 					else if ((error = rdpdr_send_device_list_announce_request(rdpdr, TRUE)))
 					{
@@ -1996,8 +1999,6 @@ static UINT rdpdr_virtual_channel_event_data_received(rdpdrPlugin* rdpdr, void* 
                                                       UINT32 dataLength, UINT32 totalLength,
                                                       UINT32 dataFlags)
 {
-	wStream* data_in = nullptr;
-
 	WINPR_ASSERT(rdpdr);
 	WINPR_ASSERT(pData || (dataLength == 0));
 
@@ -2026,8 +2027,14 @@ static UINT rdpdr_virtual_channel_event_data_received(rdpdrPlugin* rdpdr, void* 
 		}
 	}
 
-	data_in = rdpdr->data_in;
+	if (!rdpdr->data_in)
+	{
+		WLog_Print(rdpdr->log, WLOG_ERROR,
+		           "Invalid state, no CHANNEL_FLAG_FIRST received, aborting.");
+		return ERROR_INVALID_DATA;
+	}
 
+	wStream* data_in = rdpdr->data_in;
 	if (!Stream_EnsureRemainingCapacity(data_in, dataLength))
 	{
 		WLog_Print(rdpdr->log, WLOG_ERROR, "Stream_EnsureRemainingCapacity failed!");

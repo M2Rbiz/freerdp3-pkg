@@ -300,8 +300,10 @@ wStream* cliprdr_packet_format_list_new(const CLIPRDR_FORMAT_LIST* formatList,
 			}
 			else
 			{
+				const size_t formatNameWriteLength =
+				    MIN(formatNameStrLength, formatNameMaxLength - 1);
 				if (Stream_Write_UTF16_String_From_UTF8(s, formatNameMaxLength, szFormatName,
-				                                        formatNameStrLength, TRUE) < 0)
+				                                        formatNameWriteLength, TRUE) < 0)
 					goto fail;
 			}
 		}
@@ -500,7 +502,9 @@ UINT cliprdr_read_format_list(wLog* log, wStream* s, CLIPRDR_FORMAT_LIST* format
 		wStream sub2buffer = sub1buffer;
 		wStream* sub2 = &sub2buffer;
 
-		while (Stream_GetRemainingLength(sub1) > 0)
+		/* Bound must match the read pass below: some clients pad the format list with
+		 * trailing bytes that do not start another entry. */
+		while (Stream_GetRemainingLength(sub1) >= 4)
 		{
 			size_t rest = 0;
 			if (!Stream_SafeSeek(sub1, 4)) /* formatId (4 bytes) */

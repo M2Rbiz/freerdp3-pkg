@@ -1071,6 +1071,7 @@ BOOL xf_AppWindowCreate(xfContext* xfc, xfAppWindow* appWindow)
 	appWindow->maxHorz = FALSE;
 	appWindow->minimized = FALSE;
 	appWindow->rail_ignore_configure = FALSE;
+	appWindow->rail_fullscreen_normalizing = FALSE;
 
 	WINPR_ASSERT(xfc->depth != 0);
 	appWindow->handle = LogDynAndXCreateWindow(
@@ -1688,7 +1689,8 @@ void xfAppWindowsLockFrom(xfContext* xfc, WINPR_ATTR_UNUSED const char* file,
 #endif
 
 	xf_lock_x11(xfc);
-	HashTable_Lock(xfc->railWindows);
+	if (xfc->railWindows)
+		HashTable_Lock(xfc->railWindows);
 
 #if defined(WITH_VERBOSE_WINPR_ASSERT)
 	WINPR_ASSERT(!xfc->isRailWindowsLocked);
@@ -1710,6 +1712,7 @@ void xfAppWindowsUnlockFrom(xfContext* xfc, WINPR_ATTR_UNUSED const char* file,
 	xfc->isRailWindowsLocked = FALSE;
 #endif
 
-	HashTable_Unlock(xfc->railWindows);
+	if (xfc->railWindows)
+		HashTable_Unlock(xfc->railWindows);
 	xf_unlock_x11(xfc);
 }
