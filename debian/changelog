@@ -1,3 +1,10 @@
+freerdp3 (3.31.0+dfsg-1) unstable; urgency=medium
+
+  * new upstream "Huge bugfix and security release"
+  * debian/*.symbols: add new symbols
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 26 Aug 2026 23:25:36 +0300
+
 freerdp3 (3.30.0+dfsg-1) unstable; urgency=medium
 
   * new upstream release, with security fixes:
