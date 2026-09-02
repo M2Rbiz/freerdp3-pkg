@@ -39,13 +39,16 @@
 #endif
 #endif
 
-#ifdef WITH_VAAPI
+#if defined(WITH_VAAPI) || defined(WITH_VAAPI_H264_ENCODING)
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 9, 0)
 #include <libavutil/hwcontext.h>
 #else
 #pragma warning You have asked for VA - API decoding, \
     but your version of libavutil is too old !Disabling.
 #undef WITH_VAAPI
+#endif
+#if defined(HAVE_LIBVA)
+#include <libavutil/hwcontext_vaapi.h>
 #endif
 #endif
 
@@ -267,22 +270,29 @@ static const char* av_format_str(int32_t format)
 		EVCASE(AV_PIX_FMT_VULKAN);
 		EVCASE(AV_PIX_FMT_Y210BE);
 		EVCASE(AV_PIX_FMT_Y210LE);
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 17, 100)
+		EVCASE(AV_PIX_FMT_P210BE);
+		EVCASE(AV_PIX_FMT_P210LE);
+		EVCASE(AV_PIX_FMT_P216BE);
+		EVCASE(AV_PIX_FMT_P216LE);
+		EVCASE(AV_PIX_FMT_P410BE);
+		EVCASE(AV_PIX_FMT_P410LE);
 		EVCASE(AV_PIX_FMT_X2RGB10LE);
 		EVCASE(AV_PIX_FMT_X2RGB10BE);
 		EVCASE(AV_PIX_FMT_X2BGR10LE);
 		EVCASE(AV_PIX_FMT_X2BGR10BE);
-		EVCASE(AV_PIX_FMT_P210BE);
-		EVCASE(AV_PIX_FMT_P210LE);
-		EVCASE(AV_PIX_FMT_P410BE);
-		EVCASE(AV_PIX_FMT_P410LE);
-		EVCASE(AV_PIX_FMT_P216BE);
-		EVCASE(AV_PIX_FMT_P216LE);
 		EVCASE(AV_PIX_FMT_P416BE);
 		EVCASE(AV_PIX_FMT_P416LE);
+#endif
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(58, 2, 100)
 		EVCASE(AV_PIX_FMT_VUYA);
+		EVCASE(AV_PIX_FMT_VUYX);
+#endif
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 33, 101)
 		EVCASE(AV_PIX_FMT_RGBAF16BE);
 		EVCASE(AV_PIX_FMT_RGBAF16LE);
-		EVCASE(AV_PIX_FMT_VUYX);
+#endif
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
 		EVCASE(AV_PIX_FMT_P012LE);
 		EVCASE(AV_PIX_FMT_P012BE);
 		EVCASE(AV_PIX_FMT_Y212BE);
@@ -295,13 +305,20 @@ static const char* av_format_str(int32_t format)
 		EVCASE(AV_PIX_FMT_RGBF32LE);
 		EVCASE(AV_PIX_FMT_RGBAF32BE);
 		EVCASE(AV_PIX_FMT_RGBAF32LE);
+#endif
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(59, 10, 100)
 		EVCASE(AV_PIX_FMT_P212BE);
 		EVCASE(AV_PIX_FMT_P212LE);
 		EVCASE(AV_PIX_FMT_P412BE);
 		EVCASE(AV_PIX_FMT_P412LE);
+#endif
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(59, 14, 100)
 		EVCASE(AV_PIX_FMT_GBRAP14BE);
 		EVCASE(AV_PIX_FMT_GBRAP14LE);
+#endif
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(59,16,100)
 		EVCASE(AV_PIX_FMT_D3D12);
+#endif
 		EVCASE(AV_PIX_FMT_NB);
 		default:
 			return "AV_PIX_FMT_UNKNOWN";
@@ -322,6 +339,7 @@ static inline char* error_string(char* errbuf, size_t errbuf_size, int errnum)
 #endif
 
 #if defined(WITH_VAAPI) || defined(WITH_VAAPI_H264_ENCODING)
+WINPR_ATTR_NODISCARD
 static const char* get_vaapi_device(void)
 {
 	static char device[MAX_PATH] = WINPR_C_ARRAY_INIT;
@@ -679,7 +697,12 @@ static int libavcodec_decompress(H264_CONTEXT* WINPR_RESTRICT h264,
 					goto fail;
 			}
 
+#if LIBSWSCALE_VERSION_INT >= AV_VERSION_INT(6, 4, 100)
 			status = sws_scale_frame(sys->swsctx, sys->videoFrame, target);
+#else
+#error "Need SWScale >= 6.4.100"
+#endif
+
 			if (status < 0)
 			{
 				WLog_Print(h264->log, WLOG_ERROR, "Failed to convert video frame (status=%d) (%s)",
@@ -913,6 +936,7 @@ static void libavcodec_uninit(H264_CONTEXT* h264)
 		av_frame_free(&sys->hwVideoFrame);
 #else
 		av_free(sys->hwVideoFrame);
+		sys->hwVideoFrame = nullptr;
 #endif
 	}
 
@@ -956,7 +980,34 @@ static void libavcodec_uninit(H264_CONTEXT* h264)
 	h264->pSystemData = nullptr;
 }
 
+#if defined(WITH_VAAPI) || defined(WITH_VAAPI_H264_ENCODING)
+WINPR_ATTR_NODISCARD
+static const char* vaapi_vendor(AVBufferRef* hwctx)
+{
+	const char* vendor = "UNKNOWN";
+	if (!hwctx)
+		return vendor;
+
+#if defined(HAVE_LIBVA)
+	const AVHWDeviceContext* devctx = (const AVHWDeviceContext*)hwctx->data;
+	if (!devctx)
+		return vendor;
+
+	const AVVAAPIDeviceContext* ctx = devctx->hwctx;
+	if (!ctx)
+		return vendor;
+
+	const char* vavendor = vaQueryVendorString(ctx->display);
+	if (vavendor)
+		return vavendor;
+#else
+	vendor = "";
+#endif
+	return vendor;
+}
+#endif
 #if defined(WITH_VAAPI) || defined(WITH_VIDEOTOOLBOX)
+WINPR_ATTR_NODISCARD
 static enum AVPixelFormat libavcodec_get_format(struct AVCodecContext* ctx,
                                                 const enum AVPixelFormat* fmts)
 {
@@ -1070,14 +1121,16 @@ static BOOL libavcodec_init(H264_CONTEXT* h264)
 
 			if (ret < 0)
 			{
-				WLog_Print(h264->log, WLOG_ERROR,
-				           "Could not initialize hardware decoder, falling back to software: %s",
-				           av_err2str(ret));
+				WLog_Print(
+				    h264->log, WLOG_ERROR,
+				    "Could not initialize hardware decoder for %s, falling back to software: %s",
+				    get_vaapi_device(), av_err2str(ret));
 				sys->hwctx = nullptr;
 				goto fail_hwdevice_create;
 			}
 		}
-		WLog_Print(h264->log, WLOG_INFO, "Using VAAPI for accelerated H264 decoding");
+		WLog_Print(h264->log, WLOG_INFO, "Using VAAPI [%s|%s] for accelerated H264 decoding",
+		           get_vaapi_device(), vaapi_vendor(sys->hwctx));
 
 		sys->codecDecoderContext->get_format = libavcodec_get_format;
 		sys->hw_pix_fmt = AV_PIX_FMT_VAAPI;
@@ -1142,13 +1195,15 @@ static BOOL libavcodec_init(H264_CONTEXT* h264)
 			else if (av_hwdevice_ctx_create(&sys->hwctx, AV_HWDEVICE_TYPE_VAAPI, get_vaapi_device(),
 			                                nullptr, 0) < 0)
 			{
-				WLog_Print(h264->log, WLOG_ERROR, "av_hwdevice_ctx_create failed");
+				WLog_Print(h264->log, WLOG_ERROR, "av_hwdevice_ctx_create(%s) failed",
+				           get_vaapi_device());
 				sys->codecEncoder = nullptr;
 				sys->hwctx = nullptr;
 			}
 			else
 			{
-				WLog_Print(h264->log, WLOG_INFO, "Using VAAPI for accelerated H264 encoding");
+				WLog_Print(h264->log, WLOG_INFO, "Using VAAPI[%s|%s] for accelerated H264 encoding",
+				           get_vaapi_device(), vaapi_vendor(sys->hwctx));
 			}
 		}
 #endif
