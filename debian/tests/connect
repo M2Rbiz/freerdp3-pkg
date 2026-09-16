@@ -6,7 +6,8 @@ isNaturalNumber(){
     esac
 }
 
-sudo systemctl start xrdp
+sudo adduser xrdp ssl-cert
+sudo systemctl restart xrdp
 # XXX: Is there a better way to get the port number other than by parsing the
 # configuration file?
 port=$(sed -n '/^port=[0123456789]/{s/port=//p;q;}' /etc/xrdp/xrdp.ini)
