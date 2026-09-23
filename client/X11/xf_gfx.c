@@ -348,6 +348,8 @@ static UINT xf_CreateSurface(RdpgfxClientContext* context,
 	surface->gdi.outputTargetWidth = createSurface->width;
 	surface->gdi.outputTargetHeight = createSurface->height;
 
+	const BOOL rails =
+	    freerdp_settings_get_bool(gdi->context->settings, FreeRDP_RemoteApplicationMode);
 	switch (createSurface->pixelFormat)
 	{
 		case GFX_PIXEL_FORMAT_ARGB_8888:
@@ -355,7 +357,7 @@ static UINT xf_CreateSurface(RdpgfxClientContext* context,
 			break;
 
 		case GFX_PIXEL_FORMAT_XRGB_8888:
-			surface->gdi.format = PIXEL_FORMAT_BGRA32;
+			surface->gdi.format = rails ? PIXEL_FORMAT_BGRA32 : PIXEL_FORMAT_BGRX32;
 			break;
 
 		default:
@@ -368,7 +370,7 @@ static UINT xf_CreateSurface(RdpgfxClientContext* context,
 	surface->gdi.scanline = x11_pad_scanline(surface->gdi.scanline,
 	                                         WINPR_ASSERTING_INT_CAST(uint32_t, xfc->scanline_pad));
 	size = 1ull * surface->gdi.scanline * surface->gdi.height;
-	surface->gdi.data = (BYTE*)winpr_aligned_malloc(size, 16);
+	surface->gdi.data = (BYTE*)winpr_aligned_calloc(1, size, 16);
 
 	if (!surface->gdi.data)
 	{
@@ -395,7 +397,7 @@ static UINT xf_CreateSurface(RdpgfxClientContext* context,
 		surface->stageScanline = x11_pad_scanline(
 		    surface->stageScanline, WINPR_ASSERTING_INT_CAST(uint32_t, xfc->scanline_pad));
 		size = 1ull * surface->stageScanline * surface->gdi.height;
-		surface->stage = (BYTE*)winpr_aligned_malloc(size, 16);
+		surface->stage = (BYTE*)winpr_aligned_calloc(1, size, 16);
 
 		if (!surface->stage)
 		{

@@ -66,17 +66,17 @@ static IWTSVirtualChannel* get_channel(IUDEVMAN* idevman)
 
 static int func_container_id_generate(IUDEVICE* pdev, char* strContainerId)
 {
-	char* p = nullptr;
-	char* path = nullptr;
+	const char* p = nullptr;
 	UINT8 containerId[17] = WINPR_C_ARRAY_INIT;
 	UINT16 idVendor = 0;
 	UINT16 idProduct = 0;
 	idVendor = (UINT16)pdev->query_device_descriptor(pdev, ID_VENDOR);
 	idProduct = (UINT16)pdev->query_device_descriptor(pdev, ID_PRODUCT);
-	path = pdev->getPath(pdev);
+	const char* path = pdev->getPath(pdev);
 
-	if (strlen(path) > 8)
-		p = (path + strlen(path)) - 8;
+	const size_t plen = strlen(path);
+	if (plen > 8)
+		p = &path[plen - 8];
 	else
 		p = path;
 
@@ -265,7 +265,7 @@ static BOOL write_string_block(wStream* s, size_t count, const char** strings, c
 		const SSIZE_T wlen = ConvertUtf8NToWChar(str, clength, nullptr, 0);
 		if (wlen < 0)
 			return FALSE;
-		const size_t wlength = WINPR_ASSERTING_INT_CAST(size_t, wlen);
+		const size_t wlength = WINPR_ASSERTING_INT_CAST(size_t, wlen) + 1;
 
 		const SSIZE_T w = Stream_Write_UTF16_String_From_UTF8(s, wlength, str, clength, TRUE);
 		if ((w < 0) || ((size_t)w != wlength))
@@ -280,10 +280,10 @@ static BOOL write_string_block(wStream* s, size_t count, const char** strings, c
 
 /* [MS-RDPEUSB] 2.2.4.2 Add Device Message (ADD_DEVICE) */
 static UINT urbdrc_send_add_device(GENERIC_CHANNEL_CALLBACK* callback, UINT32 UsbDevice,
-                                   UINT32 bcdUSB, const char* strInstanceId, size_t InstanceIdLen,
-                                   size_t nrHwIds, const char* HardwareIds[],
-                                   const size_t HardwareIdsLen[], size_t nrCompatIds,
-                                   const char* CompatibilityIds[],
+                                   UINT32 bcdUSB, enum device_speed deviceSpeed,
+                                   const char* strInstanceId, size_t InstanceIdLen, size_t nrHwIds,
+                                   const char* HardwareIds[], const size_t HardwareIdsLen[],
+                                   size_t nrCompatIds, const char* CompatibilityIds[],
                                    const size_t CompatibilityIdsLen[], const char* strContainerId,
                                    size_t ContainerIdLen)
 {
@@ -324,10 +324,29 @@ static UINT urbdrc_send_add_device(GENERIC_CHANNEL_CALLBACK* callback, UINT32 Us
 	Stream_Write_UINT32(out, bcdUSB);
 	Stream_Write_UINT32(out, 0x00000000); /* HcdCapabilities, MUST always be zero */
 
-	if (bcdUSB < 0x200)
-		Stream_Write_UINT32(out, 0x00000000); /* DeviceIsHighSpeed */
-	else
-		Stream_Write_UINT32(out, 0x00000001); /* DeviceIsHighSpeed */
+	/* [MS-RDPEUSB] 2.2.11 distinguishes only full from high speed, so every
+	 * faster device is reported as high speed. */
+	UINT32 DeviceIsHighSpeed = 0;
+	switch (deviceSpeed)
+	{
+		case DEVICE_SPEED_LOW:
+		case DEVICE_SPEED_FULL:
+			DeviceIsHighSpeed = 0x00000000;
+			break;
+
+		case DEVICE_SPEED_UNKNOWN:
+			/* The negotiated speed is unavailable or not recognised, so fall
+			 * back to the USB version the device claims. It only bounds the
+			 * speed, which is why it is not used when the bus can be asked. */
+			DeviceIsHighSpeed = (bcdUSB < 0x200) ? 0x00000000 : 0x00000001;
+			break;
+
+		default:
+			DeviceIsHighSpeed = 0x00000001;
+			break;
+	}
+
+	Stream_Write_UINT32(out, DeviceIsHighSpeed); /* DeviceIsHighSpeed */
 
 	Stream_Write_UINT32(out, 0x50); /* NoAckIsochWriteJitterBufferSizeInMs, >=10 or <=512 */
 	return stream_write_and_free(callback->plugin, callback->channel, out);
@@ -416,8 +435,9 @@ static UINT urdbrc_send_usb_device_add(GENERIC_CHANNEL_CALLBACK* callback, IUDEV
 	const UINT32 UsbDevice = pdev->get_UsbDevice(pdev);
 	const UINT32 bcdUSB =
 	    WINPR_ASSERTING_INT_CAST(uint32_t, pdev->query_device_descriptor(pdev, BCD_USB));
-	return urbdrc_send_add_device(callback, UsbDevice, bcdUSB, strInstanceId, InstanceIdLen,
-	                              nrHwIds, CHardwareIds, HardwareIdsLen, nrCompatIds,
+	const enum device_speed deviceSpeed = pdev->query_device_speed(pdev);
+	return urbdrc_send_add_device(callback, UsbDevice, bcdUSB, deviceSpeed, strInstanceId,
+	                              InstanceIdLen, nrHwIds, CHardwareIds, HardwareIdsLen, nrCompatIds,
 	                              CCompatibilityIds, CompatibilityIdLen, strContainerId,
 	                              ContainerIdLen);
 }

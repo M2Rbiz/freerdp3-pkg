@@ -154,6 +154,7 @@ char* winpr_str_url_decode(const char* str, size_t len)
 	return dst;
 }
 
+WINPR_ATTR_NODISCARD
 static char* escape(char* dst, char what)
 {
 	if (rfc3986[what & 0xff])
@@ -162,7 +163,8 @@ static char* escape(char* dst, char what)
 		return dst + 1;
 	}
 
-	sprintf(dst, "%%%02" PRIX8, (BYTE)(what & 0xff));
+	if (sprintf(dst, "%%%02" PRIX8, (BYTE)(what & 0xff)) < 0)
+		return nullptr;
 	return dst + 3;
 }
 
@@ -438,8 +440,10 @@ WCHAR* _wcsstr(const WCHAR* str, const WCHAR* strSearch)
 }
 
 /* _wcschr -> wcschr */
-
-WCHAR* _wcschr(const WCHAR* str, WCHAR c)
+#if defined(WITHOUT_WINPR_3x_DEPRECATED)
+static
+#endif
+    WCHAR* _wcschr(const WCHAR* str, WCHAR c)
 {
 	union
 	{
@@ -456,7 +460,7 @@ WCHAR* _wcschr(const WCHAR* str, WCHAR c)
 }
 
 /* _wcsrchr -> wcsrchr */
-
+#if !defined(WITHOUT_WINPR_3x_DEPRECATED)
 WCHAR* _wcsrchr(const WCHAR* str, WCHAR c)
 {
 	union
@@ -479,6 +483,7 @@ WCHAR* _wcsrchr(const WCHAR* str, WCHAR c)
 	cnv.cc = p;
 	return cnv.c;
 }
+#endif
 
 char* strtok_s(char* strToken, const char* strDelimit, char** context)
 {
@@ -924,7 +929,7 @@ WCHAR* wcsndup(const WCHAR* s, size_t n)
 	return copy;
 }
 
-char* winpr_strnstr(char* haystack, const char* needle, size_t hlen)
+char* winpr_strnstr(const char* haystack, const char* needle, size_t hlen)
 {
 	WINPR_ASSERT(haystack || (hlen == 0));
 	WINPR_ASSERT(needle);
@@ -937,12 +942,12 @@ char* winpr_strnstr(char* haystack, const char* needle, size_t hlen)
 	const size_t needle_len = strlen(needle);
 
 	if (0 == needle_len)
-		return haystack;
+		return WINPR_CAST_CONST_PTR_AWAY(haystack, char*);
 
 	for (; (*haystack != '\0') && (hlen >= needle_len); haystack++, hlen--)
 	{
 		if ((haystack[0] == needle[0]) && (0 == strncmp(haystack, needle, needle_len)))
-			return haystack;
+			return WINPR_CAST_CONST_PTR_AWAY(haystack, char*);
 	}
 	return nullptr;
 #endif
@@ -976,4 +981,55 @@ BOOL winpr_str_has_newlines(const char* str)
 				break;
 		}
 	} while (1);
+}
+
+WCHAR* winpr_wcsnchr(const WCHAR* str, size_t charLen, WCHAR c)
+{
+	if (!str || (charLen == 0))
+		return nullptr;
+
+	const WCHAR* p = str;
+	const WCHAR* end = &str[charLen];
+
+	while (p != end)
+	{
+		const WCHAR wc = winpr_Data_Get_UINT16(p);
+		if (wc == c)
+		{
+			union
+			{
+				WCHAR* w;
+				const WCHAR* cw;
+			} cnv;
+			cnv.cw = p;
+			return cnv.w;
+		}
+		p++;
+	}
+	return nullptr;
+}
+
+WCHAR* winpr_wcsnrchr(const WCHAR* str, size_t charLen, WCHAR c)
+{
+	if (!str || (charLen == 0))
+		return nullptr;
+
+	const WCHAR* p = str;
+	const WCHAR* end = &str[charLen];
+
+	union
+	{
+		WCHAR* w;
+		const WCHAR* cw;
+	} cnv;
+
+	cnv.cw = nullptr;
+	while (p != end)
+	{
+		const WCHAR wc = winpr_Data_Get_UINT16(p);
+		if (wc == c)
+			cnv.cw = p;
+		p++;
+	}
+	return cnv.w;
 }
