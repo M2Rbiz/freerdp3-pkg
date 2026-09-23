@@ -54,8 +54,8 @@ freerdp3 (3.32.0+dfsg-1) unstable; urgency=medium
    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-945c-qq5h-jqwp
    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-93g7-296p-j77j
    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-6rj3-rf6g-3vw5
-   - https://github.com/FreeRDP/FreeRDP/security/advisories/HSA-wf3x-658c-52m5
-   - https://github.com/FreeRDP/FreeRDP/security/advisories/HSA-2hhg-8xx6-v73w
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-wf3x-658c-52m5
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-2hhg-8xx6-v73w
    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-g4wg-67xq-8q53
    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-72qv-gcph-rfwf
    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-vqxm-9w7c-hvvx
