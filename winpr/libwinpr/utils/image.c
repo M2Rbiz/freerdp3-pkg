@@ -54,6 +54,12 @@
 #include "../log.h"
 #define TAG WINPR_TAG("utils.image")
 
+#if defined(WINPR_UTILS_IMAGE_JPEG)
+#ifndef MAX
+#define MAX(a, b) ((a) > (b)) ? (a) : (b)
+#endif
+#endif
+
 static SSIZE_T winpr_convert_from_jpeg(const BYTE* comp_data, size_t comp_data_bytes, UINT32* width,
                                        UINT32* height, UINT32* bpp, BYTE** ppdecomp_data);
 static SSIZE_T winpr_convert_from_png(const BYTE* comp_data, size_t comp_data_bytes, UINT32* width,
@@ -302,11 +308,11 @@ static void* winpr_bitmap_write_buffer(const BYTE* data, WINPR_ATTR_UNUSED size_
 	WINPR_ASSERT(data || (size == 0));
 
 	void* result = nullptr;
-	size_t bpp_stride = 1ull * width * (bpp / 8);
+	size_t bpp_stride = 1ull * width * ((bpp + 7ull) / 8ull);
 	if ((bpp_stride % 4) != 0)
 		bpp_stride += 4 - (bpp_stride % 4);
 
-	if (bpp_stride > UINT32_MAX)
+	if ((bpp_stride < 4) || (bpp_stride > UINT32_MAX))
 		return nullptr;
 
 	wStream* s = Stream_New(nullptr, 1024);
@@ -316,6 +322,8 @@ static void* winpr_bitmap_write_buffer(const BYTE* data, WINPR_ATTR_UNUSED size_
 
 	BYTE* bmp_header = winpr_bitmap_construct_header(width, height, bpp);
 	if (!bmp_header)
+		goto fail;
+	if (bpp_stride < stride)
 		goto fail;
 	if (!Stream_EnsureRemainingCapacity(s, WINPR_IMAGE_BMP_HEADER_LEN))
 		goto fail;
@@ -459,14 +467,19 @@ static int winpr_image_bitmap_read_buffer(wImage* image, const BYTE* buffer, siz
 	image->type = WINPR_IMAGE_BITMAP;
 
 	{
+		/* bfOffBits may include color masks, a color table or padding after the
+		 * info header. It must leave room for the required color data. */
 		const size_t pos = Stream_GetPosition(s);
 		const size_t expect = bf.bfOffBits;
-		if (pos != expect)
+		if ((pos > expect) || (bmpoffset > expect - pos))
 		{
 			WLog_WARN(TAG, "pos=%" PRIuz ", expected %" PRIuz ", offset=%" PRIuz, pos, expect,
 			          bmpoffset);
 			goto fail;
 		}
+
+		if (!Stream_SafeSeek(s, expect - pos))
+			goto fail;
 	}
 
 	if (!Stream_CheckAndLogRequiredLength(TAG, s, bi.biSizeImage))
@@ -783,6 +796,7 @@ SSIZE_T winpr_convert_from_jpeg(WINPR_ATTR_UNUSED const BYTE* comp_data,
 		goto fail;
 
 	cinfo.out_color_space = cinfo.num_components > 3 ? JCS_EXT_RGBA : JCS_EXT_BGR;
+	const int components = MAX(3, cinfo.num_components);
 
 	*width = WINPR_ASSERTING_INT_CAST(uint32_t, cinfo.image_width);
 	*height = WINPR_ASSERTING_INT_CAST(uint32_t, cinfo.image_height);
@@ -791,8 +805,7 @@ SSIZE_T winpr_convert_from_jpeg(WINPR_ATTR_UNUSED const BYTE* comp_data,
 	if (!jpeg_start_decompress(&cinfo))
 		goto fail;
 
-	size_t stride =
-	    1ULL * cinfo.image_width * WINPR_ASSERTING_INT_CAST(uint32_t, cinfo.num_components);
+	size_t stride = 1ULL * cinfo.image_width * WINPR_ASSERTING_INT_CAST(size_t, components);
 
 	if ((stride == 0) || (cinfo.image_height == 0))
 		goto fail;

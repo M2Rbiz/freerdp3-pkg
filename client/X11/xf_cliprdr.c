@@ -388,7 +388,7 @@ static BOOL xf_cliprdr_is_atom_available(xfClipboard* clipboard, Atom atom)
 	WINPR_ASSERT(clipboard);
 
 	char* name = Safe_XGetAtomName(clipboard->log, clipboard->xfc->display, atom);
-	for (size_t x = 0; x < clipboard->numClientFormats; x++)
+	for (size_t x = 0; x < clipboard->clientAvailableFormatAtomsCount; x++)
 	{
 		WINPR_ASSERT(clipboard->clientAvailableFormatAtoms);
 
@@ -566,7 +566,7 @@ static wStream* xf_cliprdr_serialize_server_format_list(xfClipboard* clipboard)
 
 		DEBUG_CLIPRDR("server announced 0x%08" PRIx32 " [%s][%s]", format->formatId,
 		              ClipboardGetFormatIdString(format->formatId), format->formatName);
-		if (!Stream_EnsureRemainingCapacity(s, sizeof(UINT32) + name_length + 1))
+		if (!Stream_EnsureRemainingCapacity(s, sizeof(UINT32) + name_length + 1ull))
 		{
 			WLog_Print(clipboard->log, WLOG_ERROR, "failed to expand serialized format list");
 			goto error;
@@ -727,6 +727,7 @@ static BOOL xf_cliprdr_should_add_format(const CLIPRDR_FORMAT* formats, size_t c
 	return TRUE;
 }
 
+WINPR_ATTR_NODISCARD
 static CLIPRDR_FORMAT* xf_cliprdr_get_formats_from_targets(xfClipboard* clipboard,
                                                            UINT32* numFormats, Atom** atoms,
                                                            size_t* atomsCount)
@@ -740,14 +741,14 @@ static CLIPRDR_FORMAT* xf_cliprdr_get_formats_from_targets(xfClipboard* clipboar
 
 	WINPR_ASSERT(clipboard);
 	WINPR_ASSERT(numFormats);
+	WINPR_ASSERT(atoms);
+	WINPR_ASSERT(atomsCount);
 
 	xfContext* xfc = clipboard->xfc;
 	WINPR_ASSERT(xfc);
 
 	*numFormats = 0;
-	if (atomsCount)
-		*atomsCount = 0;
-	if (atoms)
+	*atomsCount = 0;
 	{
 		XFree(*atoms);
 		*atoms = nullptr;
@@ -781,7 +782,7 @@ static CLIPRDR_FORMAT* xf_cliprdr_get_formats_from_targets(xfClipboard* clipboar
 		const uint32_t htmlFormatId = ClipboardRegisterFormat(clipboard->system, type_HtmlFormat);
 		for (unsigned long i = 0; i < proplength; i++)
 		{
-			Atom tatom = ((Atom*)data)[i];
+			Atom tatom = WINPR_PACKED_ALIGN_CAST(Atom*, data)[i];
 			const xfCliprdrFormat* format = xf_cliprdr_get_client_format_by_atom(clipboard, tatom);
 
 			if (xf_cliprdr_should_add_format(formats, *numFormats, format))
@@ -830,16 +831,16 @@ out:
 
 	if (data && !atoms)
 		XFree(data);
-	else if (atoms)
+	else if (atoms && data)
 	{
-		*atoms = (Atom*)data;
-		if (atomsCount)
-			*atomsCount = proplength;
+		*atoms = WINPR_PACKED_ALIGN_CAST(Atom*, data);
+		*atomsCount = proplength;
 	}
 
 	return formats;
 }
 
+WINPR_ATTR_NODISCARD
 static CLIPRDR_FORMAT* xf_cliprdr_get_client_formats(xfClipboard* clipboard, UINT32* numFormats,
                                                      Atom** atoms, size_t* atomsCount)
 {
@@ -847,20 +848,18 @@ static CLIPRDR_FORMAT* xf_cliprdr_get_client_formats(xfClipboard* clipboard, UIN
 
 	WINPR_ASSERT(clipboard);
 	WINPR_ASSERT(numFormats);
+	WINPR_ASSERT(atoms);
+	WINPR_ASSERT(atomsCount);
 
 	*numFormats = 0;
-	if (atoms)
+	*atomsCount = 0;
 	{
 		XFree(*atoms);
 		*atoms = nullptr;
 	}
-	if (atomsCount)
-		*atomsCount = 0;
 
 	if (xf_cliprdr_is_raw_transfer_available(clipboard))
-	{
 		formats = xf_cliprdr_get_raw_server_formats(clipboard, numFormats);
-	}
 
 	if (*numFormats == 0)
 	{
@@ -948,6 +947,7 @@ static UINT xf_cliprdr_send_format_list(xfClipboard* clipboard, const CLIPRDR_FO
 
 	WINPR_ASSERT(clipboard);
 	WINPR_ASSERT(formats || (numFormats == 0));
+	WINPR_ASSERT(atoms || (atomsCount == 0));
 
 #if defined(WITH_DEBUG_CLIPRDR)
 	for (UINT32 x = 0; x < numFormats; x++)
@@ -1074,7 +1074,7 @@ static void xf_cliprdr_process_requested_data(xfClipboard* clipboard, BOOL hasDa
 	     ClipboardGetFormatId(clipboard->system, type_FileGroupDescriptorW)))
 	{
 		UINT error = NO_ERROR;
-		FILEDESCRIPTORW* file_array = (FILEDESCRIPTORW*)pDstData;
+		FILEDESCRIPTORW* file_array = WINPR_PACKED_ALIGN_CAST(FILEDESCRIPTORW*, pDstData);
 		UINT32 file_count = DstSize / sizeof(FILEDESCRIPTORW);
 		pDstData = nullptr;
 		DstSize = 0;
@@ -2053,12 +2053,13 @@ static UINT xf_cliprdr_server_capabilities(CliprdrClientContext* context,
 
 	for (UINT32 i = 0; i < capabilities->cCapabilitiesSets; i++)
 	{
-		const CLIPRDR_CAPABILITY_SET* caps = (const CLIPRDR_CAPABILITY_SET*)capsPtr;
+		const CLIPRDR_CAPABILITY_SET* caps =
+		    WINPR_PACKED_ALIGN_CAST(const CLIPRDR_CAPABILITY_SET*, capsPtr);
 
 		if (caps->capabilitySetType == CB_CAPSTYPE_GENERAL)
 		{
 			const CLIPRDR_GENERAL_CAPABILITY_SET* generalCaps =
-			    (const CLIPRDR_GENERAL_CAPABILITY_SET*)caps;
+			    WINPR_PACKED_ALIGN_CAST(const CLIPRDR_GENERAL_CAPABILITY_SET*, caps);
 
 			if (!cliprdr_file_context_remote_set_flags(clipboard->file, generalCaps->generalFlags))
 				return ERROR_INTERNAL_ERROR;

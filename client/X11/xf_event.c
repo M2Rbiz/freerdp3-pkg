@@ -679,8 +679,15 @@ static BOOL xf_event_FocusIn(xfContext* xfc, const XFocusInEvent* event, BOOL ap
 		xf_keyboard_release_all_keypress(xfc);
 	else
 	{
-		if (!xf_rail_send_activate(xfc, event->window, TRUE))
-			return FALSE;
+		/* Do not send TS_RAIL_ORDER_ACTIVATE to the server.
+		 *
+		 * In a RemoteApp session the server treats "this window became active"
+		 * as "the previously active window became inactive". A drop-down menu
+		 * is a separate top level window, so opening it deactivates the owner
+		 * window and Windows closes the menu again: the menu only flashes.
+		 * Skipping the notification keeps drop-down/context menus usable.
+		 *
+		 * See issues #4660, #1528 and #7460. */
 	}
 
 	xf_pointer_update_scale(xfc);
@@ -712,7 +719,14 @@ static BOOL xf_event_FocusOut(xfContext* xfc, const XFocusOutEvent* event, BOOL 
 
 	xf_keyboard_release_all_keypress(xfc);
 	if (app)
-		return xf_rail_send_activate(xfc, event->window, FALSE);
+	{
+		/* A pointer grab belongs to the previously focused RemoteApp window.
+		 * Keeping it would route clicks on local foreground windows back to it. */
+		xf_ungrab(xfc);
+		/* Same as in xf_event_FocusIn(): reporting the deactivation would close
+		 * a popup menu that has just been opened. */
+		return TRUE;
+	}
 
 	return TRUE;
 }
@@ -939,6 +953,13 @@ static BOOL xf_event_MapNotify(xfContext* xfc, const XMapEvent* event, BOOL app)
 			 */
 			// xf_rail_send_client_system_command(xfc, appWindow->windowId, SC_RESTORE);
 			appWindow->is_mapped = TRUE;
+			if (appWindow->surfaceStale)
+			{
+				const UINT64 windowId = appWindow->windowId;
+				const UINT32 surfaceId = appWindow->surfaceId;
+				xf_rail_return_window(appWindow, FALSE);
+				return xf_AppWindowRepaintFromSurface(xfc, windowId, surfaceId);
+			}
 		}
 		xf_rail_return_window(appWindow, FALSE);
 	}
@@ -1021,9 +1042,10 @@ static BOOL xf_event_PropertyNotify(xfContext* xfc, const XPropertyEvent* event,
 				}
 				for (unsigned long i = 0; i < nitems; i++)
 				{
-					if ((Atom)((UINT16**)prop)[i] == xfc->NET_WM_STATE_FULLSCREEN)
+					if ((Atom)WINPR_PACKED_ALIGN_CAST(UINT16**, prop)[i] ==
+					    xfc->NET_WM_STATE_FULLSCREEN)
 						fullscreen = TRUE;
-					if ((Atom)((UINT16**)prop)[i] ==
+					if ((Atom)(WINPR_PACKED_ALIGN_CAST(UINT16**, prop))[i] ==
 					    Logging_XInternAtom(xfc->log, xfc->display, "_NET_WM_STATE_MAXIMIZED_VERT",
 					                        False))
 					{
@@ -1031,7 +1053,7 @@ static BOOL xf_event_PropertyNotify(xfContext* xfc, const XPropertyEvent* event,
 							appWindow->maxVert = TRUE;
 					}
 
-					if ((Atom)((UINT16**)prop)[i] ==
+					if ((Atom)(WINPR_PACKED_ALIGN_CAST(UINT16**, prop)[i]) ==
 					    Logging_XInternAtom(xfc->log, xfc->display, "_NET_WM_STATE_MAXIMIZED_HORZ",
 					                        False))
 					{

@@ -709,6 +709,11 @@ static UINT gdi_SurfaceCommand_AVC420(rdpGdi* gdi, RdpgfxClientContext* context,
 			return ERROR_NOT_ENOUGH_MEMORY;
 		}
 
+		if (!h264_context_set_option(
+		        surface->h264, H264_CONTEXT_OPTION_HW_ACCEL,
+		        (UINT32)freerdp_settings_get_bool(gdi->context->settings, FreeRDP_SoftwareGdi)))
+			return ERROR_INTERNAL_ERROR;
+
 		if (!h264_context_reset(surface->h264, surface->width, surface->height))
 			return ERROR_INTERNAL_ERROR;
 	}
@@ -798,6 +803,10 @@ static UINT gdi_SurfaceCommand_AVC444(rdpGdi* gdi, RdpgfxClientContext* context,
 			return ERROR_NOT_ENOUGH_MEMORY;
 		}
 
+		if (!h264_context_set_option(
+		        surface->h264, H264_CONTEXT_OPTION_HW_ACCEL,
+		        (UINT32)freerdp_settings_get_bool(gdi->context->settings, FreeRDP_SoftwareGdi)))
+			return ERROR_INTERNAL_ERROR;
 		if (!h264_context_reset(surface->h264, surface->width, surface->height))
 			return ERROR_INTERNAL_ERROR;
 	}
@@ -1041,7 +1050,9 @@ static void dump_cmd(const RDPGFX_SURFACE_COMMAND* cmd, UINT32 frameId)
 	WINPR_ASSERT(cmd);
 	char fname[1024] = WINPR_C_ARRAY_INIT;
 
-	snprintf(fname, sizeof(fname), "%s/%08" PRIx64 ".raw", path, xxx++);
+	if (_snprintf(fname, sizeof(fname), "%s/%08" PRIx64 ".raw", path, xxx++) < 0)
+		return;
+
 	FILE* fp = fopen(fname, "w");
 	if (!fp)
 		return;
@@ -1288,6 +1299,8 @@ static UINT gdi_CreateSurface(RdpgfxClientContext* context,
 	surface->outputTargetWidth = createSurface->width;
 	surface->outputTargetHeight = createSurface->height;
 
+	const BOOL rails =
+	    freerdp_settings_get_bool(gdi->context->settings, FreeRDP_RemoteApplicationMode);
 	switch (createSurface->pixelFormat)
 	{
 		case GFX_PIXEL_FORMAT_ARGB_8888:
@@ -1295,7 +1308,7 @@ static UINT gdi_CreateSurface(RdpgfxClientContext* context,
 			break;
 
 		case GFX_PIXEL_FORMAT_XRGB_8888:
-			surface->format = PIXEL_FORMAT_BGRA32;
+			surface->format = rails ? PIXEL_FORMAT_BGRA32 : PIXEL_FORMAT_BGRX32;
 			break;
 
 		default:
@@ -1304,7 +1317,7 @@ static UINT gdi_CreateSurface(RdpgfxClientContext* context,
 	}
 
 	surface->scanline = gfx_align_scanline(surface->width * 4UL, 16);
-	surface->data = (BYTE*)winpr_aligned_malloc(1ull * surface->scanline * surface->height, 16);
+	surface->data = (BYTE*)winpr_aligned_calloc(surface->scanline, surface->height, 16);
 
 	if (!surface->data)
 	{
@@ -1782,17 +1795,19 @@ fail:
 static UINT gdi_ExportCacheEntry(RdpgfxClientContext* context, UINT16 cacheSlot,
                                  PERSISTENT_CACHE_ENTRY* exportCacheEntry)
 {
-	gdiGfxCacheEntry* cacheEntry = nullptr;
-
 	WINPR_ASSERT(context->GetCacheSlotData);
-	cacheEntry = (gdiGfxCacheEntry*)context->GetCacheSlotData(context, cacheSlot);
+	gdiGfxCacheEntry* cacheEntry = (gdiGfxCacheEntry*)context->GetCacheSlotData(context, cacheSlot);
 
 	if (cacheEntry)
 	{
 		exportCacheEntry->key64 = cacheEntry->cacheKey;
 		exportCacheEntry->width = (UINT16)MIN(UINT16_MAX, cacheEntry->width);
 		exportCacheEntry->height = (UINT16)MIN(UINT16_MAX, cacheEntry->height);
-		exportCacheEntry->size = cacheEntry->width * cacheEntry->height * 4;
+		const UINT64 size = 4ull * cacheEntry->width * cacheEntry->height;
+		if (size > UINT32_MAX)
+			return ERROR_NOT_FOUND;
+
+		exportCacheEntry->size = WINPR_ASSERTING_INT_CAST(UINT32, size);
 		exportCacheEntry->flags = 0;
 		exportCacheEntry->data = cacheEntry->data;
 		return CHANNEL_RC_OK;
