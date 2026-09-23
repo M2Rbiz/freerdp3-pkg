@@ -192,8 +192,11 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  crypto_base64_decode@Base 3.0.0
  crypto_base64_encode@Base 3.0.0
  crypto_base64_encode_ex@Base 3.0.0
+ crypto_base64_encode_ex_len@Base 3.32.0
+ crypto_base64_encode_len@Base 3.32.0
  crypto_base64url_decode@Base 3.0.0
  crypto_base64url_encode@Base 3.0.0
+ crypto_base64url_encode_len@Base 3.32.0
  crypto_read_pem@Base 3.0.0
  crypto_write_pem@Base 3.0.0
  der_get_content_length@Base 3.0.0

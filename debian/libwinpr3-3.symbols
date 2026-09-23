@@ -328,6 +328,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  GetSecurityStatusString@Base 3.0.0
  GetStdHandle@Base 3.0.0
  GetSystemInfo@Base 3.0.0
+ GetSystemPowerStatus@Base 3.32.0
  GetSystemTime@Base 3.0.0
  GetSystemTimeAdjustment@Base 3.0.0
  GetSystemTimeAsFileTime@Base 3.0.0
@@ -1460,6 +1461,7 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_bitmap_write_ex@Base 3.0.0
  winpr_cipher_type_from_string@Base 3.10.2
  winpr_cipher_type_to_string@Base 3.10.2
+ winpr_exportHandleToString@Base 3.32.0
  winpr_fopen@Base 3.0.0
  winpr_getApplicationDetailsProduct@Base 3.23.0
  winpr_getApplicationDetailsVendor@Base 3.23.0
@@ -1479,9 +1481,11 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_image_write@Base 3.0.0
  winpr_image_write_buffer@Base 3.3.0
  winpr_image_write_ex@Base 3.3.0
+ winpr_importHandleFromString@Base 3.32.0
  winpr_int_assert@Base 3.11.1
  winpr_log_backtrace@Base 3.0.0
  winpr_log_backtrace_ex@Base 3.0.0
+ winpr_log_build_warn@Base 3.32.0
  winpr_md_type_from_string@Base 3.0.0
  winpr_md_type_to_string@Base 3.0.0
  winpr_setApplicationDetails@Base 3.23.0
@@ -1494,4 +1498,8 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_strerror@Base 3.0.0
  winpr_strnstr@Base 3.28.0
  winpr_vasprintf@Base 3.0.0
+ winpr_wcsnchr@Base 3.32.0
+ winpr_wcsnrchr@Base 3.32.0
+ winpr_zfree@Base 3.32.0
+ winpr_znfree@Base 3.32.0
  wmemmove_s@Base 3.0.0

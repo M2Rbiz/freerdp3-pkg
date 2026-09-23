@@ -1,5 +1,9 @@
 libfreerdp-client3.so.3 libfreerdp-client3-3 #MINVER#
 * Build-Depends-Package: freerdp-dev
+ aad_auth_helper_get_access_token@Base 3.32.0
+ aad_auth_helper_get_access_token_v@Base 3.32.0
+ aad_auth_helper_start@Base 3.32.0
+ aad_auth_helper_stop@Base 3.32.0
  channel_client_create_handler@Base 3.0.0
  client_auto_reconnect@Base 3.0.0
  client_auto_reconnect_ex@Base 3.0.0
@@ -13,6 +17,8 @@ libfreerdp-client3.so.3 libfreerdp-client3-3 #MINVER#
  client_common_get_access_token@Base 3.0.0
  client_common_retry_dialog@Base 3.0.0
  client_common_save_session_info@Base 3.31.0
+ client_failsafe_get_access_token@Base 3.32.0
+ client_helper_get_access_token@Base 3.32.0
  client_rail_server_start_cmd@Base 3.0.0
  cliprdr_file_context_clear@Base 3.0.0
  cliprdr_file_context_current_flags@Base 3.0.0
@@ -45,6 +51,7 @@ libfreerdp-client3.so.3 libfreerdp-client3-3 #MINVER#
  freerdp_client_del_static_channel@Base 3.0.0
  freerdp_client_encomsp_set_control@Base 3.0.0
  freerdp_client_encomsp_toggle_control@Base 3.0.0
+ freerdp_client_extract_aad_code@Base 3.32.0
  freerdp_client_get_aad_url@Base 3.16.0
  freerdp_client_get_instance@Base 3.0.0
  freerdp_client_get_thread@Base 3.0.0
