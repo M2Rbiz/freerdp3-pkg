@@ -1,3 +1,81 @@
+freerdp3 (3.32.0+dfsg-1) unstable; urgency=medium
+
+  [ Michael Tokarev ]
+  * new upstream release.  List of security fixes:
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-xq87-9rrm-6wqw
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-3rvr-qvx8-rj23
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-pvgq-84w2-93ph
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-xm53-352c-57jw
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-3mq5-xh88-9v62
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-mqxv-c882-m8w9
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-q6pp-28g8-xqjc
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-jgw9-wqvx-j495
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-5cgr-vmp8-fmvj
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-m7g5-gw57-cwcr
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-pjxv-5j98-cqx4
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-pw4j-ff39-9vjm
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-87v8-2gwr-ww9j
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-h7fx-22wv-4cg8
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-996j-34w6-5hgm
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-52xc-5973-w5vv
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-qjwp-c855-hc69
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-4ww8-3vqm-jgcf
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-96rv-gf42-7wq9
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-9qr4-rgq4-jfp8
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-cq4m-gwc5-w8rc
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-q9p9-j22r-577p
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-2jfv-j3wx-5cg4
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-g8jw-gv54-r94p
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-7vfc-chg9-q5r8
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-f46f-pxh9-w2rh
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-pg3f-chj4-mrw6
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-f526-rq4j-5ch8
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-8rpr-jjjg-5qv6
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-cmgx-558f-vh67
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-m998-cvfm-9444
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-99p4-8j24-wvj4
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-97pf-pwp3-2wrv
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-27m7-gwhh-6hhf
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-qpfh-m9w6-xf2x
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-q56j-jjh6-38jf
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-f554-v4xw-5j39
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-chh2-527f-x255
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-xf45-j844-588v
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-qq23-mqmv-pc65
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-jhxw-3hj9-9hqh
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-h44v-39x6-9xvg
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-6vjv-4hm3-6698
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-c3rh-2hv6-7hf2
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-jp2r-gm4v-wvq2
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-gvq8-v2fm-ffxv
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-jhv5-m83m-hxhq
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-grvc-qhhp-7h6m
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-26cc-wjh8-hjw6
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-945c-qq5h-jqwp
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-93g7-296p-j77j
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-6rj3-rf6g-3vw5
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/HSA-wf3x-658c-52m5
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/HSA-2hhg-8xx6-v73w
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-g4wg-67xq-8q53
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-72qv-gcph-rfwf
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-vqxm-9w7c-hvvx
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-hxw3-57rq-3v4m
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-f4pf-pgp4-f2r3
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-4mpr-hmqx-83q8
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-x7v7-9jp5-wqj2
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-83g2-gf92-5c4g
+  * *.symbols: add new symbols
+  * libfreerdp3-3.manpages: add freerdp.7
+
+  [ Jeremy Bícha ]
+  * Opt into Salsa CI
+
+  [ Seyeong Kim ]
+  * autopkgtest: Add xrdp user to ssl-cert group and restart the service
+    to apply the new group membership (LP: #2167457)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 23 Sep 2026 12:35:21 +0300
+
 freerdp3 (3.31.1+dfsg-1) unstable; urgency=medium
 
   * new upstream minor release
