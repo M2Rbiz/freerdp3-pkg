@@ -1,3 +1,18 @@
+freerdp3 (3.32.1+dfsg-1) unstable; urgency=medium
+
+  * new upstream regression and bugfix release.  After the latest hardening
+    a few corner cases were not covered by regression tests and needed
+    adjustment.  Most notably fragmented static channel PDU were rejected
+    breaking copy & paste for larger data.  Security fixes:
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-9qqc-m43j-g4r2
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-3m9q-g533-rqjq
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-262p-h989-vmpv
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-5xjc-c64q-m8r6
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-f3vg-h45x-6wgf
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-c49c-xm94-5qf3
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 28 Sep 2026 11:08:44 +0300
+
 freerdp3 (3.32.0+dfsg-1) unstable; urgency=medium
 
   [ Michael Tokarev ]
