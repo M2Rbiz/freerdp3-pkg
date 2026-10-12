@@ -1,3 +1,54 @@
+freerdp3 (3.32.2+dfsg-1) unstable; urgency=medium
+
+  * new upstream stable/security update, with the following security fixes:
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-4g67-jhpc-q5xp
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-799q-hjgw-g55g
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-cg4f-57hc-v7w7
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-rrp5-666j-g6gp
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-wg7g-gx9g-r96c
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-f53w-3364-jr35
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-66mr-7wc7-23vc
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-hqf8-95c7-6r92
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-8g9g-hqqp-fw69
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-jq25-3374-4262
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-7qw2-8h66-pvpw
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-5j39-x36c-x9pm
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-6p3w-fv52-cf24
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-4qq4-qwxq-49m8
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-x7w3-32ch-x2jq
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-v3q2-qjvf-7rqw
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-4vh4-3pc3-32p7
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-x4x6-2hrm-hvq9
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-8rjm-m7xg-mg6m
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-xc85-4mqc-xgcx
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-v85m-wg84-5ffh
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-6wqx-rv3q-vcxp
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-fg78-v8j5-8697
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-983v-jp34-f3fm
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-2557-79qc-6gfr
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-xjhw-2r55-m95g
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-m59q-wm7v-mp57
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-x26g-fp9v-c2pg
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-c426-ppvf-jpfg
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-5qqp-5ffm-m3p9
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-fqcj-rwww-2498
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-r387-jjq3-87hv
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-2c9x-4gr7-hrwx
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-x8vp-ff7m-294g
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-3pg4-5r42-wxvj
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-qw7w-hhxq-763c
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-w897-ffhv-5j7g
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-3hf9-w6hr-hf9j
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-j536-qc58-pmf8
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-fqw6-jf2h-6fj6
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-cx9c-q4jc-wm6c
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-wffv-rjv2-h2x2
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-jqf4-4p68-4p43
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-q82v-5wjg-6h57
+   - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-m7xq-5f7v-hjvw
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 12 Oct 2026 20:03:31 +0300
+
 freerdp3 (3.32.1+dfsg-1) unstable; urgency=medium
 
   * new upstream regression and bugfix release.  After the latest hardening
