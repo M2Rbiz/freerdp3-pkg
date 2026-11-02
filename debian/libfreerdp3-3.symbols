@@ -291,6 +291,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_certificate_data_new_from_pem@Base 3.0.0
  freerdp_certificate_free@Base 3.0.0
  freerdp_certificate_free_dns_names@Base 3.0.0
+ freerdp_certificate_free_ip_names@Base 3.33.0
  freerdp_certificate_get_common_name@Base 3.0.0
  freerdp_certificate_get_der@Base 3.0.0
  freerdp_certificate_get_dns_names@Base 3.0.0
@@ -299,6 +300,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_certificate_get_fingerprint_by_hash@Base 3.0.0
  freerdp_certificate_get_fingerprint_by_hash_ex@Base 3.0.0
  freerdp_certificate_get_hash@Base 3.0.0
+ freerdp_certificate_get_ip_names@Base 3.33.0
  freerdp_certificate_get_issuer@Base 3.0.0
  freerdp_certificate_get_param@Base 3.0.0
  freerdp_certificate_get_pem@Base 3.0.0
@@ -310,6 +312,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_certificate_get_validity@Base 3.9.0
  freerdp_certificate_is_rdp_security_compatible@Base 3.0.0
  freerdp_certificate_is_rsa@Base 3.0.0
+ freerdp_certificate_matches_hostname@Base 3.33.0
  freerdp_certificate_new@Base 3.0.0
  freerdp_certificate_new_from_der@Base 3.0.0
  freerdp_certificate_new_from_file@Base 3.0.0
@@ -339,6 +342,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_channels_get_static_channel_interface@Base 3.0.0
  freerdp_channels_load_plugin@Base 3.0.0
  freerdp_channels_process_pending_messages@Base 3.0.0
+ freerdp_channels_set_static_bridge@Base 3.33.0
  freerdp_check_event_handles@Base 3.0.0
  freerdp_check_fds@Base 3.0.0
  freerdp_client_channel_register@Base 3.9.0
@@ -383,6 +387,7 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_dynamic_channel_collection_del@Base 3.0.0
  freerdp_dynamic_channel_collection_find@Base 3.0.0
  freerdp_dynamic_channel_collection_free@Base 3.0.0
+ freerdp_enable_translation@Base 3.33.0
  freerdp_encryption_level_string@Base 3.0.0
  freerdp_encryption_methods_string@Base 3.0.0
  freerdp_error_info@Base 3.0.0
@@ -502,6 +507,9 @@ libfreerdp3.so.3 libfreerdp3-3 #MINVER#
  freerdp_load_dynamic_channel_addin_entry@Base 3.0.0
  freerdp_message_queue_process_message@Base 3.0.0
  freerdp_message_queue_process_pending_messages@Base 3.0.0
+ freerdp_multitransport_get_tunnel_state@Base 3.33.0
+ freerdp_multitransport_send_dvc@Base 3.33.0
+ freerdp_multitransport_set_dvc_callbacks@Base 3.33.0
  freerdp_nego_get_routing_token@Base 3.0.0
  freerdp_new@Base 3.0.0
  freerdp_nla_FreeContextBuffer@Base 3.22.0
