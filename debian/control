@@ -1,6 +1,5 @@
 Source: freerdp3
 Section: x11
-Priority: optional
 Maintainer: Debian Remote Maintainers <debian-remote@lists.debian.org>
 Uploaders:
  Mike Gabriel <sunweaver@debian.org>,
@@ -59,7 +58,6 @@ Build-Depends-Arch:
  xmlto,
  xsltproc,
 Standards-Version: 4.7.2
-Rules-Requires-Root: no
 Homepage: https://www.freerdp.com/
 Vcs-Browser: https://salsa.debian.org/debian-remote-team/freerdp3
 Vcs-Git: https://salsa.debian.org/debian-remote-team/freerdp3.git
