@@ -1,3 +1,32 @@
+freerdp3 (3.33.1+dfsg-1) unstable; urgency=medium
+
+  * new upstream minor/bugfix release.  Closes: #1153529.
+    From the release announcement:
+    - Improved shadow server:
+      + faster encoding by avoiding unchanged areas
+      + back pressure from client: if it can not keep up with in flight frames
+        reduce quality and do not send new frames
+      + windows backend improvements
+    - mac os backend improvements
+    - hashless certificate support (Ed25519, Ed448, ML-DSA, SLH-DSA)
+    - apple videotoolbox h264 encoder/decoder support
+    - various RAILS fixes (x11 and sdl)
+    Security fixes:
+    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-x863-43r4-f7c2
+    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-m33m-4qxh-hq76
+    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-52rf-pppx-qm55
+    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-3664-pr8r-3254
+    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-rp99-f9qv-c446
+    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-23fv-6wrf-5hfq
+    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-f6v9-vx5q-vjpf
+    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-m6hp-4798-x78x
+    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-9c9j-2r7q-5gx2
+    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-ch3p-5r9r-w86p
+    - https://github.com/FreeRDP/FreeRDP/security/advisories/GHSA-76c4-7552-ffhv
+  * d/control: remove Rules-Requires-Root and Priority fields
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 10 Nov 2026 16:28:46 +0300
+
 freerdp3 (3.33.0+dfsg-1) unstable; urgency=medium
 
   * new upstream release.
