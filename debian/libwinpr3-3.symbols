@@ -1531,10 +1531,13 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_ndr_decoder_read_uint8_@Base 3.33.0
  winpr_ndr_decoder_read_union@Base 3.33.0
  winpr_ndr_decoder_read_wchar@Base 3.33.0
+ winpr_ndr_decoder_read_wcharArray@Base 3.33.1
+ winpr_ndr_decoder_read_wcharVaryingArray@Base 3.33.1
  winpr_ndr_decoder_skip_bytes@Base 3.33.0
  winpr_ndr_decoder_treat_deferreds@Base 3.33.0
  winpr_ndr_destroy_uint16Array@Base 3.33.0
  winpr_ndr_destroy_uint8Array@Base 3.33.0
+ winpr_ndr_destroy_wcharArray@Base 3.33.1
  winpr_ndr_encoder_allocatePtr@Base 3.33.0
  winpr_ndr_encoder_bytes_written@Base 3.33.0
  winpr_ndr_encoder_end_object@Base 3.33.0
@@ -1571,6 +1574,9 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_ndr_encoder_write_uint8VaryingArray@Base 3.33.0
  winpr_ndr_encoder_write_uint8_@Base 3.33.0
  winpr_ndr_encoder_write_union@Base 3.33.0
+ winpr_ndr_encoder_write_wchar@Base 3.33.1
+ winpr_ndr_encoder_write_wcharArray@Base 3.33.1
+ winpr_ndr_encoder_write_wcharVaryingArray@Base 3.33.1
  winpr_ndr_int16_descr@Base 3.33.0
  winpr_ndr_int16_descr_s@Base 3.33.0
  winpr_ndr_int32_descr@Base 3.33.0
@@ -1608,6 +1614,12 @@ libwinpr3.so.3 libwinpr3-3 #MINVER#
  winpr_ndr_uint8_descr_s@Base 3.33.0
  winpr_ndr_union_destroy@Base 3.33.0
  winpr_ndr_union_switch_value@Base 3.33.0
+ winpr_ndr_wcharArray_descr@Base 3.33.1
+ winpr_ndr_wcharArray_descr_s@Base 3.33.1
+ winpr_ndr_wcharVaryingArray_descr@Base 3.33.1
+ winpr_ndr_wcharVaryingArray_descr_s@Base 3.33.1
+ winpr_ndr_wchar_descr@Base 3.33.1
+ winpr_ndr_wchar_descr_s@Base 3.33.1
  winpr_ndr_wstring_varying_descr@Base 3.33.0
  winpr_ndr_wstring_varying_descr_s@Base 3.33.0
  winpr_setApplicationDetails@Base 3.23.0
