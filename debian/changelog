@@ -1,3 +1,16 @@
+freerdp3 (3.33.1+dfsg-2) unstable; urgency=medium
+
+  [ Greg Lamberson ]
+  * debian/rules sets misnamed WINPR_UTILS_IMAGE options, so clipboard
+    PNG, JPEG and WebP support is off.  Fix the options to enable the support.
+    Closes: #1154246
+
+  [ Michael Tokarev ]
+  * winpr-ndr-store-the-decoded-WCHAR-in-UTF-16LE.patch: patch from upstream
+    to fix big-endian test failures
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 18 Nov 2026 12:18:15 +0300
+
 freerdp3 (3.33.1+dfsg-1) unstable; urgency=medium
 
   * new upstream minor/bugfix release.  Closes: #1153529.
