@@ -1,0 +1,54 @@
+From: Fabio Fantoni <fabio.fantoni@m2r.biz>
+Date: Mon, 23 Nov 2026 14:20:30 +0100
+Subject: [winpr,sysinfo] fix NEON detection on Linux aarch64
+
+IsProcessorFeaturePresent(PF_ARM_NEON_INSTRUCTIONS_AVAILABLE) tests
+getauxval(AT_HWCAP) against HWCAP_NEON (1 << 12), which is the 32 bit
+ARM layout from arch/arm/include/uapi/asm/hwcap.h. On aarch64 the kernel
+reports Advanced SIMD as HWCAP_ASIMD (1 << 1), and bit 12 is
+HWCAP_ASIMDRDM (arch/arm64/include/uapi/asm/hwcap.h).
+
+So on CPUs without the ARMv8.1 RDM extension, like the Cortex-A72 of the
+Raspberry Pi 4 (AT_HWCAP 0x887: fp asimd evtstrm crc32 cpuid), every
+NEON primitive and codec is disabled and the generic C code is used. On
+a Cortex-A76 (Raspberry Pi 5) NEON is enabled only because RDM happens
+to be present.
+
+Since #11998 the NEON sources are built for aarch64, so this runtime
+check now decides whether they are used.
+
+Check HWCAP_ASIMD on aarch64 and keep HWCAP_NEON for 32 bit ARM.
+
+Assisted-by: Claude Code:claude-opus-5-5
+Forwarded: no
+---
+ winpr/libwinpr/sysinfo/sysinfo.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/winpr/libwinpr/sysinfo/sysinfo.c b/winpr/libwinpr/sysinfo/sysinfo.c
+index 966fe16..55c10cb 100644
+--- a/winpr/libwinpr/sysinfo/sysinfo.c
++++ b/winpr/libwinpr/sysinfo/sysinfo.c
+@@ -1153,6 +1153,9 @@ static void cpuid(unsigned info, unsigned* eax, unsigned* ebx, unsigned* ecx, un
+ #define HWCAP_VFPD32 (1 << 19) /* set if VFP has 32 regs (not 16) */
+ #define HWCAP_IDIV (HWCAP_IDIVA | HWCAP_IDIVT)
+ 
++// AArch64 uses a different layout - arch/arm64/include/uapi/asm/hwcap.h
++#define ARM64_HWCAP_ASIMD (1 << 1)
++
+ // From linux kernel uapi/linux/auxvec.h
+ #define AT_HWCAP 16
+ 
+@@ -1260,8 +1263,11 @@ BOOL IsProcessorFeaturePresent(DWORD ProcessorFeature)
+ 	{
+ 		case PF_ARM_NEON_INSTRUCTIONS_AVAILABLE:
+ 		case PF_ARM_NEON:
+-
++#if defined(_M_ARM64)
++			if (caps & ARM64_HWCAP_ASIMD)
++#else
+ 			if (caps & HWCAP_NEON)
++#endif
+ 				ret = TRUE;
+ 
+ 			break;
