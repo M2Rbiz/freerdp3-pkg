@@ -1,2 +1,3 @@
 winpr-ndr-store-the-decoded-WCHAR-in-UTF-16LE.patch
 winpr-utils-grow-streams-in-steps-that-match-their-size.patch
+winpr-stream-fix-missing-overflow-check.patch

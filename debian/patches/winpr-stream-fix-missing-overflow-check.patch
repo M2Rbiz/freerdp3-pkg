@@ -1,0 +1,88 @@
+From: Armin Novak <armin.novak@thincast.com>
+Date: Mon, 16 Nov 2026 13:56:42 +0100
+Subject: [winpr,stream] fix missing overflow check
+
+Discovered by Anthropic's OSS Scanner, as vulnerability ANT-2026-UXG4FDMQ
+
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/baadd735e82b9816d556ea9521b8de877c824b59
+---
+ winpr/libwinpr/utils/stream.c          |  8 ++++---
+ winpr/libwinpr/utils/test/TestStream.c | 40 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 45 insertions(+), 3 deletions(-)
+
+diff --git a/winpr/libwinpr/utils/stream.c b/winpr/libwinpr/utils/stream.c
+index 63bece2..195e48f 100644
+--- a/winpr/libwinpr/utils/stream.c
++++ b/winpr/libwinpr/utils/stream.c
+@@ -108,9 +108,11 @@ BOOL Stream_EnsureRemainingCapacity(wStream* s, size_t size)
+ 	const size_t pos = Stream_GetPosition(s);
+ 	if (pos > SIZE_MAX - size)
+ 		return FALSE;
+-	if (pos + size > Stream_Capacity(s))
+-		return Stream_EnsureCapacity(s, Stream_Capacity(s) + size);
+-	return TRUE;
++	if (pos + size <= Stream_Capacity(s))
++		return TRUE;
++	if (Stream_Capacity(s) > SIZE_MAX - size)
++		return FALSE;
++	return Stream_EnsureCapacity(s, Stream_Capacity(s) + size);
+ }
+ 
+ wStream* Stream_New(BYTE* buffer, size_t size)
+diff --git a/winpr/libwinpr/utils/test/TestStream.c b/winpr/libwinpr/utils/test/TestStream.c
+index 2a53e33..d2cf8cd 100644
+--- a/winpr/libwinpr/utils/test/TestStream.c
++++ b/winpr/libwinpr/utils/test/TestStream.c
+@@ -256,6 +256,43 @@ fail:
+ 	return result;
+ }
+ 
++WINPR_ATTR_NODISCARD
++static BOOL TestStream_ExtentOverflow(void)
++{
++	const size_t capacity = 256;
++	const size_t position = 20;
++	/* position + size or capacity + size exceed SIZE_MAX */
++	const size_t sizes[] = { SIZE_MAX - capacity + 1, SIZE_MAX - position, SIZE_MAX };
++	BOOL result = FALSE;
++
++	wStream* s = Stream_New(nullptr, capacity);
++	if (!s)
++	{
++		printf("%s: Stream_New failed\n", __func__);
++		return FALSE;
++	}
++
++	if (!Stream_SetPosition(s, position))
++		goto fail;
++
++	for (size_t i = 0; i < ARRAYSIZE(sizes); i++)
++	{
++		if (Stream_EnsureRemainingCapacity(s, sizes[i]))
++		{
++			printf("%s: size %" PRIuz " must be rejected\n", __func__, sizes[i]);
++			goto fail;
++		}
++
++		if ((Stream_Capacity(s) != capacity) || (Stream_GetPosition(s) != position))
++			goto fail;
++	}
++
++	result = TRUE;
++fail:
++	Stream_Free(s, TRUE);
++	return result;
++}
++
+ #define Stream_Peek_UINT8_BE Stream_Peek_UINT8
+ #define Stream_Read_UINT8_BE Stream_Read_UINT8
+ #define Stream_Peek_Get_UINT8_BE Stream_Peek_Get_UINT8
+@@ -927,5 +964,8 @@ int TestStream(int argc, char* argv[])
+ 		if (!TestStream_WriteAndRead(val))
+ 			return 14;
+ 	}
++
++	if (!TestStream_ExtentOverflow())
++		return 16;
+ 	return 0;
+ }
