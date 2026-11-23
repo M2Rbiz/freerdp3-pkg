@@ -1,3 +1,12 @@
+freerdp3 (3.33.1+dfsg-3~bpo13+1.1) trixie-backports; urgency=medium
+
+  * d/gbp.conf: improve and change debian-branch to m2r-pkg
+  * d/patches: add upstream fix for 1 MiB stream growth
+  * d/patches: add upstream fix for a missing stream overflow check
+  * d/patches: fix NEON detection on Linux aarch64
+
+ -- Fabio Fantoni <fabio.fantoni@m2r.biz>  Mon, 23 Nov 2026 14:58:51 +0100
+
 freerdp3 (3.33.1+dfsg-3~bpo13+1) trixie-backports; urgency=medium
 
   * Rebuild for trixie-backports (no changes).
