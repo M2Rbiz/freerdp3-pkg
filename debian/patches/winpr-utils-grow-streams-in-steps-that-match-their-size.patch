@@ -1,0 +1,67 @@
+From: Mustafa Abdullah Kus <mustafa.kus@amazeng.com.tr>
+Date: Thu, 12 Nov 2026 23:28:48 +0300
+Subject: [winpr,utils] grow streams in steps that match their size
+
+Since 28fbe5dd4 Stream_EnsureCapacity rounds every growth up to the next
+1 MiB. A stream that is filled chunk by chunk, like the reassembly stream
+of the drdynvc client, ends up with 1 MiB of capacity as soon as its
+message has a second chunk, even if that message is a few kilobytes long.
+
+Those streams come from a pool and wait in the channel's message queue
+until the channel thread has processed them. While a GFX session plays
+video that queue holds tens to a few hundred messages, so the client
+keeps one megabyte per waiting message, and the pool never gives a
+stream below STREAMPOOL_SIZE_LIMIT back.
+
+Use steps of 4 KiB below 64 KiB, 64 KiB below 1 MiB and 1 MiB above
+that. A big transfer still grows in 1 MiB steps, so it does not go back
+to reallocating for every chunk, and a small message no longer costs a
+megabyte. Also round an exact multiple of the step to itself instead of
+adding a whole step.
+
+Origin: upstream, https://github.com/FreeRDP/FreeRDP/commit/f545a17b7cb96ef078cd6497792b1eb58896f8af
+---
+ winpr/libwinpr/utils/stream.c | 22 ++++++++++++++++++----
+ 1 file changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/winpr/libwinpr/utils/stream.c b/winpr/libwinpr/utils/stream.c
+index 79c27d5..63bece2 100644
+--- a/winpr/libwinpr/utils/stream.c
++++ b/winpr/libwinpr/utils/stream.c
+@@ -75,18 +75,32 @@ BOOL Stream_ResizeToCapacity(wStream* s, size_t size)
+ 	return Stream_SetPosition(s, position);
+ }
+ 
++/* The capacity grows in fixed steps, never exponentially. A stream filled chunk by chunk must not
++ * reallocate for every chunk, and a small stream must not be padded out to megabytes: a pool keeps
++ * its streams, so every message that waits in a queue would hold that padding.
++ * With these steps a stream of N bytes wastes less than 4 KiB, 64 KiB or 1 MiB depending on its
++ * size and is reallocated at most about 31 + N / 1 MiB times while it is filled. */
++static size_t stream_capacity_step(size_t size)
++{
++	if (size < 64ull * 1024ull)
++		return 4ull * 1024ull;
++	if (size < 1024ull * 1024ull)
++		return 64ull * 1024ull;
++	return 1024ull * 1024ull;
++}
++
+ BOOL Stream_EnsureCapacity(wStream* s, size_t size)
+ {
+ 	WINPR_ASSERT(s);
+ 	if (s->capacity >= size)
+ 		return TRUE;
+ 
+-	const size_t increment = 1024ull * 1024ull;
+-	if (size > SIZE_MAX - increment)
++	const size_t increment = stream_capacity_step(size);
++	const size_t padding = (increment - size % increment) % increment;
++	if (size > SIZE_MAX - padding)
+ 		return FALSE;
+ 
+-	const size_t new_capacity = size + increment - size % increment;
+-	return Stream_ResizeToCapacity(s, new_capacity);
++	return Stream_ResizeToCapacity(s, size + padding);
+ }
+ 
+ BOOL Stream_EnsureRemainingCapacity(wStream* s, size_t size)
